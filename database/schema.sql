@@ -177,12 +177,12 @@ CREATE INDEX idx_sales_date ON sales(created_at);
 CREATE INDEX idx_stock_movements_date ON stock_movements(created_at);
 
 -- Product breed/size tags for pet-specific products
-ALTER TABLE products ADD COLUMN IF NOT EXISTS breed_size VARCHAR(20) DEFAULT NULL AFTER species;
-ALTER TABLE products ADD COLUMN IF NOT EXISTS age_group VARCHAR(20) DEFAULT NULL AFTER breed_size;
-ALTER TABLE products ADD COLUMN IF NOT EXISTS health_category VARCHAR(50) DEFAULT NULL AFTER age_group;
+ALTER TABLE products ADD COLUMN breed_size VARCHAR(20) DEFAULT NULL AFTER species;
+ALTER TABLE products ADD COLUMN age_group VARCHAR(20) DEFAULT NULL AFTER breed_size;
+ALTER TABLE products ADD COLUMN health_category VARCHAR(50) DEFAULT NULL AFTER age_group;
 
 -- Variable-weight product support (e.g., pet food sold by kg, litter sold by kg)
-ALTER TABLE products ADD COLUMN IF NOT EXISTS unit_type ENUM('piece','kg','g','liter','ml') DEFAULT 'piece' AFTER max_stock_level;
+ALTER TABLE products ADD COLUMN unit_type ENUM('piece','kg','g','liter','ml') DEFAULT 'piece' AFTER max_stock_level;
 ALTER TABLE products MODIFY COLUMN stock_quantity DECIMAL(10,3) DEFAULT 0;
 ALTER TABLE sale_items MODIFY COLUMN quantity DECIMAL(10,3) NOT NULL;
 ALTER TABLE stock_movements MODIFY COLUMN quantity DECIMAL(10,3) NOT NULL;

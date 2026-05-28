@@ -29,7 +29,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 app = Flask(__name__)
 CORS(app)
 
-ML_PORT = int(os.getenv("ML_PORT", "5002"))
+ML_PORT = int(os.getenv("PORT", os.getenv("ML_PORT", "5002")))
 
 
 @app.route("/health", methods=["GET"])
