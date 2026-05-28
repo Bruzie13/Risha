@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RISHA PET SUPPLIES - Audit Trail</title>
+    <link rel="stylesheet" href="css/global.css">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-brand">
+            <div class="brand-icon"><img src="images/logo.jpeg" alt="RISHA"></div>
+            <span>RISHA <em>Pet</em></span>
+        </div>
+        <div class="nav-links">
+            <a href="dashboard.html" class="nav-link"><span class="link-icon">📊</span> <span>Dashboard</span></a>
+            <a href="inventory.html" class="nav-link"><span class="link-icon">📦</span> <span>Inventory</span></a>
+            <a href="sales.html" class="nav-link"><span class="link-icon">💰</span> <span>Sales</span></a>
+            <a href="suppliers.html" class="nav-link"><span class="link-icon">🚚</span> <span>Suppliers</span></a>
+            <a href="reports.html" class="nav-link"><span class="link-icon">📈</span> <span>Reports</span></a>
+            <a href="audit.html" class="nav-link active"><span class="link-icon">📋</span> <span>Audit</span></a>
+            <a href="users.html" class="nav-link" id="usersLink"><span class="link-icon">👥</span> <span>Users</span></a>
+            <a href="analytics.html" class="nav-link"><span class="link-icon">🤖</span> <span>Analytics</span></a>
+        </div>
+        <div class="nav-right">
+            <button class="global-search-btn" onclick="openGlobalSearch()">🔍 <kbd>⌘K</kbd></button>
+            <div class="nav-user">
+                <span id="userName">Loading...</span>
+                <div class="avatar">👤</div>
+            </div>
+            <button class="nav-theme" id="themeToggleBtn" title="Toggle theme">🌙</button>
+            <button class="nav-logout" onclick="logout()">🚪 Logout</button>
+        </div>
+    </nav>
+
+    <div class="page-header">
+        <div>
+            <h1>Audit Trail</h1>
+            <div class="breadcrumb"><span>Logs</span> &middot; System activity audit trail</div>
+        </div>
+        <div class="page-header-actions">
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="table-container">
+            <div style="padding:20px 24px;border-bottom:1px solid var(--border-color);">
+                <div class="filter-bar">
+                    <select id="actionFilter" onchange="loadAuditLogs()">
+                        <option value="">All Actions</option>
+                        <option value="create">Create</option>
+                        <option value="update">Update</option>
+                        <option value="delete">Delete</option>
+                        <option value="login">Login</option>
+                    </select>
+                    <select id="tableFilter" onchange="loadAuditLogs()">
+                        <option value="">All Modules</option>
+                        <option value="products">Products</option>
+                        <option value="sales">Sales</option>
+                        <option value="suppliers">Suppliers</option>
+                        <option value="purchase_orders">Purchase Orders</option>
+                        <option value="users">Users</option>
+                    </select>
+                    <button class="btn-secondary" onclick="refreshAudit()">🔄 Refresh</button>
+                </div>
+            </div>
+            <div id="auditList" class="audit-list">
+                <div class="text-center" style="padding:40px;">Loading audit logs...</div>
+            </div>
+            <div id="pagination" class="pagination"></div>
+        </div>
+    </div>
+
+    <script src="js/auth.js?v=3.0"></script>
+    <script src="js/audit.js?v=3.0"></script>
+</body>
+</html>

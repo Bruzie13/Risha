@@ -1,0 +1,349 @@
+.users-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.users-toolbar .toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.users-toolbar .toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.users-toolbar .bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-100);
+    border-radius: var(--radius-md);
+    display: none;
+}
+
+.users-toolbar .bulk-actions.active {
+  display: flex;
+}
+
+.users-toolbar .bulk-actions .selected-count {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--gray-600);
+  padding-right: 8px;
+  border-right: 1px solid var(--gray-200);
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.user-avatar.avatar-green {
+  background: rgba(45, 106, 79, 0.12);
+  color: var(--primary);
+}
+
+.user-avatar.avatar-blue {
+  background: rgba(14, 165, 233, 0.12);
+  color: var(--info);
+}
+
+.user-avatar.avatar-purple {
+  background: rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
+}
+
+.user-avatar.avatar-orange {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--warning);
+}
+
+.user-avatar.avatar-red {
+  background: rgba(220, 53, 69, 0.12);
+  color: var(--danger);
+}
+
+.user-avatar.avatar-pink {
+  background: rgba(236, 72, 153, 0.12);
+  color: #db2777;
+}
+
+.user-avatar.avatar-teal {
+  background: rgba(20, 184, 166, 0.12);
+  color: #0d9488;
+}
+
+.user-avatar.avatar-indigo {
+  background: rgba(99, 102, 241, 0.12);
+  color: #6366f1;
+}
+
+.user-avatar.avatar-sm {
+  width: 28px;
+  height: 28px;
+  font-size: 10px;
+}
+
+.user-avatar.avatar-lg {
+  width: 48px;
+  height: 48px;
+  font-size: 18px;
+}
+
+.user-info-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-info-cell .user-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-info-cell .user-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.user-info-cell .user-email {
+  font-size: 12px;
+  color: var(--gray-400);
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.role-badge.role-admin {
+  background: rgba(139, 92, 246, 0.1);
+  color: #7c3aed;
+}
+
+.role-badge.role-manager {
+  background: rgba(45, 106, 79, 0.1);
+  color: var(--primary);
+}
+
+.role-badge.role-staff {
+  background: rgba(14, 165, 233, 0.1);
+  color: var(--info);
+}
+
+.role-badge.role-viewer {
+  background: var(--gray-100);
+  color: var(--gray-500);
+}
+
+.permission-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.permission-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--gray-50);
+  border: 1px solid var(--gray-100);
+  font-size: 13px;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.permission-item:hover {
+  border-color: var(--gray-200);
+  background: var(--gray-100);
+}
+
+.permission-item.active {
+  background: rgba(45, 106, 79, 0.06);
+  border-color: rgba(45, 106, 79, 0.2);
+  color: var(--primary);
+}
+
+.permission-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.user-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.user-status-badge .status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.user-status-badge .status-dot.active {
+  background: var(--success);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.user-status-badge .status-dot.inactive {
+  background: var(--gray-300);
+}
+
+.user-status-badge .status-dot.suspended {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.2);
+}
+
+.user-status-badge .status-dot.pending {
+  background: var(--warning);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+  animation: pulse 2s infinite;
+}
+
+.invite-card {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--primary-light) 100%);
+  border-radius: var(--radius);
+  padding: 24px;
+  color: var(--white);
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 4px 16px rgba(82, 183, 136, 0.25);
+}
+
+.invite-card .invite-text h4 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.invite-card .invite-text p {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.invite-card .btn {
+  background: var(--white);
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.invite-card .btn:hover {
+  background: var(--gray-50);
+  color: var(--dark);
+}
+
+.activity-timeline {
+  position: relative;
+  padding-left: 24px;
+}
+
+.activity-timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--gray-200);
+}
+
+.activity-item {
+  position: relative;
+  padding-bottom: 20px;
+}
+
+.activity-item:last-child {
+  padding-bottom: 0;
+}
+
+.activity-item::before {
+  content: '';
+  position: absolute;
+  left: -20px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--white);
+  border: 2px solid var(--primary);
+}
+
+.activity-item .activity-text {
+  font-size: 13px;
+  color: var(--gray-600);
+}
+
+.activity-item .activity-text strong {
+  color: var(--gray-700);
+}
+
+.activity-item .activity-time {
+  font-size: 11px;
+  color: var(--gray-400);
+  margin-top: 2px;
+}
+
+@media (max-width: 768px) {
+  .users-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .users-toolbar .toolbar-right {
+    flex-wrap: wrap;
+  }
+
+  .users-toolbar .toolbar-right .btn {
+    flex: 1;
+  }
+
+  .invite-card {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .permission-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .permission-grid {
+    grid-template-columns: 1fr;
+  }
+}

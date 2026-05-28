@@ -1,0 +1,216 @@
+/* ===== SUMMARY STATS ===== */
+.summary-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 30px;
+}
+
+.summary-stat {
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    padding: 20px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    text-align: center;
+    transition: all var(--transition);
+}
+
+.summary-stat-label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.summary-stat-value {
+    display: block;
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--primary);
+}
+
+/* ===== TABS ===== */
+.report-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 30px;
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    padding: 6px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.report-tab {
+    padding: 12px 24px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all var(--transition);
+    font-family: inherit;
+}
+
+.report-tab:hover {
+    background: var(--primary-bg);
+    color: var(--text-primary);
+}
+
+.report-tab.active {
+    background: var(--accent-gradient);
+    color: var(--text-inverse);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* ===== DATE RANGE PICKER ===== */
+.date-range-picker {
+    display: flex;
+    gap: 15px;
+    align-items: flex-end;
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    padding: 20px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.date-range-picker .form-group {
+    margin-bottom: 0;
+}
+
+.date-range-picker .form-group label {
+    font-size: 12px;
+    margin-bottom: 4px;
+}
+
+.date-range-picker .form-group input {
+    padding: 8px 12px;
+    font-size: 13px;
+}
+
+/* ===== EXPORT BUTTONS ===== */
+.export-bar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.btn-export {
+    padding: 10px 20px;
+    background: var(--success-bg);
+    color: var(--success);
+    border: 1px solid color-mix(in srgb, var(--success) 20%, transparent);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all var(--transition);
+    font-family: inherit;
+}
+
+.btn-export:hover {
+    background: color-mix(in srgb, var(--success) 20%, transparent);
+    border-color: var(--success);
+}
+
+/* ===== CHARTS GRID ===== */
+.charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-top: 30px;
+}
+
+.chart-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    padding: 25px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+}
+
+.chart-card h3 {
+    font-size: 16px;
+    color: var(--text-primary);
+    font-weight: 700;
+    margin-bottom: 20px;
+}
+
+.chart-card.full-width {
+    grid-column: 1 / -1;
+}
+
+.chart-wrapper {
+    position: relative;
+    height: 300px;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1024px) {
+    .summary-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .chart-card.full-width {
+        grid-column: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .summary-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .summary-stat {
+        padding: 14px;
+    }
+
+    .summary-stat-value {
+        font-size: 18px;
+    }
+
+    .report-tabs {
+        overflow-x: auto;
+    }
+
+    .report-tab {
+        padding: 10px 16px;
+        font-size: 13px;
+        white-space: nowrap;
+    }
+
+    .date-range-picker {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .charts-grid {
+        gap: 20px;
+    }
+
+    .chart-wrapper {
+        height: 250px;
+    }
+}

@@ -1,0 +1,222 @@
+let allSuppliers = [];
+let editingSupplierId = null;
+
+window.addEventListener('load', async () => {
+    if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
+    await loadSuppliers();
+});
+
+async function loadSuppliers() {
+    try {
+        const response = await fetch(`${API_BASE}/suppliers`, { headers: getAuthHeaders() });
+        const data = await response.json();
+        if (data.success) {
+            allSuppliers = Array.isArray(data.data) ? data.data : [];
+            displaySuppliers(allSuppliers);
+        }
+    } catch (error) {
+        console.error('Error loading suppliers:', error);
+        showToast('Failed to load suppliers', 'error');
+    }
+}
+
+function displaySuppliers(suppliers) {
+    const tbody = document.getElementById('suppliersTableBody');
+    if (!tbody) return;
+    if (suppliers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No suppliers found</td></tr>';
+        return;
+    }
+    const paymentTermsMap = {
+        'net15': 'Net 15',
+        'net30': 'Net 30',
+        'net60': 'Net 60',
+        'due_on_receipt': 'Due on Receipt'
+    };
+    document.getElementById('totalSuppliers').textContent = suppliers.length;
+    document.getElementById('activeSuppliers').textContent = suppliers.filter(s => s.is_active === 1 || s.is_active === true).length;
+    tbody.innerHTML = suppliers.map(s => `
+        <tr>
+            <td><strong>${s.name}</strong></td>
+            <td>${s.contact_person || 'N/A'}</td>
+            <td>${s.email || 'N/A'}</td>
+            <td>${s.phone || 'N/A'}</td>
+            <td>${paymentTermsMap[s.payment_terms] || 'Net 30'}</td>
+            <td>${(s.is_active === 1 || s.is_active === true) ? '<span class="status-badge status-in-stock">Active</span>' : '<span class="status-badge status-expired">Inactive</span>'}</td>
+            <td>
+                <button class="btn-edit" onclick="openEditSupplierModal(${s.id})">Edit</button>
+                <button class="btn-view" onclick="showPerformance(${s.id})">Performance</button>
+                <button class="btn-delete" onclick="deleteSupplier(${s.id})">Delete</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Search
+document.getElementById('searchInput')?.addEventListener('keyup', (e) => {
+    const term = e.target.value.toLowerCase();
+    const filtered = allSuppliers.filter(s =>
+        (s.name || '').toLowerCase().includes(term) ||
+        (s.contact_person || '').toLowerCase().includes(term) ||
+        (s.email || '').toLowerCase().includes(term)
+    );
+    displaySuppliers(filtered);
+});
+
+function openAddSupplierModal() {
+    editingSupplierId = null;
+    document.getElementById('supplierModalTitle').textContent = 'Add Supplier';
+    document.getElementById('supplierForm').reset();
+    document.getElementById('supplierModal').classList.add('active');
+}
+
+function openEditSupplierModal(id) {
+    editingSupplierId = id;
+    const supplier = allSuppliers.find(s => s.id === id);
+    if (!supplier) return;
+    document.getElementById('supplierModalTitle').textContent = 'Edit Supplier';
+    document.getElementById('name').value = supplier.name || '';
+    document.getElementById('contact_person').value = supplier.contact_person || '';
+    document.getElementById('email').value = supplier.email || '';
+    document.getElementById('phone').value = supplier.phone || '';
+    document.getElementById('address').value = supplier.address || '';
+    document.getElementById('city').value = supplier.city || '';
+    document.getElementById('payment_terms').value = supplier.payment_terms || 'net30';
+    document.getElementById('supplierModal').classList.add('active');
+}
+
+function closeSupplierModal() {
+    document.getElementById('supplierModal').classList.remove('active');
+    editingSupplierId = null;
+}
+
+async function handleSupplierSubmit(event) {
+    event.preventDefault();
+    const data = {
+        name: document.getElementById('name').value,
+        contact_person: document.getElementById('contact_person').value || null,
+        email: document.getElementById('email').value || null,
+        phone: document.getElementById('phone').value || null,
+        address: document.getElementById('address').value || null,
+        city: document.getElementById('city').value || null,
+        payment_terms: document.getElementById('payment_terms').value || 'net30'
+    };
+    try {
+        let response;
+        if (editingSupplierId) {
+            response = await fetch(`${API_BASE}/suppliers/${editingSupplierId}`, {
+                method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(data)
+            });
+        } else {
+            response = await fetch(`${API_BASE}/suppliers`, {
+                method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(data)
+            });
+        }
+        const result = await response.json();
+        if (result.success) {
+            showToast(editingSupplierId ? 'Supplier updated!' : 'Supplier added!', 'success');
+            closeSupplierModal();
+            await loadSuppliers();
+        } else {
+            showToast('Error: ' + (result.message || 'Unknown'), 'error');
+        }
+    } catch (error) {
+        console.error('Error saving supplier:', error);
+        showToast('Failed to save supplier', 'error');
+    }
+}
+
+async function deleteSupplier(id) {
+    showConfirmDialog('Delete Supplier', 'Are you sure you want to delete this supplier? This cannot be undone.', async () => {
+        try {
+            const response = await fetch(`${API_BASE}/suppliers/${id}`, {
+                method: 'DELETE', headers: getAuthHeaders()
+            });
+            const data = await response.json();
+            if (data.success) {
+                showToast('Supplier deleted!', 'success');
+                await loadSuppliers();
+            } else {
+                showToast('Error: ' + (data.message || 'Unknown'), 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting supplier:', error);
+            showToast('Failed to delete supplier', 'error');
+        }
+    }, 'Yes, Delete', '🗑️');
+}
+
+// ===== Performance Scorecard =====
+async function showPerformance(supplierId) {
+    var supplier = allSuppliers.find(function(s) { return s.id === supplierId; });
+    if (!supplier) return;
+    document.getElementById('perfSupplierName').textContent = supplier.name || 'Supplier';
+    document.getElementById('performanceModal').classList.add('active');
+
+    document.getElementById('perfAvgDelivery').textContent = '…';
+    document.getElementById('perfOnTime').textContent = '…';
+    document.getElementById('perfDeliveries').textContent = '…';
+    document.getElementById('perfOrders').textContent = '…';
+
+    try {
+        var res = await fetch(API_BASE + '/suppliers/' + supplierId + '/performance', { headers: getAuthHeaders() });
+        var data = await res.json();
+        if (!data.success) { showToast('Failed to load performance data', 'error'); return; }
+
+        var rating = data.data.rating || {};
+        document.getElementById('perfAvgDelivery').textContent = rating.avg_delivery_days != null ? rating.avg_delivery_days + 'd' : '—';
+        document.getElementById('perfOnTime').textContent = rating.on_time_delivery_pct != null ? rating.on_time_delivery_pct + '%' : '—';
+        document.getElementById('perfDeliveries').textContent = rating.total_deliveries || '0';
+        document.getElementById('perfOrders').textContent = rating.total_orders || '0';
+
+        var perfAvgEl = document.getElementById('perfAvgDelivery');
+        if (rating.avg_delivery_days != null) {
+            perfAvgEl.className = 'mini-stat-value ' + (parseFloat(rating.avg_delivery_days) > 5 ? 'danger' : 'success');
+        } else {
+            perfAvgEl.className = 'mini-stat-value';
+        }
+        var perfOnTimeEl = document.getElementById('perfOnTime');
+        if (rating.on_time_delivery_pct != null) {
+            perfOnTimeEl.className = 'mini-stat-value ' + (parseFloat(rating.on_time_delivery_pct) < 70 ? 'danger' : (parseFloat(rating.on_time_delivery_pct) < 85 ? 'warning' : 'success'));
+        } else {
+            perfOnTimeEl.className = 'mini-stat-value';
+        }
+
+        var records = Array.isArray(data.data.records) ? data.data.records : [];
+        var tbody = document.getElementById('perfRecordsBody');
+        if (records.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No performance data yet</td></tr>';
+        } else {
+            tbody.innerHTML = records.map(function(r) {
+                var metricLabel = r.metric_type === 'delivery_time' ? 'Delivery Time'
+                    : r.metric_type === 'on_time_delivery' ? 'On-Time'
+                    : r.metric_type;
+                var valueClass = r.metric_type === 'on_time_delivery'
+                    ? (r.metric_value == 1 ? 'status-badge status-completed' : 'status-badge status-expired')
+                    : '';
+                var valueDisplay = r.metric_type === 'on_time_delivery'
+                    ? (r.metric_value == 1 ? 'On Time' : 'Late')
+                    : r.metric_value + (r.metric_type === 'delivery_time' ? ' days' : '');
+                return '<tr>'
+                    + '<td>' + (r.po_number || '—') + '</td>'
+                    + '<td>' + metricLabel + '</td>'
+                    + '<td>' + (valueClass ? '<span class="' + valueClass + '">' + valueDisplay + '</span>' : valueDisplay) + '</td>'
+                    + '<td>' + (r.notes || '') + '</td>'
+                    + '<td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '') + '</td>'
+                    + '</tr>';
+            }).join('');
+        }
+    } catch (e) {
+        console.error('Performance load error:', e);
+        showToast('Error loading performance data', 'error');
+    }
+}
+
+function closePerformanceModal() {
+    document.getElementById('performanceModal').classList.remove('active');
+}
+
+document.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('supplierModal')) closeSupplierModal();
+    if (e.target === document.getElementById('performanceModal')) closePerformanceModal();
+});

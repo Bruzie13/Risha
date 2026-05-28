@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RISHA PET SUPPLIES - Sales Management</title>
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="css/sales.css">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-brand">
+            <div class="brand-icon"><img src="images/logo.jpeg" alt="RISHA"></div>
+            <span>RISHA <em>Pet</em></span>
+        </div>
+        <div class="nav-links">
+            <a href="dashboard.html" class="nav-link"><span class="link-icon">📊</span> <span>Dashboard</span></a>
+            <a href="inventory.html" class="nav-link"><span class="link-icon">📦</span> <span>Inventory</span></a>
+            <a href="sales.html" class="nav-link active"><span class="link-icon">💰</span> <span>Sales</span></a>
+            <a href="suppliers.html" class="nav-link"><span class="link-icon">🚚</span> <span>Suppliers</span></a>
+            <a href="reports.html" class="nav-link"><span class="link-icon">📈</span> <span>Reports</span></a>
+            <a href="audit.html" class="nav-link"><span class="link-icon">📋</span> <span>Audit</span></a>
+            <a href="users.html" class="nav-link" id="usersLink"><span class="link-icon">👥</span> <span>Users</span></a>
+            <a href="analytics.html" class="nav-link"><span class="link-icon">🤖</span> <span>Analytics</span></a>
+        </div>
+        <div class="nav-right">
+            <button class="global-search-btn" onclick="openGlobalSearch()">🔍 <kbd>⌘K</kbd></button>
+            <div class="nav-user">
+                <span id="userName">Loading...</span>
+                <div class="avatar">👤</div>
+            </div>
+            <button class="nav-theme" id="themeToggleBtn" title="Toggle theme">🌙</button>
+            <button class="nav-logout" onclick="logout()">🚪 Logout</button>
+        </div>
+    </nav>
+
+    <div class="page-header">
+        <div>
+            <h1>Sales</h1>
+            <div class="breadcrumb"><span>Point of Sale</span></div>
+        </div>
+        <div class="page-header-actions">
+            <input type="text" id="searchInput" class="search-box" placeholder="Search sales..." style="width:180px;">
+            <button class="btn-primary" onclick="openNewSaleModal()" style="padding:10px 20px;">➕ New Sale</button>
+            <button class="btn-secondary" onclick="exportSalesCsv()">📥 Export CSV</button>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="filter-bar" style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+            <label style="font-size:12px;font-weight:600;color:var(--text-secondary);">From:</label>
+            <input type="date" id="dateFrom" style="padding:7px 10px;background:var(--bg-glass);border:1px solid var(--border-glass);border-radius:var(--radius-md);color:var(--text-primary);font-size:13px;font-family:var(--font-sans);">
+            <label style="font-size:12px;font-weight:600;color:var(--text-secondary);">To:</label>
+            <input type="date" id="dateTo" style="padding:7px 10px;background:var(--bg-glass);border:1px solid var(--border-glass);border-radius:var(--radius-md);color:var(--text-primary);font-size:13px;font-family:var(--font-sans);">
+            <button class="btn-primary" onclick="filterSalesByDate()" style="padding:7px 16px;font-size:13px;">🔍 Filter</button>
+            <button class="btn-secondary" onclick="clearDateFilter()" style="padding:7px 16px;font-size:13px;">Clear</button>
+        </div>
+        <div class="stat-row">
+            <div class="stat-card">
+                <div class="stat-icon green">💰</div>
+                <div class="stat-body">
+                    <span class="stat-label">Total Sales Amount</span>
+                    <span class="stat-value" id="totalSalesAmount">₱0.00</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon blue">📋</div>
+                <div class="stat-body">
+                    <span class="stat-label">Total Transactions</span>
+                    <span class="stat-value" id="totalTransactions">0</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon purple">📈</div>
+                <div class="stat-body">
+                    <span class="stat-label">Today's Sales</span>
+                    <span class="stat-value" id="todaysSales">₱0.00</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Sale #</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Staff</th>
+                        <th>Items</th>
+                        <th>Total Amount</th>
+                        <th>Payment</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="salesTableBody">
+                    <tr><td colspan="9" class="text-center">Loading sales...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="saleModal" class="modal">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2>Create New Sale</h2>
+                <button class="close-btn" onclick="closeSaleModal()">&times;</button>
+            </div>
+            <form id="saleForm" onsubmit="handleSaleSubmit(event)">
+                <div class="modal-body">
+                    <div class="form-section">
+                        <h3>Customer Information</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Customer Name</label>
+                                <input type="text" class="form-input" id="customer_name" placeholder="Optional">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Customer Phone</label>
+                                <input type="text" class="form-input" id="customer_phone" placeholder="Optional">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3>Scan or Search Product</h3>
+                        <div style="position: relative;">
+                            <div class="barcode-row">
+                                <input type="text" class="form-input barcode-input" id="barcodeScanInput" placeholder="Scan barcode or type to search... (F2)" autofocus>
+                                <button type="button" class="btn-secondary" onclick="clearBarcodeInput()" title="Clear">✕</button>
+                                <button type="button" class="btn-primary" onclick="focusBarcodeScanner()" title="Focus scanner (F2)">📷 Scan</button>
+                            </div>
+                            <div id="productAutocomplete" class="barcode-results" style="display:none;"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3>Add Items Manually</h3>
+                        <div class="form-row">
+                            <div class="form-group" style="flex:2;">
+                                <label class="form-label">Product</label>
+                                <select class="form-select" id="product_select">
+                                    <option value="">Select a product</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Qty</label>
+                                <input type="number" class="form-input" id="quantity" min="1" value="1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Price</label>
+                                <input type="number" class="form-input" id="unit_price" step="0.01">
+                            </div>
+                            <div class="form-group align-bottom">
+                                <button type="button" class="btn-secondary" onclick="addItemToSale()">Add Item</button>
+                            </div>
+                        </div>
+                        <div id="qtyWarning" class="hidden" style="color:#d32f2f;font-size:13px;margin-top:5px;">⚠️ Quantity exceeds available stock</div>
+                        <div style="text-align:right;font-size:14px;color:#666;margin-top:5px;">
+                            Item Total: <span id="itemTotal">₱0.00</span>
+                            <span style="margin-left:15px;">Max Stock: <span id="maxStock">0</span></span>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3>Sale Items (<span id="itemCount">0</span>)</h3>
+                        <div class="items-list" id="saleItemsList">
+                            <p class="text-center text-muted">No items added yet</p>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Payment Method</label>
+                                <select class="form-select" id="payment_method">
+                                    <option value="cash">Cash</option>
+                                    <option value="card">Card</option>
+                                    <option value="check">Check</option>
+                                    <option value="online">Online Transfer</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Notes</label>
+                                <input type="text" class="form-input" id="notes" placeholder="Optional notes">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="total-section">
+                        <div class="total-row">
+                            <span>Subtotal:</span>
+                            <span id="subtotal">₱0.00</span>
+                        </div>
+                        <div class="total-row">
+                            <span>Discount (<span id="discountPercent">0</span>%):</span>
+                            <span id="discountAmount">-₱0.00</span>
+                        </div>
+                        <div class="total-row">
+                            <span>Discount %:</span>
+                            <span><input type="number" class="form-input" id="discount" value="0" min="0" max="100" step="0.01" style="width:80px;display:inline;padding:5px;"></span>
+                        </div>
+                        <div class="total-row highlight">
+                            <span>Total Amount:</span>
+                            <span id="totalAmount">₱0.00</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeSaleModal()">Cancel</button>
+                    <button type="button" class="btn-warning" onclick="printCurrentReceipt()">🖨️ Print Receipt</button>
+                    <button type="submit" class="btn-primary">💰 Complete Sale</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="viewSaleModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Sale Details</h2>
+                <button class="close-btn" onclick="closeViewSaleModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="saleDetailsContent"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeViewSaleModal()">Close</button>
+                <button type="button" class="btn-primary" onclick="printReceipt(viewingSaleId)">🖨️ Print Receipt</button>
+                <button type="button" class="btn-danger" onclick="deleteSaleFromDetail()">Delete Sale</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/auth.js?v=3.0"></script>
+    <script src="js/point-of-sale.js?v=20260513"></script>
+</body>
+</html>

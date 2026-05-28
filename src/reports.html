@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RISHA PET SUPPLIES - Reports</title>
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="css/reports.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-brand">
+            <div class="brand-icon"><img src="images/logo.jpeg" alt="RISHA"></div>
+            <span>RISHA <em>Pet</em></span>
+        </div>
+        <div class="nav-links">
+            <a href="dashboard.html" class="nav-link"><span class="link-icon">📊</span> <span>Dashboard</span></a>
+            <a href="inventory.html" class="nav-link"><span class="link-icon">📦</span> <span>Inventory</span></a>
+            <a href="sales.html" class="nav-link"><span class="link-icon">💰</span> <span>Sales</span></a>
+            <a href="suppliers.html" class="nav-link"><span class="link-icon">🚚</span> <span>Suppliers</span></a>
+            <a href="reports.html" class="nav-link active"><span class="link-icon">📈</span> <span>Reports</span></a>
+            <a href="audit.html" class="nav-link"><span class="link-icon">📋</span> <span>Audit</span></a>
+            <a href="users.html" class="nav-link" id="usersLink"><span class="link-icon">👥</span> <span>Users</span></a>
+            <a href="analytics.html" class="nav-link"><span class="link-icon">🤖</span> <span>Analytics</span></a>
+        </div>
+        <div class="nav-right">
+            <button class="global-search-btn" onclick="openGlobalSearch()">🔍 <kbd>⌘K</kbd></button>
+            <div class="nav-user">
+                <span id="userName">Loading...</span>
+                <div class="avatar">👤</div>
+            </div>
+            <button class="nav-theme" id="themeToggleBtn" title="Toggle theme">🌙</button>
+            <button class="nav-logout" onclick="logout()">🚪 Logout</button>
+        </div>
+    </nav>
+
+    <div class="page-header">
+        <div>
+            <h1>Reports</h1>
+            <div class="breadcrumb"><span>Analytics</span> &middot; Sales &amp; inventory reports</div>
+        </div>
+        <div class="page-header-actions">
+        </div>
+    </div>
+
+    <div class="content">
+        <!-- Date Range Picker -->
+        <div class="date-range-picker">
+            <div class="form-group">
+                <label>Start Date</label>
+                <input type="date" id="startDate">
+            </div>
+            <div class="form-group">
+                <label>End Date</label>
+                <input type="date" id="endDate">
+            </div>
+            <button class="btn-primary" onclick="applyDateRange()">Apply</button>
+            <button class="btn-secondary" onclick="resetDateRange()">Reset</button>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="stat-row">
+            <div class="stat-card">
+                <div class="stat-icon">💰</div>
+                <div class="stat-body">
+                    <span class="stat-label">Total Revenue</span>
+                    <span class="stat-value" id="summaryRevenue">₱0.00</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-body">
+                    <span class="stat-label">Transactions</span>
+                    <span class="stat-value" id="summaryTransactions">0</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📈</div>
+                <div class="stat-body">
+                    <span class="stat-label">Avg Per Transaction</span>
+                    <span class="stat-value" id="summaryAvg">₱0.00</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📦</div>
+                <div class="stat-body">
+                    <span class="stat-label">Items Sold</span>
+                    <span class="stat-value" id="summaryItems">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report Tabs -->
+        <div class="report-tabs" role="tablist">
+            <button class="report-tab active" data-tab="daily" role="tab" aria-selected="true">Daily Report</button>
+            <button class="report-tab" data-tab="weekly" role="tab" aria-selected="false">Weekly Report</button>
+            <button class="report-tab" data-tab="monthly" role="tab" aria-selected="false">Monthly Report</button>
+        </div>
+
+        <!-- Export Bar -->
+        <div class="export-bar">
+            <button class="btn-export" onclick="exportCSV()">📥 Export CSV</button>
+        </div>
+
+        <!-- Daily Report Tab -->
+        <div class="tab-content active" id="tab-daily" role="tabpanel">
+            <div class="table-container">
+                <table class="data-table" id="dailyTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Transactions</th>
+                            <th>Total Amount</th>
+                            <th>Items Sold</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dailyTableBody">
+                        <tr>
+                            <td colspan="4" class="text-center">Loading daily report...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Weekly Report Tab -->
+        <div class="tab-content" id="tab-weekly" role="tabpanel">
+            <div class="table-container">
+                <table class="data-table" id="weeklyTable">
+                    <thead>
+                        <tr>
+                            <th>Week</th>
+                            <th>Week Number</th>
+                            <th>Total Amount</th>
+                            <th>Item Count</th>
+                        </tr>
+                    </thead>
+                    <tbody id="weeklyTableBody">
+                        <tr>
+                            <td colspan="4" class="text-center">Loading weekly report...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Monthly Report Tab -->
+        <div class="tab-content" id="tab-monthly" role="tabpanel">
+            <div class="table-container">
+                <table class="data-table" id="monthlyTable">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th>Total Transactions</th>
+                            <th>Total Amount</th>
+                            <th>Item Count</th>
+                        </tr>
+                    </thead>
+                    <tbody id="monthlyTableBody">
+                        <tr>
+                            <td colspan="4" class="text-center">Loading monthly report...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-grid">
+            <div class="chart-card full-width">
+                <h3>Sales Overview</h3>
+                <div class="chart-wrapper">
+                    <canvas id="salesChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3>Top Products</h3>
+                <div class="chart-wrapper">
+                    <canvas id="topProductsChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3>Payment Methods</h3>
+                <div class="chart-wrapper">
+                    <canvas id="paymentChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3>Sales by Category</h3>
+                <div class="chart-wrapper">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/auth.js?v=3.0"></script>
+    <script src="js/reports.js?v=3.0"></script>
+</body>
+</html>

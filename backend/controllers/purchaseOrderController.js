@@ -1,0 +1,309 @@
+const pool = require('../config/database');
+const PurchaseOrder = require('../models/PurchaseOrder');
+const Product = require('../models/Product');
+const Supplier = require('../models/Supplier');
+const Notification = require('../models/Notification');
+const { sendPOEmail } = require('../utils/mailer');
+const logAudit = require('../services/audit');
+
+exports.getAllPOs = async (req, res) => {
+    try {
+        const { status } = req.query;
+        const filters = {};
+        if (status) filters.status = status;
+        const orders = await PurchaseOrder.getAll(filters);
+        res.status(200).json({
+            success: true,
+            data: orders
+        });
+    } catch (error) {
+        console.error('Get purchase orders error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error retrieving purchase orders'
+        });
+    }
+};
+
+exports.getPOById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const order = await PurchaseOrder.findById(id);
+
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Purchase order not found'
+            });
+        }
+
+        const items = await PurchaseOrder.getPOItems(id);
+        res.status(200).json({
+            success: true,
+            data: { ...order, items }
+        });
+    } catch (error) {
+        console.error('Get purchase order error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error retrieving purchase order'
+        });
+    }
+};
+
+exports.createPO = async (req, res) => {
+    try {
+        const { supplier_id, items, notes, expected_date } = req.body;
+        const created_by = req.user.id;
+
+        if (!supplier_id || !items || items.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Supplier and at least one item are required'
+            });
+        }
+
+        let total_amount = 0;
+        for (const item of items) {
+            total_amount += item.total_price || (item.unit_cost * item.quantity);
+        }
+
+        const orderData = {
+            supplier_id,
+            total_amount,
+            notes: notes || null,
+            expected_date: expected_date || null,
+            created_by,
+            items
+        };
+
+        const order = await PurchaseOrder.create(orderData);
+        const supplier = await Supplier.findById(order.supplier_id);
+        logAudit(req.user.id, 'create', 'purchase_orders', order.id, null, {
+            po_number: order.po_number,
+            supplier_name: supplier ? supplier.name : 'Unknown',
+            total_amount: order.total_amount,
+            items_count: orderData.items.length,
+            status: order.status
+        }, req.ip);
+        res.status(201).json({
+            success: true,
+            message: 'Purchase order created successfully',
+            data: order
+        });
+    } catch (error) {
+        console.error('Create purchase order error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error creating purchase order'
+        });
+    }
+};
+
+exports.updatePOStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        const validStatuses = ['pending', 'confirmed', 'shipped', 'received', 'cancelled'];
+        if (!status || !validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Valid status is required: ' + validStatuses.join(', ')
+            });
+        }
+
+        const order = await PurchaseOrder.findById(id);
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Purchase order not found'
+            });
+        }
+
+        const updatedOrder = await PurchaseOrder.updateStatus(id, status);
+        const supp = await Supplier.findById(order.supplier_id);
+        logAudit(req.user.id, 'update', 'purchase_orders', parseInt(id),
+            { po_number: order.po_number, supplier_name: supp ? supp.name : 'Unknown', status: order.status },
+            { po_number: order.po_number, supplier_name: supp ? supp.name : 'Unknown', status },
+            req.ip);
+
+        res.status(200).json({
+            success: true,
+            message: `Purchase order status updated to ${status}`,
+            data: updatedOrder
+        });
+    } catch (error) {
+        console.error('Update PO status error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error updating purchase order status'
+        });
+    }
+};
+
+exports.deletePO = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await PurchaseOrder.delete(id);
+
+        logAudit(req.user.id, 'delete', 'purchase_orders', parseInt(id), null, null, req.ip);
+
+        res.status(200).json({
+            success: true,
+            message: 'Purchase order deleted successfully'
+        });
+    } catch (error) {
+        console.error('Delete purchase order error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error deleting purchase order'
+        });
+    }
+};
+
+exports.autoGeneratePO = async (req, res) => {
+    try {
+        const { product_ids } = req.body;
+        let lowStockProducts = await Product.getLowStock();
+
+        if (Array.isArray(product_ids) && product_ids.length > 0) {
+            const idSet = new Set(product_ids.map(Number));
+            lowStockProducts = lowStockProducts.filter(p => idSet.has(p.id));
+            if (lowStockProducts.length === 0) {
+                return res.status(200).json({
+                    success: true,
+                    message: 'None of the selected products are below reorder level',
+                    data: null,
+                    count: 0,
+                    warnings: []
+                });
+            }
+        }
+
+        const warnings = [];
+
+        if (!lowStockProducts || lowStockProducts.length === 0) {
+            return res.status(200).json({
+                success: true,
+                message: 'No products below reorder level',
+                data: null,
+                count: 0,
+                warnings
+            });
+        }
+
+        const conn = await pool.getConnection();
+        const [salesVelocity] = await conn.execute(
+            `SELECT si.product_id, SUM(si.quantity) as units_sold
+             FROM sale_items si
+             JOIN sales s ON si.sale_id = s.id
+             WHERE s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+             GROUP BY si.product_id`
+        );
+        conn.release();
+        const velocityMap = {};
+        for (const v of salesVelocity) velocityMap[v.product_id] = v.units_sold;
+        const hasSalesData = salesVelocity.length > 0;
+
+        const supplierGroups = {};
+        for (const product of lowStockProducts) {
+            if (!product.supplier_id) {
+                warnings.push(`"${product.name}" skipped: no supplier assigned`);
+                continue;
+            }
+
+            let reorderQuantity;
+            const unitsSold30d = velocityMap[product.id] || 0;
+            const dailyAvg = unitsSold30d / 30;
+            if (!hasSalesData || dailyAvg < 0.5) {
+                if (hasSalesData && dailyAvg < 0.5) {
+                    warnings.push(`"${product.name}" has low sales velocity (${dailyAvg.toFixed(2)} units/day), ordering minimum quantity`);
+                }
+                reorderQuantity = Math.max(product.reorder_level * 2 - product.stock_quantity, product.reorder_level);
+            } else if (dailyAvg < 2) {
+                reorderQuantity = Math.max(product.reorder_level - product.stock_quantity, product.reorder_level);
+            } else {
+                const target = product.max_stock_level || product.reorder_level * 3;
+                reorderQuantity = Math.min(target - product.stock_quantity, target);
+                reorderQuantity = Math.max(reorderQuantity, product.reorder_level);
+            }
+
+            if (!supplierGroups[product.supplier_id]) {
+                supplierGroups[product.supplier_id] = [];
+            }
+            supplierGroups[product.supplier_id].push({
+                product_id: product.id,
+                quantity: reorderQuantity,
+                unit_price: product.cost_price || product.unit_price || 0,
+                total_price: (product.cost_price || product.unit_price || 0) * reorderQuantity
+            });
+        }
+
+        const createdOrders = [];
+        const emailResults = [];
+        for (const [supplierId, items] of Object.entries(supplierGroups)) {
+            const total_amount = items.reduce((sum, item) => sum + item.total_price, 0);
+            const orderData = {
+                supplier_id: parseInt(supplierId),
+                total_amount,
+                notes: 'Auto-generated purchase order for low stock products',
+                created_by: req.user.id,
+                items
+            };
+            const order = await PurchaseOrder.create(orderData);
+            createdOrders.push(order);
+            const supplier = await Supplier.findById(parseInt(supplierId));
+            logAudit(req.user.id, 'create', 'purchase_orders', order.id, null, {
+                po_number: order.po_number,
+                supplier_name: supplier ? supplier.name : 'Unknown',
+                total_amount: order.total_amount,
+                items_count: items.length,
+                status: order.status
+            }, req.ip);
+            if (supplier && supplier.email) {
+                const poItems = await PurchaseOrder.getPOItems(order.id);
+                const sent = await sendPOEmail(
+                    supplier.email,
+                    supplier.name,
+                    order.po_number,
+                    poItems.map(i => ({
+                        product_name: i.product_name,
+                        quantity: i.quantity,
+                        unit_price: i.unit_price,
+                        total_price: i.subtotal
+                    })),
+                    total_amount
+                );
+                emailResults.push({ supplier: supplier.name, email: supplier.email, sent });
+            } else {
+                emailResults.push({ supplier_id: supplierId, email: supplier ? 'no email on file' : 'supplier not found', sent: false });
+            }
+        }
+
+        if (createdOrders.length > 0) {
+            await Notification.create({
+                title: 'Auto-Reorder Generated',
+                message: `Auto-generated ${createdOrders.length} purchase order(s) for low-stock products`,
+                type: 'reorder'
+            });
+        }
+
+        res.status(201).json({
+            success: true,
+            message: createdOrders.length > 0
+                ? `Auto-generated ${createdOrders.length} purchase order(s)`
+                : 'No purchase orders generated. Check warnings for details.',
+            data: createdOrders,
+            count: createdOrders.length,
+            emails: emailResults,
+            warnings
+        });
+    } catch (error) {
+        console.error('Auto-generate PO error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error auto-generating purchase orders'
+        });
+    }
+};

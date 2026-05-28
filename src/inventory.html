@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RISHA PET SUPPLIES - Inventory</title>
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="css/inventory.css">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-brand">
+            <div class="brand-icon"><img src="images/logo.jpeg" alt="RISHA"></div>
+            <span>RISHA <em>Pet</em></span>
+        </div>
+        <div class="nav-links">
+            <a href="dashboard.html" class="nav-link"><span class="link-icon">📊</span> <span>Dashboard</span></a>
+            <a href="inventory.html" class="nav-link active"><span class="link-icon">📦</span> <span>Inventory</span></a>
+            <a href="sales.html" class="nav-link"><span class="link-icon">💰</span> <span>Sales</span></a>
+            <a href="suppliers.html" class="nav-link"><span class="link-icon">🚚</span> <span>Suppliers</span></a>
+            <a href="reports.html" class="nav-link"><span class="link-icon">📈</span> <span>Reports</span></a>
+            <a href="audit.html" class="nav-link"><span class="link-icon">📋</span> <span>Audit</span></a>
+            <a href="users.html" class="nav-link" id="usersLink"><span class="link-icon">👥</span> <span>Users</span></a>
+            <a href="analytics.html" class="nav-link"><span class="link-icon">🤖</span> <span>Analytics</span></a>
+        </div>
+        <div class="nav-right">
+            <button class="global-search-btn" onclick="openGlobalSearch()">🔍 <kbd>⌘K</kbd></button>
+            <div class="nav-user">
+                <span id="userName">Loading...</span>
+                <div class="avatar">👤</div>
+            </div>
+            <button class="nav-theme" id="themeToggleBtn" title="Toggle theme">🌙</button>
+            <button class="nav-logout" onclick="logout()">🚪 Logout</button>
+        </div>
+    </nav>
+
+    <div class="page-header">
+        <div>
+            <h1>Inventory</h1>
+            <div class="breadcrumb"><span>Products</span> &middot; Manage stock &amp; items</div>
+        </div>
+        <div class="page-header-actions">
+            <input type="text" id="searchInput" class="search-box" placeholder="Search by name, SKU, or barcode..." style="width:200px;">
+            <select id="categoryFilter" class="search-box" style="width:140px;">
+                <option value="">All Categories</option>
+            </select>
+            <select id="speciesFilter" class="search-box" style="width:120px;">
+                <option value="">All Species</option>
+                <option value="Dog">Dog</option>
+                <option value="Cat">Cat</option>
+                <option value="Bird">Bird</option>
+                <option value="Fish">Fish</option>
+            </select>
+            <button class="btn-primary" onclick="openAddProductModal()">➕ Add</button>
+            <button class="btn-secondary" onclick="openCsvImportModal()">📄 Import</button>
+            <button class="btn-warning" onclick="autoReorder()">🤖 Reorder</button>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="stat-row">
+            <div class="stat-card">
+                <div class="stat-icon blue">📦</div>
+                <div class="stat-body">
+                    <span class="stat-label">Total Products</span>
+                    <span class="stat-value" id="totalProductsCount">0</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon orange">⚠️</div>
+                <div class="stat-body">
+                    <span class="stat-label">Low Stock</span>
+                    <span class="stat-value warning" id="lowStockCount">0</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon red">⏳</div>
+                <div class="stat-body">
+                    <span class="stat-label">Expiring Soon</span>
+                    <span class="stat-value danger" id="expiringCount">0</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon blue">💰</div>
+                <div class="stat-body">
+                    <span class="stat-label">Total Inventory Value</span>
+                    <span class="stat-value" id="totalValue">₱0.00</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon purple">📋</div>
+                <div class="stat-body">
+                    <span class="stat-label">Overstock</span>
+                    <span class="stat-value" id="overstockCount">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width:40px;"><input type="checkbox" id="selectAll"></th>
+                        <th>SKU</th>
+                        <th>Product Name</th>
+                        <th>Brand</th>
+                        <th>Category</th>
+                        <th>Species</th>
+                        <th>Price</th>
+                        <th>Stock</th>
+                        <th>Reorder</th>
+                        <th>Expiration</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="productsTableBody">
+                    <tr><td colspan="12" class="text-center">Loading products...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="bulk-bar" id="bulkBar" style="display:none;">
+            <span class="bulk-count" id="bulkCount">0 selected</span>
+            <button class="btn-primary" onclick="bulkReorder()" style="padding:8px 16px;font-size:13px;">📦 Bulk Reorder</button>
+            <button class="btn-primary" onclick="bulkAdjustStock()" style="padding:8px 16px;font-size:13px;background:linear-gradient(135deg,#e67e22,#f39c12);">📋 Adjust Stock</button>
+            <button class="btn-delete" onclick="bulkDelete()" style="padding:8px 16px;font-size:13px;">🗑️ Delete</button>
+            <button class="btn-secondary" onclick="clearSelection()" style="padding:8px 16px;font-size:13px;">✕ Clear</button>
+        </div>
+        <div class="table-footer">
+            <div class="pagination" id="pagination"></div>
+        </div>
+    </div>
+
+    <div id="productModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add New Product</h2>
+                <button class="close-btn" onclick="closeProductModal()">&times;</button>
+            </div>
+            <form id="productForm" onsubmit="handleProductSubmit(event)">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">SKU *</label>
+                            <input type="text" class="form-input" id="sku" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Barcode</label>
+                            <input type="text" class="form-input" id="barcode" placeholder="Scan or enter barcode">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Product Name *</label>
+                            <input type="text" class="form-input" id="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Brand</label>
+                            <input type="text" class="form-input" id="brand">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Category *</label>
+                            <select class="form-select" id="category_id" required>
+                                <option value="">Select Category</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Species</label>
+                            <select class="form-select" id="species">
+                                <option value="">Select Species</option>
+                                <option value="Dog">Dog</option>
+                                <option value="Cat">Cat</option>
+                                <option value="Bird">Bird</option>
+                                <option value="Fish">Fish</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Breed Size</label>
+                            <select id="breed_size" class="form-select">
+                                <option value="">Any Size</option>
+                                <option value="small">Small</option>
+                                <option value="medium">Medium</option>
+                                <option value="large">Large</option>
+                                <option value="giant">Giant</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Age Group</label>
+                            <select id="age_group" class="form-select">
+                                <option value="">All Ages</option>
+                                <option value="puppy_kitten">Puppy/Kitten</option>
+                                <option value="adult">Adult</option>
+                                <option value="senior">Senior</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Health Category</label>
+                            <select id="health_category" class="form-select">
+                                <option value="">None</option>
+                                <option value="dietary">Dietary</option>
+                                <option value="dental">Dental</option>
+                                <option value="joint">Joint Care</option>
+                                <option value="skin">Skin & Coat</option>
+                                <option value="digestive">Digestive</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Unit Price *</label>
+                            <input type="number" class="form-input" id="unit_price" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Cost Price</label>
+                            <input type="number" class="form-input" id="cost_price" step="0.01">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Stock Quantity</label>
+                            <input type="number" class="form-input" id="stock_quantity" value="0" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Reorder Level</label>
+                            <input type="number" class="form-input" id="reorder_level" value="10" min="0">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Unit Type</label>
+                            <select class="form-select" id="unit_type">
+                                <option value="piece">Piece (pcs)</option>
+                                <option value="kg">Kilogram (kg)</option>
+                                <option value="g">Gram (g)</option>
+                                <option value="liter">Liter (L)</option>
+                                <option value="ml">Milliliter (mL)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Max Stock Level</label>
+                            <input type="number" class="form-input" id="max_stock_level" value="100" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Supplier</label>
+                            <select class="form-select" id="supplier_id">
+                                <option value="">Select Supplier</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Batch/Lot Number</label>
+                            <input type="text" class="form-input" id="batch_number" placeholder="e.g., LOT-2025-001">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Expiration Date</label>
+                            <input type="date" class="form-input" id="expiration_date">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-textarea" id="description" rows="3" placeholder="Product description..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeProductModal()">Cancel</button>
+                    <button type="submit" class="btn-primary">Save Product</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="productDetailsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Product Details</h2>
+                <button class="close-btn" onclick="closeProductDetailsModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="productDetailsContent"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeProductDetailsModal()">Close</button>
+                <button type="button" class="btn-primary" onclick="editProduct()">Edit</button>
+                <button type="button" class="btn-danger" onclick="deleteFromDetails()">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="stockModal" class="modal">
+        <div class="modal-content" style="max-width:450px;">
+            <div class="modal-header">
+                <h2>Adjust Stock</h2>
+                <button class="close-btn" onclick="closeStockModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="stockProductName" style="margin-bottom:15px;font-weight:600;"></p>
+                <div class="form-group">
+                    <label class="form-label">Adjustment Type</label>
+                    <select class="form-select" id="stockAdjustType">
+                        <option value="in">Add Stock (In)</option>
+                        <option value="out">Remove Stock (Out)</option>
+                        <option value="adjustment">Adjustment</option>
+                        <option value="damage">Damage</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" class="form-input" id="stockQuantity" min="1" value="1">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Reason</label>
+                    <input type="text" class="form-input" id="stockReason" placeholder="Reason for adjustment">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeStockModal()">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveStockAdjustment()">Save Adjustment</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="csvImportModal" class="modal">
+        <div class="modal-content" style="max-width:560px;">
+            <div class="modal-header">
+                <h2>📄 Import Products from CSV</h2>
+                <button class="close-btn" onclick="closeCsvImportModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom:20px;padding:16px;background:var(--gray-50);border-radius:8px;font-size:13px;color:var(--text-muted);">
+                    <strong style="color:var(--text-primary);">CSV must have these columns:</strong><br>
+                    <code>sku, name, brand, category, unit_price, cost_price, stock_quantity, reorder_level, unit_type, description, barcode, species</code>
+                    <br><br>
+                    <button class="btn-secondary" onclick="downloadCsvTemplate()" style="font-size:12px;">📥 Download Template</button>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Choose CSV File</label>
+                    <input type="file" id="csvFile" accept=".csv" style="padding:10px;border:1.5px dashed var(--border-color);border-radius:8px;width:100%;cursor:pointer;">
+                </div>
+                <div id="csvPreview" style="margin-top:16px;max-height:300px;overflow-y:auto;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeCsvImportModal()">Cancel</button>
+                <button type="button" class="btn-primary" onclick="importCsvProducts()" id="importBtn">Import Products</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/auth.js?v=3.0"></script>
+    <script src="js/inventory.js?v=3.0"></script>
+</body>
+</html>
