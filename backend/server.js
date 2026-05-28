@@ -57,10 +57,7 @@ app.use((err, req, res, next) => {
     res.status(500).json({ success: false, message: 'Internal server error', error: process.env.NODE_ENV === 'development' ? err.message : undefined });
 });
 
-const scheduler = require('./utils/scheduler');
-
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-    scheduler.start();
 });
