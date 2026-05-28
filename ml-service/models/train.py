@@ -14,9 +14,11 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
 
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
+    "port": int(os.getenv("DB_PORT", "3306")),
     "user": os.getenv("DB_USER", "root"),
     "password": os.getenv("DB_PASSWORD", ""),
     "database": os.getenv("DB_NAME", "risha_pet_supplies"),
+    "ssl_disabled": False,
 }
 
 MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models")
