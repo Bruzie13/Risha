@@ -3,14 +3,16 @@ FROM nikolaik/python-nodejs:python3.12-nodejs22
 WORKDIR /app
 
 COPY backend/package*.json ./backend/
-RUN cd backend && npm install
+RUN cd backend && npm install --omit=dev
 
 COPY ml-service/requirements.txt ./ml-service/
-RUN cd ml-service && pip install -r requirements.txt
+RUN cd ml-service && pip install -r requirements.txt --quiet
 
-COPY . .
+COPY backend/ ./backend/
+COPY ml-service/ ./ml-service/
+COPY src/ ./src/
+COPY database/ ./database/
 
 EXPOSE 8000
-EXPOSE 5002
 
-CMD cd ml-service && gunicorn -w 2 -b 0.0.0.0:5002 app:app & sleep 3 && cd ../backend && node server.js
+CMD cd /app/backend && node server.js
