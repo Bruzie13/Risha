@@ -28,36 +28,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/audit-logs', auditRoutes);
 
-const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:5002';
-const mlUrl = new URL(ML_SERVICE_URL);
-
-app.use('/api/predictions', (req, res) => {
-    const options = {
-        hostname: mlUrl.hostname,
-        port: mlUrl.port,
-        path: req.originalUrl,
-        method: req.method,
-        headers: { ...req.headers, host: 'localhost:5002' }
-    };
-    delete options.headers['connection'];
-
-    const proxyReq = http.request(options, proxyRes => {
-        res.status(proxyRes.statusCode);
-        proxyRes.headers && Object.keys(proxyRes.headers).forEach(k => {
-            if (!['connection', 'transfer-encoding'].includes(k)) {
-                res.setHeader(k, proxyRes.headers[k]);
-            }
-        });
-        proxyRes.pipe(res);
-    });
-    proxyReq.on('error', () => {
-        res.status(502).json({ success: false, message: 'ML service unavailable' });
-    });
-    if (req.body && Object.keys(req.body).length) {
-        proxyReq.write(JSON.stringify(req.body));
-    }
-    proxyReq.end();
-});
+const predictionRoutes = require('./routes/predictions');
+app.use('/api/predictions', predictionRoutes);
 
 app.get('/api/health', (req, res) => {
     res.status(200).json({ success: true, message: 'Server is running', timestamp: new Date().toISOString() });
