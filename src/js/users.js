@@ -9,6 +9,7 @@ window.addEventListener('load', async () => {
         if (warning) warning.hidden = false;
         const table = document.getElementById('usersTable');
         if (table) table.style.display = 'none';
+        document.querySelector('.page-header-actions .btn-primary')?.remove();
         return;
     }
     await loadUsers();

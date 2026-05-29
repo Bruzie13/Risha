@@ -7,6 +7,9 @@ let lastKeyTime = 0;
 
 window.addEventListener('load', async () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
+    if (isViewer()) {
+        document.querySelector('.page-header-actions .btn-primary')?.remove();
+    }
     await Promise.all([loadProducts(), loadSales()]);
     setupBarcodeListener();
     setupAutocomplete();
@@ -165,6 +168,7 @@ async function loadSales() {
 function displaySales(sales) {
     const tbody = document.getElementById('salesTableBody');
     if (!tbody) return;
+    const viewer = isViewer();
     if (sales.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" class="text-center">No sales found</td></tr>';
         return;
@@ -181,7 +185,7 @@ function displaySales(sales) {
             <td>${s.payment_status === 'completed' ? '<span class="status-badge status-in-stock">Completed</span>' : '<span class="status-badge status-expired">' + (s.payment_status || 'N/A') + '</span>'}</td>
             <td>
                 <button class="btn-view" onclick="viewSaleDetails(${s.id})">View</button>
-                <button class="btn-delete" onclick="deleteSale(${s.id})">Delete</button>
+                ${viewer ? '' : `<button class="btn-delete" onclick="deleteSale(${s.id})">Delete</button>`}
             </td>
         </tr>
     `).join('');
@@ -216,6 +220,7 @@ document.getElementById('searchInput')?.addEventListener('keyup', (e) => {
 });
 
 function openNewSaleModal() {
+    if (isViewer()) { showToast('View-only account. Cannot create sales.', 'error'); return; }
     currentSaleItems = [];
     document.getElementById('saleForm').reset();
     document.getElementById('unit_price').value = '';
@@ -419,6 +424,7 @@ async function deleteSaleFromDetail() {
 }
 
 async function deleteSale(id) {
+    if (isViewer()) { showToast('View-only account. Cannot delete sales.', 'error'); return; }
     showConfirmDialog('Delete Sale', 'Are you sure you want to delete this sale? This cannot be undone.', async () => {
         try {
             const response = await fetch(`${API_BASE}/sales/${id}`, {

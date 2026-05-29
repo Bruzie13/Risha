@@ -8,6 +8,16 @@ window.addEventListener('load', async () => {
         window.location.href = 'login.html';
         return;
     }
+    if (isViewer()) {
+        document.querySelectorAll('.page-header-actions .btn-primary, .page-header-actions .btn-secondary, .page-header-actions .btn-warning').forEach(b => b.style.display = 'none');
+        document.getElementById('bulkBar').style.display = 'none';
+        document.querySelector('#productDetailsModal .btn-primary')?.remove();
+        document.querySelector('#productDetailsModal .btn-danger')?.remove();
+        const selectAllTh = document.querySelector('.data-table thead th:first-child');
+        if (selectAllTh) selectAllTh.style.display = 'none';
+        const actionsTh = document.querySelector('.data-table thead th:last-child');
+        if (actionsTh) actionsTh.textContent = '';
+    }
     await loadCategories();
     await loadSuppliers();
     await loadProducts();
@@ -77,9 +87,11 @@ async function loadProducts() {
 
 function displayProducts(products) {
     const tbody = document.getElementById('productsTableBody');
+    const viewer = isViewer();
+    const colSpan = viewer ? 11 : 12;
     
     if (products.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="12" class="text-center">No products found</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center">No products found</td></tr>`;
         return;
     }
 
@@ -103,7 +115,7 @@ function displayProducts(products) {
 
         return `
             <tr>
-                <td><input type="checkbox" class="product-checkbox" value="${product.id}"></td>
+                ${viewer ? '' : `<td><input type="checkbox" class="product-checkbox" value="${product.id}"></td>`}
                 <td>${product.sku}</td>
                 <td>${product.name}</td>
                 <td>${product.brand || 'N/A'}</td>
@@ -117,9 +129,9 @@ function displayProducts(products) {
                 <td>
                     <div class="actions-cell">
                         <button class="btn-view" onclick="viewProductDetails(${product.id})">View</button>
-                        <button class="btn-edit" onclick="openEditProductModal(${product.id})">Edit</button>
+                        ${viewer ? '' : `<button class="btn-edit" onclick="openEditProductModal(${product.id})">Edit</button>
                         <button class="btn-action" onclick="openStockModal(${product.id})">Stock</button>
-                        <button class="btn-delete" onclick="deleteProduct(${product.id})">Delete</button>
+                        <button class="btn-delete" onclick="deleteProduct(${product.id})">Delete</button>`}
                     </div>
                 </td>
             </tr>
@@ -205,6 +217,7 @@ function filterProducts() {
 
 // Open add product modal
 function openAddProductModal() {
+    if (isViewer()) { showToast('View-only account. Cannot add products.', 'error'); return; }
     editingProductId = null;
     document.getElementById('modalTitle').textContent = 'Add New Product';
     document.getElementById('productForm').reset();
@@ -213,6 +226,7 @@ function openAddProductModal() {
 
 // Open edit product modal
 async function openEditProductModal(id) {
+    if (isViewer()) { showToast('View-only account. Cannot edit products.', 'error'); return; }
     try {
         const response = await fetch(`${API_URL}/products/${id}`);
         const data = await response.json();
@@ -356,6 +370,7 @@ function closeProductDetailsModal() {
 
 // Edit from details modal
 function editProduct() {
+    if (isViewer()) { showToast('View-only account. Cannot edit products.', 'error'); return; }
     closeProductDetailsModal();
     openEditProductModal(editingProductId);
 }
@@ -368,6 +383,7 @@ function deleteFromDetails() {
 
 // Delete product with confirmation
 async function deleteProduct(id) {
+    if (isViewer()) { showToast('View-only account. Cannot delete products.', 'error'); return; }
     showConfirmDialog('Delete Product', 'Are you sure you want to delete this product? This cannot be undone.', async () => {
         try {
             const response = await fetch(`${API_URL}/products/${id}`, {
@@ -453,6 +469,7 @@ async function handleProductSubmit(event) {
 let stockAdjustProductId = null;
 
 function openStockModal(productId) {
+    if (isViewer()) { showToast('View-only account. Cannot adjust stock.', 'error'); return; }
     stockAdjustProductId = productId;
     const product = allProducts.find(p => p.id === productId);
     document.getElementById('stockProductName').textContent = product ? product.name : 'Unknown Product';
@@ -501,6 +518,7 @@ function showWarnings(warnings) {
 
 // Auto-reorder function
 async function autoReorder() {
+    if (isViewer()) { showToast('View-only account. Cannot reorder.', 'error'); return; }
     showConfirmDialog('Auto-Reorder', 'Generate purchase orders for all low-stock products? Suppliers will be notified.', async () => {
         try {
             const response = await fetch(`${API_URL}/purchase-orders/auto-generate`, {
@@ -561,6 +579,7 @@ function clearSelection() {
 }
 
 async function bulkReorder() {
+    if (isViewer()) { showToast('View-only account. Cannot reorder.', 'error'); return; }
     const ids = getSelectedIds();
     if (ids.length === 0) return;
     showConfirmDialog('Bulk Reorder', `Generate purchase orders for ${ids.length} selected product(s)?`, async () => {
@@ -588,6 +607,7 @@ async function bulkReorder() {
 }
 
 async function bulkAdjustStock() {
+    if (isViewer()) { showToast('View-only account. Cannot adjust stock.', 'error'); return; }
     const ids = getSelectedIds();
     if (ids.length === 0) return;
     showPromptDialog('Bulk Stock Adjust', `Enter quantity to add/remove for ${ids.length} product(s):<br>(positive = add stock, negative = remove stock)`, (qty) => {
@@ -618,6 +638,7 @@ async function bulkAdjustStock() {
 }
 
 async function bulkDelete() {
+    if (isViewer()) { showToast('View-only account. Cannot delete products.', 'error'); return; }
     const ids = getSelectedIds();
     if (ids.length === 0) return;
     showConfirmDialog('Bulk Delete', `Delete ${ids.length} product(s)? This cannot be undone.`, async () => {
@@ -665,6 +686,7 @@ document.addEventListener('click', (e) => {
 let csvParsedData = [];
 
 function openCsvImportModal() {
+    if (isViewer()) { showToast('View-only account. Cannot import products.', 'error'); return; }
     document.getElementById('csvImportModal').classList.add('active');
     document.getElementById('csvPreview').innerHTML = '';
     document.getElementById('csvFile').value = '';
@@ -720,6 +742,7 @@ document.getElementById('csvFile')?.addEventListener('change', function(e) {
 });
 
 async function importCsvProducts() {
+    if (isViewer()) { showToast('View-only account. Cannot import products.', 'error'); return; }
     if (!csvParsedData.length) { showToast('No valid products to import', 'error'); return; }
     const btn = document.getElementById('importBtn');
     btn.disabled = true;

@@ -59,6 +59,10 @@ function getUserRole() {
     return user ? user.role : null;
 }
 
+function isViewer() {
+    return getUserRole() === 'viewer';
+}
+
 function logout() {
     showConfirmDialog(
         'Logout',

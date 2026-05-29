@@ -3,6 +3,11 @@ let editingSupplierId = null;
 
 window.addEventListener('load', async () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
+    if (isViewer()) {
+        document.querySelector('.page-header-actions .btn-primary')?.remove();
+        const actionsTh = document.querySelector('.data-table thead th:last-child');
+        if (actionsTh) actionsTh.textContent = '';
+    }
     await loadSuppliers();
 });
 
@@ -23,6 +28,7 @@ async function loadSuppliers() {
 function displaySuppliers(suppliers) {
     const tbody = document.getElementById('suppliersTableBody');
     if (!tbody) return;
+    const viewer = isViewer();
     if (suppliers.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="text-center">No suppliers found</td></tr>';
         return;
@@ -44,9 +50,9 @@ function displaySuppliers(suppliers) {
             <td>${paymentTermsMap[s.payment_terms] || 'Net 30'}</td>
             <td>${(s.is_active === 1 || s.is_active === true) ? '<span class="status-badge status-in-stock">Active</span>' : '<span class="status-badge status-expired">Inactive</span>'}</td>
             <td>
-                <button class="btn-edit" onclick="openEditSupplierModal(${s.id})">Edit</button>
                 <button class="btn-view" onclick="showPerformance(${s.id})">Performance</button>
-                <button class="btn-delete" onclick="deleteSupplier(${s.id})">Delete</button>
+                ${viewer ? '' : `<button class="btn-edit" onclick="openEditSupplierModal(${s.id})">Edit</button>
+                <button class="btn-delete" onclick="deleteSupplier(${s.id})">Delete</button>`}
             </td>
         </tr>
     `).join('');
@@ -64,6 +70,7 @@ document.getElementById('searchInput')?.addEventListener('keyup', (e) => {
 });
 
 function openAddSupplierModal() {
+    if (isViewer()) { showToast('View-only account. Cannot add suppliers.', 'error'); return; }
     editingSupplierId = null;
     document.getElementById('supplierModalTitle').textContent = 'Add Supplier';
     document.getElementById('supplierForm').reset();
@@ -71,6 +78,7 @@ function openAddSupplierModal() {
 }
 
 function openEditSupplierModal(id) {
+    if (isViewer()) { showToast('View-only account. Cannot edit suppliers.', 'error'); return; }
     editingSupplierId = id;
     const supplier = allSuppliers.find(s => s.id === id);
     if (!supplier) return;
@@ -127,6 +135,7 @@ async function handleSupplierSubmit(event) {
 }
 
 async function deleteSupplier(id) {
+    if (isViewer()) { showToast('View-only account. Cannot delete suppliers.', 'error'); return; }
     showConfirmDialog('Delete Supplier', 'Are you sure you want to delete this supplier? This cannot be undone.', async () => {
         try {
             const response = await fetch(`${API_BASE}/suppliers/${id}`, {
