@@ -6,131 +6,147 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RISHA PET SUPPLIES - Inventory</title>
+    <title>RISHA — Inventory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css">
     <link rel="stylesheet" href="css/inventory.css">
 </head>
 <body>
-    <nav class="top-nav">
-        <div class="nav-brand">
-            <div class="brand-icon"><img src="images/logo.jpeg" alt="RISHA"></div>
-            <span>RISHA <em>Pet</em></span>
-        </div>
-        <div class="nav-links">
-            <a href="dashboard.html" class="nav-link"><span class="link-icon">📊</span> <span>Dashboard</span></a>
-            <a href="inventory.html" class="nav-link active"><span class="link-icon">📦</span> <span>Inventory</span></a>
-            <a href="sales.html" class="nav-link"><span class="link-icon">💰</span> <span>Sales</span></a>
-            <a href="suppliers.html" class="nav-link"><span class="link-icon">🚚</span> <span>Suppliers</span></a>
-            <a href="reports.html" class="nav-link"><span class="link-icon">📈</span> <span>Reports</span></a>
-            <a href="audit.html" class="nav-link"><span class="link-icon">📋</span> <span>Audit</span></a>
-            <a href="users.html" class="nav-link" id="usersLink"><span class="link-icon">👥</span> <span>Users</span></a>
-            <a href="analytics.html" class="nav-link"><span class="link-icon">🤖</span> <span>Analytics</span></a>
-        </div>
-        <div class="nav-right">
-            <button class="global-search-btn" onclick="openGlobalSearch()">🔍 <kbd>⌘K</kbd></button>
-            <div class="nav-user">
-                <span id="userName">Loading...</span>
-                <div class="avatar">👤</div>
+    <button class="sidebar-hamburger" id="hamburgerBtn" onclick="toggleSidebar()">☰</button>
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <div class="brand-icon"><img src="images/logo.jpeg" alt="RISHA"></div>
+                <div class="brand-text">
+                    <span>RISHA</span>
+                    <small>Pet Shop</small>
+                </div>
             </div>
-            <button class="nav-theme" id="themeToggleBtn" title="Toggle theme">🌙</button>
-            <button class="nav-logout" onclick="logout()">🚪 Logout</button>
+        </div>
+        <div class="sidebar-nav">
+            <a href="dashboard.html" class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+            <a href="inventory.html" class="nav-link active"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span></a>
+            <a href="sales.html" class="nav-link"><span class="nav-icon">💰</span><span class="nav-label">Sales</span></a>
+            <a href="suppliers.html" class="nav-link"><span class="nav-icon">🚚</span><span class="nav-label">Suppliers</span></a>
+            <a href="reports.html" class="nav-link"><span class="nav-icon">📈</span><span class="nav-label">Reports</span></a>
+            <a href="analytics.html" class="nav-link"><span class="nav-icon">🤖</span><span class="nav-label">Analytics</span></a>
+            <a href="audit.html" class="nav-link"><span class="nav-icon">📋</span><span class="nav-label">Audit Logs</span></a>
+            <a href="users.html" class="nav-link" id="usersLink"><span class="nav-icon">👥</span><span class="nav-label">Users</span></a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="avatar">👤</div>
+                <div class="user-info">
+                    <span id="userName">Loading...</span>
+                    <small id="userRole">Staff</small>
+                </div>
+            </div>
+            <div class="sidebar-actions">
+                <button class="sidebar-btn" onclick="openGlobalSearch()" title="Search (⌘K)">🔍</button>
+                <button class="sidebar-btn" id="themeToggleBtn" title="Toggle theme">🌙</button>
+                <button class="sidebar-btn sidebar-logout" onclick="logout()" title="Logout">🚪</button>
+            </div>
         </div>
     </nav>
 
-    <div class="page-header">
-        <div>
-            <h1>Inventory</h1>
-            <div class="breadcrumb"><span>Products</span> &middot; Manage stock &amp; items</div>
-        </div>
-        <div class="page-header-actions">
-            <input type="text" id="searchInput" class="search-box" placeholder="Search by name, SKU, or barcode..." style="width:200px;">
-            <select id="categoryFilter" class="search-box" style="width:140px;">
-                <option value="">All Categories</option>
-            </select>
-            <select id="speciesFilter" class="search-box" style="width:120px;">
-                <option value="">All Species</option>
-                <option value="Dog">Dog</option>
-                <option value="Cat">Cat</option>
-                <option value="Bird">Bird</option>
-                <option value="Fish">Fish</option>
-            </select>
-            <button class="btn-primary" onclick="openAddProductModal()">➕ Add</button>
-            <button class="btn-secondary" onclick="openCsvImportModal()">📄 Import</button>
-            <button class="btn-warning" onclick="autoReorder()">🤖 Reorder</button>
-        </div>
-    </div>
-
-    <div class="content">
-        <div class="stat-row">
-            <div class="stat-card">
-                <div class="stat-icon blue">📦</div>
-                <div class="stat-body">
-                    <span class="stat-label">Total Products</span>
-                    <span class="stat-value" id="totalProductsCount">0</span>
-                </div>
+    <div class="main-wrapper">
+        <div class="page-header">
+            <div>
+                <h1>Inventory</h1>
+                <div class="breadcrumb"><span>Products</span> · Manage stock &amp; items</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon orange">⚠️</div>
-                <div class="stat-body">
-                    <span class="stat-label">Low Stock</span>
-                    <span class="stat-value warning" id="lowStockCount">0</span>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon red">⏳</div>
-                <div class="stat-body">
-                    <span class="stat-label">Expiring Soon</span>
-                    <span class="stat-value danger" id="expiringCount">0</span>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon blue">💰</div>
-                <div class="stat-body">
-                    <span class="stat-label">Total Inventory Value</span>
-                    <span class="stat-value" id="totalValue">₱0.00</span>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon purple">📋</div>
-                <div class="stat-body">
-                    <span class="stat-label">Overstock</span>
-                    <span class="stat-value" id="overstockCount">0</span>
-                </div>
+            <div class="page-header-actions">
+                <input type="text" id="searchInput" class="search-box" placeholder="Search by name, SKU, or barcode..." style="width:200px;">
+                <select id="categoryFilter" class="search-box" style="width:140px;">
+                    <option value="">All Categories</option>
+                </select>
+                <select id="speciesFilter" class="search-box" style="width:120px;">
+                    <option value="">All Species</option>
+                    <option value="Dog">Dog</option>
+                    <option value="Cat">Cat</option>
+                    <option value="Bird">Bird</option>
+                    <option value="Fish">Fish</option>
+                </select>
+                <button class="btn-primary" onclick="openAddProductModal()">➕ Add</button>
+                <button class="btn-secondary" onclick="openCsvImportModal()">📄 Import</button>
+                <button class="btn-warning" onclick="autoReorder()">🤖 Reorder</button>
             </div>
         </div>
 
-        <div class="table-container">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th style="width:40px;"><input type="checkbox" id="selectAll"></th>
-                        <th>SKU</th>
-                        <th>Product Name</th>
-                        <th>Brand</th>
-                        <th>Category</th>
-                        <th>Species</th>
-                        <th>Price</th>
-                        <th>Stock</th>
-                        <th>Reorder</th>
-                        <th>Expiration</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="productsTableBody">
-                    <tr><td colspan="12" class="text-center">Loading products...</td></tr>
-                </tbody>
-            </table>
-        </div>
-        <div class="bulk-bar" id="bulkBar" style="display:none;">
-            <span class="bulk-count" id="bulkCount">0 selected</span>
-            <button class="btn-primary" onclick="bulkReorder()" style="padding:8px 16px;font-size:13px;">📦 Bulk Reorder</button>
-            <button class="btn-primary" onclick="bulkAdjustStock()" style="padding:8px 16px;font-size:13px;background:linear-gradient(135deg,#e67e22,#f39c12);">📋 Adjust Stock</button>
-            <button class="btn-delete" onclick="bulkDelete()" style="padding:8px 16px;font-size:13px;">🗑️ Delete</button>
-            <button class="btn-secondary" onclick="clearSelection()" style="padding:8px 16px;font-size:13px;">✕ Clear</button>
-        </div>
-        <div class="table-footer">
-            <div class="pagination" id="pagination"></div>
+        <div class="content">
+            <div class="stat-row">
+                <div class="stat-card">
+                    <div class="stat-icon blue">📦</div>
+                    <div class="stat-body">
+                        <span class="stat-label">Total Products</span>
+                        <span class="stat-value" id="totalProductsCount">0</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon orange">⚠️</div>
+                    <div class="stat-body">
+                        <span class="stat-label">Low Stock</span>
+                        <span class="stat-value warning" id="lowStockCount">0</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon red">⏳</div>
+                    <div class="stat-body">
+                        <span class="stat-label">Expiring Soon</span>
+                        <span class="stat-value danger" id="expiringCount">0</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">💰</div>
+                    <div class="stat-body">
+                        <span class="stat-label">Total Inventory Value</span>
+                        <span class="stat-value" id="totalValue">₱0.00</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple">📋</div>
+                    <div class="stat-body">
+                        <span class="stat-label">Overstock</span>
+                        <span class="stat-value" id="overstockCount">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width:40px;"><input type="checkbox" id="selectAll"></th>
+                            <th>SKU</th>
+                            <th>Product Name</th>
+                            <th>Brand</th>
+                            <th>Category</th>
+                            <th>Species</th>
+                            <th>Price</th>
+                            <th>Stock</th>
+                            <th>Reorder</th>
+                            <th>Expiration</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productsTableBody">
+                        <tr><td colspan="12" class="text-center">Loading products...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="bulk-bar" id="bulkBar" style="display:none;">
+                <span class="bulk-count" id="bulkCount">0 selected</span>
+                <button class="btn-primary" onclick="bulkReorder()" style="padding:8px 16px;font-size:13px;">📦 Bulk Reorder</button>
+                <button class="btn-primary" onclick="bulkAdjustStock()" style="padding:8px 16px;font-size:13px;background:linear-gradient(135deg,#e67e22,#f39c12);">📋 Adjust Stock</button>
+                <button class="btn-delete" onclick="bulkDelete()" style="padding:8px 16px;font-size:13px;">🗑️ Delete</button>
+                <button class="btn-secondary" onclick="clearSelection()" style="padding:8px 16px;font-size:13px;">✕ Clear</button>
+            </div>
+            <div class="table-footer">
+                <div class="pagination" id="pagination"></div>
+            </div>
         </div>
     </div>
 
@@ -351,7 +367,19 @@
         </div>
     </div>
 
-    <script src="js/auth.js?v=3.0"></script>
-    <script src="js/inventory.js?v=3.0"></script>
+    <script>
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+        document.addEventListener('click', function(e) {
+            var sidebar = document.getElementById('sidebar');
+            var hamburger = document.getElementById('hamburgerBtn');
+            if (window.innerWidth <= 768 && !sidebar.contains(e.target) && !hamburger.contains(e.target)) {
+                sidebar.classList.remove('open');
+            }
+        });
+    </script>
+    <script src="js/auth.js"></script>
+    <script src="js/inventory.js"></script>
 </body>
 </html>

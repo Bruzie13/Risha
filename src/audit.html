@@ -6,75 +6,103 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RISHA PET SUPPLIES - Audit Trail</title>
+    <title>RISHA — Audit Trail</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css">
 </head>
 <body>
-    <nav class="top-nav">
-        <div class="nav-brand">
-            <div class="brand-icon"><img src="images/logo.jpeg" alt="RISHA"></div>
-            <span>RISHA <em>Pet</em></span>
-        </div>
-        <div class="nav-links">
-            <a href="dashboard.html" class="nav-link"><span class="link-icon">📊</span> <span>Dashboard</span></a>
-            <a href="inventory.html" class="nav-link"><span class="link-icon">📦</span> <span>Inventory</span></a>
-            <a href="sales.html" class="nav-link"><span class="link-icon">💰</span> <span>Sales</span></a>
-            <a href="suppliers.html" class="nav-link"><span class="link-icon">🚚</span> <span>Suppliers</span></a>
-            <a href="reports.html" class="nav-link"><span class="link-icon">📈</span> <span>Reports</span></a>
-            <a href="audit.html" class="nav-link active"><span class="link-icon">📋</span> <span>Audit</span></a>
-            <a href="users.html" class="nav-link" id="usersLink"><span class="link-icon">👥</span> <span>Users</span></a>
-            <a href="analytics.html" class="nav-link"><span class="link-icon">🤖</span> <span>Analytics</span></a>
-        </div>
-        <div class="nav-right">
-            <button class="global-search-btn" onclick="openGlobalSearch()">🔍 <kbd>⌘K</kbd></button>
-            <div class="nav-user">
-                <span id="userName">Loading...</span>
-                <div class="avatar">👤</div>
+    <button class="sidebar-hamburger" id="hamburgerBtn" onclick="toggleSidebar()">☰</button>
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <div class="brand-icon"><img src="images/logo.jpeg" alt="RISHA"></div>
+                <div class="brand-text">
+                    <span>RISHA</span>
+                    <small>Pet Shop</small>
+                </div>
             </div>
-            <button class="nav-theme" id="themeToggleBtn" title="Toggle theme">🌙</button>
-            <button class="nav-logout" onclick="logout()">🚪 Logout</button>
+        </div>
+        <div class="sidebar-nav">
+            <a href="dashboard.html" class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+            <a href="inventory.html" class="nav-link"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span></a>
+            <a href="sales.html" class="nav-link"><span class="nav-icon">💰</span><span class="nav-label">Sales</span></a>
+            <a href="suppliers.html" class="nav-link"><span class="nav-icon">🚚</span><span class="nav-label">Suppliers</span></a>
+            <a href="reports.html" class="nav-link"><span class="nav-icon">📈</span><span class="nav-label">Reports</span></a>
+            <a href="analytics.html" class="nav-link"><span class="nav-icon">🤖</span><span class="nav-label">Analytics</span></a>
+            <a href="audit.html" class="nav-link active"><span class="nav-icon">📋</span><span class="nav-label">Audit Logs</span></a>
+            <a href="users.html" class="nav-link" id="usersLink"><span class="nav-icon">👥</span><span class="nav-label">Users</span></a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="avatar">👤</div>
+                <div class="user-info">
+                    <span id="userName">Loading...</span>
+                    <small id="userRole">Staff</small>
+                </div>
+            </div>
+            <div class="sidebar-actions">
+                <button class="sidebar-btn" onclick="openGlobalSearch()" title="Search (⌘K)">🔍</button>
+                <button class="sidebar-btn" id="themeToggleBtn" title="Toggle theme">🌙</button>
+                <button class="sidebar-btn sidebar-logout" onclick="logout()" title="Logout">🚪</button>
+            </div>
         </div>
     </nav>
 
-    <div class="page-header">
-        <div>
-            <h1>Audit Trail</h1>
-            <div class="breadcrumb"><span>Logs</span> &middot; System activity audit trail</div>
+    <div class="main-wrapper">
+        <div class="page-header">
+            <div>
+                <h1>Audit Trail</h1>
+                <div class="breadcrumb"><span>Logs</span> · System activity audit trail</div>
+            </div>
+            <div class="page-header-actions">
+            </div>
         </div>
-        <div class="page-header-actions">
-        </div>
-    </div>
 
-    <div class="content">
-        <div class="table-container">
-            <div style="padding:20px 24px;border-bottom:1px solid var(--border-color);">
-                <div class="filter-bar">
-                    <select id="actionFilter" onchange="loadAuditLogs()">
-                        <option value="">All Actions</option>
-                        <option value="create">Create</option>
-                        <option value="update">Update</option>
-                        <option value="delete">Delete</option>
-                        <option value="login">Login</option>
-                    </select>
-                    <select id="tableFilter" onchange="loadAuditLogs()">
-                        <option value="">All Modules</option>
-                        <option value="products">Products</option>
-                        <option value="sales">Sales</option>
-                        <option value="suppliers">Suppliers</option>
-                        <option value="purchase_orders">Purchase Orders</option>
-                        <option value="users">Users</option>
-                    </select>
-                    <button class="btn-secondary" onclick="refreshAudit()">🔄 Refresh</button>
+        <div class="content">
+            <div class="table-container">
+                <div style="padding:20px 24px;border-bottom:1px solid var(--border-color);">
+                    <div class="filter-bar">
+                        <select id="actionFilter" onchange="loadAuditLogs()" style="padding:8px 12px;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);font-size:13px;background:white;color:var(--text-primary);font-family:var(--font-sans);">
+                            <option value="">All Actions</option>
+                            <option value="create">Create</option>
+                            <option value="update">Update</option>
+                            <option value="delete">Delete</option>
+                            <option value="login">Login</option>
+                        </select>
+                        <select id="tableFilter" onchange="loadAuditLogs()" style="padding:8px 12px;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);font-size:13px;background:white;color:var(--text-primary);font-family:var(--font-sans);">
+                            <option value="">All Modules</option>
+                            <option value="products">Products</option>
+                            <option value="sales">Sales</option>
+                            <option value="suppliers">Suppliers</option>
+                            <option value="purchase_orders">Purchase Orders</option>
+                            <option value="users">Users</option>
+                        </select>
+                        <button class="btn-secondary" onclick="refreshAudit()">🔄 Refresh</button>
+                    </div>
                 </div>
+                <div id="auditList" class="audit-list">
+                    <div class="text-center" style="padding:40px;">Loading audit logs...</div>
+                </div>
+                <div id="pagination" class="pagination"></div>
             </div>
-            <div id="auditList" class="audit-list">
-                <div class="text-center" style="padding:40px;">Loading audit logs...</div>
-            </div>
-            <div id="pagination" class="pagination"></div>
         </div>
     </div>
 
-    <script src="js/auth.js?v=3.0"></script>
-    <script src="js/audit.js?v=3.0"></script>
+    <script>
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+        document.addEventListener('click', function(e) {
+            var sidebar = document.getElementById('sidebar');
+            var hamburger = document.getElementById('hamburgerBtn');
+            if (window.innerWidth <= 768 && !sidebar.contains(e.target) && !hamburger.contains(e.target)) {
+                sidebar.classList.remove('open');
+            }
+        });
+    </script>
+    <script src="js/auth.js"></script>
+    <script src="js/audit.js"></script>
 </body>
 </html>

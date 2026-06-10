@@ -6,86 +6,102 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RISHA PET SUPPLIES - Suppliers</title>
+    <title>RISHA — Suppliers</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css">
     <link rel="stylesheet" href="css/suppliers.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
-    <nav class="top-nav">
-        <div class="nav-brand">
-            <div class="brand-icon"><img src="images/logo.jpeg" alt="RISHA"></div>
-            <span>RISHA <em>Pet</em></span>
-        </div>
-        <div class="nav-links">
-            <a href="dashboard.html" class="nav-link"><span class="link-icon">📊</span> <span>Dashboard</span></a>
-            <a href="inventory.html" class="nav-link"><span class="link-icon">📦</span> <span>Inventory</span></a>
-            <a href="sales.html" class="nav-link"><span class="link-icon">💰</span> <span>Sales</span></a>
-            <a href="suppliers.html" class="nav-link active"><span class="link-icon">🚚</span> <span>Suppliers</span></a>
-            <a href="reports.html" class="nav-link"><span class="link-icon">📈</span> <span>Reports</span></a>
-            <a href="audit.html" class="nav-link"><span class="link-icon">📋</span> <span>Audit</span></a>
-            <a href="users.html" class="nav-link" id="usersLink"><span class="link-icon">👥</span> <span>Users</span></a>
-            <a href="analytics.html" class="nav-link"><span class="link-icon">🤖</span> <span>Analytics</span></a>
-        </div>
-        <div class="nav-right">
-            <button class="global-search-btn" onclick="openGlobalSearch()">🔍 <kbd>⌘K</kbd></button>
-            <div class="nav-user">
-                <span id="userName">Loading...</span>
-                <div class="avatar">👤</div>
+    <button class="sidebar-hamburger" id="hamburgerBtn" onclick="toggleSidebar()">☰</button>
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <div class="brand-icon"><img src="images/logo.jpeg" alt="RISHA"></div>
+                <div class="brand-text">
+                    <span>RISHA</span>
+                    <small>Pet Shop</small>
+                </div>
             </div>
-            <button class="nav-theme" id="themeToggleBtn" title="Toggle theme">🌙</button>
-            <button class="nav-logout" onclick="logout()">🚪 Logout</button>
+        </div>
+        <div class="sidebar-nav">
+            <a href="dashboard.html" class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+            <a href="inventory.html" class="nav-link"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span></a>
+            <a href="sales.html" class="nav-link"><span class="nav-icon">💰</span><span class="nav-label">Sales</span></a>
+            <a href="suppliers.html" class="nav-link active"><span class="nav-icon">🚚</span><span class="nav-label">Suppliers</span></a>
+            <a href="reports.html" class="nav-link"><span class="nav-icon">📈</span><span class="nav-label">Reports</span></a>
+            <a href="analytics.html" class="nav-link"><span class="nav-icon">🤖</span><span class="nav-label">Analytics</span></a>
+            <a href="audit.html" class="nav-link"><span class="nav-icon">📋</span><span class="nav-label">Audit Logs</span></a>
+            <a href="users.html" class="nav-link" id="usersLink"><span class="nav-icon">👥</span><span class="nav-label">Users</span></a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="avatar">👤</div>
+                <div class="user-info">
+                    <span id="userName">Loading...</span>
+                    <small id="userRole">Staff</small>
+                </div>
+            </div>
+            <div class="sidebar-actions">
+                <button class="sidebar-btn" onclick="openGlobalSearch()" title="Search (⌘K)">🔍</button>
+                <button class="sidebar-btn" id="themeToggleBtn" title="Toggle theme">🌙</button>
+                <button class="sidebar-btn sidebar-logout" onclick="logout()" title="Logout">🚪</button>
+            </div>
         </div>
     </nav>
 
-    <div class="page-header">
-        <div>
-            <h1>Suppliers</h1>
-            <div class="breadcrumb"><span>Vendors</span> &middot; Manage suppliers &amp; purchase orders</div>
-        </div>
-        <div class="page-header-actions">
-            <input type="text" id="searchInput" class="search-box" placeholder="Search suppliers..." style="width:200px;">
-            <button class="btn-primary" onclick="openAddSupplierModal()">➕ Add Supplier</button>
-        </div>
-    </div>
-
-    <div class="content">
-        <div class="stat-row">
-            <div class="stat-card">
-                <div class="stat-icon green">🏢</div>
-                <div class="stat-body">
-                    <span class="stat-label">Total Suppliers</span>
-                    <span class="stat-value" id="totalSuppliers">0</span>
-                </div>
+    <div class="main-wrapper">
+        <div class="page-header">
+            <div>
+                <h1>Suppliers</h1>
+                <div class="breadcrumb"><span>Vendors</span> · Manage suppliers &amp; purchase orders</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon blue">✅</div>
-                <div class="stat-body">
-                    <span class="stat-label">Active Suppliers</span>
-                    <span class="stat-value" id="activeSuppliers">0</span>
-                </div>
+            <div class="page-header-actions">
+                <input type="text" id="searchInput" class="search-box" placeholder="Search suppliers..." style="width:200px;">
+                <button class="btn-primary" onclick="openAddSupplierModal()">➕ Add Supplier</button>
             </div>
         </div>
 
-        <div class="table-container">
-            <table class="data-table supplier-table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Contact Person</th>
-                        <th>Email</th>
-                        <th>Phone</th>
-                        <th>Payment Terms</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="suppliersTableBody">
-                    <tr>
-                        <td colspan="7" class="text-center">Loading suppliers...</td>
-                    </tr>
-                </tbody>
-            </table>
+        <div class="content">
+            <div class="stat-row">
+                <div class="stat-card">
+                    <div class="stat-icon green">🏢</div>
+                    <div class="stat-body">
+                        <span class="stat-label">Total Suppliers</span>
+                        <span class="stat-value" id="totalSuppliers">0</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon blue">✅</div>
+                    <div class="stat-body">
+                        <span class="stat-label">Active Suppliers</span>
+                        <span class="stat-value" id="activeSuppliers">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table supplier-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Contact Person</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Payment Terms</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="suppliersTableBody">
+                        <tr>
+                            <td colspan="7" class="text-center">Loading suppliers...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -212,7 +228,19 @@
         </div>
     </div>
 
-    <script src="js/auth.js?v=3.0"></script>
-    <script src="js/suppliers.js?v=3.0"></script>
+    <script>
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+        document.addEventListener('click', function(e) {
+            var sidebar = document.getElementById('sidebar');
+            var hamburger = document.getElementById('hamburgerBtn');
+            if (window.innerWidth <= 768 && !sidebar.contains(e.target) && !hamburger.contains(e.target)) {
+                sidebar.classList.remove('open');
+            }
+        });
+    </script>
+    <script src="js/auth.js"></script>
+    <script src="js/suppliers.js"></script>
 </body>
 </html>

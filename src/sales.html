@@ -6,101 +6,117 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RISHA PET SUPPLIES - Sales Management</title>
+    <title>RISHA — Sales</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css">
     <link rel="stylesheet" href="css/sales.css">
 </head>
 <body>
-    <nav class="top-nav">
-        <div class="nav-brand">
-            <div class="brand-icon"><img src="images/logo.jpeg" alt="RISHA"></div>
-            <span>RISHA <em>Pet</em></span>
-        </div>
-        <div class="nav-links">
-            <a href="dashboard.html" class="nav-link"><span class="link-icon">📊</span> <span>Dashboard</span></a>
-            <a href="inventory.html" class="nav-link"><span class="link-icon">📦</span> <span>Inventory</span></a>
-            <a href="sales.html" class="nav-link active"><span class="link-icon">💰</span> <span>Sales</span></a>
-            <a href="suppliers.html" class="nav-link"><span class="link-icon">🚚</span> <span>Suppliers</span></a>
-            <a href="reports.html" class="nav-link"><span class="link-icon">📈</span> <span>Reports</span></a>
-            <a href="audit.html" class="nav-link"><span class="link-icon">📋</span> <span>Audit</span></a>
-            <a href="users.html" class="nav-link" id="usersLink"><span class="link-icon">👥</span> <span>Users</span></a>
-            <a href="analytics.html" class="nav-link"><span class="link-icon">🤖</span> <span>Analytics</span></a>
-        </div>
-        <div class="nav-right">
-            <button class="global-search-btn" onclick="openGlobalSearch()">🔍 <kbd>⌘K</kbd></button>
-            <div class="nav-user">
-                <span id="userName">Loading...</span>
-                <div class="avatar">👤</div>
+    <button class="sidebar-hamburger" id="hamburgerBtn" onclick="toggleSidebar()">☰</button>
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <div class="brand-icon"><img src="images/logo.jpeg" alt="RISHA"></div>
+                <div class="brand-text">
+                    <span>RISHA</span>
+                    <small>Pet Shop</small>
+                </div>
             </div>
-            <button class="nav-theme" id="themeToggleBtn" title="Toggle theme">🌙</button>
-            <button class="nav-logout" onclick="logout()">🚪 Logout</button>
+        </div>
+        <div class="sidebar-nav">
+            <a href="dashboard.html" class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+            <a href="inventory.html" class="nav-link"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span></a>
+            <a href="sales.html" class="nav-link active"><span class="nav-icon">💰</span><span class="nav-label">Sales</span></a>
+            <a href="suppliers.html" class="nav-link"><span class="nav-icon">🚚</span><span class="nav-label">Suppliers</span></a>
+            <a href="reports.html" class="nav-link"><span class="nav-icon">📈</span><span class="nav-label">Reports</span></a>
+            <a href="analytics.html" class="nav-link"><span class="nav-icon">🤖</span><span class="nav-label">Analytics</span></a>
+            <a href="audit.html" class="nav-link"><span class="nav-icon">📋</span><span class="nav-label">Audit Logs</span></a>
+            <a href="users.html" class="nav-link" id="usersLink"><span class="nav-icon">👥</span><span class="nav-label">Users</span></a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="avatar">👤</div>
+                <div class="user-info">
+                    <span id="userName">Loading...</span>
+                    <small id="userRole">Staff</small>
+                </div>
+            </div>
+            <div class="sidebar-actions">
+                <button class="sidebar-btn" onclick="openGlobalSearch()" title="Search (⌘K)">🔍</button>
+                <button class="sidebar-btn" id="themeToggleBtn" title="Toggle theme">🌙</button>
+                <button class="sidebar-btn sidebar-logout" onclick="logout()" title="Logout">🚪</button>
+            </div>
         </div>
     </nav>
 
-    <div class="page-header">
-        <div>
-            <h1>Sales</h1>
-            <div class="breadcrumb"><span>Point of Sale</span></div>
-        </div>
-        <div class="page-header-actions">
-            <input type="text" id="searchInput" class="search-box" placeholder="Search sales..." style="width:180px;">
-            <button class="btn-primary" onclick="openNewSaleModal()" style="padding:10px 20px;">➕ New Sale</button>
-            <button class="btn-secondary" onclick="exportSalesCsv()">📥 Export CSV</button>
-        </div>
-    </div>
-
-    <div class="content">
-        <div class="filter-bar" style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
-            <label style="font-size:12px;font-weight:600;color:var(--text-secondary);">From:</label>
-            <input type="date" id="dateFrom" style="padding:7px 10px;background:var(--bg-glass);border:1px solid var(--border-glass);border-radius:var(--radius-md);color:var(--text-primary);font-size:13px;font-family:var(--font-sans);">
-            <label style="font-size:12px;font-weight:600;color:var(--text-secondary);">To:</label>
-            <input type="date" id="dateTo" style="padding:7px 10px;background:var(--bg-glass);border:1px solid var(--border-glass);border-radius:var(--radius-md);color:var(--text-primary);font-size:13px;font-family:var(--font-sans);">
-            <button class="btn-primary" onclick="filterSalesByDate()" style="padding:7px 16px;font-size:13px;">🔍 Filter</button>
-            <button class="btn-secondary" onclick="clearDateFilter()" style="padding:7px 16px;font-size:13px;">Clear</button>
-        </div>
-        <div class="stat-row">
-            <div class="stat-card">
-                <div class="stat-icon green">💰</div>
-                <div class="stat-body">
-                    <span class="stat-label">Total Sales Amount</span>
-                    <span class="stat-value" id="totalSalesAmount">₱0.00</span>
-                </div>
+    <div class="main-wrapper">
+        <div class="page-header">
+            <div>
+                <h1>Sales</h1>
+                <div class="breadcrumb"><span>Point of Sale</span></div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon blue">📋</div>
-                <div class="stat-body">
-                    <span class="stat-label">Total Transactions</span>
-                    <span class="stat-value" id="totalTransactions">0</span>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon purple">📈</div>
-                <div class="stat-body">
-                    <span class="stat-label">Today's Sales</span>
-                    <span class="stat-value" id="todaysSales">₱0.00</span>
-                </div>
+            <div class="page-header-actions">
+                <input type="text" id="searchInput" class="search-box" placeholder="Search sales..." style="width:180px;">
+                <button class="btn-primary" onclick="openNewSaleModal()" style="padding:10px 20px;">➕ New Sale</button>
+                <button class="btn-secondary" onclick="exportSalesCsv()">📥 Export CSV</button>
             </div>
         </div>
 
-        <div class="table-container">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Sale #</th>
-                        <th>Date</th>
-                        <th>Customer</th>
-                        <th>Staff</th>
-                        <th>Items</th>
-                        <th>Total Amount</th>
-                        <th>Payment</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="salesTableBody">
-                    <tr><td colspan="9" class="text-center">Loading sales...</td></tr>
-                </tbody>
-            </table>
+        <div class="content">
+            <div class="filter-bar" style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+                <label style="font-size:12px;font-weight:600;color:var(--text-secondary);">From:</label>
+                <input type="date" id="dateFrom" style="padding:7px 10px;background:white;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);color:var(--text-primary);font-size:13px;font-family:var(--font-sans);">
+                <label style="font-size:12px;font-weight:600;color:var(--text-secondary);">To:</label>
+                <input type="date" id="dateTo" style="padding:7px 10px;background:white;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);color:var(--text-primary);font-size:13px;font-family:var(--font-sans);">
+                <button class="btn-primary" onclick="filterSalesByDate()" style="padding:7px 16px;font-size:13px;">🔍 Filter</button>
+                <button class="btn-secondary" onclick="clearDateFilter()" style="padding:7px 16px;font-size:13px;">Clear</button>
+            </div>
+            <div class="stat-row">
+                <div class="stat-card">
+                    <div class="stat-icon green">💰</div>
+                    <div class="stat-body">
+                        <span class="stat-label">Total Sales Amount</span>
+                        <span class="stat-value" id="totalSalesAmount">₱0.00</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon blue">📋</div>
+                    <div class="stat-body">
+                        <span class="stat-label">Total Transactions</span>
+                        <span class="stat-value" id="totalTransactions">0</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple">📈</div>
+                    <div class="stat-body">
+                        <span class="stat-label">Today's Sales</span>
+                        <span class="stat-value" id="todaysSales">₱0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Sale #</th>
+                            <th>Date</th>
+                            <th>Customer</th>
+                            <th>Staff</th>
+                            <th>Items</th>
+                            <th>Total Amount</th>
+                            <th>Payment</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="salesTableBody">
+                        <tr><td colspan="9" class="text-center">Loading sales...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -234,7 +250,19 @@
         </div>
     </div>
 
-    <script src="js/auth.js?v=3.0"></script>
-    <script src="js/point-of-sale.js?v=20260513"></script>
+    <script>
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+        document.addEventListener('click', function(e) {
+            var sidebar = document.getElementById('sidebar');
+            var hamburger = document.getElementById('hamburgerBtn');
+            if (window.innerWidth <= 768 && !sidebar.contains(e.target) && !hamburger.contains(e.target)) {
+                sidebar.classList.remove('open');
+            }
+        });
+    </script>
+    <script src="js/auth.js"></script>
+    <script src="js/point-of-sale.js"></script>
 </body>
 </html>
