@@ -17,6 +17,7 @@ let allProducts = [];
 let cartItems = [];
 let barcodeBuffer = '';
 let lastKeyTime = 0;
+let currentPaymentMethod = 'cash';
 const POS_PAGE_SIZE = 20;
 let posDisplayCount = POS_PAGE_SIZE;
 let posFilteredProducts = [];
@@ -183,6 +184,22 @@ function addToCart(productId) {
     showToast(`${product.name} added to cart`, 'success');
 }
 
+function clearCart() {
+    if (cartItems.length === 0) return;
+    cartItems = [];
+    document.getElementById('posDiscount').value = 0;
+    const tenderInput = document.getElementById('posTendered');
+    if (tenderInput) tenderInput.value = '';
+    renderCart();
+    updateCartTotals();
+    showToast('Cart cleared', 'info');
+}
+
+function clearBarcodeInput() {
+    const input = document.getElementById('barcodeScanInput');
+    if (input) { input.value = ''; input.focus(); }
+}
+
 function removeFromCart(idx) {
     const removed = cartItems.splice(idx, 1)[0];
     renderCart();
@@ -198,6 +215,24 @@ function updateCartQty(idx, delta) {
     const maxStock = parseFloat(allProducts.find(p => p.id === item.product_id)?.stock_quantity || 999);
     if (newQty < qtyStep) { removeFromCart(idx); return; }
     if (newQty > maxStock) { showToast('Not enough stock', 'error'); return; }
+    item.quantity = newQty;
+    item.total_price = newQty * item.unit_price;
+    renderCart();
+    updateCartTotals();
+}
+
+function setCartQty(idx, value) {
+    const item = cartItems[idx];
+    if (!item) return;
+    const qtyStep = getQtyStep(item.unit_type);
+    let newQty = parseFloat(value);
+    if (isNaN(newQty) || newQty < qtyStep) { removeFromCart(idx); return; }
+    newQty = parseFloat(newQty.toFixed(2));
+    const maxStock = parseFloat(allProducts.find(p => p.id === item.product_id)?.stock_quantity || 999);
+    if (newQty > maxStock) {
+        showToast('Only ' + maxStock + ' in stock', 'error');
+        newQty = maxStock;
+    }
     item.quantity = newQty;
     item.total_price = newQty * item.unit_price;
     renderCart();
@@ -222,7 +257,7 @@ function renderCart() {
             </div>
             <div class="pos-ci-qty">
                 <button onclick="updateCartQty(${idx}, -1)" title="Decrease"><span class="material-symbols-outlined" style="font-size:14px;">remove</span></button>
-                <span class="qty-val">${item.quantity}</span>
+                <input type="number" class="qty-val" value="${item.quantity}" min="0" step="${getQtyStep(item.unit_type)}" onchange="setCartQty(${idx}, this.value)" onclick="this.select()">
                 <button onclick="updateCartQty(${idx}, 1)" title="Increase"><span class="material-symbols-outlined" style="font-size:14px;">add</span></button>
             </div>
             <div class="pos-ci-total">₱${item.total_price.toFixed(2)}</div>
@@ -239,6 +274,51 @@ function updateCartTotals() {
     document.getElementById('posSubtotal').textContent = '₱' + subtotal.toFixed(2);
     document.getElementById('posDiscountAmount').textContent = '-₱' + discAmt.toFixed(2);
     document.getElementById('posTotal').textContent = '₱' + total.toFixed(2);
+    updateChange();
+}
+
+function getCartTotal() {
+    const subtotal = cartItems.reduce((sum, i) => sum + i.total_price, 0);
+    const discPct = parseFloat(document.getElementById('posDiscount')?.value) || 0;
+    return subtotal - subtotal * (discPct / 100);
+}
+
+function setPaymentMethod(method, btn) {
+    currentPaymentMethod = method;
+    document.querySelectorAll('.pos-pay-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    const tenderSection = document.getElementById('posTenderSection');
+    if (tenderSection) tenderSection.style.display = method === 'cash' ? '' : 'none';
+    updateChange();
+}
+
+function updateChange() {
+    const changeEl = document.getElementById('posChange');
+    const changeRow = document.getElementById('posChangeRow');
+    if (!changeEl || !changeRow) return;
+    const tendered = parseFloat(document.getElementById('posTendered')?.value) || 0;
+    const total = getCartTotal();
+    const change = tendered - total;
+    if (currentPaymentMethod !== 'cash' || tendered <= 0) {
+        changeEl.textContent = '₱0.00';
+        changeRow.classList.remove('insufficient', 'sufficient');
+        return;
+    }
+    changeEl.textContent = (change < 0 ? '-₱' : '₱') + Math.abs(change).toFixed(2);
+    changeRow.classList.toggle('insufficient', change < 0);
+    changeRow.classList.toggle('sufficient', change >= 0);
+}
+
+function quickCash(amount) {
+    const input = document.getElementById('posTendered');
+    if (!input) return;
+    if (amount === 'exact') {
+        input.value = getCartTotal().toFixed(2);
+    } else {
+        const current = parseFloat(input.value) || 0;
+        input.value = (current + amount).toFixed(2);
+    }
+    updateChange();
 }
 
 async function completeSale() {
@@ -249,14 +329,23 @@ async function completeSale() {
     const discAmt = subtotal * (discount / 100);
     const total = subtotal - discAmt;
     const itemSummary = cartItems.map(i => `${escHtml(i.product_name)} × ${i.quantity}`).join('<br>');
-    const paymentMethod = document.getElementById('posPaymentMethod')?.value || 'cash';
+    const paymentMethod = currentPaymentMethod || 'cash';
     const customer = document.getElementById('posCustomerName')?.value || 'Walk-in';
+    let tendered = 0;
+    let change = 0;
+    if (paymentMethod === 'cash') {
+        tendered = parseFloat(document.getElementById('posTendered')?.value) || 0;
+        if (tendered <= 0) { showToast('Enter the cash amount tendered', 'error'); document.getElementById('posTendered')?.focus(); return; }
+        if (tendered < total) { showToast('Insufficient cash — customer gave less than the total', 'error'); return; }
+        change = tendered - total;
+    }
     const msg = `<div style="text-align:left;font-size:13px;line-height:1.7;">
         <div style="margin-bottom:10px;"><strong>Items:</strong><br>${itemSummary}</div>
         <div><strong>Subtotal:</strong> ₱${subtotal.toFixed(2)}</div>
         ${discount > 0 ? `<div><strong>Discount:</strong> ${discount}% (-₱${discAmt.toFixed(2)})</div>` : ''}
         <div style="font-size:16px;font-weight:800;margin-top:6px;padding-top:8px;border-top:2px solid var(--border-glass);"><strong>Total:</strong> ₱${total.toFixed(2)}</div>
         <div style="margin-top:6px;"><strong>Payment:</strong> ${paymentMethod.toUpperCase()}</div>
+        ${paymentMethod === 'cash' ? `<div><strong>Cash tendered:</strong> ₱${tendered.toFixed(2)}</div><div><strong>Change:</strong> <span style="font-weight:800;color:var(--success, #A8DDB5);">₱${change.toFixed(2)}</span></div>` : ''}
         <div><strong>Customer:</strong> ${escHtml(customer)}</div>
     </div>`;
     showConfirmDialog('Confirm Sale', msg, async () => {
@@ -278,7 +367,7 @@ async function completeSale() {
             });
             const data = await response.json();
             if (data.success) {
-                showToast('Sale completed!', 'success');
+                showToast('Sale completed!' + (paymentMethod === 'cash' && change > 0 ? ' Change: ₱' + change.toFixed(2) : ''), 'success');
                 const saleId = data.data?.id || data.data?.sale_id;
                 cartItems = [];
                 renderCart();
@@ -286,7 +375,10 @@ async function completeSale() {
                 document.getElementById('posCustomerName').value = '';
                 document.getElementById('posCustomerPhone').value = '';
                 document.getElementById('posDiscount').value = 0;
-                if (saleId) printReceipt(saleId);
+                const tenderInput = document.getElementById('posTendered');
+                if (tenderInput) tenderInput.value = '';
+                updateChange();
+                if (saleId) printReceipt(saleId, tendered, change);
             } else {
                 showToast('Error: ' + (data.message || 'Unknown'), 'error');
             }
@@ -297,7 +389,7 @@ async function completeSale() {
     }, 'Pay Now', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">payments</span>');
 }
 
-async function printReceipt(saleId) {
+async function printReceipt(saleId, tendered, change) {
     try {
         const res = await fetch(`${API_BASE}/sales/${saleId}`, { headers: getAuthHeaders() });
         const data = await res.json();
@@ -351,7 +443,7 @@ async function printReceipt(saleId) {
                 <div class="grand-total">TOTAL: ₱${total}</div>
                 <div class="footer">
                     <div>Payment: ${(sale.payment_method || 'cash').toUpperCase()}</div>
-                    <div>Change: ₱${parseFloat(sale.change_amount || 0).toFixed(2)}</div>
+                    ${typeof tendered === 'number' && tendered > 0 ? `<div>Cash: ₱${tendered.toFixed(2)}</div><div>Change: ₱${(change || 0).toFixed(2)}</div>` : ''}
                     <div style="margin-top:8px;">Thank you for your purchase!</div>
                     <div style="margin-top:4px;">Items are non-returnable</div>
                     <div class="barcode">${String(sale.sale_number || sale.id).padStart(6, '0')}</div>

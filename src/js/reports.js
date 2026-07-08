@@ -217,8 +217,8 @@ function renderSalesChart(rows) {
         data: {
             labels,
             datasets: [
-                { label: 'Sales Count', data: salesCount, backgroundColor: '#4f46e5', yAxisID: 'y' },
-                { label: 'Revenue (₱)', data: revenue, backgroundColor: '#10b981', yAxisID: 'y1' }
+                { label: 'Sales Count', data: salesCount, backgroundColor: '#6FB3DF', yAxisID: 'y' },
+                { label: 'Revenue (₱)', data: revenue, backgroundColor: '#7FC98F', yAxisID: 'y1' }
             ]
         },
         options: {
@@ -241,7 +241,7 @@ function renderTopProductsChart(products) {
     if (topProductsChart) topProductsChart.destroy();
     const labels = products.map(p => p.name || p.label || '');
     const values = products.map(p => parseInt(p.quantity || p.count || 0));
-    const colors = ['#4f46e5', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'];
+    const colors = ['#6FB3DF', '#F0B95A', '#7FC98F', '#E8746C', '#B78FD6'];
     topProductsChart = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -265,7 +265,7 @@ function renderPaymentChart(payments) {
     if (paymentChart) paymentChart.destroy();
     const labels = payments.map(p => (p.payment_method || 'unknown').charAt(0).toUpperCase() + (p.payment_method || 'unknown').slice(1));
     const values = payments.map(p => parseFloat(p.total || 0));
-    const colors = ['#10b981', '#4f46e5', '#f59e0b', '#ef4444'];
+    const colors = ['#7FC98F', '#6FB3DF', '#F0B95A', '#E8746C'];
     paymentChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -294,7 +294,7 @@ function renderCategoryChart(categories) {
     if (categoryChart) categoryChart.destroy();
     const labels = categories.map(c => c.category_name || 'Unknown');
     const values = categories.map(c => parseFloat(c.total_revenue || 0));
-    const colors = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+    const colors = ['#6FB3DF', '#7FC98F', '#F0B95A', '#E8746C', '#B78FD6', '#F49AC1', '#66C2B5', '#F5A25F'];
     categoryChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -389,7 +389,7 @@ function showToast(message, type) {
         toast.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:12px 24px;border-radius:8px;color:#fff;font-weight:500;z-index:9999;transition:opacity 0.3s;display:flex;align-items:center;gap:8px;';
         document.body.appendChild(toast);
     }
-    toast.style.background = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#3b82f6';
+    toast.style.background = type === 'error' ? '#E8746C' : type === 'success' ? '#7FC98F' : '#5FA8D8';
     const icons = {
         success: '<span class="material-symbols-outlined" style="font-size:16px;">check_circle</span>',
         error: '<span class="material-symbols-outlined" style="font-size:16px;">error</span>',

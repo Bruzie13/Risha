@@ -469,10 +469,10 @@ loadDashboardStats = async function() {
 
 // ═══ Activity Orbit Visualization ═══
 const ORBIT_RINGS = [
-    { label: 'Sales',     color: '#FFB5A7', radius: 0.28, speed: 0.4, count: 4, metric: 0.5 },
-    { label: 'Stock',     color: '#FFE5A3', radius: 0.44, speed: 0.6, count: 5, metric: 0.5 },
-    { label: 'Inventory', color: '#B5E5B5', radius: 0.60, speed: 0.3, count: 6, metric: 0.5 },
-    { label: 'Alerts',    color: '#A8D8EA', radius: 0.76, speed: 0.5, count: 4, metric: 0.5 },
+    { label: 'Sales',     color: '#F28B82', radius: 0.28, speed: 0.4, count: 4, metric: 0.5 },
+    { label: 'Stock',     color: '#F9D77E', radius: 0.44, speed: 0.6, count: 5, metric: 0.5 },
+    { label: 'Inventory', color: '#A8DDB5', radius: 0.60, speed: 0.3, count: 6, metric: 0.5 },
+    { label: 'Alerts',    color: '#8ECDEE', radius: 0.76, speed: 0.5, count: 4, metric: 0.5 },
 ];
 
 let orbitRingData = [[], [], [], []];

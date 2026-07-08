@@ -34,6 +34,7 @@ function onProductChange() {
     const sel = document.getElementById('productSelector');
     const metricsGrid = document.getElementById('metricsGrid');
     const chartsSection = document.getElementById('chartsSection');
+    const advice = document.getElementById('forecastAdvice');
     if (sel && sel.value) {
         metricsGrid.style.display = 'grid';
         chartsSection.style.display = 'grid';
@@ -41,6 +42,7 @@ function onProductChange() {
     } else {
         metricsGrid.style.display = 'none';
         chartsSection.style.display = 'none';
+        if (advice) advice.style.display = 'none';
     }
 }
 
@@ -79,8 +81,8 @@ function clearCharts() {
     document.getElementById('confidenceScore').textContent = '--';
     document.getElementById('reorderPoint').textContent = '--';
     document.getElementById('trendIndicator').innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">trending_flat</span> --';
-    const tt = document.getElementById('trendText');
-    if (tt) tt.textContent = 'Select a product with sufficient sales data';
+    const advice = document.getElementById('forecastAdvice');
+    if (advice) advice.style.display = 'none';
 }
 
 function renderForecastChart(data) {
@@ -133,8 +135,8 @@ function renderForecastChart(data) {
         {
             label: 'Historical Sales',
             data: histValues,
-            borderColor: '#4f46e5',
-            backgroundColor: 'rgba(79, 70, 229, 0.1)',
+            borderColor: '#6FB3DF',
+            backgroundColor: 'rgba(111, 179, 223, 0.1)',
             fill: true,
             tension: 0.3,
             pointRadius: 2
@@ -142,8 +144,8 @@ function renderForecastChart(data) {
         {
             label: 'Predicted Sales',
             data: predValues,
-            borderColor: '#f59e0b',
-            backgroundColor: 'rgba(245, 158, 11, 0.08)',
+            borderColor: '#F0B95A',
+            backgroundColor: 'rgba(240, 185, 90, 0.08)',
             borderDash: [5, 5],
             fill: false,
             tension: 0.3,
@@ -155,8 +157,8 @@ function renderForecastChart(data) {
         datasets.push({
             label: 'Forecast Range (upper)',
             data: upperValues,
-            borderColor: 'rgba(245, 158, 11, 0)',
-            backgroundColor: 'rgba(245, 158, 11, 0.15)',
+            borderColor: 'rgba(240, 185, 90, 0)',
+            backgroundColor: 'rgba(240, 185, 90, 0.15)',
             fill: false,
             pointRadius: 0,
             tension: 0.3
@@ -164,8 +166,8 @@ function renderForecastChart(data) {
         datasets.push({
             label: 'Forecast Range',
             data: lowerValues,
-            borderColor: 'rgba(245, 158, 11, 0)',
-            backgroundColor: 'rgba(245, 158, 11, 0.15)',
+            borderColor: 'rgba(240, 185, 90, 0)',
+            backgroundColor: 'rgba(240, 185, 90, 0.15)',
             fill: '-1',
             pointRadius: 0,
             tension: 0.3
@@ -207,33 +209,47 @@ function renderPredictionMetrics(data) {
     document.getElementById('reorderPoint').textContent = reorderPoint != null ? reorderPoint : '--';
 
     const trendEl = document.getElementById('trendIndicator');
-    const trendTextEl = document.getElementById('trendText');
+    const t = (trend || '').toLowerCase();
+    let trendAdvice = '';
     if (trendEl) {
-        const t = (trend || '').toLowerCase();
         if (t.includes('up')) {
             trendEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">trending_up</span> Increasing';
-            trendEl.style.color = '#10b981';
-            if (trendTextEl) trendTextEl.textContent = 'Demand is rising — consider increasing stock';
+            trendEl.style.color = '#7FC98F';
+            trendAdvice = 'Demand is rising — consider increasing stock';
         } else if (t.includes('down')) {
             trendEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">trending_down</span> Decreasing';
-            trendEl.style.color = '#ef4444';
-            if (trendTextEl) trendTextEl.textContent = 'Demand is declining — avoid overstocking';
+            trendEl.style.color = '#E8746C';
+            trendAdvice = 'Demand is declining — avoid overstocking';
         } else {
             trendEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">trending_flat</span> Stable';
-            trendEl.style.color = '#f59e0b';
-            if (trendTextEl) trendTextEl.textContent = 'Demand is steady — maintain current levels';
+            trendEl.style.color = '#F0B95A';
+            trendAdvice = 'Demand is steady — maintain current levels';
         }
     }
 
-    if (trendTextEl) {
-        const extras = [];
+    // Merge long recommendation text into a single full-width advice banner
+    // (previously crammed into the small Trend card, causing overflow)
+    const adviceEl = document.getElementById('forecastAdvice');
+    const chipsEl = document.getElementById('forecastAdviceChips');
+    if (adviceEl && chipsEl) {
+        const chips = [];
+        if (trendAdvice) {
+            const cls = t.includes('up') ? 'good' : t.includes('down') ? 'bad' : 'neutral';
+            chips.push({ text: trendAdvice, cls: cls, icon: t.includes('up') ? 'trending_up' : t.includes('down') ? 'trending_down' : 'trending_flat' });
+        }
         if (reorder.days_until_stockout != null && reorder.days_until_stockout < 999) {
-            extras.push(`Stockout in ~${reorder.days_until_stockout} days`);
+            chips.push({ text: 'Estimated stockout in ~' + reorder.days_until_stockout + ' days', cls: reorder.days_until_stockout <= 14 ? 'bad' : 'neutral', icon: 'schedule' });
         }
         if (reorder.reorder_triggered && reorder.recommended_order_quantity > 0) {
-            extras.push(`Suggest ordering ~${reorder.recommended_order_quantity} units`);
+            chips.push({ text: 'Suggest ordering ~' + reorder.recommended_order_quantity + ' units', cls: 'warn', icon: 'shopping_cart' });
         }
-        if (extras.length) trendTextEl.textContent += ' | ' + extras.join(' | ');
+        if (reorder.safety_stock != null && reorder.safety_stock > 0) {
+            chips.push({ text: 'Keep ' + reorder.safety_stock + ' units as safety stock', cls: 'neutral', icon: 'shield' });
+        }
+        chipsEl.innerHTML = chips.map(function (c) {
+            return '<span class="advice-chip ' + c.cls + '"><span class="material-symbols-outlined" style="font-size:14px;">' + c.icon + '</span> ' + c.text + '</span>';
+        }).join('');
+        adviceEl.style.display = chips.length ? 'flex' : 'none';
     }
 }
 
@@ -431,7 +447,7 @@ function renderSeasonalChart(seasonalTrends) {
     if (seasonalChart) seasonalChart.destroy();
     const labels = seasonalTrends.map(s => s.month_name || s.month || '');
     const values = seasonalTrends.map(s => parseFloat(s.avg_quantity || s.avg_sales || 0));
-    const colors = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16', '#06b6d4', '#d946ef'];
+    const colors = ['#6FB3DF', '#7FC98F', '#F0B95A', '#E8746C', '#B78FD6', '#F49AC1', '#66C2B5', '#F5A25F', '#7FA8E8', '#A8CE6A', '#6EC6DC', '#D48AE0'];
     seasonalChart = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -470,7 +486,7 @@ function renderDowChart(patterns) {
             datasets: [{
                 label: 'Avg Daily Sales',
                 data: values,
-                backgroundColor: values.map(v => v === maxVal ? '#4f46e5' : 'rgba(79, 70, 229, 0.45)'),
+                backgroundColor: values.map(v => v === maxVal ? '#6FB3DF' : 'rgba(111, 179, 223, 0.45)'),
                 borderRadius: 4
             }]
         },
@@ -499,7 +515,7 @@ function showToast(message, type) {
         toast.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:12px 24px;border-radius:8px;color:#fff;font-weight:500;z-index:9999;transition:opacity 0.3s;display:flex;align-items:center;gap:8px;';
         document.body.appendChild(toast);
     }
-    toast.style.background = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#3b82f6';
+    toast.style.background = type === 'error' ? '#E8746C' : type === 'success' ? '#7FC98F' : type === 'warning' ? '#F0B95A' : '#5FA8D8';
     const icons = {
         success: '<span class="material-symbols-outlined" style="font-size:16px;">check_circle</span>',
         error: '<span class="material-symbols-outlined" style="font-size:16px;">error</span>',

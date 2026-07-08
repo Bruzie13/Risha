@@ -128,13 +128,28 @@
                             <span>Total</span>
                             <span class="total-val" id="posTotal">₱0.00</span>
                         </div>
-                        <div style="margin-top:8px;">
-                            <select class="form-select" id="posPaymentMethod" style="width:100%;padding:8px 12px;font-size:12px;">
-                                <option value="cash">Cash</option>
-                                <option value="card">Card</option>
-                                <option value="check">Check</option>
-                                <option value="online">Online Transfer</option>
-                            </select>
+                        <div class="pos-payment-methods" id="posPaymentMethods">
+                            <button type="button" class="pos-pay-btn active" data-method="cash" onclick="setPaymentMethod('cash', this)"><span class="material-symbols-outlined">payments</span> Cash</button>
+                            <button type="button" class="pos-pay-btn" data-method="card" onclick="setPaymentMethod('card', this)"><span class="material-symbols-outlined">credit_card</span> Card</button>
+                            <button type="button" class="pos-pay-btn" data-method="check" onclick="setPaymentMethod('check', this)"><span class="material-symbols-outlined">contract</span> Check</button>
+                            <button type="button" class="pos-pay-btn" data-method="online" onclick="setPaymentMethod('online', this)"><span class="material-symbols-outlined">smartphone</span> Online</button>
+                        </div>
+                        <div class="pos-tender-section" id="posTenderSection">
+                            <div class="pos-tender-row">
+                                <label for="posTendered">Cash tendered</label>
+                                <input type="number" id="posTendered" min="0" step="0.01" placeholder="0.00" oninput="updateChange()">
+                            </div>
+                            <div class="pos-quick-cash">
+                                <button type="button" onclick="quickCash('exact')">Exact</button>
+                                <button type="button" onclick="quickCash(100)">₱100</button>
+                                <button type="button" onclick="quickCash(200)">₱200</button>
+                                <button type="button" onclick="quickCash(500)">₱500</button>
+                                <button type="button" onclick="quickCash(1000)">₱1000</button>
+                            </div>
+                            <div class="pos-change-row" id="posChangeRow">
+                                <span>Change</span>
+                                <span id="posChange">₱0.00</span>
+                            </div>
                         </div>
                     </div>
                     <div class="pos-cart-actions">

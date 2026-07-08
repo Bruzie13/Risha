@@ -118,11 +118,11 @@ function showConfirmDialog(title, message, onConfirm, confirmText, icon) {
         : '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">warning</span>';
     dialog.innerHTML = `
         <div style="margin-bottom:15px;">${iconHtml}</div>
-        <h3 style="font-size:20px;color:var(--primary,#FFB5A7);margin-bottom:10px;font-weight:700;">${title}</h3>
+        <h3 style="font-size:20px;color:var(--primary,#F28B82);margin-bottom:10px;font-weight:700;">${title}</h3>
         <p style="font-size:15px;color:var(--text-muted,#888);margin-bottom:25px;line-height:1.5;">${message}</p>
         <div style="display:flex;gap:12px;justify-content:center;">
             <button id="confirmCancelBtn" style="padding:12px 28px;border:2px solid var(--border-color,#e0e0e0);border-radius:8px;background:var(--bg-card,#fff);color:var(--text-secondary,#555);font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;">Cancel</button>
-            <button id="confirmOkBtn" style="padding:12px 28px;border:none;border-radius:8px;background:var(--danger,#F4A7A7);color:#fff;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;">${btnText}</button>
+            <button id="confirmOkBtn" style="padding:12px 28px;border:none;border-radius:8px;background:var(--danger,#E96A6A);color:#fff;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;">${btnText}</button>
         </div>
     `;
 
@@ -136,7 +136,7 @@ function showConfirmDialog(title, message, onConfirm, confirmText, icon) {
     cancelBtn.addEventListener('mouseleave', () => { cancelBtn.style.background = 'var(--bg-card,#fff)'; });
     cancelBtn.addEventListener('click', () => overlay.remove());
     okBtn.addEventListener('mouseenter', () => { okBtn.style.background = '#D98275'; });
-    okBtn.addEventListener('mouseleave', () => { okBtn.style.background = 'var(--danger,#F4A7A7)'; });
+    okBtn.addEventListener('mouseleave', () => { okBtn.style.background = 'var(--danger,#E96A6A)'; });
     okBtn.addEventListener('click', () => { overlay.remove(); onConfirm(); });
 
     const style = document.createElement('style');
@@ -162,12 +162,12 @@ function showPromptDialog(title, message, onConfirm, confirmText, icon, inputTyp
     const inputTypeAttr = inputType || 'number';
     dialog.innerHTML = `
         <div style="margin-bottom:15px;">${iconHtml}</div>
-        <h3 style="font-size:20px;color:var(--primary,#FFB5A7);margin-bottom:10px;font-weight:700;">${title}</h3>
+        <h3 style="font-size:20px;color:var(--primary,#F28B82);margin-bottom:10px;font-weight:700;">${title}</h3>
         <p style="font-size:15px;color:var(--text-muted,#888);margin-bottom:20px;line-height:1.5;">${message}</p>
         <input id="promptInput" type="${inputTypeAttr}" value="${defaultValue || ''}" style="width:100%;padding:12px 16px;border:2px solid var(--border-color,#e0e0e0);border-radius:8px;font-size:16px;text-align:center;font-family:inherit;outline:none;box-sizing:border-box;margin-bottom:20px;" autofocus>
         <div style="display:flex;gap:12px;justify-content:center;">
             <button id="confirmCancelBtn" style="padding:12px 28px;border:2px solid var(--border-color,#e0e0e0);border-radius:8px;background:var(--bg-card,#fff);color:var(--text-secondary,#555);font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;">Cancel</button>
-            <button id="confirmOkBtn" style="padding:12px 28px;border:none;border-radius:8px;background:var(--danger,#F4A7A7);color:#fff;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;">${btnText}</button>
+            <button id="confirmOkBtn" style="padding:12px 28px;border:none;border-radius:8px;background:var(--danger,#E96A6A);color:#fff;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;">${btnText}</button>
         </div>
     `;
 
@@ -184,7 +184,7 @@ function showPromptDialog(title, message, onConfirm, confirmText, icon, inputTyp
     cancelBtn.addEventListener('mouseleave', () => { cancelBtn.style.background = 'var(--bg-card,#fff)'; });
     cancelBtn.addEventListener('click', () => overlay.remove());
     okBtn.addEventListener('mouseenter', () => { okBtn.style.background = '#D98275'; });
-    okBtn.addEventListener('mouseleave', () => { okBtn.style.background = 'var(--danger,#F4A7A7)'; });
+    okBtn.addEventListener('mouseleave', () => { okBtn.style.background = 'var(--danger,#E96A6A)'; });
     okBtn.addEventListener('click', () => { overlay.remove(); onConfirm(input.value); });
 
     const style = document.createElement('style');

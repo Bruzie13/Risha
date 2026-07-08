@@ -166,7 +166,7 @@ function setupEmailSettings() {
 function setEmailStatus(message, type) {
     var el = document.getElementById('emailConfigStatus');
     if (!el) return;
-    var color = type === 'success' ? 'var(--success, #4caf50)' : type === 'error' ? 'var(--danger, #F4A7A7)' : 'var(--text-muted, #888)';
+    var color = type === 'success' ? 'var(--success, #4caf50)' : type === 'error' ? 'var(--danger, #E96A6A)' : 'var(--text-muted, #888)';
     el.style.color = color;
     el.textContent = message || '';
 }
