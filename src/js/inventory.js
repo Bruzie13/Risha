@@ -226,6 +226,7 @@ function showAllProducts() {
 }
 
 // Update statistics
+function updateStats() {
     const totalProducts = allProducts.length;
     const lowStockProducts = allProducts.filter(p => p.stock_quantity <= p.reorder_level).length;
     
@@ -579,33 +580,142 @@ function showWarnings(warnings) {
     showConfirmDialog('Reorder Warnings', list, () => {}, 'Got It', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">smart_toy</span>');
 }
 
-// Auto-reorder function
+// Auto-reorder function — shows product selection list
+const REORDER_PAGE_SIZE = 5;
+
 async function autoReorder() {
     if (isViewer()) { showToast('View-only account. Cannot reorder.', 'error'); return; }
-    showConfirmDialog('Auto-Reorder', 'Generate purchase orders for all low-stock products? Suppliers will be notified.', async () => {
-        try {
-            const response = await fetch(`${API_URL}/purchase-orders/auto-generate`, {
-                method: 'POST', headers: getAuthHeaders()
-            });
-            const data = await response.json();
-            if (data.success) {
-                const count = data.count || (Array.isArray(data.data) ? data.data.length : 0);
-                const msg = count > 0
-                    ? `Generated ${count} purchase order(s)!`
-                    : (data.message || 'No purchase orders generated');
-                showToast(msg, count > 0 ? 'success' : 'warning');
-                if (data.warnings && data.warnings.length > 0) {
-                    setTimeout(() => showWarnings(data.warnings), 500);
-                }
-                await loadProducts();
-            } else {
-                showToast('Error: ' + (data.message || 'Unknown'), 'error');
-            }
-        } catch (error) {
-            console.error('Error in auto-reorder:', error);
-            showToast('Failed to auto-reorder', 'error');
+    if (!allProducts.length) await loadProducts();
+    const lowStock = allProducts.filter(p => p.stock_quantity <= p.reorder_level);
+    if (!lowStock.length) { showToast('No products need reordering', 'info'); return; }
+
+    let displayed = REORDER_PAGE_SIZE;
+    const selected = new Set();
+
+    const existing = document.getElementById('reorderModalOverlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'reorderModalOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s ease;';
+
+    const dialog = document.createElement('div');
+    dialog.style.cssText = 'background:var(--bg-card,#fff);border-radius:12px;padding:0;max-width:600px;width:95%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp 0.25s ease;';
+
+    function render() {
+        const items = lowStock.slice(0, displayed);
+        const rowsHtml = items.map(p => {
+            const checked = selected.has(p.id) ? 'checked' : '';
+            const status = p.stock_quantity === 0 ? 'Out of Stock' : 'Low Stock';
+            const statusColor = p.stock_quantity === 0 ? 'var(--danger)' : 'var(--warning)';
+            return `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border-color,#eee);">
+                <input type="checkbox" id="reord-${p.id}" ${checked} style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:600;font-size:14px;color:var(--text-primary);">${escHtml(p.name)}</div>
+                    <div style="font-size:12px;color:var(--text-muted,#888);">${escHtml(p.sku || '')} · ${p.supplier_name || 'No supplier'}</div>
+                </div>
+                <div style="text-align:right;flex-shrink:0;">
+                    <div style="font-size:12px;color:var(--text-muted,#888);">Stock: <strong>${formatNumber(p.stock_quantity)}</strong></div>
+                    <div style="font-size:12px;color:var(--text-muted,#888);">Reorder at: <strong>${p.reorder_level}</strong></div>
+                </div>
+                <span style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px;background:${statusColor}15;color:${statusColor}">${status}</span>
+            </div>`;
+        }).join('');
+
+        const remaining = lowStock.length - displayed;
+        const loadMoreHtml = remaining > 0
+            ? `<button id="reorderLoadMore" style="display:block;width:calc(100% - 32px);margin:12px 16px;padding:10px;border:2px solid var(--border-color,#e0e0e0);border-radius:8px;background:var(--bg-card,#fff);color:var(--text-secondary,#555);font-weight:600;font-size:13px;cursor:pointer;font-family:inherit;text-align:center;">Show ${Math.min(remaining, REORDER_PAGE_SIZE)} more (${remaining} remaining)</button>`
+            : '';
+
+        dialog.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border-color,#eee);flex-shrink:0;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="material-symbols-outlined" style="color:var(--primary);font-size:22px;">smart_toy</span>
+                    <h3 style="margin:0;font-size:17px;font-weight:700;color:var(--text-primary);">Reorder ${lowStock.length} Low-Stock Items</h3>
+                </div>
+                <button id="reorderClose" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted,#888);padding:0;line-height:1;">&times;</button>
+            </div>
+            <div id="reorderList" style="overflow-y:auto;flex:1;min-height:0;">
+                ${rowsHtml}
+            </div>
+            ${loadMoreHtml}
+            <div style="display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--border-color,#eee);flex-shrink:0;">
+                <button id="reorderCancelBtn" style="flex:1;padding:11px;border:2px solid var(--border-color,#e0e0e0);border-radius:8px;background:var(--bg-card,#fff);color:var(--text-secondary,#555);font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;">Cancel</button>
+                <button id="reorderSubmitBtn" style="flex:2;padding:11px;border:none;border-radius:8px;background:var(--primary,#FFB5A7);color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;">Reorder Selected (${selected.size})</button>
+            </div>
+        `;
+    }
+
+    render();
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    // Add styles
+    if (!document.getElementById('reorderModalStyle')) {
+        const s = document.createElement('style');
+        s.id = 'reorderModalStyle';
+        s.textContent = '@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}';
+        document.head.appendChild(s);
+    }
+
+    // Event listeners
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+    dialog.addEventListener('change', e => {
+        if (e.target.id && e.target.id.startsWith('reord-')) {
+            const id = parseInt(e.target.id.replace('reord-', ''));
+            if (e.target.checked) selected.add(id);
+            else selected.delete(id);
+            const btn = document.getElementById('reorderSubmitBtn');
+            if (btn) btn.textContent = `Reorder Selected (${selected.size})`;
         }
-    }, 'Yes, Reorder', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">smart_toy</span>');
+    });
+
+    dialog.addEventListener('click', e => {
+        if (e.target.id === 'reorderClose' || e.target.id === 'reorderCancelBtn') {
+            overlay.remove();
+        }
+        if (e.target.id === 'reorderLoadMore') {
+            displayed += REORDER_PAGE_SIZE;
+            render();
+            // Re-check selected items after re-render
+            selected.forEach(id => {
+                const cb = document.getElementById(`reord-${id}`);
+                if (cb) cb.checked = true;
+            });
+            const btn = document.getElementById('reorderSubmitBtn');
+            if (btn) btn.textContent = `Reorder Selected (${selected.size})`;
+        }
+        if (e.target.id === 'reorderSubmitBtn') {
+            if (selected.size === 0) { showToast('Select at least one product to reorder', 'warning'); return; }
+            overlay.remove();
+            doReorder(Array.from(selected));
+        }
+    });
+}
+
+async function doReorder(productIds) {
+    try {
+        const response = await fetch(`${API_URL}/purchase-orders/auto-generate`, {
+            method: 'POST', headers: getAuthHeaders(),
+            body: JSON.stringify({ product_ids: productIds })
+        });
+        const data = await response.json();
+        if (data.success) {
+            const count = data.count || (Array.isArray(data.data) ? data.data.length : 0);
+            showToast(`Generated ${count} purchase order(s)!`, count > 0 ? 'success' : 'warning');
+            if (data.warnings && data.warnings.length > 0) {
+                setTimeout(() => showWarnings(data.warnings), 500);
+            }
+            await loadProducts();
+        } else {
+            showToast('Error: ' + (data.message || 'Unknown'), 'error');
+        }
+    } catch (error) {
+        console.error('Error in reorder:', error);
+        showToast('Failed to reorder', 'error');
+    }
 }
 
 // ===== BULK ACTIONS =====
