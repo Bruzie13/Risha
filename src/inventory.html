@@ -103,7 +103,7 @@
 </span>
                     </div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card" onclick="filterLowStock()" style="cursor:pointer;">
                     <div class="stat-icon orange"><span class="material-symbols-outlined" style="font-size:18px;">warning_amber</span></div>
                     <div class="stat-body">
                         <span class="stat-label">Low Stock</span>
@@ -141,6 +141,14 @@
                 </div>
             </div>
 
+            <div id="reorderBanner" class="stat-row" style="display:none;margin-bottom:0;">
+                <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:var(--warning-bg,#fff3e0);border-radius:8px;flex:1;">
+                    <span class="material-symbols-outlined" style="color:var(--warning,#e65100);font-size:20px;">warning_amber</span>
+                    <span style="font-weight:600;font-size:14px;color:var(--text-primary);">Low Stock Items</span>
+                    <span id="reorderCount" style="font-size:13px;color:var(--text-muted);"></span>
+                    <button class="btn-secondary" onclick="showAllProducts()" style="margin-left:auto;padding:6px 14px;font-size:12px;">Show All Products</button>
+                </div>
+            </div>
             <div class="table-container">
                 <table class="data-table">
                     <thead>

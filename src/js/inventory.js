@@ -1,8 +1,11 @@
 const API_URL = '/api';
 const PAGE_SIZE = 10;
+const LOW_STOCK_PAGE_SIZE = 5;
 let displayCount = PAGE_SIZE;
 let allProducts = [];
 let editingProductId = null;
+let lowStockOnly = false;
+let reorderTab = false;
 
 // Load page on startup
 window.addEventListener('load', async () => {
@@ -145,20 +148,26 @@ function displayProducts(products) {
 }
 
 function showMoreProducts() {
-    displayCount += PAGE_SIZE;
-    const searchTerm = document.getElementById('searchInput')?.value?.toLowerCase() || '';
-    const categoryId = document.getElementById('categoryFilter')?.value || '';
-    const species = document.getElementById('speciesFilter')?.value || '';
-    const filtered = allProducts.filter(p => {
-        const matchesSearch = !searchTerm ||
-            (p.name || '').toLowerCase().includes(searchTerm) ||
-            (p.sku || '').toLowerCase().includes(searchTerm) ||
-            (p.brand || '').toLowerCase().includes(searchTerm) ||
-            (p.barcode || '').toLowerCase().includes(searchTerm);
-        const matchesCategory = !categoryId || p.category_id == categoryId;
-        const matchesSpecies = !species || (p.species || '').toLowerCase() === species.toLowerCase();
-        return matchesSearch && matchesCategory && matchesSpecies;
-    });
+    const step = reorderTab ? LOW_STOCK_PAGE_SIZE : PAGE_SIZE;
+    displayCount += step;
+    let filtered;
+    if (reorderTab) {
+        filtered = allProducts.filter(p => p.stock_quantity <= p.reorder_level);
+    } else {
+        const searchTerm = document.getElementById('searchInput')?.value?.toLowerCase() || '';
+        const categoryId = document.getElementById('categoryFilter')?.value || '';
+        const species = document.getElementById('speciesFilter')?.value || '';
+        filtered = allProducts.filter(p => {
+            const matchesSearch = !searchTerm ||
+                (p.name || '').toLowerCase().includes(searchTerm) ||
+                (p.sku || '').toLowerCase().includes(searchTerm) ||
+                (p.brand || '').toLowerCase().includes(searchTerm) ||
+                (p.barcode || '').toLowerCase().includes(searchTerm);
+            const matchesCategory = !categoryId || p.category_id == categoryId;
+            const matchesSpecies = !species || (p.species || '').toLowerCase() === species.toLowerCase();
+            return matchesSearch && matchesCategory && matchesSpecies;
+        });
+    }
     displayProducts(filtered);
 }
 
@@ -192,8 +201,31 @@ function getStatusBadge(stock, reorder, expirationDate) {
     }
 }
 
+function filterLowStock() {
+    lowStockOnly = true;
+    reorderTab = true;
+    displayCount = LOW_STOCK_PAGE_SIZE;
+    const lowStock = allProducts.filter(p => p.stock_quantity <= p.reorder_level);
+    const banner = document.getElementById('reorderBanner');
+    if (banner) { banner.style.display = 'flex'; }
+    const ct = document.getElementById('reorderCount');
+    if (ct) { ct.textContent = `${lowStock.length} product(s) need reordering`; }
+    displayProducts(lowStock);
+}
+
+function showAllProducts() {
+    lowStockOnly = false;
+    reorderTab = false;
+    displayCount = PAGE_SIZE;
+    const banner = document.getElementById('reorderBanner');
+    if (banner) { banner.style.display = 'none'; }
+    document.getElementById('searchInput').value = '';
+    document.getElementById('categoryFilter').value = '';
+    document.getElementById('speciesFilter').value = '';
+    displayProducts(allProducts);
+}
+
 // Update statistics
-function updateStats() {
     const totalProducts = allProducts.length;
     const lowStockProducts = allProducts.filter(p => p.stock_quantity <= p.reorder_level).length;
     
@@ -222,6 +254,12 @@ document.getElementById('categoryFilter')?.addEventListener('change', filterProd
 document.getElementById('speciesFilter')?.addEventListener('change', filterProducts);
 
 function filterProducts() {
+    if (lowStockOnly) {
+        lowStockOnly = false;
+        reorderTab = false;
+        const banner = document.getElementById('reorderBanner');
+        if (banner) { banner.style.display = 'none'; }
+    }
     const searchTerm = document.getElementById('searchInput')?.value?.toLowerCase() || '';
     const categoryId = document.getElementById('categoryFilter')?.value || '';
     const species = document.getElementById('speciesFilter')?.value || '';
