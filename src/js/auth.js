@@ -14,6 +14,8 @@ function getAuthHeaders() {
     const token = localStorage.getItem('authToken');
     if (token) {
         document.cookie = 'token=' + token + ';path=/;max-age=86400';
+    } else {
+        document.cookie = 'token=;path=/;max-age=0';
     }
 })();
 
@@ -98,6 +100,7 @@ function logout() {
             localStorage.removeItem('authToken');
             localStorage.removeItem('user');
             localStorage.removeItem('rememberUser');
+            document.cookie = 'token=;path=/;max-age=0';
             window.location.href = 'login.html';
         },
         'Yes, Logout'
