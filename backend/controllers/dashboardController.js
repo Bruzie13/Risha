@@ -66,10 +66,9 @@ exports.getDashboardStats = async (req, res) => {
 };
 
 exports.getExpirationRisk = async (req, res) => {
+    const pool = require('../config/database');
+    const conn = await pool.getConnection();
     try {
-        const pool = require('../config/database');
-        const conn = await pool.getConnection();
-
         const [critical] = await conn.execute(
             `SELECT p.*, c.name as category_name, s.name as supplier_name
              FROM products p
@@ -106,8 +105,6 @@ exports.getExpirationRisk = async (req, res) => {
              ORDER BY p.expiration_date ASC`
         );
 
-        conn.release();
-
         res.status(200).json({
             success: true,
             data: {
@@ -123,10 +120,14 @@ exports.getExpirationRisk = async (req, res) => {
             success: false,
             message: 'Error retrieving expiration risk data'
         });
+    } finally {
+        conn.release();
     }
 };
 
 exports.getChartData = async (req, res) => {
+    const pool = require('../config/database');
+    let conn;
     try {
         const { period } = req.query;
 
@@ -142,8 +143,7 @@ exports.getChartData = async (req, res) => {
                 salesData = await Sale.getDailySales(30);
         }
 
-        const pool = require('../config/database');
-        const conn = await pool.getConnection();
+        conn = await pool.getConnection();
 
         const [categories] = await conn.execute(
             `SELECT c.name as label, COUNT(p.id) as value
@@ -160,8 +160,6 @@ exports.getChartData = async (req, res) => {
         const [outOfStock] = await conn.execute(
             "SELECT COUNT(*) as count FROM products WHERE is_active = TRUE AND (stock_quantity = 0 OR stock_quantity IS NULL)"
         );
-
-        conn.release();
 
         res.status(200).json({
             success: true,
@@ -181,5 +179,7 @@ exports.getChartData = async (req, res) => {
             success: false,
             message: 'Error retrieving chart data'
         });
+    } finally {
+        if (conn) conn.release();
     }
 };

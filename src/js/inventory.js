@@ -1,4 +1,6 @@
 const API_URL = '/api';
+const PAGE_SIZE = 10;
+let displayCount = PAGE_SIZE;
 let allProducts = [];
 let editingProductId = null;
 
@@ -26,7 +28,7 @@ window.addEventListener('load', async () => {
 // Load categories for the dropdown and filter
 async function loadCategories() {
     try {
-        const response = await fetch(`${API_URL}/products/categories`);
+        const response = await fetch(`${API_URL}/products/categories`, { headers: getAuthHeaders() });
         const data = await response.json();
 
         if (data.success) {
@@ -71,7 +73,7 @@ async function loadSuppliers() {
 // Load all products
 async function loadProducts() {
     try {
-        const response = await fetch(`${API_URL}/products`);
+        const response = await fetch(`${API_URL}/products`, { headers: getAuthHeaders() });
         const data = await response.json();
 
         if (data.success) {
@@ -92,10 +94,12 @@ function displayProducts(products) {
     
     if (products.length === 0) {
         tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center">No products found</td></tr>`;
+        updatePagination('inventoryPagination', products, displayCount, 'showMoreProducts');
         return;
     }
 
-    tbody.innerHTML = products.map(product => {
+    const shown = products.slice(0, displayCount);
+    tbody.innerHTML = shown.map(product => {
         let expDateFormatted = 'N/A';
         
         if (product.expiration_date) {
@@ -116,13 +120,13 @@ function displayProducts(products) {
         return `
             <tr>
                 ${viewer ? '' : `<td><input type="checkbox" class="product-checkbox" value="${product.id}"></td>`}
-                <td>${product.sku}</td>
-                <td>${product.name}</td>
-                <td>${product.brand || 'N/A'}</td>
-                <td>${product.category_name || 'N/A'}</td>
-                <td>${product.species || 'N/A'}</td>
-                <td>₱${parseFloat(product.unit_price).toFixed(2)}</td>
-                <td>${product.stock_quantity}${getUnitLabel(product.unit_type)}</td>
+                <td>${escHtml(product.sku)}</td>
+                <td>${escHtml(product.name)}</td>
+                <td>${escHtml(product.brand || 'N/A')}</td>
+                <td>${escHtml(product.category_name || 'N/A')}</td>
+                <td>${escHtml(product.species || 'N/A')}</td>
+                <td>${formatCurrency(product.unit_price)}</td>
+                <td>${formatNumber(product.stock_quantity)}${getUnitLabel(product.unit_type)}</td>
                 <td>${product.reorder_level}</td>
                 <td>${expDateFormatted}</td>
                 <td>${getStatusBadge(product.stock_quantity, product.reorder_level, product.expiration_date)}</td>
@@ -137,7 +141,27 @@ function displayProducts(products) {
             </tr>
         `;
     }).join('');
+    updatePagination('inventoryPagination', products, displayCount, 'showMoreProducts');
 }
+
+function showMoreProducts() {
+    displayCount += PAGE_SIZE;
+    const searchTerm = document.getElementById('searchInput')?.value?.toLowerCase() || '';
+    const categoryId = document.getElementById('categoryFilter')?.value || '';
+    const species = document.getElementById('speciesFilter')?.value || '';
+    const filtered = allProducts.filter(p => {
+        const matchesSearch = !searchTerm ||
+            (p.name || '').toLowerCase().includes(searchTerm) ||
+            (p.sku || '').toLowerCase().includes(searchTerm) ||
+            (p.brand || '').toLowerCase().includes(searchTerm) ||
+            (p.barcode || '').toLowerCase().includes(searchTerm);
+        const matchesCategory = !categoryId || p.category_id == categoryId;
+        const matchesSpecies = !species || (p.species || '').toLowerCase() === species.toLowerCase();
+        return matchesSearch && matchesCategory && matchesSpecies;
+    });
+    displayProducts(filtered);
+}
+
 
 function getUnitLabel(unitType) {
     const labels = { piece: '', kg: ' kg', g: ' g', liter: ' L', ml: ' mL' };
@@ -185,11 +209,11 @@ function updateStats() {
     const totalValue = allProducts.reduce((sum, p) => sum + (p.unit_price * p.stock_quantity), 0);
     const overstockProducts = allProducts.filter(p => p.max_stock_level && p.stock_quantity > p.max_stock_level * 1.5).length;
 
-    document.getElementById('totalProductsCount').textContent = totalProducts;
-    document.getElementById('lowStockCount').textContent = lowStockProducts;
-    document.getElementById('expiringCount').textContent = expiringProducts;
-    document.getElementById('totalValue').textContent = '₱' + totalValue.toFixed(2);
-    document.getElementById('overstockCount').textContent = overstockProducts;
+    document.getElementById('totalProductsCount').textContent = formatNumber(totalProducts);
+    document.getElementById('lowStockCount').textContent = formatNumber(lowStockProducts);
+    document.getElementById('expiringCount').textContent = formatNumber(expiringProducts);
+    document.getElementById('totalValue').textContent = formatCurrency(totalValue);
+    document.getElementById('overstockCount').textContent = formatNumber(overstockProducts);
 }
 
 // Search products
@@ -202,6 +226,7 @@ function filterProducts() {
     const categoryId = document.getElementById('categoryFilter')?.value || '';
     const species = document.getElementById('speciesFilter')?.value || '';
 
+    displayCount = PAGE_SIZE;
     const filtered = allProducts.filter(p => {
         const matchesSearch = !searchTerm ||
             (p.name || '').toLowerCase().includes(searchTerm) ||
@@ -228,7 +253,7 @@ function openAddProductModal() {
 async function openEditProductModal(id) {
     if (isViewer()) { showToast('View-only account. Cannot edit products.', 'error'); return; }
     try {
-        const response = await fetch(`${API_URL}/products/${id}`);
+        const response = await fetch(`${API_URL}/products/${id}`, { headers: getAuthHeaders() });
         const data = await response.json();
 
         if (data.success) {
@@ -267,7 +292,7 @@ async function openEditProductModal(id) {
 // View product details
 async function viewProductDetails(id) {
     try {
-        const response = await fetch(`${API_URL}/products/${id}`);
+        const response = await fetch(`${API_URL}/products/${id}`, { headers: getAuthHeaders() });
         const data = await response.json();
 
         if (data.success) {
@@ -276,39 +301,39 @@ async function viewProductDetails(id) {
             const detailsHTML = `
                 <div class="details-row">
                     <span class="details-label">SKU</span>
-                    <span class="details-value">${product.sku}</span>
+                    <span class="details-value">${escHtml(product.sku)}</span>
                 </div>
                 <div class="details-row">
                     <span class="details-label">Product Name</span>
-                    <span class="details-value">${product.name}</span>
+                    <span class="details-value">${escHtml(product.name)}</span>
                 </div>
                 <div class="details-row">
                     <span class="details-label">Brand</span>
-                    <span class="details-value">${product.brand || 'N/A'}</span>
+                    <span class="details-value">${escHtml(product.brand || 'N/A')}</span>
                 </div>
                 <div class="details-row">
                     <span class="details-label">Category</span>
-                    <span class="details-value">${product.category_name || 'N/A'}</span>
+                    <span class="details-value">${escHtml(product.category_name || 'N/A')}</span>
                 </div>
                 <div class="details-row">
                     <span class="details-label">Species</span>
-                    <span class="details-value">${product.species || 'N/A'}</span>
+                    <span class="details-value">${escHtml(product.species || 'N/A')}</span>
                 </div>
                 <div class="details-row">
                     <span class="details-label">Breed Size</span>
-                    <span class="details-value">${product.breed_size || 'N/A'}</span>
+                    <span class="details-value">${escHtml(product.breed_size || 'N/A')}</span>
                 </div>
                 <div class="details-row">
                     <span class="details-label">Age Group</span>
-                    <span class="details-value">${product.age_group || 'N/A'}</span>
+                    <span class="details-value">${escHtml(product.age_group || 'N/A')}</span>
                 </div>
                 <div class="details-row">
                     <span class="details-label">Health Category</span>
-                    <span class="details-value">${product.health_category || 'N/A'}</span>
+                    <span class="details-value">${escHtml(product.health_category || 'N/A')}</span>
                 </div>
                 <div class="details-row">
                     <span class="details-label">Supplier</span>
-                    <span class="details-value">${product.supplier_name || 'N/A'}</span>
+                    <span class="details-value">${escHtml(product.supplier_name || 'N/A')}</span>
                 </div>
                 <div class="details-row">
                     <span class="details-label">Unit Type</span>
@@ -316,15 +341,15 @@ async function viewProductDetails(id) {
                 </div>
                 <div class="details-row">
                     <span class="details-label">Unit Price</span>
-                    <span class="details-value">₱${parseFloat(product.unit_price).toFixed(2)}${product.unit_type && product.unit_type !== 'piece' ? '/' + getUnitLabel(product.unit_type).trim() : ''}</span>
+                    <span class="details-value">${formatCurrency(product.unit_price)}${product.unit_type && product.unit_type !== 'piece' ? '/' + getUnitLabel(product.unit_type).trim() : ''}</span>
                 </div>
                 <div class="details-row">
                     <span class="details-label">Cost Price</span>
-                    <span class="details-value">₱${parseFloat(product.cost_price || 0).toFixed(2)}</span>
+                    <span class="details-value">${formatCurrency(product.cost_price || 0)}</span>
                 </div>
                 <div class="details-row">
                     <span class="details-label">Stock Quantity</span>
-                    <span class="details-value">${product.stock_quantity}</span>
+                    <span class="details-value">${formatNumber(product.stock_quantity)}</span>
                 </div>
                 <div class="details-row">
                     <span class="details-label">Reorder Level</span>
@@ -332,11 +357,11 @@ async function viewProductDetails(id) {
                 </div>
                 <div class="details-row">
                     <span class="details-label">Max Stock Level</span>
-                    <span class="details-value">${product.max_stock_level || 'N/A'}</span>
+                    <span class="details-value">${escHtml(product.max_stock_level || 'N/A')}</span>
                 </div>
                 <div class="details-row">
                     <span class="details-label">Batch/Lot Number</span>
-                    <span class="details-value">${product.batch_number || 'N/A'}</span>
+                    <span class="details-value">${escHtml(product.batch_number || 'N/A')}</span>
                 </div>
                 <div class="details-row">
                     <span class="details-label">Expiration Date</span>
@@ -344,7 +369,7 @@ async function viewProductDetails(id) {
                 </div>
                 <div class="details-row">
                     <span class="details-label">Description</span>
-                    <span class="details-value">${product.description || 'N/A'}</span>
+                    <span class="details-value">${escHtml(product.description || 'N/A')}</span>
                 </div>
             `;
             document.getElementById('productDetailsContent').innerHTML = detailsHTML;
@@ -402,7 +427,7 @@ async function deleteProduct(id) {
             console.error('Error deleting product:', error);
             showToast('Failed to delete product', 'error');
         }
-    }, 'Yes, Delete', '🗑️');
+    }, 'Yes, Delete', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
 }
 
 // Handle product form submission
@@ -512,8 +537,8 @@ async function saveStockAdjustment() {
 }
 
 function showWarnings(warnings) {
-    const list = warnings.map(w => `<div style="padding:6px 0;border-bottom:1px solid var(--border-color,#eee);font-size:13px;">⚠️ ${escHtml(w)}</div>`).join('');
-    showConfirmDialog('Reorder Warnings', list, () => {}, 'Got It', '⚠️');
+    const list = warnings.map(w => `<div style="padding:6px 0;border-bottom:1px solid var(--border-color,#eee);font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;color:var(--danger);">warning_amber</span> ${escHtml(w)}</div>`).join('');
+    showConfirmDialog('Reorder Warnings', list, () => {}, 'Got It', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">smart_toy</span>');
 }
 
 // Auto-reorder function
@@ -542,7 +567,7 @@ async function autoReorder() {
             console.error('Error in auto-reorder:', error);
             showToast('Failed to auto-reorder', 'error');
         }
-    }, 'Yes, Reorder', '🤖');
+    }, 'Yes, Reorder', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">smart_toy</span>');
 }
 
 // ===== BULK ACTIONS =====
@@ -603,7 +628,7 @@ async function bulkReorder() {
             console.error('Bulk reorder error:', error);
             showToast('Failed to reorder', 'error');
         }
-    }, 'Yes, Reorder', '📦');
+    }, 'Yes, Reorder', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">inventory</span>');
 }
 
 async function bulkAdjustStock() {
@@ -633,8 +658,8 @@ async function bulkAdjustStock() {
                 console.error('Bulk adjust error:', error);
                 showToast('Failed to adjust stock', 'error');
             }
-        }, 'Yes, Adjust', '📋');
-    }, 'Continue', '📝', 'number', '10');
+        }, 'Yes, Adjust', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">assignment</span>');
+    }, 'Continue', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">edit_note</span>', 'number', '10');
 }
 
 async function bulkDelete() {
@@ -658,7 +683,7 @@ async function bulkDelete() {
             console.error('Bulk delete error:', error);
             showToast('Failed to delete products', 'error');
         }
-    }, 'Yes, Delete All', '🗑️');
+    }, 'Yes, Delete All', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
 }
 
 // Close modals when clicking outside
@@ -727,11 +752,11 @@ document.getElementById('csvFile')?.addEventListener('change', function(e) {
         let previewHtml = `<div style="font-size:13px;font-weight:600;margin-bottom:8px;">Parsed ${csvParsedData.length} products</div>`;
         previewHtml += '<div style="max-height:200px;overflow-y:auto;font-size:12px;">';
         previewHtml += '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:var(--gray-100);">';
-        headers.slice(0, 6).forEach(h => { previewHtml += `<th style="padding:6px 8px;text-align:left;">${h}</th>`; });
+        headers.slice(0, 6).forEach(h => { previewHtml += `<th style="padding:6px 8px;text-align:left;">${escHtml(h)}</th>`; });
         previewHtml += '</tr></thead><tbody>';
         csvParsedData.slice(0, 10).forEach(row => {
             previewHtml += '<tr>';
-            headers.slice(0, 6).forEach(h => { previewHtml += `<td style="padding:4px 8px;border-bottom:1px solid var(--border-color);">${row[h] || ''}</td>`; });
+            headers.slice(0, 6).forEach(h => { previewHtml += `<td style="padding:4px 8px;border-bottom:1px solid var(--border-color);">${escHtml(row[h] || '')}</td>`; });
             previewHtml += '</tr>';
         });
         if (csvParsedData.length > 10) previewHtml += `<tr><td colspan="6" style="padding:8px;text-align:center;color:var(--text-muted);">...and ${csvParsedData.length - 10} more</td></tr>`;
@@ -749,7 +774,7 @@ async function importCsvProducts() {
     btn.textContent = 'Importing...';
 
     try {
-        const catRes = await fetch(`${API_URL}/products/categories`).then(r => r.json());
+        const catRes = await fetch(`${API_URL}/products/categories`, { headers: getAuthHeaders() }).then(r => r.json());
         const cats = catRes.data || [];
 
         const products = csvParsedData.map(row => {

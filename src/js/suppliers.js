@@ -1,3 +1,5 @@
+const PAGE_SIZE = 10;
+let displayCount = PAGE_SIZE;
 let allSuppliers = [];
 let editingSupplierId = null;
 
@@ -25,12 +27,24 @@ async function loadSuppliers() {
     }
 }
 
+function showMoreSuppliers() {
+    displayCount += PAGE_SIZE;
+    const term = document.getElementById('searchInput')?.value?.toLowerCase() || '';
+    const filtered = allSuppliers.filter(s =>
+        (s.name || '').toLowerCase().includes(term) ||
+        (s.contact_person || '').toLowerCase().includes(term) ||
+        (s.email || '').toLowerCase().includes(term)
+    );
+    displaySuppliers(filtered);
+}
+
 function displaySuppliers(suppliers) {
     const tbody = document.getElementById('suppliersTableBody');
     if (!tbody) return;
     const viewer = isViewer();
     if (suppliers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No suppliers found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center">No suppliers found</td></tr>';
+        updatePagination('supplierPagination', suppliers, displayCount, 'showMoreSuppliers');
         return;
     }
     const paymentTermsMap = {
@@ -41,14 +55,16 @@ function displaySuppliers(suppliers) {
     };
     document.getElementById('totalSuppliers').textContent = suppliers.length;
     document.getElementById('activeSuppliers').textContent = suppliers.filter(s => s.is_active === 1 || s.is_active === true).length;
-    tbody.innerHTML = suppliers.map(s => `
+    const shown = suppliers.slice(0, displayCount);
+    tbody.innerHTML = shown.map(s => `
         <tr>
-            <td><strong>${s.name}</strong></td>
-            <td>${s.contact_person || 'N/A'}</td>
-            <td>${s.email || 'N/A'}</td>
-            <td>${s.phone || 'N/A'}</td>
+            <td><strong>${escHtml(s.name)}</strong></td>
+            <td>${escHtml(s.contact_person || 'N/A')}</td>
+            <td>${escHtml(s.email || 'N/A')}</td>
+            <td>${escHtml(s.phone || 'N/A')}</td>
             <td>${paymentTermsMap[s.payment_terms] || 'Net 30'}</td>
             <td>${(s.is_active === 1 || s.is_active === true) ? '<span class="status-badge status-in-stock">Active</span>' : '<span class="status-badge status-expired">Inactive</span>'}</td>
+            <td><button class="btn-view" onclick="showEmailLogs(${s.id}, '${escHtml(s.name).replace(/'/g, "\\'")}')" style="font-size:11px"><span class="material-symbols-outlined" style="font-size:13px;">mail</span> Emails</button></td>
             <td>
                 <button class="btn-view" onclick="showPerformance(${s.id})">Performance</button>
                 ${viewer ? '' : `<button class="btn-edit" onclick="openEditSupplierModal(${s.id})">Edit</button>
@@ -56,10 +72,12 @@ function displaySuppliers(suppliers) {
             </td>
         </tr>
     `).join('');
+    updatePagination('supplierPagination', suppliers, displayCount, 'showMoreSuppliers');
 }
 
 // Search
 document.getElementById('searchInput')?.addEventListener('keyup', (e) => {
+    displayCount = PAGE_SIZE;
     const term = e.target.value.toLowerCase();
     const filtered = allSuppliers.filter(s =>
         (s.name || '').toLowerCase().includes(term) ||
@@ -152,7 +170,7 @@ async function deleteSupplier(id) {
             console.error('Error deleting supplier:', error);
             showToast('Failed to delete supplier', 'error');
         }
-    }, 'Yes, Delete', '🗑️');
+    }, 'Yes, Delete', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
 }
 
 // ===== Performance Scorecard =====
@@ -207,10 +225,10 @@ async function showPerformance(supplierId) {
                     ? (r.metric_value == 1 ? 'On Time' : 'Late')
                     : r.metric_value + (r.metric_type === 'delivery_time' ? ' days' : '');
                 return '<tr>'
-                    + '<td>' + (r.po_number || '—') + '</td>'
-                    + '<td>' + metricLabel + '</td>'
-                    + '<td>' + (valueClass ? '<span class="' + valueClass + '">' + valueDisplay + '</span>' : valueDisplay) + '</td>'
-                    + '<td>' + (r.notes || '') + '</td>'
+                    + '<td>' + escHtml(r.po_number || '—') + '</td>'
+                    + '<td>' + escHtml(metricLabel) + '</td>'
+                    + '<td>' + (valueClass ? '<span class="' + valueClass + '">' + escHtml(valueDisplay) + '</span>' : escHtml(valueDisplay)) + '</td>'
+                    + '<td>' + escHtml(r.notes || '') + '</td>'
                     + '<td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '') + '</td>'
                     + '</tr>';
             }).join('');
@@ -228,4 +246,57 @@ function closePerformanceModal() {
 document.addEventListener('click', (e) => {
     if (e.target === document.getElementById('supplierModal')) closeSupplierModal();
     if (e.target === document.getElementById('performanceModal')) closePerformanceModal();
+    if (e.target === document.getElementById('emailLogsModal')) closeEmailLogsModal();
 });
+
+/* ═══ Email Logs ═══ */
+async function showEmailLogs(supplierId, supplierName) {
+    const modal = document.getElementById('emailLogsModal');
+    const body = document.getElementById('emailLogsBody');
+    body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">Loading...</div>';
+    modal.classList.add('active');
+    document.getElementById('emailLogsTitle').innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">mail</span> Email History — ' + supplierName;
+
+    try {
+        const res = await fetch(`${API_BASE}/email-logs/${supplierId}`, { headers: getAuthHeaders() });
+        const result = await res.json();
+        const logs = result.data || [];
+
+        if (!logs.length) {
+            body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">No emails sent to this supplier yet</div>';
+            return;
+        }
+
+        body.innerHTML = '<table style="width:100%;border-collapse:collapse"><thead><tr>' +
+            '<th style="padding:10px;text-align:left;font-size:12px;color:var(--text-muted);border-bottom:1px solid var(--border-glass)">Subject</th>' +
+            '<th style="padding:10px;text-align:left;font-size:12px;color:var(--text-muted);border-bottom:1px solid var(--border-glass)">Type</th>' +
+            '<th style="padding:10px;text-align:left;font-size:12px;color:var(--text-muted);border-bottom:1px solid var(--border-glass)">Sent</th>' +
+            '<th style="padding:10px;text-align:center;font-size:12px;color:var(--text-muted);border-bottom:1px solid var(--border-glass)">Status</th>' +
+            '<th style="padding:10px;text-align:center;font-size:12px;color:var(--text-muted);border-bottom:1px solid var(--border-glass)">Opened</th>' +
+            '</tr></thead><tbody>' +
+            logs.map(l => {
+                const opened = l.opened_at ? true : false;
+                const sentDate = new Date(l.created_at).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                const openedDate = l.opened_at ? new Date(l.opened_at).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+                const typeLabels = { po: '<span class="material-symbols-outlined" style="font-size:13px;">inventory</span> Purchase Order', low_stock: '<span class="material-symbols-outlined" style="font-size:13px;">inventory_2</span> Low Stock Alert' };
+                return '<tr style="border-bottom:1px solid var(--border-glass)">' +
+                    '<td style="padding:10px;font-size:13px;font-weight:500">' + escHtml(l.subject || 'N/A') + '</td>' +
+                    '<td style="padding:10px;font-size:12px">' + escHtml(typeLabels[l.email_type] || l.email_type) + '</td>' +
+                    '<td style="padding:10px;font-size:12px;color:var(--text-muted)">' + sentDate + '</td>' +
+                    '<td style="padding:10px;text-align:center">' +
+                        (opened
+                            ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;background:var(--success-bg);color:var(--success)"><span class="material-symbols-outlined" style="font-size:14px;">check</span> Read</span>'
+                            : '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;background:var(--accent-dim);color:var(--accent)"><span class="material-symbols-outlined" style="font-size:14px;">hourglass_bottom</span> Sent</span>') +
+                    '</td>' +
+                    '<td style="padding:10px;text-align:center;font-size:12px;color:var(--text-muted)">' + (openedDate || '—') + (l.opened_count > 1 ? ' <span style="color:var(--primary);font-weight:600">(' + l.opened_count + 'x)</span>' : '') + '</td>' +
+                '</tr>';
+            }).join('') +
+            '</tbody></table>';
+    } catch (e) {
+        body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">Failed to load email history</div>';
+    }
+}
+
+function closeEmailLogsModal() {
+    document.getElementById('emailLogsModal').classList.remove('active');
+}

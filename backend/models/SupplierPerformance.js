@@ -5,7 +5,8 @@ class SupplierPerformance {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                `SELECT sp.*, po.po_number 
+                `SELECT sp.id, sp.supplier_id, sp.order_id, sp.metric_type, sp.metric_value, sp.notes,
+                        UNIX_TIMESTAMP(sp.created_at) * 1000 as created_at, po.po_number 
                  FROM supplier_performance sp 
                  LEFT JOIN purchase_orders po ON sp.order_id = po.id 
                  WHERE sp.supplier_id = ? 

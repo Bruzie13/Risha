@@ -1,3 +1,5 @@
+const PAGE_SIZE = 10;
+let displayCount = PAGE_SIZE;
 let allUsers = [];
 let editingUserId = null;
 
@@ -29,18 +31,31 @@ async function loadUsers() {
     }
 }
 
+function showMoreUsers() {
+    displayCount += PAGE_SIZE;
+    const term = document.getElementById('searchInput')?.value?.toLowerCase() || '';
+    const filtered = allUsers.filter(u =>
+        (u.full_name || '').toLowerCase().includes(term) ||
+        (u.email || '').toLowerCase().includes(term) ||
+        (u.role || '').toLowerCase().includes(term)
+    );
+    displayUsers(filtered);
+}
+
 function displayUsers(users) {
     const tbody = document.getElementById('usersTableBody');
     if (!tbody) return;
     if (users.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center">No users found</td></tr>';
+        updatePagination('usersPagination', users, displayCount, 'showMoreUsers');
         return;
     }
-    tbody.innerHTML = users.map(u => `
+    const shown = users.slice(0, displayCount);
+    tbody.innerHTML = shown.map(u => `
         <tr>
-            <td>${u.full_name || 'N/A'}</td>
-            <td>${u.email}</td>
-            <td><span class="role-badge role-${u.role}">${u.role}</span></td>
+            <td>${escHtml(u.full_name || 'N/A')}</td>
+            <td>${escHtml(u.email)}</td>
+            <td><span class="role-badge role-${u.role}">${escHtml(u.role)}</span></td>
             <td>
                 <span class="status-badge ${u.is_active !== false ? 'status-in-stock' : 'status-expired'}">
                     ${u.is_active !== false ? 'Active' : 'Inactive'}
@@ -53,9 +68,11 @@ function displayUsers(users) {
             </td>
         </tr>
     `).join('');
+    updatePagination('usersPagination', users, displayCount, 'showMoreUsers');
 }
 
 document.getElementById('searchInput')?.addEventListener('keyup', (e) => {
+    displayCount = PAGE_SIZE;
     const term = e.target.value.toLowerCase();
     const filtered = allUsers.filter(u =>
         (u.full_name || '').toLowerCase().includes(term) ||
@@ -148,7 +165,7 @@ async function deleteUser(id) {
             console.error('Error deleting user:', error);
             showToast('Failed to delete user', 'error');
         }
-    }, 'Yes, Delete', '🗑️');
+    }, 'Yes, Delete', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
 }
 
 document.addEventListener('click', (e) => {

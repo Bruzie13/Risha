@@ -1,4 +1,11 @@
 const nodemailer = require('nodemailer');
+const crypto = require('crypto');
+const pool = require('../config/database');
+
+// Ensure env is loaded
+require('dotenv').config({ path: __dirname + '/../.env', override: true });
+
+const BASE_URL = process.env.BASE_URL || 'http://localhost:8000';
 
 function getTransporter() {
     const user = process.env.EMAIL_USER;
@@ -10,8 +17,30 @@ function getTransporter() {
     });
 }
 
-async function sendPOEmail(supplierEmail, supplierName, poNumber, items, totalAmount) {
+async function logEmail(supplierId, supplierEmail, subject, emailType) {
+    try {
+        const trackingId = crypto.randomBytes(32).toString('hex');
+        const conn = await pool.getConnection();
+        await conn.execute(
+            'INSERT INTO email_logs (supplier_id, supplier_email, subject, email_type, tracking_id) VALUES (?, ?, ?, ?, ?)',
+            [supplierId, supplierEmail, subject, emailType, trackingId]
+        );
+        conn.release();
+        return trackingId;
+    } catch (e) {
+        console.error('[Email] Log error:', e.message);
+        return null;
+    }
+}
+
+function trackingPixel(trackingId) {
+    if (!trackingId) return '';
+    return `<img src="${BASE_URL}/track/${trackingId}.gif" width="1" height="1" style="display:none" alt="">`;
+}
+
+async function sendPOEmail(supplierId, supplierEmail, supplierName, poNumber, items, totalAmount) {
     const transporter = getTransporter();
+    const trackingId = await logEmail(supplierId, supplierEmail, `PO ${poNumber}`, 'po');
     if (!transporter) return false;
 
     const itemsHtml = items.map(i =>
@@ -48,6 +77,7 @@ async function sendPOEmail(supplierEmail, supplierName, poNumber, items, totalAm
                     <p style="color:#888;font-size:12px;margin-top:20px;">This is an auto-generated email. Please contact us if you have any questions.</p>
                 </div>
             </div>
+            ${trackingPixel(trackingId)}
         `
     };
 
@@ -60,8 +90,9 @@ async function sendPOEmail(supplierEmail, supplierName, poNumber, items, totalAm
     }
 }
 
-async function sendLowStockAlert(supplierEmail, supplierName, items) {
+async function sendLowStockAlert(supplierId, supplierEmail, supplierName, items) {
     const transporter = getTransporter();
+    const trackingId = await logEmail(supplierId, supplierEmail, `Low Stock Alert - ${items.length} products`, 'low_stock');
     if (!transporter) return false;
 
     const itemsHtml = items.map(i =>
@@ -101,6 +132,7 @@ async function sendLowStockAlert(supplierEmail, supplierName, items) {
                     <p style="color:#888;font-size:12px;margin-top:20px;">This is an automated alert from RISHA Pet Supplies. Please arrange restock at your earliest convenience.</p>
                 </div>
             </div>
+            ${trackingPixel(trackingId)}
         `
     };
 

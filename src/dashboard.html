@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="css/global.css">
     <style>
         .dash-ambient-header {
-            background: white;
+            background: var(--bg-elevated);
             border: 1px solid var(--border-glass);
             border-radius: var(--radius-xl);
             padding: 24px 32px;
@@ -56,14 +56,90 @@
         }
         .sys-status-item .pulse-dot.warning { background: var(--accent); }
         .sys-status-item .pulse-dot.danger { background: var(--danger); }
+        .orbit-vis {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            flex-shrink: 0;
+            transition: transform 0.3s ease;
+            z-index: 2;
+        }
+        .orbit-vis:hover {
+            transform: scale(1.18);
+        }
+        .orbit-vis canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: pointer;
+        }
+        .orbit-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translate(-50%, -8px);
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-md);
+            padding: 6px 10px;
+            font-size: 10px;
+            color: var(--text-primary);
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            line-height: 1.4;
+            z-index: 10;
+            max-width: 160px;
+            text-align: center;
+        }
+        .orbit-tooltip.visible { opacity: 1; }
+        .orbit-center-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            pointer-events: none;
+        }
+        .orbit-center-label .orbit-pulse {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--primary);
+            animation: orbit-center-pulse 1.5s ease-in-out infinite;
+        }
+        .orbit-center-label small {
+            font-size: 8px;
+            font-weight: 700;
+            color: var(--text-muted);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+        .orbit-center-label .orbit-alert-count {
+            font-size: 9px;
+            font-weight: 800;
+            color: var(--danger);
+            margin-top: 1px;
+        }
+        @keyframes orbit-center-pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255,181,167,0.6); transform: scale(1); }
+            50% { box-shadow: 0 0 0 8px rgba(255,181,167,0); transform: scale(1.15); }
+        }
         .data-orbs {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            display: flex;
+            overflow-x: auto;
             gap: 16px;
+            padding-bottom: 8px;
             margin-bottom: 24px;
+            -webkit-overflow-scrolling: touch;
         }
         .data-orb {
-            background: white;
+            background: var(--bg-card);
             border: 1px solid var(--border-glass);
             border-radius: var(--radius-xl);
             padding: 24px;
@@ -72,7 +148,10 @@
             overflow: hidden;
             transition: all var(--transition);
             box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+            flex-shrink: 0;
+            min-width: 220px;
         }
+        :root.dark-mode .data-orb { background: var(--bg-card); }
         :root.dark-mode .data-orb { background: var(--bg-card); }
         .data-orb:nth-child(2) { animation-delay: 0.7s; }
         .data-orb:nth-child(3) { animation-delay: 1.4s; }
@@ -124,6 +203,24 @@
             grid-template-columns: 1.6fr 1fr;
             gap: 20px;
             margin-bottom: 24px;
+        }
+        .live-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            margin-right: 4px;
+            animation: live-pulse 1.5s ease-in-out infinite;
+            vertical-align: middle;
+        }
+        @keyframes live-pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.5); }
+            50% { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+        }
+        @keyframes feed-slide-in {
+            from { opacity: 0; transform: translateY(-12px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         .timeline-list { padding: 4px 0; }
         .timeline-item {
@@ -245,59 +342,65 @@
         .product-expiry-item .pei-days.info { color: var(--info); }
         .stat-row { display: none; }
         @media (max-width: 1024px) {
-            .data-orbs { grid-template-columns: repeat(2, 1fr); }
             .dash-asymmetric { grid-template-columns: 1fr; }
             .dash-bottom { grid-template-columns: 1fr; }
             .stock-bar-track { flex: 0 0 80px; }
         }
         @media (max-width: 768px) {
-            .data-orbs { grid-template-columns: repeat(2, 1fr); gap: 12px; }
             .data-orb { padding: 18px; }
             .data-orb .orb-ring { width: 52px; height: 52px; font-size: 22px; }
             .data-orb .orb-value { font-size: 22px; }
             .dash-ambient-header { flex-direction: column; align-items: flex-start; gap: 12px; }
-            .dash-ambient-header .sys-status { width: 100%; justify-content: space-between; }
+            .orbit-vis { display: none; }
             .expiry-radar { grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 12px 16px; }
         }
-        @media (max-width: 480px) {
-            .data-orbs { grid-template-columns: 1fr; }
-        }
     </style>
-</head>
+<script>if(localStorage.getItem('theme')==='dark'||(!localStorage.getItem('theme')&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');</script>
+    </head>
 <body>
-    <button class="sidebar-hamburger" id="hamburgerBtn" onclick="toggleSidebar()">☰</button>
+    <button class="sidebar-hamburger" id="hamburgerBtn" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
+    <button class="sidebar-floating-toggle" id="sidebarFloatingToggle" onclick="toggleSidebarVisibility()"><span class="material-symbols-outlined">menu</span></button>
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-brand">
-                <div class="brand-icon"><img src="images/logo.jpeg" alt="RISHA"></div>
+                <div class="brand-icon"><img src="images/logo.jpeg" alt="RISHA" title="RISHA Pet Shop"></div>
                 <div class="brand-text">
                     <span>RISHA</span>
                     <small>Pet Shop</small>
                 </div>
             </div>
+            <button class="sidebar-collapse-btn" id="sidebarToggleBtn" onclick="toggleSidebarVisibility()" title="Collapse sidebar"><span class="material-symbols-outlined">chevron_left</span></button>
         </div>
         <div class="sidebar-nav">
-            <a href="dashboard.html" class="nav-link active"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
-            <a href="inventory.html" class="nav-link"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span></a>
-            <a href="sales.html" class="nav-link"><span class="nav-icon">💰</span><span class="nav-label">Sales</span></a>
-            <a href="suppliers.html" class="nav-link"><span class="nav-icon">🚚</span><span class="nav-label">Suppliers</span></a>
-            <a href="reports.html" class="nav-link"><span class="nav-icon">📈</span><span class="nav-label">Reports</span></a>
-            <a href="analytics.html" class="nav-link"><span class="nav-icon">🤖</span><span class="nav-label">Analytics</span></a>
-            <a href="audit.html" class="nav-link"><span class="nav-icon">📋</span><span class="nav-label">Audit Logs</span></a>
-            <a href="users.html" class="nav-link" id="usersLink"><span class="nav-icon">👥</span><span class="nav-label">Users</span></a>
+            <a href="dashboard.html" class="nav-link active" title="Dashboard"><span class="nav-icon material-symbols-outlined">dashboard</span><span class="nav-label">Dashboard</span></a>
+            <a href="inventory.html" class="nav-link" title="Inventory"><span class="nav-icon material-symbols-outlined">inventory_2</span><span class="nav-label">Inventory</span></a>
+            <a href="pos.html" class="nav-link" title="POS"><span class="nav-icon material-symbols-outlined">point_of_sale</span><span class="nav-label">POS</span></a>
+            <a href="sales.html" class="nav-link" title="Sales History"><span class="nav-icon material-symbols-outlined">receipt</span><span class="nav-label">Sales History</span></a>
+            <a href="suppliers.html" class="nav-link" title="Suppliers"><span class="nav-icon material-symbols-outlined">local_shipping</span><span class="nav-label">Suppliers</span></a>
+            <a href="reports.html" class="nav-link" title="Reports"><span class="nav-icon material-symbols-outlined">assessment</span><span class="nav-label">Reports</span></a>
+            <a href="users.html" class="nav-link" id="usersLink" title="Users"><span class="nav-icon material-symbols-outlined">group</span><span class="nav-label">Users</span></a>
         </div>
         <div class="sidebar-footer">
-            <div class="sidebar-user">
-                <div class="avatar">👤</div>
+            <div class="sidebar-user" onclick="location.href='settings.html'" title="Your Profile">
+                <div class="avatar">
+                    <span class="avatar-initials">AD</span>
+                    <span class="avatar-status"></span>
+                </div>
                 <div class="user-info">
                     <span id="userName">Loading...</span>
                     <small id="userRole">Staff</small>
                 </div>
+                <button class="user-settings-btn" onclick="event.stopPropagation();location.href='settings.html'" title="Settings">
+                    <span class="material-symbols-outlined">settings</span>
+                </button>
             </div>
             <div class="sidebar-actions">
-                <button class="sidebar-btn" onclick="openGlobalSearch()" title="Search (⌘K)">🔍</button>
-                <button class="sidebar-btn" id="themeToggleBtn" title="Toggle theme">🌙</button>
-                <button class="sidebar-btn sidebar-logout" onclick="logout()" title="Logout">🚪</button>
+                <button class="sidebar-btn" id="themeToggleBtn" title="Toggle theme"><span class="material-symbols-outlined">dark_mode</span></button>
+                <button class="sidebar-btn notif-bell-btn" id="notifBellBtn" onclick="openNotifDropdown()" title="Notifications">
+                    <span class="material-symbols-outlined" style="font-size:18px;">notifications</span>
+                    <span class="notif-badge" id="notifBadge">0</span>
+                    </button>
+                <button class="sidebar-btn sidebar-logout" onclick="logout()" title="Logout"><span class="material-symbols-outlined">logout</span></button>
             </div>
         </div>
     </nav>
@@ -309,39 +412,43 @@
                 <div class="breadcrumb"><span>Overview</span> · Real-time business insights</div>
             </div>
             <div class="page-header-actions">
-                <span id="dateDisplay" style="padding:6px 14px;background:white;border:1px solid var(--border-glass);border-radius:var(--radius-md);font-size:12px;color:var(--text-muted);font-weight:500;"></span>
+                <span id="dateDisplay" style="padding:6px 14px;border:1px solid var(--border-glass);border-radius:var(--radius-md);font-size:12px;color:var(--text-muted);font-weight:500;"></span>
             </div>
         </div>
 
         <div class="content">
             <div class="dash-ambient-header">
                 <div class="greeting">
-                    <h2>Good morning, Operator! 🐾</h2>
+                    <h2>Good morning, Operator!</h2>
                     <p>Your pet shop is running smoothly. <span>All systems nominal.</span></p>
                 </div>
-                <div class="sys-status">
-                    <div class="sys-status-item">
-                        <span class="pulse-dot"></span>
-                        <span>All systems live</span>
+                <div class="orbit-vis" id="orbitVis">
+                    <canvas id="activityOrbit"></canvas>
+                    <div class="orbit-center-label">
+                        <span class="orbit-pulse"></span>
+                        <small>LIVE</small>
+                        <span class="orbit-alert-count" id="alertCount">0</span>
                     </div>
-                    <div class="sys-status-item">
-                        <span id="alertCount" style="color:var(--primary);font-weight:700;">0</span>
-                        <span>alerts</span>
-                    </div>
+                    <div id="orbitTooltip" class="orbit-tooltip"></div>
                 </div>
             </div>
 
             <div class="data-orbs" id="metricCards">
-                <div class="data-orb"><div class="orb-ring cyan">📦</div><div class="skeleton" style="height:28px;width:80px;margin:0 auto 6px;"></div><div class="skeleton" style="height:11px;width:100px;margin:0 auto;"></div></div>
-                <div class="data-orb"><div class="orb-ring amber">💰</div><div class="skeleton" style="height:28px;width:80px;margin:0 auto 6px;"></div><div class="skeleton" style="height:11px;width:100px;margin:0 auto;"></div></div>
-                <div class="data-orb"><div class="orb-ring rose">⚠️</div><div class="skeleton" style="height:28px;width:80px;margin:0 auto 6px;"></div><div class="skeleton" style="height:11px;width:100px;margin:0 auto;"></div></div>
-                <div class="data-orb"><div class="orb-ring lilac">📈</div><div class="skeleton" style="height:28px;width:80px;margin:0 auto 6px;"></div><div class="skeleton" style="height:11px;width:100px;margin:0 auto;"></div></div>
+                <div class="data-orb"><div class="orb-ring cyan"><span class="material-symbols-outlined" style="font-size:26px;">inventory_2</span></div><div class="skeleton" style="height:28px;width:80px;margin:0 auto 6px;"></div><div class="skeleton" style="height:11px;width:100px;margin:0 auto;"></div></div>
+                <div class="data-orb"><div class="orb-ring amber"><span class="material-symbols-outlined" style="font-size:26px;">payments</span></div><div class="skeleton" style="height:28px;width:80px;margin:0 auto 6px;"></div><div class="skeleton" style="height:11px;width:100px;margin:0 auto;"></div></div>
+                <div class="data-orb"><div class="orb-ring rose"><span class="material-symbols-outlined" style="font-size:26px;">warning</span></div><div class="skeleton" style="height:28px;width:80px;margin:0 auto 6px;"></div><div class="skeleton" style="height:11px;width:100px;margin:0 auto;"></div></div>
+                <div class="data-orb"><div class="orb-ring lilac"><span class="material-symbols-outlined" style="font-size:26px;">schedule</span></div><div class="skeleton" style="height:28px;width:80px;margin:0 auto 6px;"></div><div class="skeleton" style="height:11px;width:100px;margin:0 auto;"></div></div>
             </div>
 
             <div class="dash-asymmetric">
                 <div class="card">
                     <div class="card-header">
-                        <h3>🛒 Recent Sales</h3>
+                        <h3>
+                            <span class="live-dot" id="recentSalesLiveDot"></span>
+                            <span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">shopping_cart</span>
+                            Recent Sales
+                            <span class="live-feed-status" id="recentSalesLiveStatus" style="font-size:10px;font-weight:600;color:#22c55e;margin-left:4px;">● Live</span>
+                        </h3>
                         <a href="sales.html" class="view-all">View all →</a>
                     </div>
                     <div class="timeline-list" id="recentSalesList">
@@ -351,10 +458,11 @@
                             <div class="skeleton" style="height:14px;width:60%;border-radius:6px;"></div>
                         </div>
                     </div>
+                    <div id="recentSalesPagination" style="padding:8px 22px 12px;"></div>
                 </div>
                 <div class="card">
                     <div class="card-header">
-                        <h3>📉 Low Stock Alert</h3>
+                        <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--danger);">warning_amber</span> Low Stock Alert</h3>
                         <a href="inventory.html" class="view-all">View all →</a>
                     </div>
                     <div id="lowStockList">
@@ -366,11 +474,10 @@
                     </div>
                 </div>
             </div>
-
             <div class="dash-bottom">
                 <div class="card">
                     <div class="card-header">
-                        <h3>⏳ Expiry Radar</h3>
+                        <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--accent);">schedule</span> Expiry Radar</h3>
                     </div>
                     <div class="expiry-radar" id="expiryGrid">
                         <div class="skeleton" style="height:80px;border-radius:8px;"></div>
@@ -381,7 +488,7 @@
                 </div>
                 <div class="card">
                     <div class="card-header">
-                        <h3>📦 Supply Chain</h3>
+                        <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--info);">inventory_2</span> Supply Chain</h3>
                         <a href="suppliers.html" class="view-all">View all →</a>
                     </div>
                     <div id="recentPOList">
@@ -411,7 +518,14 @@
 
     <script>
         function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('open');
+            if (document.documentElement.classList.contains('sidebar-hidden')) {
+                toggleSidebarVisibility();
+                if (window.innerWidth <= 768) {
+                    document.getElementById('sidebar').classList.add('open');
+                }
+            } else if (window.innerWidth <= 768) {
+                document.getElementById('sidebar').classList.toggle('open');
+            }
         }
         document.addEventListener('click', function(e) {
             var sidebar = document.getElementById('sidebar');
@@ -421,7 +535,62 @@
             }
         });
     </script>
-    <script src="js/auth.js"></script>
+        <script src="js/format.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/auth.js"></script>
     <script src="js/dashboard.js"></script>
 </body>
 </html>
+
+<div id="helpGuideModal">
+    <div class="modal-content" style="max-width:640px;">
+        <div class="modal-header">
+            <h2><span class="material-symbols-outlined" style="font-size:20px;">help</span> Help Guide</h2>
+            <button class="close-btn" onclick="closeHelpGuide()">&times;</button>
+        </div>
+        <div class="help-guide-content">
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">dashboard</span> Dashboard</h3>
+                <p>The Dashboard gives you a real-time overview of your business — total sales, low-stock alerts, expiring products, and recent transactions. Use it as your daily command center.</p>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">point_of_sale</span> Point of Sale (POS)</h3>
+                <p>The POS page is a split-screen checkout system:</p>
+                <ul>
+                    <li><strong>Left panel</strong> — Browse/search products by name or category. Click a product to add it to the cart.</li>
+                    <li><strong>Right panel</strong> — Shows the current cart. Adjust quantities with +/- buttons, remove items, or set a discount percentage.</li>
+                    <li>Scan barcodes using a scanner or press <span class="shortcut">F2</span> to focus the scan field.</li>
+                    <li>Fill in customer name/phone (optional), select payment method, then click <strong>Pay</strong> to complete the sale.</li>
+                </ul>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">inventory_2</span> Inventory</h3>
+                <p>Manage your products: add, edit, view details, adjust stock, and set reorder levels. Use the CSV import tool to bulk-add products. The table shows SKU, name, category, price, stock, and expiration status.</p>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">receipt</span> Sales History</h3>
+                <p>View past transactions, search by sale number or staff name, and filter by date range. Click <strong>View</strong> on any sale to see item details and print a receipt.</p>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">local_shipping</span> Suppliers</h3>
+                <p>Track your suppliers, contact info, payment terms, and performance metrics (delivery time, on-time rate). View email history for purchase orders and alerts sent to each supplier.</p>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">assessment</span> Reports &amp; Analytics</h3>
+                <p>Reports give you printable summaries. Analytics shows charts and trends — top-selling products, monthly revenue, and stock distribution.</p>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">notifications</span> Notifications</h3>
+                <p>Get alerts for low stock, out-of-stock items, and expiring products. Click the bell icon in the sidebar or visit the Notifications page to view and mark alerts as read.</p>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">keyboard</span> Keyboard Shortcuts</h3>
+                <ul>
+                    <li><span class="shortcut">F2</span> — Focus barcode scanner input (POS page)</li>
+                    <li><span class="shortcut">⌘K</span> — Open global search</li>
+                    <li><span class="shortcut">Esc</span> — Close any open modal</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

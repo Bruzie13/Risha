@@ -32,7 +32,7 @@ class User {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                'SELECT id, username, email, full_name, role, phone, address, is_active, created_at FROM users WHERE id = ?',
+                'SELECT id, username, email, full_name, role, phone, address, is_active, UNIX_TIMESTAMP(created_at) * 1000 as created_at FROM users WHERE id = ?',
                 [id]
             );
             return rows[0] || null;
@@ -45,7 +45,7 @@ class User {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                'SELECT id, username, email, full_name, role, phone, address, is_active, created_at FROM users WHERE is_active = TRUE ORDER BY created_at DESC'
+                'SELECT id, username, email, full_name, role, phone, address, is_active, UNIX_TIMESTAMP(created_at) * 1000 as created_at FROM users WHERE is_active = TRUE ORDER BY created_at DESC'
             );
             return rows;
         } finally {
@@ -166,6 +166,19 @@ class User {
                 [id]
             );
             return true;
+        } finally {
+            connection.release();
+        }
+    }
+
+    static async findByIdWithPassword(id) {
+        const connection = await pool.getConnection();
+        try {
+            const [rows] = await connection.execute(
+                'SELECT id, username, email, full_name, role, password FROM users WHERE id = ?',
+                [id]
+            );
+            return rows[0] || null;
         } finally {
             connection.release();
         }

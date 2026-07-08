@@ -57,7 +57,7 @@ CREATE TABLE products (
 CREATE TABLE stock_movements (
     id INT PRIMARY KEY AUTO_INCREMENT,
     product_id INT NOT NULL,
-    movement_type ENUM('in', 'out', 'adjustment', 'damage', 'purchase') DEFAULT 'in',
+    movement_type ENUM('in', 'out', 'adjustment', 'damage', 'purchase', 'sale_void', 'manual') DEFAULT 'in',
     quantity INT NOT NULL,
     reference_type VARCHAR(50),
     reference_id INT,
@@ -150,9 +150,13 @@ CREATE TABLE notifications (
     title VARCHAR(255) NOT NULL,
     message TEXT,
     product_id INT,
+    user_id INT,
+    related_id INT,
+    related_type VARCHAR(50),
     is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (product_id) REFERENCES products(id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
     INDEX idx_type (type),
     INDEX idx_read (is_read),
     INDEX idx_date (created_at)

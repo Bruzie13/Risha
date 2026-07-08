@@ -1,6 +1,7 @@
 const Sale = require('../models/Sale');
 const Product = require('../models/Product');
 const logAudit = require('../services/audit');
+const { notifySaleCreated, notifyLowStock, notifyStockout } = require('../services/notifier');
 
 exports.getAllSales = async (req, res) => {
     try {
@@ -61,6 +62,12 @@ exports.createSale = async (req, res) => {
         }
 
         for (const item of items) {
+            if (!item.product_id || !item.quantity || item.quantity <= 0) {
+                return res.status(400).json({ success: false, message: 'Each item must have a valid product_id and positive quantity' });
+            }
+            if (item.unit_price !== undefined && (isNaN(item.unit_price) || item.unit_price < 0)) {
+                return res.status(400).json({ success: false, message: 'Unit price must be a non-negative number' });
+            }
             const product = await Product.findById(item.product_id);
             if (!product) {
                 return res.status(404).json({
@@ -80,15 +87,17 @@ exports.createSale = async (req, res) => {
                     message: `Product ${product.name} has expired and cannot be sold`
                 });
             }
+            item.unit_price = product.unit_price;
         }
 
         let total_amount = 0;
         for (const item of items) {
-            total_amount += item.total_price || (item.unit_price * item.quantity);
+            item.subtotal = item.quantity * item.unit_price;
+            total_amount += item.subtotal;
         }
 
-        const discPct = parseFloat(discount_percent) || 0;
-        const final_amount = total_amount - (total_amount * (discPct / 100));
+        const discPct = Math.min(100, Math.max(0, parseFloat(discount_percent) || 0));
+        const final_amount = Math.max(0, total_amount - (total_amount * (discPct / 100)));
 
         const saleData = {
             staff_id,
@@ -105,6 +114,20 @@ exports.createSale = async (req, res) => {
         const sale = await Sale.create(saleData);
 
         logAudit(req.user.id, 'create', 'sales', sale.data?.id || sale.id, null, sale, req.ip);
+
+        notifySaleCreated(sale, req.user.id).catch(e => console.error('Notif error:', e.message));
+
+        // Check if any sold items are now low stock or out of stock
+        for (const item of items) {
+            const product = await Product.findById(item.product_id);
+            if (product) {
+                if (product.stock_quantity <= 0) {
+                    notifyStockout(product).catch(() => {});
+                } else if (product.stock_quantity <= product.reorder_level) {
+                    notifyLowStock(product).catch(() => {});
+                }
+            }
+        }
 
         res.status(201).json({
             success: true,

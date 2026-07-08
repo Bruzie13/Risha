@@ -4,12 +4,21 @@ let paymentChart = null;
 let categoryChart = null;
 let currentReportData = null;
 let currentPeriod = 'daily';
+const PAGE_SIZE = 10;
+let displayCount = PAGE_SIZE;
 
 window.addEventListener('load', async () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
     setupTabs();
     setupDateRange();
-    await loadReport('daily');
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    if (tabParam === 'analytics' || tabParam === 'audit') {
+        const btn = document.querySelector(`.report-tab[data-tab="${tabParam}"]`);
+        if (btn) btn.click();
+    } else {
+        await loadReport('daily');
+    }
 });
 
 function setupTabs() {
@@ -24,13 +33,28 @@ function setupTabs() {
             const period = btn.dataset.tab || 'daily';
             currentPeriod = period;
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.getElementById(`tab-${period}`)?.classList.add('active');
-            const startDate = document.getElementById('startDate')?.value;
-            const endDate = document.getElementById('endDate')?.value;
-            if (startDate && endDate) {
-                loadReport(period, startDate, endDate);
+            const tabEl = document.getElementById(`tab-${period}`);
+            if (tabEl) {
+                tabEl.classList.add('active');
+                tabEl.style.removeProperty('display');
+            }
+            if (period === 'analytics') {
+                if (typeof loadAllPredictions === 'function') {
+                    if (typeof predDisplayCount !== 'undefined') predDisplayCount = 10;
+                    loadProductList();
+                    loadAllPredictions();
+                }
+            } else if (period === 'audit') {
+                if (typeof loadAuditLogs === 'function') loadAuditLogs();
             } else {
-                loadReport(period);
+                displayCount = PAGE_SIZE;
+                const startDate = document.getElementById('startDate')?.value;
+                const endDate = document.getElementById('endDate')?.value;
+                if (startDate && endDate) {
+                    loadReport(period, startDate, endDate);
+                } else {
+                    loadReport(period);
+                }
             }
         });
     });
@@ -51,7 +75,7 @@ function setupDateRange() {
 function applyDateRange() {
     const startDate = document.getElementById('startDate')?.value;
     const endDate = document.getElementById('endDate')?.value;
-    if (startDate && endDate) {
+    if (startDate && endDate && currentPeriod !== 'analytics' && currentPeriod !== 'audit') {
         loadReport(currentPeriod, startDate, endDate);
     }
 }
@@ -63,20 +87,23 @@ function resetDateRange() {
     thirtyAgo.setDate(thirtyAgo.getDate() - 30);
     document.getElementById('startDate').value = thirtyAgo.toISOString().split('T')[0];
     currentPeriod = 'daily';
+    displayCount = PAGE_SIZE;
     document.querySelectorAll('.report-tab').forEach(b => {
         b.classList.remove('active');
         b.setAttribute('aria-selected', 'false');
     });
     document.querySelector('.report-tab[data-tab="daily"]')?.classList.add('active');
     document.querySelector('.report-tab[data-tab="daily"]')?.setAttribute('aria-selected', 'true');
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => {
+        t.classList.remove('active');
+        t.style.removeProperty('display');
+    });
     document.getElementById('tab-daily')?.classList.add('active');
     loadReport('daily');
 }
 
 async function loadReport(period, dateFrom, dateTo) {
     try {
-        showLoading(true);
         let url = `${API_BASE}/sales/report?period=${period}`;
         if (dateFrom && dateTo) {
             url += `&date_from=${dateFrom}&date_to=${dateTo}`;
@@ -94,8 +121,6 @@ async function loadReport(period, dateFrom, dateTo) {
     } catch (error) {
         console.error('Error loading report:', error);
         showToast('Failed to load report', 'error');
-    } finally {
-        showLoading(false);
     }
 }
 
@@ -113,6 +138,11 @@ function renderReportTable(period, data) {
         'weekly': 'weeklyTableBody',
         'monthly': 'monthlyTableBody'
     };
+    const paginationIds = {
+        'daily': 'dailyPagination',
+        'weekly': 'weeklyPagination',
+        'monthly': 'monthlyPagination'
+    };
     const tbody = document.getElementById(tableBodyIds[period]);
     if (!tbody) return;
 
@@ -122,8 +152,11 @@ function renderReportTable(period, data) {
         return;
     }
 
+    const limited = rows.slice(0, displayCount);
+    const paginationId = paginationIds[period];
+
     if (period === 'daily') {
-        tbody.innerHTML = rows.map(r => `
+        tbody.innerHTML = limited.map(r => `
             <tr>
                 <td>${r.date ? new Date(r.date).toLocaleDateString() : 'N/A'}</td>
                 <td>${r.total_sales ?? 0}</td>
@@ -132,24 +165,32 @@ function renderReportTable(period, data) {
             </tr>
         `).join('');
     } else if (period === 'weekly') {
-        tbody.innerHTML = rows.map(r => `
+        tbody.innerHTML = limited.map(r => `
             <tr>
-                <td>${r.week || 'N/A'}</td>
-                <td>${r.week_number || 'N/A'}</td>
+                <td>${escHtml(r.week || 'N/A')}</td>
+                <td>${escHtml(r.week_number || 'N/A')}</td>
                 <td>${formatCurrency(r.total_amount ?? 0)}</td>
                 <td>${r.total_sales ?? 0}</td>
             </tr>
         `).join('');
     } else if (period === 'monthly') {
-        tbody.innerHTML = rows.map(r => `
+        tbody.innerHTML = limited.map(r => `
             <tr>
-                <td>${r.month_name || r.month || 'N/A'}</td>
+                <td>${escHtml(r.month_name || r.month || 'N/A')}</td>
                 <td>${r.total_transactions ?? 0}</td>
                 <td>${formatCurrency(r.total_amount ?? 0)}</td>
                 <td>${r.total_sales ?? '-'}</td>
             </tr>
         `).join('');
     }
+
+    updatePagination(paginationId, rows, displayCount, 'showMoreReport');
+}
+
+function showMoreReport() {
+    displayCount += PAGE_SIZE;
+    const data = currentReportData;
+    if (data) renderReportTable(currentPeriod, data);
 }
 
 function renderReportCharts(data) {
@@ -336,25 +377,8 @@ function exportCSV() {
     showToast('CSV exported!', 'success');
 }
 
-function showLoading(show) {
-    const loading = document.querySelector('.tab-content.active');
-    if (loading) {
-        const existing = loading.querySelector('.loading-overlay');
-        if (show && !existing) {
-            const overlay = document.createElement('div');
-            overlay.className = 'loading-overlay';
-            overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.8);display:flex;align-items:center;justify-content:center;z-index:10;';
-            overlay.innerHTML = '<span>Loading...</span>';
-            loading.style.position = 'relative';
-            loading.appendChild(overlay);
-        } else if (!show && existing) {
-            existing.remove();
-        }
-    }
-}
-
 function formatCurrency(val) {
-    return '₱' + parseFloat(val || 0).toFixed(2);
+    return '₱' + Number(val || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
 }
 
 function showToast(message, type) {
@@ -362,11 +386,17 @@ function showToast(message, type) {
     if (!toast) {
         toast = document.createElement('div');
         toast.id = 'toast';
-        toast.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:12px 24px;border-radius:8px;color:#fff;font-weight:500;z-index:9999;transition:opacity 0.3s;';
+        toast.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:12px 24px;border-radius:8px;color:#fff;font-weight:500;z-index:9999;transition:opacity 0.3s;display:flex;align-items:center;gap:8px;';
         document.body.appendChild(toast);
     }
     toast.style.background = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#3b82f6';
-    toast.textContent = message;
+    const icons = {
+        success: '<span class="material-symbols-outlined" style="font-size:16px;">check_circle</span>',
+        error: '<span class="material-symbols-outlined" style="font-size:16px;">error</span>',
+        warning: '<span class="material-symbols-outlined" style="font-size:16px;">warning_amber</span>',
+        info: '<span class="material-symbols-outlined" style="font-size:16px;">info</span>'
+    };
+    toast.innerHTML = (icons[type] || icons.info) + ' ' + message;
     toast.style.opacity = '1';
     setTimeout(() => { toast.style.opacity = '0'; }, 3000);
 }

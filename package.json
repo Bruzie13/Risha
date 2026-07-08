@@ -1,0 +1,13 @@
+{
+  "name": "risha-pet-supplies",
+  "version": "1.0.0",
+  "description": "RISHA Pet Supplies Management System",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "postinstall": "cd backend && npm install"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

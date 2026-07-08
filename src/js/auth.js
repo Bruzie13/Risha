@@ -24,11 +24,14 @@ window.fetch = function() {
     });
 };
 
-// Apply saved theme immediately (before DOMContentLoaded to avoid flash)
+// Apply saved theme and sidebar state immediately (before DOMContentLoaded to avoid flash)
 (function() {
     const saved = localStorage.getItem('theme');
     if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark-mode');
+    }
+    if (localStorage.getItem('sidebarHidden') === 'true') {
+        document.documentElement.classList.add('sidebar-hidden');
     }
 }());
 
@@ -39,8 +42,24 @@ function toggleTheme() {
     document.documentElement.classList.toggle('dark-mode', isDark);
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
     var btn = document.getElementById('themeToggleBtn');
-    if (btn) btn.innerHTML = isDark ? '<span>\u{1F319}</span>' : '<span>\u{2600}\u{FE0F}</span>';
-    if (btn) btn.title = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+    if (btn) {
+        btn.innerHTML = isDark ? '<span class="material-symbols-outlined">light_mode</span>' : '<span class="material-symbols-outlined">dark_mode</span>';
+        btn.title = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+    }
+}
+
+function isSidebarHidden() {
+    return document.documentElement.classList.contains('sidebar-hidden');
+}
+
+function toggleSidebarVisibility() {
+    const hidden = !isSidebarHidden();
+    document.documentElement.classList.toggle('sidebar-hidden', hidden);
+    localStorage.setItem('sidebarHidden', hidden ? 'true' : 'false');
+    const btn = document.getElementById('sidebarToggleBtn');
+    if (btn) btn.innerHTML = hidden ? '<span class="material-symbols-outlined">chevron_right</span>' : '<span class="material-symbols-outlined">chevron_left</span>';
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.classList.remove('open');
 }
 
 function isAuthenticated() {
@@ -89,14 +108,16 @@ function showConfirmDialog(title, message, onConfirm, confirmText, icon) {
     dialog.style.cssText = 'background:var(--bg-card,#fff);border-radius:12px;padding:30px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp 0.25s ease;text-align:center;';
 
     const btnText = confirmText || 'Confirm';
-    const iconEmoji = icon || '🚪';
+    const iconHtml = icon && icon.startsWith('<')
+        ? icon
+        : '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">warning</span>';
     dialog.innerHTML = `
-        <div style="font-size:48px;margin-bottom:15px;">${iconEmoji}</div>
-        <h3 style="font-size:20px;color:var(--primary,#e67e22);margin-bottom:10px;font-weight:700;">${title}</h3>
+        <div style="margin-bottom:15px;">${iconHtml}</div>
+        <h3 style="font-size:20px;color:var(--primary,#FFB5A7);margin-bottom:10px;font-weight:700;">${title}</h3>
         <p style="font-size:15px;color:var(--text-muted,#888);margin-bottom:25px;line-height:1.5;">${message}</p>
         <div style="display:flex;gap:12px;justify-content:center;">
             <button id="confirmCancelBtn" style="padding:12px 28px;border:2px solid var(--border-color,#e0e0e0);border-radius:8px;background:var(--bg-card,#fff);color:var(--text-secondary,#555);font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;">Cancel</button>
-            <button id="confirmOkBtn" style="padding:12px 28px;border:none;border-radius:8px;background:linear-gradient(135deg,#d32f2f,#e53935);color:#fff;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;">${btnText}</button>
+            <button id="confirmOkBtn" style="padding:12px 28px;border:none;border-radius:8px;background:var(--danger,#F4A7A7);color:#fff;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;">${btnText}</button>
         </div>
     `;
 
@@ -109,8 +130,8 @@ function showConfirmDialog(title, message, onConfirm, confirmText, icon) {
     cancelBtn.addEventListener('mouseenter', () => { cancelBtn.style.background = 'var(--gray-100,#f5f5f5)'; });
     cancelBtn.addEventListener('mouseleave', () => { cancelBtn.style.background = 'var(--bg-card,#fff)'; });
     cancelBtn.addEventListener('click', () => overlay.remove());
-    okBtn.addEventListener('mouseenter', () => { okBtn.style.background = 'linear-gradient(135deg,#c62828,#d32f2f)'; });
-    okBtn.addEventListener('mouseleave', () => { okBtn.style.background = 'linear-gradient(135deg,#d32f2f,#e53935)'; });
+    okBtn.addEventListener('mouseenter', () => { okBtn.style.background = '#D98275'; });
+    okBtn.addEventListener('mouseleave', () => { okBtn.style.background = 'var(--danger,#F4A7A7)'; });
     okBtn.addEventListener('click', () => { overlay.remove(); onConfirm(); });
 
     const style = document.createElement('style');
@@ -130,16 +151,18 @@ function showPromptDialog(title, message, onConfirm, confirmText, icon, inputTyp
     dialog.style.cssText = 'background:var(--bg-card,#fff);border-radius:12px;padding:30px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp 0.25s ease;text-align:center;';
 
     const btnText = confirmText || 'Confirm';
-    const iconEmoji = icon || '📝';
+    const iconHtml = icon && icon.startsWith('<')
+        ? icon
+        : '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">edit_note</span>';
     const inputTypeAttr = inputType || 'number';
     dialog.innerHTML = `
-        <div style="font-size:48px;margin-bottom:15px;">${iconEmoji}</div>
-        <h3 style="font-size:20px;color:var(--primary,#e67e22);margin-bottom:10px;font-weight:700;">${title}</h3>
+        <div style="margin-bottom:15px;">${iconHtml}</div>
+        <h3 style="font-size:20px;color:var(--primary,#FFB5A7);margin-bottom:10px;font-weight:700;">${title}</h3>
         <p style="font-size:15px;color:var(--text-muted,#888);margin-bottom:20px;line-height:1.5;">${message}</p>
         <input id="promptInput" type="${inputTypeAttr}" value="${defaultValue || ''}" style="width:100%;padding:12px 16px;border:2px solid var(--border-color,#e0e0e0);border-radius:8px;font-size:16px;text-align:center;font-family:inherit;outline:none;box-sizing:border-box;margin-bottom:20px;" autofocus>
         <div style="display:flex;gap:12px;justify-content:center;">
             <button id="confirmCancelBtn" style="padding:12px 28px;border:2px solid var(--border-color,#e0e0e0);border-radius:8px;background:var(--bg-card,#fff);color:var(--text-secondary,#555);font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;">Cancel</button>
-            <button id="confirmOkBtn" style="padding:12px 28px;border:none;border-radius:8px;background:linear-gradient(135deg,#d32f2f,#e53935);color:#fff;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;">${btnText}</button>
+            <button id="confirmOkBtn" style="padding:12px 28px;border:none;border-radius:8px;background:var(--danger,#F4A7A7);color:#fff;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;">${btnText}</button>
         </div>
     `;
 
@@ -155,8 +178,8 @@ function showPromptDialog(title, message, onConfirm, confirmText, icon, inputTyp
     cancelBtn.addEventListener('mouseenter', () => { cancelBtn.style.background = 'var(--gray-100,#f5f5f5)'; });
     cancelBtn.addEventListener('mouseleave', () => { cancelBtn.style.background = 'var(--bg-card,#fff)'; });
     cancelBtn.addEventListener('click', () => overlay.remove());
-    okBtn.addEventListener('mouseenter', () => { okBtn.style.background = 'linear-gradient(135deg,#c62828,#d32f2f)'; });
-    okBtn.addEventListener('mouseleave', () => { okBtn.style.background = 'linear-gradient(135deg,#d32f2f,#e53935)'; });
+    okBtn.addEventListener('mouseenter', () => { okBtn.style.background = '#D98275'; });
+    okBtn.addEventListener('mouseleave', () => { okBtn.style.background = 'var(--danger,#F4A7A7)'; });
     okBtn.addEventListener('click', () => { overlay.remove(); onConfirm(input.value); });
 
     const style = document.createElement('style');
@@ -179,10 +202,10 @@ function togglePassword(event) {
     if (!passwordInput) return;
     if (passwordInput.type === 'password') {
         passwordInput.type = 'text';
-        if (toggle) toggle.textContent = '\u{1F512}';
+        if (toggle) toggle.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">visibility_off</span>';
     } else {
         passwordInput.type = 'password';
-        if (toggle) toggle.textContent = '\u{1F441}\u{FE0F}';
+        if (toggle) toggle.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">visibility</span>';
     }
 }
 
@@ -196,13 +219,13 @@ function openGlobalSearch() {
     overlay.innerHTML = `
         <div class="search-modal">
             <div class="search-input-wrap">
-                <span>\u{1F50D}</span>
+                <span class="material-symbols-outlined" style="font-size:20px;">search</span>
                 <input id="globalSearchInput" type="text" placeholder="Search products, suppliers, sales..." autofocus>
                 <button class="close-btn" onclick="closeGlobalSearch()">&times;</button>
             </div>
             <div id="searchResults" class="search-results">
                 <div class="search-empty">
-                    <div class="search-empty-icon">\u{1F50D}</div>
+                    <div class="search-empty-icon"><span class="material-symbols-outlined" style="font-size:40px;">search</span></div>
                     Type to search across all modules
                 </div>
             </div>
@@ -235,13 +258,13 @@ function searchKeydown(e) {
 async function performSearch(query) {
     const resultsEl = document.getElementById('searchResults');
     if (!query || query.length < 2) {
-        resultsEl.innerHTML = '<div class="search-empty"><div class="search-empty-icon">\u{1F50D}</div>Type at least 2 characters to search</div>';
+        resultsEl.innerHTML = '<div class="search-empty"><div class="search-empty-icon"><span class="material-symbols-outlined" style="font-size:40px;">search</span></div>Type at least 2 characters to search</div>';
         return;
     }
 
     try {
         const [prodRes, suppRes] = await Promise.all([
-            fetch(`${API_BASE}/products`).then(r => r.json()),
+            fetch(`${API_BASE}/products`, { headers: getAuthHeaders() }).then(r => r.json()),
             fetch(`${API_BASE}/suppliers`, { headers: getAuthHeaders() }).then(r => r.json())
         ]);
 
@@ -254,24 +277,24 @@ async function performSearch(query) {
         ).slice(0, 5);
 
         if (!products.length && !suppliers.length) {
-            resultsEl.innerHTML = '<div class="search-empty"><div class="search-empty-icon">\u{1F50D}</div>No results found for "' + query + '"</div>';
+            resultsEl.innerHTML = '<div class="search-empty"><div class="search-empty-icon"><span class="material-symbols-outlined" style="font-size:40px;">search</span></div>No results found for "' + escHtml(query) + '"</div>';
             return;
         }
 
         let html = '';
         products.forEach(p => {
             html += '<div class="search-result-item" onclick="navigateTo(\'inventory.html\'); closeGlobalSearch();">'
-                + '<div class="search-result-icon products">\u{1F4E6}</div>'
+                + '<div class="search-result-icon products"><span class="material-symbols-outlined" style="font-size:16px;">inventory_2</span></div>'
                 + '<div class="search-result-info">'
                 + '<div class="search-result-title">' + escHtml(p.name) + '</div>'
-                + '<div class="search-result-sub">SKU: ' + escHtml(p.sku || 'N/A') + ' \u2022 Stock: ' + (p.stock_quantity ?? 0) + ' \u2022 \u20B1' + parseFloat(p.unit_price || 0).toFixed(2) + '</div>'
+                + '<div class="search-result-sub">SKU: ' + escHtml(p.sku || 'N/A') + ' \u2022 Stock: ' + formatNumber(p.stock_quantity ?? 0) + ' \u2022 ' + formatCurrency(p.unit_price || 0) + '</div>'
                 + '</div>'
                 + '<span class="search-result-link">Inventory</span>'
                 + '</div>';
         });
         suppliers.forEach(s => {
             html += '<div class="search-result-item" onclick="navigateTo(\'suppliers.html\'); closeGlobalSearch();">'
-                + '<div class="search-result-icon suppliers">\u{1F3ED}</div>'
+                + '<div class="search-result-icon suppliers"><span class="material-symbols-outlined" style="font-size:16px;">local_shipping</span></div>'
                 + '<div class="search-result-info">'
                 + '<div class="search-result-title">' + escHtml(s.name) + '</div>'
                 + '<div class="search-result-sub">Contact: ' + escHtml(s.contact_person || 'N/A') + ' \u2022 ' + escHtml(s.city || '') + '</div>'
@@ -281,7 +304,7 @@ async function performSearch(query) {
         });
         resultsEl.innerHTML = html;
     } catch (e) {
-        resultsEl.innerHTML = '<div class="search-empty"><div class="search-empty-icon">\u26A0\uFE0F</div>Search unavailable</div>';
+        resultsEl.innerHTML = '<div class="search-empty"><div class="search-empty-icon"><span class="material-symbols-outlined" style="font-size:40px;">warning</span></div>Search unavailable</div>';
     }
 }
 
@@ -296,8 +319,13 @@ function showToast(message, type) {
     }
     const toast = document.createElement('div');
     toast.className = 'toast toast-' + type;
-    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
-    toast.innerHTML = (icons[type] || 'ℹ️') + ' ' + message;
+    const icons = {
+        success: '<span class="material-symbols-outlined" style="font-size:16px;">check_circle</span>',
+        error: '<span class="material-symbols-outlined" style="font-size:16px;">error</span>',
+        warning: '<span class="material-symbols-outlined" style="font-size:16px;">warning_amber</span>',
+        info: '<span class="material-symbols-outlined" style="font-size:16px;">info</span>'
+    };
+    toast.innerHTML = (icons[type] || icons.info) + ' ' + escHtml(message);
     container.appendChild(toast);
     setTimeout(() => {
         toast.style.animation = 'toastOut 0.3s ease forwards';
@@ -309,6 +337,174 @@ function escHtml(str) {
     const div = document.createElement('div');
     div.textContent = str || '';
     return div.innerHTML;
+}
+
+// ===== NOTIFICATION SYSTEM =====
+let notifPollInterval = null;
+let lastNotifCount = -1;
+
+function getNotifBadge() {
+    return document.getElementById('notifBadge');
+}
+
+async function refreshNotifCount() {
+    if (!isAuthenticated()) return;
+    try {
+        const res = await fetch(`${API_BASE}/notifications/count`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (data.success) {
+            const count = data.data.count;
+            const badge = getNotifBadge();
+            if (badge) {
+                badge.textContent = count;
+                badge.style.display = count > 0 ? 'flex' : 'none';
+                if (count > 0) badge.classList.add('has-alerts');
+                else badge.classList.remove('has-alerts');
+            }
+            if (lastNotifCount !== -1 && count > lastNotifCount && Notification.permission === 'granted') {
+                new Notification('RISHA — New Notification', {
+                    body: `You have ${count} unread notification(s)`,
+                    icon: '/images/logo.jpeg'
+                });
+            }
+            lastNotifCount = count;
+        }
+    } catch (e) {
+        // silent
+    }
+}
+
+function startNotifPolling() {
+    stopNotifPolling();
+    refreshNotifCount();
+    notifPollInterval = setInterval(refreshNotifCount, 15000);
+}
+
+function stopNotifPolling() {
+    if (notifPollInterval) {
+        clearInterval(notifPollInterval);
+        notifPollInterval = null;
+    }
+}
+
+async function openNotifDropdown() {
+    const existing = document.getElementById('notifDropdown');
+    if (existing) {
+        existing.remove();
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/notifications?limit=15`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        const notifs = data.data || [];
+
+        const dropdown = document.createElement('div');
+        dropdown.id = 'notifDropdown';
+        dropdown.className = 'notif-dropdown';
+        dropdown.innerHTML = `
+            <div class="notif-dropdown-header">
+                <span>Notifications</span>
+                <div class="notif-dropdown-actions">
+                    <button onclick="markAllNotifRead()" title="Mark all read"><span class="material-symbols-outlined" style="font-size:16px;">check</span> All</button>
+                    <button onclick="closeNotifDropdown()" title="Close"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
+                </div>
+            </div>
+            <div class="notif-dropdown-body">
+                ${notifs.length === 0 ? '<div class="notif-empty">No notifications yet</div>' :
+                    notifs.map(n => `
+                        <div class="notif-item ${n.is_read ? 'read' : 'unread'}" onclick="markNotifRead(${n.id})">
+                            <span class="notif-read-indicator">${n.is_read ? '' : '●'}</span>
+                            <div class="notif-icon ${n.type}">${getNotifIcon(n.type)}</div>
+                            <div class="notif-content">
+                                <div class="notif-title">${escHtml(n.title)}</div>
+                                <div class="notif-msg">${escHtml(n.message)}</div>
+                                <div class="notif-time">${formatNotifTime(n.created_at)}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+            </div>
+            <div class="notif-dropdown-footer">
+                <a href="notifications.html" onclick="closeNotifDropdown()">View all notifications →</a>
+            </div>
+        `;
+        document.body.appendChild(dropdown);
+
+        setTimeout(() => {
+            document.addEventListener('click', closeNotifOutside, { once: true });
+        }, 10);
+    } catch (e) {
+        showToast('Failed to load notifications', 'error');
+    }
+}
+
+function closeNotifDropdown() {
+    const el = document.getElementById('notifDropdown');
+    if (el) el.remove();
+}
+
+function closeNotifOutside(e) {
+    const dd = document.getElementById('notifDropdown');
+    const btn = document.getElementById('notifBellBtn');
+    if (dd && !dd.contains(e.target) && btn && !btn.contains(e.target)) {
+        dd.remove();
+    }
+}
+
+async function markNotifRead(id) {
+    try {
+        await fetch(`${API_BASE}/notifications/${id}/read`, { method: 'PUT', headers: getAuthHeaders() });
+        refreshNotifCount();
+        const dd = document.getElementById('notifDropdown');
+        if (dd) {
+            closeNotifDropdown();
+            openNotifDropdown();
+        }
+    } catch (e) {}
+}
+
+async function markAllNotifRead() {
+    try {
+        await fetch(`${API_BASE}/notifications/read-all`, { method: 'PUT', headers: getAuthHeaders() });
+        refreshNotifCount();
+        closeNotifDropdown();
+        showToast('All notifications marked as read', 'success');
+    } catch (e) {
+        showToast('Failed to mark all as read', 'error');
+    }
+}
+
+function getNotifIcon(type) {
+    const icons = {
+        low_stock: '<span class="material-symbols-outlined" style="font-size:16px;">inventory_2</span>',
+        stockout: '<span class="material-symbols-outlined" style="font-size:16px;">block</span>',
+        expiration: '<span class="material-symbols-outlined" style="font-size:16px;">schedule</span>',
+        overstock: '<span class="material-symbols-outlined" style="font-size:16px;">inventory</span>',
+        reorder: '<span class="material-symbols-outlined" style="font-size:16px;">assignment</span>',
+        info: '<span class="material-symbols-outlined" style="font-size:16px;">info</span>',
+        warning: '<span class="material-symbols-outlined" style="font-size:16px;">warning_amber</span>',
+        critical: '<span class="material-symbols-outlined" style="font-size:16px;">error</span>'
+    };
+    return icons[type] || '<span class="material-symbols-outlined" style="font-size:16px;">info</span>';
+}
+
+function formatNotifTime(t) {
+    if (!t) return '';
+    const d = new Date(t);
+    if (isNaN(d.getTime())) return t;
+    const now = new Date();
+    const diff = now - d;
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+    if (diff < 604800000) return Math.floor(diff / 86400000) + 'd ago';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function requestNotifPermission() {
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
 }
 
 function navigateTo(page) {
@@ -351,7 +547,7 @@ function showShortcuts() {
     overlay.innerHTML = `
         <div class="modal-content" style="max-width:420px;">
             <div class="modal-header">
-                <h2>⌨️ Keyboard Shortcuts</h2>
+                <h2><span class="material-symbols-outlined" style="font-size:20px;">keyboard</span> Keyboard Shortcuts</h2>
                 <button class="close-btn" onclick="closeShortcuts()">&times;</button>
             </div>
             <div class="modal-body">
@@ -386,7 +582,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const nameEl = document.getElementById('userName');
-    const avatarEl = document.querySelector('.avatar');
+    const avatarEl = document.querySelector('.avatar-initials');
     if ((nameEl || avatarEl) && !window.location.pathname.includes('login.html')) {
         const user = getUser();
         if (user && nameEl) nameEl.textContent = user.full_name || user.username || user.email;
@@ -398,9 +594,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     var themeBtn = document.getElementById('themeToggleBtn');
     if (themeBtn) {
-        themeBtn.innerHTML = isDarkMode() ? '<span>\u{1F319}</span>' : '<span>\u{2600}\u{FE0F}</span>';
+        themeBtn.innerHTML = isDarkMode() ? '<span class="material-symbols-outlined">light_mode</span>' : '<span class="material-symbols-outlined">dark_mode</span>';
         themeBtn.title = isDarkMode() ? 'Switch to Light Mode' : 'Switch to Dark Mode';
         themeBtn.addEventListener('click', toggleTheme);
+    }
+
+    var sidebarBtn = document.getElementById('sidebarToggleBtn');
+    if (sidebarBtn) {
+        sidebarBtn.innerHTML = isSidebarHidden() ? '<span class="material-symbols-outlined">chevron_right</span>' : '<span class="material-symbols-outlined">chevron_left</span>';
     }
 
     document.addEventListener('keydown', (e) => {
@@ -413,4 +614,51 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!window.location.pathname.includes('login.html')) showShortcuts();
         }
     });
+
+    if (!window.location.pathname.includes('login.html')) {
+        startNotifPolling();
+        requestNotifPermission();
+    }
+
+    var helpFloatBtn = document.getElementById('helpFloatBtn');
+    if (!helpFloatBtn && !window.location.pathname.includes('login.html')) {
+        helpFloatBtn = document.createElement('button');
+        helpFloatBtn.id = 'helpFloatBtn';
+        helpFloatBtn.className = 'help-float-btn';
+        helpFloatBtn.innerHTML = '<span class="material-symbols-outlined">help</span>';
+        helpFloatBtn.title = 'Help Guide';
+        helpFloatBtn.onclick = function() {
+            const modal = document.getElementById('helpGuideModal');
+            if (modal && modal.classList.contains('active')) {
+                closeHelpGuide();
+            } else {
+                openHelpGuide();
+            }
+        };
+        document.body.appendChild(helpFloatBtn);
+    }
+});
+
+function openHelpGuide() {
+    const modal = document.getElementById('helpGuideModal');
+    if (modal) {
+        modal.classList.add('active');
+        document.body.classList.add('help-guide-open');
+    }
+}
+
+function closeHelpGuide() {
+    const modal = document.getElementById('helpGuideModal');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.classList.remove('help-guide-open');
+    }
+}
+
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('helpGuideModal');
+    const floatBtn = document.getElementById('helpFloatBtn');
+    if (modal && modal.classList.contains('active') && !modal.contains(e.target) && floatBtn && !floatBtn.contains(e.target)) {
+        closeHelpGuide();
+    }
 });

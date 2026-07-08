@@ -6,15 +6,13 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RISHA — Analytics</title>
+    <title>RISHA — Point of Sale</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css">
-    <link rel="stylesheet" href="css/analytics.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="css/pos.css">
 <script>if(localStorage.getItem('theme')==='dark'||(!localStorage.getItem('theme')&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');</script>
-<script>window.location.replace('reports.html?tab=analytics');</script>
     </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -33,7 +31,7 @@
         <div class="sidebar-nav">
             <a href="dashboard.html" class="nav-link" title="Dashboard"><span class="nav-icon material-symbols-outlined">dashboard</span><span class="nav-label">Dashboard</span></a>
             <a href="inventory.html" class="nav-link" title="Inventory"><span class="nav-icon material-symbols-outlined">inventory_2</span><span class="nav-label">Inventory</span></a>
-            <a href="pos.html" class="nav-link" title="POS"><span class="nav-icon material-symbols-outlined">point_of_sale</span><span class="nav-label">POS</span></a>
+            <a href="pos.html" class="nav-link active" title="POS"><span class="nav-icon material-symbols-outlined">point_of_sale</span><span class="nav-label">POS</span></a>
             <a href="sales.html" class="nav-link" title="Sales History"><span class="nav-icon material-symbols-outlined">receipt</span><span class="nav-label">Sales History</span></a>
             <a href="suppliers.html" class="nav-link" title="Suppliers"><span class="nav-icon material-symbols-outlined">local_shipping</span><span class="nav-label">Suppliers</span></a>
             <a href="reports.html" class="nav-link" title="Reports"><span class="nav-icon material-symbols-outlined">assessment</span><span class="nav-label">Reports</span></a>
@@ -65,142 +63,84 @@
     </nav>
 
     <div class="main-wrapper">
-        <div class="page-header">
+        <div class="page-header pos-header">
             <div>
-                <h1>Analytics</h1>
-                <div class="breadcrumb"><span>AI Insights</span> · Demand forecasting &amp; predictions</div>
+                <h1>Point of Sale</h1>
+                <div class="breadcrumb"><span>POS</span> · Quick checkout</div>
             </div>
             <div class="page-header-actions">
+                <a href="sales.html" class="btn-secondary" style="font-size:12px;padding:7px 14px;"><span class="material-symbols-outlined" style="font-size:14px;">receipt</span> Sales History</a>
             </div>
         </div>
 
-        <div class="content">
-            <div class="perf-overview">
-                <div class="perf-card perf-fast">
-                    <div class="perf-icon"><span class="material-symbols-outlined" style="font-size:20px;">rocket_launch</span></div>
-                    <div class="perf-info">
-                        <span class="perf-label">Fast Movers</span>
-                        <span class="perf-value" id="fastMoversCount">--</span>
+        <div class="content pos-content" style="padding:0;">
+            <div class="pos-layout">
+                <!-- Left: Product Grid -->
+                <div class="pos-products">
+                    <div class="pos-scanner-bar">
+                        <span class="scanner-label"><span class="material-symbols-outlined" style="font-size:14px;">qr_code_scanner</span> Scan (F2)</span>
+                        <input type="text" id="barcodeScanInput" placeholder="Scan barcode or search..." autofocus>
+                        <button class="btn-secondary" style="padding:6px 10px;font-size:11px;" onclick="clearBarcodeInput()"><span class="material-symbols-outlined" style="font-size:14px;">close</span></button>
                     </div>
-                    <span class="perf-hint">High demand, rising trend</span>
-                </div>
-                <div class="perf-card perf-slow">
-                    <div class="perf-icon"><span class="material-symbols-outlined" style="font-size:20px;">hourglass_bottom</span></div>
-                    <div class="perf-info">
-                        <span class="perf-label">Slow Movers</span>
-                        <span class="perf-value" id="slowMoversCount">--</span>
+                    <div class="pos-toolbar">
+                        <div class="pos-search-wrap">
+                            <span class="material-symbols-outlined search-icon">search</span>
+                            <input type="text" class="pos-search" id="posSearchInput" placeholder="Search products..." oninput="filterProducts()">
+                        </div>
+                        <div id="categoryFilters" class="pos-category-filter"></div>
                     </div>
-                    <span class="perf-hint">Declining demand</span>
-                </div>
-                <div class="perf-card perf-risk">
-                    <div class="perf-icon"><span class="material-symbols-outlined" style="font-size:20px;">warning</span></div>
-                    <div class="perf-info">
-                        <span class="perf-label">At Risk</span>
-                        <span class="perf-value" id="atRiskCount">--</span>
+                    <div class="pos-grid" id="productGrid">
                     </div>
-                    <span class="perf-hint">May stock out within 30 days</span>
+                    <div id="posPagination" class="pagination-bar"></div>
                 </div>
-                <div class="perf-card perf-steady">
-                    <div class="perf-icon"><span class="material-symbols-outlined" style="font-size:20px;">check_circle</span></div>
-                    <div class="perf-info">
-                        <span class="perf-label">Steady</span>
-                        <span class="perf-value" id="steadyCount">--</span>
-                    </div>
-                    <span class="perf-hint">Stable demand, healthy stock</span>
-                </div>
-            </div>
 
-            <div class="perf-panels">
-                <div class="perf-panel">
-                    <div class="perf-panel-header fast-header">
-                        <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--accent);">emoji_events</span> Top Fast Movers</h3>
-                        <span>Highest predicted demand with rising trends</span>
+                <!-- Right: Cart Panel -->
+                <div class="pos-cart">
+                    <div class="pos-cart-header">
+                        <h3><span class="material-symbols-outlined" style="font-size:18px;">shopping_cart</span> Current Sale</h3>
+                        <span class="cart-count" id="cartCount">0 items</span>
                     </div>
-                    <div class="perf-panel-body" id="fastMoversList">
-                        <div class="perf-placeholder">Loading...</div>
+                    <div class="pos-cart-items" id="cartItems">
+                        <div class="pos-cart-empty">
+                            <div class="empty-icon"><span class="material-symbols-outlined" style="font-size:40px;">add_shopping_cart</span></div>
+                            No items added<br>
+                            <span style="font-size:11px;">Scan or click products to add</span>
+                        </div>
                     </div>
-                </div>
-                <div class="perf-panel">
-                    <div class="perf-panel-header risk-header">
-                        <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--danger);">fiber_manual_record</span> Needs Attention</h3>
-                        <span>Products at risk of stockout or declining</span>
+                    <div class="pos-cart-customer">
+                        <input type="text" id="posCustomerName" placeholder="Customer name (optional)">
+                        <input type="text" id="posCustomerPhone" placeholder="Phone (optional)">
                     </div>
-                    <div class="perf-panel-body" id="needsAttentionList">
-                        <div class="perf-placeholder">Loading...</div>
+                    <div class="pos-cart-summary">
+                        <div class="discount-input">
+                            <label>Discount %:</label>
+                            <input type="number" id="posDiscount" value="0" min="0" max="100" step="0.01" oninput="updateCartTotals()">
+                        </div>
+                        <div class="summary-row">
+                            <span>Subtotal</span>
+                            <span id="posSubtotal">₱0.00</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Discount</span>
+                            <span id="posDiscountAmount">-₱0.00</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>Total</span>
+                            <span class="total-val" id="posTotal">₱0.00</span>
+                        </div>
+                        <div style="margin-top:8px;">
+                            <select class="form-select" id="posPaymentMethod" style="width:100%;padding:8px 12px;font-size:12px;">
+                                <option value="cash">Cash</option>
+                                <option value="card">Card</option>
+                                <option value="check">Check</option>
+                                <option value="online">Online Transfer</option>
+                            </select>
+                        </div>
                     </div>
-                </div>
-            </div>
-
-            <div class="analytics-controls">
-                <div class="form-group" style="margin-bottom:0;">
-                    <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Select Product for Detailed Forecast</label>
-                    <select id="productSelector" onchange="onProductChange()" style="padding:9px 14px;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);font-size:13px;color:var(--text-primary);font-family:var(--font-sans);min-width:280px;">
-                        <option value="">-- Select a product --</option>
-                    </select>
-                </div>
-                <button class="btn-primary" onclick="refreshAnalytics()"><span class="material-symbols-outlined" style="font-size:16px;">refresh</span> Refresh All</button>
-            </div>
-
-            <div class="metrics-grid" id="metricsGrid" style="display:none;">
-                <div class="metric-card">
-                    <div class="metric-icon green"><span class="material-symbols-outlined" style="font-size:22px;">bar_chart</span></div>
-                    <div class="metric-label">Predicted Next Month Sales</div>
-                    <div class="metric-value" id="predictedSales">--</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-icon blue"><span class="material-symbols-outlined" style="font-size:22px;">inventory_2</span></div>
-                    <div class="metric-label">Recommended Reorder Point</div>
-                    <div class="metric-value" id="reorderPoint">--</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-icon purple"><span class="material-symbols-outlined" style="font-size:22px;">track_changes</span></div>
-                    <div class="metric-label">Confidence Score</div>
-                    <div class="metric-value" id="confidenceScore">--</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-icon gold"><span class="material-symbols-outlined" style="font-size:22px;">trending_up</span></div>
-                    <div class="metric-label">Trend</div>
-                    <div class="metric-value" id="trendIndicator">--</div>
-                    <div class="metric-trend" id="trendText"></div>
-                </div>
-            </div>
-
-            <div class="analytics-charts" id="chartsSection" style="display:none;">
-                <div class="analytics-chart-card full-width">
-                    <h3>Demand Forecast: Predicted vs Historical Sales</h3>
-                    <div class="chart-container">
-                        <canvas id="demandForecastChart"></canvas>
+                    <div class="pos-cart-actions">
+                        <button class="btn-secondary" onclick="clearCart()"><span class="material-symbols-outlined" style="font-size:14px;">delete_sweep</span> Clear</button>
+                        <button class="btn-primary" onclick="completeSale()"><span class="material-symbols-outlined" style="font-size:15px;">payments</span> Pay</button>
                     </div>
-                </div>
-                <div class="analytics-chart-card">
-                    <h3>Seasonal Trends</h3>
-                    <div class="chart-container">
-                        <canvas id="seasonalTrendsChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <div class="analytics-chart-card full-width">
-                <h3>All Products — Demand Forecast & Reorder Status</h3>
-                <div class="table-container">
-                    <table class="data-table predictions-table">
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th>Current Stock</th>
-                                <th>Predicted Demand (Next 30d)</th>
-                                <th>Daily Avg</th>
-                                <th>Days Until Stockout</th>
-                                <th>Trend</th>
-                                <th>Reorder</th>
-                            </tr>
-                        </thead>
-                        <tbody id="predictionsTableBody">
-                            <tr>
-                                <td colspan="7" class="text-center">Loading predictions...</td>
-                            </tr>
-                        </tbody>
-                    </table>
                 </div>
             </div>
         </div>
@@ -226,8 +166,9 @@
         });
     </script>
         <script src="js/format.js"></script>
+<script src="js/utils.js"></script>
 <script src="js/auth.js"></script>
-    <script src="js/analytics.js"></script>
+    <script src="js/pos.js"></script>
 </body>
 </html>
 

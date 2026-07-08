@@ -13,41 +13,52 @@
     <link rel="stylesheet" href="css/global.css">
     <link rel="stylesheet" href="css/reports.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-</head>
+<script>if(localStorage.getItem('theme')==='dark'||(!localStorage.getItem('theme')&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');</script>
+    </head>
 <body>
-    <button class="sidebar-hamburger" id="hamburgerBtn" onclick="toggleSidebar()">☰</button>
+    <button class="sidebar-hamburger" id="hamburgerBtn" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
+    <button class="sidebar-floating-toggle" id="sidebarFloatingToggle" onclick="toggleSidebarVisibility()"><span class="material-symbols-outlined">menu</span></button>
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-brand">
-                <div class="brand-icon"><img src="images/logo.jpeg" alt="RISHA"></div>
+                <div class="brand-icon"><img src="images/logo.jpeg" alt="RISHA" title="RISHA Pet Shop"></div>
                 <div class="brand-text">
                     <span>RISHA</span>
                     <small>Pet Shop</small>
                 </div>
             </div>
+            <button class="sidebar-collapse-btn" id="sidebarToggleBtn" onclick="toggleSidebarVisibility()" title="Collapse sidebar"><span class="material-symbols-outlined">chevron_left</span></button>
         </div>
         <div class="sidebar-nav">
-            <a href="dashboard.html" class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
-            <a href="inventory.html" class="nav-link"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span></a>
-            <a href="sales.html" class="nav-link"><span class="nav-icon">💰</span><span class="nav-label">Sales</span></a>
-            <a href="suppliers.html" class="nav-link"><span class="nav-icon">🚚</span><span class="nav-label">Suppliers</span></a>
-            <a href="reports.html" class="nav-link active"><span class="nav-icon">📈</span><span class="nav-label">Reports</span></a>
-            <a href="analytics.html" class="nav-link"><span class="nav-icon">🤖</span><span class="nav-label">Analytics</span></a>
-            <a href="audit.html" class="nav-link"><span class="nav-icon">📋</span><span class="nav-label">Audit Logs</span></a>
-            <a href="users.html" class="nav-link" id="usersLink"><span class="nav-icon">👥</span><span class="nav-label">Users</span></a>
+            <a href="dashboard.html" class="nav-link" title="Dashboard"><span class="nav-icon material-symbols-outlined">dashboard</span><span class="nav-label">Dashboard</span></a>
+            <a href="inventory.html" class="nav-link" title="Inventory"><span class="nav-icon material-symbols-outlined">inventory_2</span><span class="nav-label">Inventory</span></a>
+            <a href="pos.html" class="nav-link" title="POS"><span class="nav-icon material-symbols-outlined">point_of_sale</span><span class="nav-label">POS</span></a>
+            <a href="sales.html" class="nav-link" title="Sales History"><span class="nav-icon material-symbols-outlined">receipt</span><span class="nav-label">Sales History</span></a>
+            <a href="suppliers.html" class="nav-link" title="Suppliers"><span class="nav-icon material-symbols-outlined">local_shipping</span><span class="nav-label">Suppliers</span></a>
+            <a href="reports.html" class="nav-link active" title="Reports"><span class="nav-icon material-symbols-outlined">assessment</span><span class="nav-label">Reports</span></a>
+            <a href="users.html" class="nav-link" id="usersLink" title="Users"><span class="nav-icon material-symbols-outlined">group</span><span class="nav-label">Users</span></a>
         </div>
         <div class="sidebar-footer">
-            <div class="sidebar-user">
-                <div class="avatar">👤</div>
+            <div class="sidebar-user" onclick="location.href='settings.html'" title="Your Profile">
+                <div class="avatar">
+                    <span class="avatar-initials">AD</span>
+                    <span class="avatar-status"></span>
+                </div>
                 <div class="user-info">
                     <span id="userName">Loading...</span>
                     <small id="userRole">Staff</small>
                 </div>
+                <button class="user-settings-btn" onclick="event.stopPropagation();location.href='settings.html'" title="Settings">
+                    <span class="material-symbols-outlined">settings</span>
+                </button>
             </div>
             <div class="sidebar-actions">
-                <button class="sidebar-btn" onclick="openGlobalSearch()" title="Search (⌘K)">🔍</button>
-                <button class="sidebar-btn" id="themeToggleBtn" title="Toggle theme">🌙</button>
-                <button class="sidebar-btn sidebar-logout" onclick="logout()" title="Logout">🚪</button>
+                <button class="sidebar-btn" id="themeToggleBtn" title="Toggle theme"><span class="material-symbols-outlined">dark_mode</span></button>
+                <button class="sidebar-btn notif-bell-btn" id="notifBellBtn" onclick="openNotifDropdown()" title="Notifications">
+                    <span class="material-symbols-outlined" style="font-size:18px;">notifications</span>
+                    <span class="notif-badge" id="notifBadge">0</span>
+                    </button>
+                <button class="sidebar-btn sidebar-logout" onclick="logout()" title="Logout"><span class="material-symbols-outlined">logout</span></button>
             </div>
         </div>
     </nav>
@@ -66,11 +77,11 @@
             <div class="date-range-picker">
                 <div class="form-group" style="display:inline-block;margin-right:12px;">
                     <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Start Date</label>
-                    <input type="date" id="startDate" style="padding:8px 12px;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);font-size:13px;background:white;color:var(--text-primary);font-family:var(--font-sans);">
+                    <input type="date" id="startDate" style="padding:8px 12px;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);font-size:13px;color:var(--text-primary);font-family:var(--font-sans);">
                 </div>
                 <div class="form-group" style="display:inline-block;margin-right:12px;">
                     <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">End Date</label>
-                    <input type="date" id="endDate" style="padding:8px 12px;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);font-size:13px;background:white;color:var(--text-primary);font-family:var(--font-sans);">
+                    <input type="date" id="endDate" style="padding:8px 12px;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);font-size:13px;color:var(--text-primary);font-family:var(--font-sans);">
                 </div>
                 <button class="btn-primary" onclick="applyDateRange()" style="vertical-align:bottom;">Apply</button>
                 <button class="btn-secondary" onclick="resetDateRange()" style="vertical-align:bottom;">Reset</button>
@@ -78,31 +89,39 @@
 
             <div class="stat-row">
                 <div class="stat-card">
-                    <div class="stat-icon green">💰</div>
+                    <div class="stat-icon green"><span class="material-symbols-outlined" style="font-size:18px;">payments</span></div>
                     <div class="stat-body">
                         <span class="stat-label">Total Revenue</span>
-                        <span class="stat-value" id="summaryRevenue">₱0.00</span>
+                        <span class="stat-value" id="summaryRevenue">
+<span class="skeleton" style="display:inline-block;width:70px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
+</span>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon blue">📊</div>
+                    <div class="stat-icon blue"><span class="material-symbols-outlined" style="font-size:18px;">bar_chart</span></div>
                     <div class="stat-body">
                         <span class="stat-label">Transactions</span>
-                        <span class="stat-value" id="summaryTransactions">0</span>
+                        <span class="stat-value" id="summaryTransactions">
+<span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
+</span>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon purple">📈</div>
+                    <div class="stat-icon purple"><span class="material-symbols-outlined" style="font-size:18px;">trending_up</span></div>
                     <div class="stat-body">
                         <span class="stat-label">Avg Per Transaction</span>
-                        <span class="stat-value" id="summaryAvg">₱0.00</span>
+                        <span class="stat-value" id="summaryAvg">
+<span class="skeleton" style="display:inline-block;width:70px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
+</span>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon orange">📦</div>
+                    <div class="stat-icon orange"><span class="material-symbols-outlined" style="font-size:18px;">inventory_2</span></div>
                     <div class="stat-body">
                         <span class="stat-label">Items Sold</span>
-                        <span class="stat-value" id="summaryItems">0</span>
+                        <span class="stat-value" id="summaryItems">
+<span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
+</span>
                     </div>
                 </div>
             </div>
@@ -111,10 +130,12 @@
                 <button class="report-tab active" data-tab="daily" role="tab" aria-selected="true">Daily Report</button>
                 <button class="report-tab" data-tab="weekly" role="tab" aria-selected="false">Weekly Report</button>
                 <button class="report-tab" data-tab="monthly" role="tab" aria-selected="false">Monthly Report</button>
+                <button class="report-tab" data-tab="analytics" role="tab" aria-selected="false">Analytics</button>
+                <button class="report-tab" data-tab="audit" role="tab" aria-selected="false">Audit Logs</button>
             </div>
 
             <div class="export-bar">
-                <button class="btn-secondary" onclick="exportCSV()">📥 Export CSV</button>
+                <button class="btn-secondary" onclick="exportCSV()"><span class="material-symbols-outlined" style="font-size:16px;">download</span> Export CSV</button>
             </div>
 
             <div class="tab-content active" id="tab-daily" role="tabpanel">
@@ -129,11 +150,14 @@
                             </tr>
                         </thead>
                         <tbody id="dailyTableBody">
-                            <tr>
-                                <td colspan="4" class="text-center">Loading daily report...</td>
-                            </tr>
+                            <tr><td colspan="4"><div class="skeleton" style="height:16px;max-width:92%;margin:12px 0;"></div></td></tr>
+                            <tr><td colspan="4"><div class="skeleton" style="height:16px;max-width:84%;margin:12px 0;"></div></td></tr>
+                            <tr><td colspan="4"><div class="skeleton" style="height:16px;max-width:88%;margin:12px 0;"></div></td></tr>
+                            <tr><td colspan="4"><div class="skeleton" style="height:16px;max-width:76%;margin:12px 0;"></div></td></tr>
+                            <tr><td colspan="4"><div class="skeleton" style="height:16px;max-width:90%;margin:12px 0;"></div></td></tr>
                         </tbody>
                     </table>
+                    <div id="dailyPagination" class="pagination-bar"></div>
                 </div>
             </div>
 
@@ -149,11 +173,14 @@
                             </tr>
                         </thead>
                         <tbody id="weeklyTableBody">
-                            <tr>
-                                <td colspan="4" class="text-center">Loading weekly report...</td>
-                            </tr>
+                            <tr><td colspan="4"><div class="skeleton" style="height:16px;max-width:90%;margin:12px 0;"></div></td></tr>
+                            <tr><td colspan="4"><div class="skeleton" style="height:16px;max-width:82%;margin:12px 0;"></div></td></tr>
+                            <tr><td colspan="4"><div class="skeleton" style="height:16px;max-width:86%;margin:12px 0;"></div></td></tr>
+                            <tr><td colspan="4"><div class="skeleton" style="height:16px;max-width:74%;margin:12px 0;"></div></td></tr>
+                            <tr><td colspan="4"><div class="skeleton" style="height:16px;max-width:95%;margin:12px 0;"></div></td></tr>
                         </tbody>
                     </table>
+                    <div id="weeklyPagination" class="pagination-bar"></div>
                 </div>
             </div>
 
@@ -169,11 +196,194 @@
                             </tr>
                         </thead>
                         <tbody id="monthlyTableBody">
+                            <tr><td colspan="4"><div class="skeleton" style="height:16px;max-width:88%;margin:12px 0;"></div></td></tr>
+                            <tr><td colspan="4"><div class="skeleton" style="height:16px;max-width:80%;margin:12px 0;"></div></td></tr>
+                            <tr><td colspan="4"><div class="skeleton" style="height:16px;max-width:92%;margin:12px 0;"></div></td></tr>
+                            <tr><td colspan="4"><div class="skeleton" style="height:16px;max-width:72%;margin:12px 0;"></div></td></tr>
+                            <tr><td colspan="4"><div class="skeleton" style="height:16px;max-width:85%;margin:12px 0;"></div></td></tr>
+                        </tbody>
+                    </table>
+                    <div id="monthlyPagination" class="pagination-bar"></div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="tab-analytics" role="tabpanel" style="display:none;">
+                <div class="perf-overview">
+                    <div class="perf-card perf-fast">
+                        <div class="perf-icon"><span class="material-symbols-outlined" style="font-size:20px;">rocket_launch</span></div>
+                        <div class="perf-info">
+                            <span class="perf-label">Fast Movers</span>
+                            <span class="perf-value" id="fastMoversCount">--</span>
+                        </div>
+                        <span class="perf-hint">High demand, rising trend</span>
+                    </div>
+                    <div class="perf-card perf-slow">
+                        <div class="perf-icon"><span class="material-symbols-outlined" style="font-size:20px;">hourglass_bottom</span></div>
+                        <div class="perf-info">
+                            <span class="perf-label">Slow Movers</span>
+                            <span class="perf-value" id="slowMoversCount">--</span>
+                        </div>
+                        <span class="perf-hint">Declining demand</span>
+                    </div>
+                    <div class="perf-card perf-risk">
+                        <div class="perf-icon"><span class="material-symbols-outlined" style="font-size:20px;">warning</span></div>
+                        <div class="perf-info">
+                            <span class="perf-label">At Risk</span>
+                            <span class="perf-value" id="atRiskCount">--</span>
+                        </div>
+                        <span class="perf-hint">May stock out within 30 days</span>
+                    </div>
+                    <div class="perf-card perf-steady">
+                        <div class="perf-icon"><span class="material-symbols-outlined" style="font-size:20px;">check_circle</span></div>
+                        <div class="perf-info">
+                            <span class="perf-label">Steady</span>
+                            <span class="perf-value" id="steadyCount">--</span>
+                        </div>
+                        <span class="perf-hint">Stable demand, healthy stock</span>
+                    </div>
+                </div>
+
+                <div class="perf-panels">
+                    <div class="perf-panel">
+                        <div class="perf-panel-header fast-header">
+                            <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--accent);">emoji_events</span> Top Fast Movers</h3>
+                            <span>Highest predicted demand with rising trends</span>
+                        </div>
+                        <div class="perf-panel-body" id="fastMoversList">
+                            <div class="perf-placeholder">Loading...</div>
+                        </div>
+                    </div>
+                    <div class="perf-panel">
+                        <div class="perf-panel-header risk-header">
+                            <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--danger);">fiber_manual_record</span> Needs Attention</h3>
+                            <span>Products at risk of stockout or declining</span>
+                        </div>
+                        <div class="perf-panel-body" id="needsAttentionList">
+                            <div class="perf-placeholder">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="analytics-controls">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Select Product for Detailed Forecast</label>
+                        <select id="productSelector" onchange="onProductChange()" style="padding:9px 14px;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);font-size:13px;color:var(--text-primary);font-family:var(--font-sans);min-width:280px;">
+                            <option value="">-- Select a product --</option>
+                        </select>
+                    </div>
+                    <button class="btn-primary" onclick="refreshAnalytics()"><span class="material-symbols-outlined" style="font-size:16px;">refresh</span> Refresh All</button>
+                </div>
+
+                <div class="metrics-grid" id="metricsGrid" style="display:none;">
+                    <div class="metric-card">
+                        <div class="metric-icon green"><span class="material-symbols-outlined" style="font-size:22px;">bar_chart</span></div>
+                        <div class="metric-label">Predicted Next Month Sales</div>
+                        <div class="metric-value" id="predictedSales">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon blue"><span class="material-symbols-outlined" style="font-size:22px;">inventory_2</span></div>
+                        <div class="metric-label">Recommended Reorder Point</div>
+                        <div class="metric-value" id="reorderPoint">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon purple"><span class="material-symbols-outlined" style="font-size:22px;">track_changes</span></div>
+                        <div class="metric-label">Confidence Score</div>
+                        <div class="metric-value" id="confidenceScore">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon gold"><span class="material-symbols-outlined" style="font-size:22px;">trending_up</span></div>
+                        <div class="metric-label">Trend</div>
+                        <div class="metric-value" id="trendIndicator">--</div>
+                        <div class="metric-trend" id="trendText"></div>
+                    </div>
+                </div>
+
+                <div class="analytics-charts" id="chartsSection" style="display:none;">
+                    <div class="analytics-chart-card full-width">
+                        <h3>Demand Forecast: Predicted vs Historical Sales</h3>
+                        <div class="chart-container">
+                            <canvas id="demandForecastChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="analytics-chart-card">
+                        <h3>Seasonal Trends</h3>
+                        <div class="chart-container">
+                            <canvas id="seasonalTrendsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="analytics-chart-card full-width">
+                    <h3>All Products — Demand Forecast &amp; Reorder Status</h3>
+                    <div class="table-container">
+                    <div id="predictionsPagination" class="pagination-bar" style="padding:8px 20px;justify-content:flex-end;"></div>
+                    <table class="data-table predictions-table">
+                        <thead>
                             <tr>
-                                <td colspan="4" class="text-center">Loading monthly report...</td>
+                                <th>Product</th>
+                                <th>Current Stock</th>
+                                <th>Predicted Demand (Next 30d)</th>
+                                <th>Daily Avg</th>
+                                <th>Days Until Stockout</th>
+                                <th>Trend</th>
+                                <th>Reorder</th>
+                            </tr>
+                        </thead>
+                        <tbody id="predictionsTableBody">
+                            <tr>
+                                <td colspan="7" class="text-center">Loading predictions...</td>
                             </tr>
                         </tbody>
                     </table>
+                </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="tab-audit" role="tabpanel" style="display:none;">
+                <div class="table-container">
+                    <div style="padding:20px 24px;border-bottom:1px solid var(--border-color);">
+                        <div class="filter-bar">
+                            <select id="actionFilter" onchange="loadAuditLogs()" style="padding:8px 12px;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);font-size:13px;color:var(--text-primary);font-family:var(--font-sans);">
+                                <option value="">All Actions</option>
+                                <option value="create">Create</option>
+                                <option value="update">Update</option>
+                                <option value="delete">Delete</option>
+                                <option value="login">Login</option>
+                            </select>
+                            <select id="tableFilter" onchange="loadAuditLogs()" style="padding:8px 12px;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);font-size:13px;color:var(--text-primary);font-family:var(--font-sans);">
+                                <option value="">All Modules</option>
+                                <option value="products">Products</option>
+                                <option value="sales">Sales</option>
+                                <option value="suppliers">Suppliers</option>
+                                <option value="purchase_orders">Purchase Orders</option>
+                                <option value="users">Users</option>
+                            </select>
+                            <button class="btn-secondary" onclick="refreshAudit()"><span class="material-symbols-outlined" style="font-size:16px;">refresh</span> Refresh</button>
+                        </div>
+                    </div>
+                    <div id="auditList" class="audit-list">
+                        <div style="padding:14px 20px;border-bottom:1px solid var(--border-glass);display:flex;gap:14px;align-items:flex-start;">
+                            <div class="skeleton" style="width:36px;height:36px;border-radius:50%;flex-shrink:0;"></div>
+                            <div style="flex:1;"><div class="skeleton" style="height:14px;width:80%;margin-bottom:8px;"></div><div class="skeleton" style="height:11px;width:50%;"></div></div>
+                        </div>
+                        <div style="padding:14px 20px;border-bottom:1px solid var(--border-glass);display:flex;gap:14px;align-items:flex-start;">
+                            <div class="skeleton" style="width:36px;height:36px;border-radius:50%;flex-shrink:0;"></div>
+                            <div style="flex:1;"><div class="skeleton" style="height:14px;width:70%;margin-bottom:8px;"></div><div class="skeleton" style="height:11px;width:60%;"></div></div>
+                        </div>
+                        <div style="padding:14px 20px;border-bottom:1px solid var(--border-glass);display:flex;gap:14px;align-items:flex-start;">
+                            <div class="skeleton" style="width:36px;height:36px;border-radius:50%;flex-shrink:0;"></div>
+                            <div style="flex:1;"><div class="skeleton" style="height:14px;width:90%;margin-bottom:8px;"></div><div class="skeleton" style="height:11px;width:40%;"></div></div>
+                        </div>
+                        <div style="padding:14px 20px;border-bottom:1px solid var(--border-glass);display:flex;gap:14px;align-items:flex-start;">
+                            <div class="skeleton" style="width:36px;height:36px;border-radius:50%;flex-shrink:0;"></div>
+                            <div style="flex:1;"><div class="skeleton" style="height:14px;width:60%;margin-bottom:8px;"></div><div class="skeleton" style="height:11px;width:55%;"></div></div>
+                        </div>
+                        <div style="padding:14px 20px;display:flex;gap:14px;align-items:flex-start;">
+                            <div class="skeleton" style="width:36px;height:36px;border-radius:50%;flex-shrink:0;"></div>
+                            <div style="flex:1;"><div class="skeleton" style="height:14px;width:75%;margin-bottom:8px;"></div><div class="skeleton" style="height:11px;width:45%;"></div></div>
+                        </div>
+                    </div>
+                    <div id="pagination" class="pagination"></div>
                 </div>
             </div>
 
@@ -208,7 +418,14 @@
 
     <script>
         function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('open');
+            if (document.documentElement.classList.contains('sidebar-hidden')) {
+                toggleSidebarVisibility();
+                if (window.innerWidth <= 768) {
+                    document.getElementById('sidebar').classList.add('open');
+                }
+            } else if (window.innerWidth <= 768) {
+                document.getElementById('sidebar').classList.toggle('open');
+            }
         }
         document.addEventListener('click', function(e) {
             var sidebar = document.getElementById('sidebar');
@@ -218,7 +435,64 @@
             }
         });
     </script>
-    <script src="js/auth.js"></script>
+        <script src="js/format.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/auth.js"></script>
     <script src="js/reports.js"></script>
+    <script src="js/analytics.js"></script>
+    <script src="js/audit.js"></script>
 </body>
 </html>
+
+<div id="helpGuideModal">
+    <div class="modal-content" style="max-width:640px;">
+        <div class="modal-header">
+            <h2><span class="material-symbols-outlined" style="font-size:20px;">help</span> Help Guide</h2>
+            <button class="close-btn" onclick="closeHelpGuide()">&times;</button>
+        </div>
+        <div class="help-guide-content">
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">dashboard</span> Dashboard</h3>
+                <p>The Dashboard gives you a real-time overview of your business — total sales, low-stock alerts, expiring products, and recent transactions. Use it as your daily command center.</p>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">point_of_sale</span> Point of Sale (POS)</h3>
+                <p>The POS page is a split-screen checkout system:</p>
+                <ul>
+                    <li><strong>Left panel</strong> — Browse/search products by name or category. Click a product to add it to the cart.</li>
+                    <li><strong>Right panel</strong> — Shows the current cart. Adjust quantities with +/- buttons, remove items, or set a discount percentage.</li>
+                    <li>Scan barcodes using a scanner or press <span class="shortcut">F2</span> to focus the scan field.</li>
+                    <li>Fill in customer name/phone (optional), select payment method, then click <strong>Pay</strong> to complete the sale.</li>
+                </ul>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">inventory_2</span> Inventory</h3>
+                <p>Manage your products: add, edit, view details, adjust stock, and set reorder levels. Use the CSV import tool to bulk-add products. The table shows SKU, name, category, price, stock, and expiration status.</p>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">receipt</span> Sales History</h3>
+                <p>View past transactions, search by sale number or staff name, and filter by date range. Click <strong>View</strong> on any sale to see item details and print a receipt.</p>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">local_shipping</span> Suppliers</h3>
+                <p>Track your suppliers, contact info, payment terms, and performance metrics (delivery time, on-time rate). View email history for purchase orders and alerts sent to each supplier.</p>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">assessment</span> Reports &amp; Analytics</h3>
+                <p>Reports give you printable summaries. Analytics shows charts and trends — top-selling products, monthly revenue, and stock distribution.</p>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">notifications</span> Notifications</h3>
+                <p>Get alerts for low stock, out-of-stock items, and expiring products. Click the bell icon in the sidebar or visit the Notifications page to view and mark alerts as read.</p>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">keyboard</span> Keyboard Shortcuts</h3>
+                <ul>
+                    <li><span class="shortcut">F2</span> — Focus barcode scanner input (POS page)</li>
+                    <li><span class="shortcut">⌘K</span> — Open global search</li>
+                    <li><span class="shortcut">Esc</span> — Close any open modal</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

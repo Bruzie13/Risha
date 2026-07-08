@@ -13,6 +13,8 @@ function getQtyStep(unitType) {
     return steps[unitType] || 1;
 }
 
+const PAGE_SIZE = 10;
+let displayCount = PAGE_SIZE;
 let allSales = [];
 let currentSaleItems = [];
 let viewingSaleId = null;
@@ -211,15 +213,27 @@ async function loadSales(dateFrom, dateTo) {
     }
 }
 
+function showMoreSales() {
+    displayCount += PAGE_SIZE;
+    const term = document.getElementById('searchInput')?.value?.toLowerCase() || '';
+    const filtered = allSales.filter(s =>
+        s.id.toString().includes(term) ||
+        (s.staff_name && s.staff_name.toLowerCase().includes(term))
+    );
+    displaySales(filtered);
+}
+
 function displaySales(sales) {
     const tbody = document.getElementById('salesTableBody');
     if (!tbody) return;
     const viewer = isViewer();
     if (sales.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" class="text-center">No sales found</td></tr>';
+        updatePagination('salesPagination', sales, displayCount, 'showMoreSales');
         return;
     }
-    tbody.innerHTML = sales.map(s => `
+    const shown = sales.slice(0, displayCount);
+    tbody.innerHTML = shown.map(s => `
         <tr>
             <td>#${s.id}</td>
             <td>${new Date(s.created_at).toLocaleDateString()}</td>
@@ -235,6 +249,7 @@ function displaySales(sales) {
             </td>
         </tr>
     `).join('');
+    updatePagination('salesPagination', sales, displayCount, 'showMoreSales');
 }
 
 async function updateStats() {
@@ -257,6 +272,7 @@ async function updateStats() {
 
 // Search
 document.getElementById('searchInput')?.addEventListener('keyup', (e) => {
+    displayCount = PAGE_SIZE;
     const term = e.target.value.toLowerCase();
     const filtered = allSales.filter(s =>
         s.id.toString().includes(term) ||
@@ -496,7 +512,7 @@ async function deleteSale(id) {
             console.error('Error deleting sale:', error);
             showToast('Failed to delete sale', 'error');
         }
-    }, 'Yes, Delete', '🗑️');
+    }, 'Yes, Delete', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
 }
 
 function printReceipt(saleId) {
@@ -528,7 +544,7 @@ function printReceipt(saleId) {
             .barcode{font-family:'Courier New',monospace;font-size:14px;letter-spacing:2px;margin:8px 0;}
         </style></head>
         <body>
-            <h2>🐾 RISHA Pet Supplies</h2>
+            <h2>RISHA Pet Supplies</h2>
             <div class="info">123 Main St, Caloocan City</div>
             <div class="info">Tel: (02) 8123-4567 | TIN: 123-456-789-000</div>
             <hr>
@@ -549,7 +565,7 @@ function printReceipt(saleId) {
             <div class="footer">
                 Thank you for your purchase!<br>
                 Visit us again at RISHA Pet Supplies<br>
-                🐶🐱🐦🐟
+                — Pets &amp; Supplies —
             </div>
             <br><button onclick="window.print()">Print</button>
             <script>window.onload=function(){setTimeout(function(){window.print();},300);}<\/script>
@@ -591,7 +607,7 @@ function printCurrentReceipt() {
             button{display:none;}
         </style></head>
         <body>
-            <h2>🐾 RISHA Pet Supplies</h2>
+            <h2>RISHA Pet Supplies</h2>
             <div class="info">123 Main St, Caloocan City</div>
             <div class="info">Tel: (02) 8123-4567</div>
             <hr>

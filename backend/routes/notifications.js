@@ -5,9 +5,12 @@ const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 router.get('/', authenticateToken, notificationController.getAllNotifications);
 router.get('/unread', authenticateToken, notificationController.getUnreadNotifications);
+router.get('/count', authenticateToken, notificationController.getNotificationCount);
+router.get('/alerts', authenticateToken, notificationController.getAlerts);
 router.post('/', authenticateToken, authorizeRole('admin'), notificationController.createNotification);
 router.put('/read-all', authenticateToken, notificationController.markAllAsRead);
 router.put('/:id/read', authenticateToken, notificationController.markAsRead);
+router.delete('/old', authenticateToken, authorizeRole('admin'), notificationController.deleteOldNotifications);
 router.delete('/:id', authenticateToken, authorizeRole('admin'), notificationController.deleteNotification);
 
 module.exports = router;

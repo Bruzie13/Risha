@@ -3,12 +3,10 @@ let forecastChart = null;
 let seasonalChart = null;
 let allProducts = [];
 let allPredictions = [];
+const PRED_PAGE_SIZE = 10;
+let predDisplayCount = PRED_PAGE_SIZE;
 
-window.addEventListener('load', async () => {
-    if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
-    await loadProductList();
-    await loadAllPredictions();
-});
+// load is triggered by reports.js when the Analytics tab is clicked
 
 async function loadProductList() {
     try {
@@ -79,7 +77,7 @@ function clearCharts() {
     document.getElementById('predictedSales').textContent = '--';
     document.getElementById('confidenceScore').textContent = '--';
     document.getElementById('reorderPoint').textContent = '--';
-    document.getElementById('trendIndicator').textContent = '➡️ --';
+    document.getElementById('trendIndicator').innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">trending_flat</span> --';
     const tt = document.getElementById('trendText');
     if (tt) tt.textContent = 'Select a product with sufficient sales data';
 }
@@ -164,8 +162,8 @@ function renderPredictionMetrics(data) {
     const trend = data.trend || 'stable';
     const reorder = data.reorder_recommendation || {};
 
-    document.getElementById('predictedSales').textContent = nextMonth != null ? nextMonth.toFixed(1) : '--';
-    document.getElementById('confidenceScore').textContent = confidence != null ? confidence.toFixed(1) + '%' : '--';
+    document.getElementById('predictedSales').textContent = nextMonth != null ? formatDecimal(nextMonth, 1) : '--';
+    document.getElementById('confidenceScore').textContent = confidence != null ? formatDecimal(confidence, 1) + '%' : '--';
 
     const reorderPoint = reorder.recommended_reorder_point;
     document.getElementById('reorderPoint').textContent = reorderPoint != null ? reorderPoint : '--';
@@ -175,15 +173,15 @@ function renderPredictionMetrics(data) {
     if (trendEl) {
         const t = (trend || '').toLowerCase();
         if (t.includes('up')) {
-            trendEl.textContent = '📈 Increasing';
+            trendEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">trending_up</span> Increasing';
             trendEl.style.color = '#10b981';
             if (trendTextEl) trendTextEl.textContent = 'Demand is rising — consider increasing stock';
         } else if (t.includes('down')) {
-            trendEl.textContent = '📉 Decreasing';
+            trendEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">trending_down</span> Decreasing';
             trendEl.style.color = '#ef4444';
             if (trendTextEl) trendTextEl.textContent = 'Demand is declining — avoid overstocking';
         } else {
-            trendEl.textContent = '➡️ Stable';
+            trendEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">trending_flat</span> Stable';
             trendEl.style.color = '#f59e0b';
             if (trendTextEl) trendTextEl.textContent = 'Demand is steady — maintain current levels';
         }
@@ -198,7 +196,7 @@ function renderPredictionMetrics(data) {
 
 async function loadAllPredictions() {
     const tableBody = document.getElementById('predictionsTableBody');
-    if (tableBody) tableBody.innerHTML = '<tr><td colspan="7" class="text-center">⏳ Loading predictions... (this may take 30-60 seconds on first load as ML models train)</td></tr>';
+    if (tableBody)         tableBody.innerHTML = '<tr><td colspan="7" class="text-center"><span class="material-symbols-outlined" style="font-size:16px;">hourglass_top</span> Loading predictions... (this may take 30-60 seconds on first load as ML models train)</td></tr>';
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 120000);
@@ -217,7 +215,7 @@ async function loadAllPredictions() {
     clearTimeout(timeout);
 
     if (allPredictions.length === 0) {
-        if (tableBody) tableBody.innerHTML = '<tr><td colspan="7" class="text-center">⚠️ Prediction service is still initializing. Select a product below to get a forecast, or try again later.</td></tr>';
+        if (tableBody) tableBody.innerHTML = '<tr><td colspan="7" class="text-center"><span class="material-symbols-outlined" style="font-size:16px;">warning_amber</span> Prediction service is still initializing. Select a product below to get a forecast, or try again later.</td></tr>';
     } else {
         renderPerformanceAnalysis();
         mergeAndRenderTable();
@@ -241,17 +239,17 @@ function renderPerformanceAnalysis() {
         const stock = product.stock_quantity || 0;
         const dailyAvg = predictedDemand / 30;
         const daysUntilStockout = dailyAvg > 0 ? Math.floor(stock / dailyAvg) : 999;
-        const highDemand = predictedDemand >= avgDemand * 1.1;
-        const lowDemand = predictedDemand <= avgDemand * 0.7;
-        const atRisk = daysUntilStockout <= 30;
+        const highDemand = predictedDemand >= avgDemand * 1.2;
+        const lowDemand = predictedDemand <= avgDemand * 0.5;
+        const atRisk = daysUntilStockout <= 14;
 
         return { product, predictedDemand, stock, dailyAvg, daysUntilStockout, atRisk, highDemand, lowDemand };
     });
 
     const fastMovers = analyzed.filter(a => a.highDemand).sort((a, b) => b.predictedDemand - a.predictedDemand);
     const atRiskProducts = analyzed.filter(a => a.atRisk).sort((a, b) => a.daysUntilStockout - b.daysUntilStockout);
-    const slowMovers = analyzed.filter(a => a.lowDemand && !a.atRisk).sort((a, b) => a.predictedDemand - b.predictedDemand);
-    const steady = analyzed.filter(a => !a.highDemand && !a.lowDemand && !a.atRisk).sort((a, b) => b.predictedDemand - a.predictedDemand);
+    const slowMovers = analyzed.filter(a => a.lowDemand).sort((a, b) => a.predictedDemand - b.predictedDemand);
+    const steady = analyzed.filter(a => !a.highDemand && !a.lowDemand).sort((a, b) => b.predictedDemand - a.predictedDemand);
 
     document.getElementById('fastMoversCount').textContent = fastMovers.length;
     document.getElementById('slowMoversCount').textContent = slowMovers.length;
@@ -273,14 +271,14 @@ function renderFastMoversList(items) {
         <div class="perf-item">
             <div class="perf-item-rank">#${i + 1}</div>
             <div class="perf-item-info">
-                <div class="perf-item-name">${item.product.name}</div>
-                <div class="perf-item-detail">Stock: ${item.stock} | ${item.dailyAvg.toFixed(1)}/day avg</div>
+                <div class="perf-item-name">${escHtml(item.product.name)}</div>
+                <div class="perf-item-detail">Stock: ${formatNumber(item.stock)} | ${formatDecimal(item.dailyAvg, 1)}/day avg</div>
             </div>
             <div class="perf-item-stats">
-                <div class="perf-stat-value">${item.predictedDemand.toFixed(0)}</div>
+                <div class="perf-stat-value">${formatNumber(item.predictedDemand)}</div>
                 <div class="perf-stat-label">next mo.</div>
             </div>
-            <div class="perf-item-badge perf-badge-fast">🚀 Fast</div>
+            <div class="perf-item-badge perf-badge-fast"><span class="material-symbols-outlined" style="font-size:14px;">rocket_launch</span> Fast</div>
         </div>
     `).join('');
 }
@@ -307,14 +305,14 @@ function renderNeedsAttentionList(atRisk, slowMovers) {
         <div class="perf-item">
             <div class="perf-item-rank rank-risk">#${i + 1}</div>
             <div class="perf-item-info">
-                <div class="perf-item-name">${item.product.name}</div>
-                <div class="perf-item-detail">Stock: ${item.stock} | ${item.dailyAvg.toFixed(1)}/day avg</div>
+                <div class="perf-item-name">${escHtml(item.product.name)}</div>
+                <div class="perf-item-detail">Stock: ${formatNumber(item.stock)} | ${formatDecimal(item.dailyAvg, 1)}/day avg</div>
             </div>
             <div class="perf-item-stats">
-                <div class="perf-stat-value">${item.predictedDemand.toFixed(0)}</div>
+                <div class="perf-stat-value">${formatNumber(item.predictedDemand)}</div>
                 <div class="perf-stat-label">demand</div>
             </div>
-            <div class="perf-item-badge ${item.attentionReason === 'stockout' ? 'perf-badge-risk' : 'perf-badge-slow'}">${item.attentionReason === 'stockout' ? `⚠️ ${item.daysUntilStockout}d` : '🐢 Slow'}</div>
+            <div class="perf-item-badge ${item.attentionReason === 'stockout' ? 'perf-badge-risk' : 'perf-badge-slow'}">${item.attentionReason === 'stockout' ? `<span class="material-symbols-outlined" style="font-size:14px;">warning_amber</span> ${item.daysUntilStockout}d` : '<span class="material-symbols-outlined" style="font-size:14px;">speed</span> Slow'}</div>
         </div>
     `).join('');
 }
@@ -347,15 +345,16 @@ function mergeAndRenderTable() {
         return a.daysUntilStockout - b.daysUntilStockout;
     });
 
-    tbody.innerHTML = rows.map(r => {
+    const limited = rows.slice(0, predDisplayCount);
+    tbody.innerHTML = limited.map(r => {
         const stockoutDisplay = r.daysUntilStockout >= 999 ? 'N/A' : r.daysUntilStockout;
-        const trendIcon = r.trend === 'up' ? '📈' : r.trend === 'down' ? '📉' : '➡️';
+        const trendIcon = r.trend === 'up' ? '<span class="material-symbols-outlined" style="font-size:16px;">trending_up</span>' : r.trend === 'down' ? '<span class="material-symbols-outlined" style="font-size:16px;">trending_down</span>' : '<span class="material-symbols-outlined" style="font-size:16px;">trending_flat</span>';
         return `
             <tr>
-                <td><strong>${r.product.name}</strong></td>
+                <td><strong>${escHtml(r.product.name)}</strong></td>
                 <td>${r.stock}</td>
-                <td>${r.predictedDemand > 0 ? r.predictedDemand.toFixed(1) : 'N/A'}</td>
-                <td>${r.dailyAvg > 0 ? r.dailyAvg.toFixed(1) : 'N/A'}</td>
+                <td>${r.predictedDemand > 0 ? formatDecimal(r.predictedDemand, 1) : 'N/A'}</td>
+                <td>${r.dailyAvg > 0 ? formatDecimal(r.dailyAvg, 1) : 'N/A'}</td>
                 <td>${stockoutDisplay}</td>
                 <td>${trendIcon} ${r.trend.charAt(0).toUpperCase() + r.trend.slice(1)}</td>
                 <td>
@@ -367,6 +366,13 @@ function mergeAndRenderTable() {
             </tr>
         `;
     }).join('');
+
+    updatePagination('predictionsPagination', rows, predDisplayCount, 'showMorePredictions');
+}
+
+function showMorePredictions() {
+    predDisplayCount += PRED_PAGE_SIZE;
+    mergeAndRenderTable();
 }
 
 function renderSeasonalChart(seasonalTrends) {
@@ -399,6 +405,7 @@ function renderSeasonalChart(seasonalTrends) {
 }
 
 function refreshAnalytics() {
+    predDisplayCount = PRED_PAGE_SIZE;
     const sel = document.getElementById('productSelector');
     if (sel && sel.value) loadProductPrediction(sel.value);
     loadAllPredictions();
@@ -410,11 +417,17 @@ function showToast(message, type) {
     if (!toast) {
         toast = document.createElement('div');
         toast.id = 'toast';
-        toast.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:12px 24px;border-radius:8px;color:#fff;font-weight:500;z-index:9999;transition:opacity 0.3s;';
+        toast.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:12px 24px;border-radius:8px;color:#fff;font-weight:500;z-index:9999;transition:opacity 0.3s;display:flex;align-items:center;gap:8px;';
         document.body.appendChild(toast);
     }
     toast.style.background = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#3b82f6';
-    toast.textContent = message;
+    const icons = {
+        success: '<span class="material-symbols-outlined" style="font-size:16px;">check_circle</span>',
+        error: '<span class="material-symbols-outlined" style="font-size:16px;">error</span>',
+        warning: '<span class="material-symbols-outlined" style="font-size:16px;">warning_amber</span>',
+        info: '<span class="material-symbols-outlined" style="font-size:16px;">info</span>'
+    };
+    toast.innerHTML = (icons[type] || icons.info) + ' ' + message;
     toast.style.opacity = '1';
     setTimeout(() => { toast.style.opacity = '0'; }, 3000);
 }

@@ -100,7 +100,7 @@
   transition: all var(--transition);
 }
 .btn-remove:hover {
-  background: rgba(239, 68, 68, 0.2);
+  background: var(--danger-bg);
 }
 
 .total-section {

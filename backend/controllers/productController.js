@@ -1,5 +1,6 @@
 const Product = require('../models/Product');
 const logAudit = require('../services/audit');
+const { notifyStockAdjusted, notifyProductCreated } = require('../services/notifier');
 
 exports.getAllProducts = async (req, res) => {
     try {
@@ -117,6 +118,8 @@ exports.createProduct = async (req, res) => {
         });
 
         logAudit(req.user.id, 'create', 'products', product.id, null, product, req.ip);
+
+        notifyProductCreated(product, req.user.id).catch(e => console.error('Notif error:', e.message));
 
         res.status(201).json({
             success: true,
@@ -293,6 +296,7 @@ exports.adjustStock = async (req, res) => {
 
         const updated = await Product.findById(id);
         logAudit(req.user.id, 'update', 'products', parseInt(id), { stock_quantity: product.stock_quantity }, { stock_quantity: updated.stock_quantity }, req.ip);
+        notifyStockAdjusted(updated, product.stock_quantity, updated.stock_quantity, req.user.id).catch(e => console.error('Notif error:', e.message));
         res.status(200).json({ success: true, message: 'Stock adjusted successfully', data: updated });
     } catch (error) {
         console.error('Adjust stock error:', error);

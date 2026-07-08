@@ -13,9 +13,15 @@ const notificationRoutes = require('./routes/notifications');
 const dashboardRoutes = require('./routes/dashboard');
 const auditRoutes = require('./routes/audit');
 
+const scheduler = require('./utils/scheduler');
+
 const app = express();
 
-app.use(cors());
+app.use(cors({
+    origin: process.env.CORS_ORIGIN || '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -31,8 +37,125 @@ app.use('/api/audit-logs', auditRoutes);
 const predictionRoutes = require('./routes/predictions');
 app.use('/api/predictions', predictionRoutes);
 
+// Email tracking
+const pool = require('./config/database');
+const crypto = require('crypto');
+
+async function ensureEmailLogsTable() {
+    try {
+        const conn = await pool.getConnection();
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS email_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                supplier_id INT,
+                supplier_email VARCHAR(255),
+                subject VARCHAR(500),
+                email_type VARCHAR(50),
+                tracking_id VARCHAR(64) UNIQUE,
+                opened_at DATETIME NULL,
+                opened_count INT DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        conn.release();
+        console.log('[Email] email_logs table ready');
+    } catch (e) {
+        console.error('[Email] Table init error:', e.message);
+    }
+}
+
+async function ensureIndexes() {
+    try {
+        const conn = await pool.getConnection();
+        const indexes = [
+            'CREATE INDEX IF NOT EXISTS idx_products_is_active ON products(is_active)',
+            'CREATE INDEX IF NOT EXISTS idx_products_stock ON products(stock_quantity)',
+            'CREATE INDEX IF NOT EXISTS idx_products_supplier ON products(supplier_id)',
+            'CREATE INDEX IF NOT EXISTS idx_products_expiration ON products(expiration_date)',
+            'CREATE INDEX IF NOT EXISTS idx_sale_items_product ON sale_items(product_id)',
+            'CREATE INDEX IF NOT EXISTS idx_sale_items_sale ON sale_items(sale_id)',
+            'CREATE INDEX IF NOT EXISTS idx_purchase_orders_status ON purchase_orders(status)',
+            'CREATE INDEX IF NOT EXISTS idx_purchase_orders_date ON purchase_orders(order_date)',
+            'CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(product_id)',
+            'CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)',
+        ];
+        for (const sql of indexes) {
+            try { await conn.execute(sql); } catch (e) { /* index may already exist */ }
+        }
+        conn.release();
+        console.log('[DB] Indexes verified');
+    } catch (e) {
+        console.error('[DB] Index migration error:', e.message);
+    }
+}
+
+// Tracking pixel — 1x1 transparent GIF
+const TRACKING_PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+
+app.get('/track/:trackingId.gif', async (req, res) => {
+    const { trackingId } = req.params;
+    try {
+        const conn = await pool.getConnection();
+        await conn.execute(
+            'UPDATE email_logs SET opened_at = COALESCE(opened_at, NOW()), opened_count = opened_count + 1 WHERE tracking_id = ?',
+            [trackingId]
+        );
+        conn.release();
+    } catch (e) {}
+    res.set({ 'Content-Type': 'image/gif', 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' });
+    res.send(TRACKING_PIXEL);
+});
+
+// Get email logs for a supplier
+const { authenticateToken } = require('./middleware/auth');
+app.get('/api/email-logs/:supplierId', authenticateToken, async (req, res) => {
+    try {
+        const conn = await pool.getConnection();
+        const [rows] = await conn.execute(
+            'SELECT * FROM email_logs WHERE supplier_id = ? ORDER BY created_at DESC LIMIT 50',
+            [req.params.supplierId]
+        );
+        conn.release();
+        res.json({ success: true, data: rows });
+    } catch (e) {
+        res.json({ success: true, data: [] });
+    }
+});
+
+// Get all email logs
+app.get('/api/email-logs', authenticateToken, async (req, res) => {
+    try {
+        const conn = await pool.getConnection();
+        const [rows] = await conn.execute(
+            `SELECT el.*, s.name as supplier_name 
+             FROM email_logs el 
+             LEFT JOIN suppliers s ON el.supplier_id = s.id 
+             ORDER BY el.created_at DESC LIMIT 100`
+        );
+        conn.release();
+        res.json({ success: true, data: rows });
+    } catch (e) {
+        res.json({ success: true, data: [] });
+    }
+});
+
+ensureEmailLogsTable();
+ensureIndexes();
+
 app.get('/api/health', (req, res) => {
     res.status(200).json({ success: true, message: 'Server is running', timestamp: new Date().toISOString() });
+});
+
+// Trigger alert checks on demand (called by frontend when visiting notifications page)
+app.post('/api/notifications/check-alerts', authenticateToken, async (req, res) => {
+    try {
+        await scheduler.checkLowStock();
+        await scheduler.checkExpiringProducts();
+        await scheduler.checkOverstock();
+        res.json({ success: true, message: 'Alert checks completed' });
+    } catch (e) {
+        res.json({ success: false, message: e.message });
+    }
 });
 
 app.use(express.static(path.join(__dirname, '..', 'src'), {
@@ -60,4 +183,5 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    scheduler.start();
 });

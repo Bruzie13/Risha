@@ -280,10 +280,13 @@
 
 /* ===== METRICS CARDS ===== */
 .metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    display: flex;
+    overflow-x: auto;
     gap: 20px;
+    padding-bottom: 8px;
     margin-bottom: 30px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
 }
 
 .metric-card {
@@ -294,6 +297,9 @@
     border: 1px solid var(--border-color);
     border-top: 4px solid var(--accent);
     transition: all var(--transition);
+    flex-shrink: 0;
+    min-width: 230px;
+    scroll-snap-align: start;
 }
 
 .metric-card:hover {
@@ -444,17 +450,7 @@
         min-width: unset;
     }
 
-    .metrics-grid {
-        grid-template-columns: 1fr 1fr;
-    }
-
     .chart-container {
         height: 250px;
-    }
-}
-
-@media (max-width: 480px) {
-    .metrics-grid {
-        grid-template-columns: 1fr;
     }
 }

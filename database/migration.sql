@@ -21,3 +21,10 @@ ALTER TABLE sale_items MODIFY COLUMN quantity DECIMAL(10,3) NOT NULL;
 
 -- 5. Change stock_movements.quantity to DECIMAL
 ALTER TABLE stock_movements MODIFY COLUMN quantity DECIMAL(10,3) NOT NULL;
+
+-- 6. Add user_id and related_id/related_type to notifications for user-targeted + polymorphic notifications
+ALTER TABLE notifications ADD COLUMN user_id INT DEFAULT NULL AFTER is_read;
+ALTER TABLE notifications ADD COLUMN related_id INT DEFAULT NULL AFTER user_id;
+ALTER TABLE notifications ADD COLUMN related_type VARCHAR(50) DEFAULT NULL AFTER related_id;
+ALTER TABLE notifications ADD INDEX idx_user (user_id);
+ALTER TABLE notifications ADD INDEX idx_related (related_type, related_id);

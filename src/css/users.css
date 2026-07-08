@@ -56,43 +56,43 @@
 }
 
 .user-avatar.avatar-green {
-  background: rgba(45, 106, 79, 0.12);
-  color: var(--primary);
+  background: var(--success-bg);
+  color: var(--success);
 }
 
 .user-avatar.avatar-blue {
-  background: rgba(14, 165, 233, 0.12);
+  background: var(--info-bg);
   color: var(--info);
 }
 
 .user-avatar.avatar-purple {
-  background: rgba(139, 92, 246, 0.12);
-  color: #7c3aed;
+  background: var(--purple-bg);
+  color: var(--purple);
 }
 
 .user-avatar.avatar-orange {
-  background: rgba(245, 158, 11, 0.12);
-  color: var(--warning);
+  background: var(--accent-dim);
+  color: var(--accent);
 }
 
 .user-avatar.avatar-red {
-  background: rgba(220, 53, 69, 0.12);
+  background: var(--danger-bg);
   color: var(--danger);
 }
 
 .user-avatar.avatar-pink {
-  background: rgba(236, 72, 153, 0.12);
-  color: #db2777;
+  background: var(--primary-bg);
+  color: var(--primary);
 }
 
 .user-avatar.avatar-teal {
-  background: rgba(20, 184, 166, 0.12);
-  color: #0d9488;
+  background: var(--success-bg);
+  color: var(--success);
 }
 
 .user-avatar.avatar-indigo {
-  background: rgba(99, 102, 241, 0.12);
-  color: #6366f1;
+  background: var(--purple-bg);
+  color: var(--purple);
 }
 
 .user-avatar.avatar-sm {
@@ -140,17 +140,17 @@
 }
 
 .role-badge.role-admin {
-  background: rgba(139, 92, 246, 0.1);
-  color: #7c3aed;
+  background: var(--purple-bg);
+  color: var(--purple);
 }
 
 .role-badge.role-manager {
-  background: rgba(45, 106, 79, 0.1);
+  background: var(--primary-bg);
   color: var(--primary);
 }
 
 .role-badge.role-staff {
-  background: rgba(14, 165, 233, 0.1);
+  background: var(--info-bg);
   color: var(--info);
 }
 
@@ -186,8 +186,8 @@
 }
 
 .permission-item.active {
-  background: rgba(45, 106, 79, 0.06);
-  border-color: rgba(45, 106, 79, 0.2);
+  background: var(--primary-bg);
+  border-color: var(--border-glass-accent);
   color: var(--primary);
 }
 
@@ -214,7 +214,7 @@
 
 .user-status-badge .status-dot.active {
   background: var(--success);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 0 0 3px var(--success-bg);
 }
 
 .user-status-badge .status-dot.inactive {
@@ -223,12 +223,12 @@
 
 .user-status-badge .status-dot.suspended {
   background: var(--danger);
-  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.2);
+  box-shadow: 0 0 0 3px var(--danger-bg);
 }
 
 .user-status-badge .status-dot.pending {
   background: var(--warning);
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+  box-shadow: 0 0 0 3px var(--accent-dim);
   animation: pulse 2s infinite;
 }
 
@@ -242,7 +242,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  box-shadow: 0 4px 16px rgba(82, 183, 136, 0.25);
+  box-shadow: 0 4px 16px var(--primary-glow);
 }
 
 .invite-card .invite-text h4 {

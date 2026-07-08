@@ -5,6 +5,7 @@ const Supplier = require('../models/Supplier');
 const Notification = require('../models/Notification');
 const { sendPOEmail } = require('../utils/mailer');
 const logAudit = require('../services/audit');
+const { notifyPOStatusChanged, notifyPOGenerated } = require('../services/notifier');
 
 exports.getAllPOs = async (req, res) => {
     try {
@@ -86,6 +87,9 @@ exports.createPO = async (req, res) => {
             items_count: orderData.items.length,
             status: order.status
         }, req.ip);
+
+        notifyPOGenerated(order, req.user.id).catch(e => console.error('Notif error:', e.message));
+
         res.status(201).json({
             success: true,
             message: 'Purchase order created successfully',
@@ -121,12 +125,28 @@ exports.updatePOStatus = async (req, res) => {
             });
         }
 
+        const allowedTransitions = {
+            pending: ['confirmed', 'cancelled'],
+            confirmed: ['shipped', 'cancelled'],
+            shipped: ['received'],
+            received: [],
+            cancelled: []
+        };
+        if (!allowedTransitions[order.status] || !allowedTransitions[order.status].includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Cannot change status from "${order.status}" to "${status}". Allowed: ${allowedTransitions[order.status]?.join(', ') || 'none'}`
+            });
+        }
+
         const updatedOrder = await PurchaseOrder.updateStatus(id, status);
         const supp = await Supplier.findById(order.supplier_id);
         logAudit(req.user.id, 'update', 'purchase_orders', parseInt(id),
             { po_number: order.po_number, supplier_name: supp ? supp.name : 'Unknown', status: order.status },
             { po_number: order.po_number, supplier_name: supp ? supp.name : 'Unknown', status },
             req.ip);
+
+        notifyPOStatusChanged(order, order.status, status, req.user.id).catch(e => console.error('Notif error:', e.message));
 
         res.status(200).json({
             success: true,
@@ -182,6 +202,16 @@ exports.autoGeneratePO = async (req, res) => {
         }
 
         const warnings = [];
+
+        // Filter out expired products
+        const now = new Date();
+        lowStockProducts = lowStockProducts.filter(p => {
+            if (p.expiration_date && new Date(p.expiration_date) <= now) {
+                warnings.push(`"${p.name}" skipped: product has expired`);
+                return false;
+            }
+            return true;
+        });
 
         if (!lowStockProducts || lowStockProducts.length === 0) {
             return res.status(200).json({
@@ -264,6 +294,7 @@ exports.autoGeneratePO = async (req, res) => {
             if (supplier && supplier.email) {
                 const poItems = await PurchaseOrder.getPOItems(order.id);
                 const sent = await sendPOEmail(
+                    supplier.id,
                     supplier.email,
                     supplier.name,
                     order.po_number,

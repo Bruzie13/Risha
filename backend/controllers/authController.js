@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const logAudit = require('../services/audit');
+const { notifyUserLogin } = require('../services/notifier');
 
 const generateToken = (user) => {
     return jwt.sign(
@@ -52,6 +53,8 @@ exports.login = async (req, res) => {
         const token = generateToken(user);
 
         logAudit(user.id, 'login', 'users', user.id, null, null, req.ip);
+
+        notifyUserLogin(user, req.ip).catch(e => console.error('Notif error:', e.message));
 
         res.status(200).json({
             success: true,
@@ -310,6 +313,91 @@ exports.toggleUserStatus = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error toggling user status'
+        });
+    }
+};
+
+exports.updateProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { full_name } = req.body;
+
+        if (!full_name || !full_name.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Full name is required'
+            });
+        }
+
+        const user = await User.update(userId, { full_name: full_name.trim() });
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Profile updated successfully',
+            data: user
+        });
+    } catch (error) {
+        console.error('Update profile error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error updating profile'
+        });
+    }
+};
+
+exports.changePassword = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'Current password and new password are required'
+            });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: 'New password must be at least 6 characters'
+            });
+        }
+
+        const user = await User.findByIdWithPassword(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        const isValid = await User.verifyPassword(currentPassword, user.password);
+        if (!isValid) {
+            return res.status(400).json({
+                success: false,
+                message: 'Current password is incorrect'
+            });
+        }
+
+        await User.update(userId, { password: newPassword });
+
+        res.status(200).json({
+            success: true,
+            message: 'Password changed successfully'
+        });
+    } catch (error) {
+        console.error('Change password error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error changing password'
         });
     }
 };

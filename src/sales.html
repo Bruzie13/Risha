@@ -12,41 +12,52 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css">
     <link rel="stylesheet" href="css/sales.css">
-</head>
+<script>if(localStorage.getItem('theme')==='dark'||(!localStorage.getItem('theme')&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');</script>
+    </head>
 <body>
-    <button class="sidebar-hamburger" id="hamburgerBtn" onclick="toggleSidebar()">☰</button>
+    <button class="sidebar-hamburger" id="hamburgerBtn" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
+    <button class="sidebar-floating-toggle" id="sidebarFloatingToggle" onclick="toggleSidebarVisibility()"><span class="material-symbols-outlined">menu</span></button>
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-brand">
-                <div class="brand-icon"><img src="images/logo.jpeg" alt="RISHA"></div>
+                <div class="brand-icon"><img src="images/logo.jpeg" alt="RISHA" title="RISHA Pet Shop"></div>
                 <div class="brand-text">
                     <span>RISHA</span>
                     <small>Pet Shop</small>
                 </div>
             </div>
+            <button class="sidebar-collapse-btn" id="sidebarToggleBtn" onclick="toggleSidebarVisibility()" title="Collapse sidebar"><span class="material-symbols-outlined">chevron_left</span></button>
         </div>
         <div class="sidebar-nav">
-            <a href="dashboard.html" class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
-            <a href="inventory.html" class="nav-link"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span></a>
-            <a href="sales.html" class="nav-link active"><span class="nav-icon">💰</span><span class="nav-label">Sales</span></a>
-            <a href="suppliers.html" class="nav-link"><span class="nav-icon">🚚</span><span class="nav-label">Suppliers</span></a>
-            <a href="reports.html" class="nav-link"><span class="nav-icon">📈</span><span class="nav-label">Reports</span></a>
-            <a href="analytics.html" class="nav-link"><span class="nav-icon">🤖</span><span class="nav-label">Analytics</span></a>
-            <a href="audit.html" class="nav-link"><span class="nav-icon">📋</span><span class="nav-label">Audit Logs</span></a>
-            <a href="users.html" class="nav-link" id="usersLink"><span class="nav-icon">👥</span><span class="nav-label">Users</span></a>
+            <a href="dashboard.html" class="nav-link" title="Dashboard"><span class="nav-icon material-symbols-outlined">dashboard</span><span class="nav-label">Dashboard</span></a>
+            <a href="inventory.html" class="nav-link" title="Inventory"><span class="nav-icon material-symbols-outlined">inventory_2</span><span class="nav-label">Inventory</span></a>
+            <a href="pos.html" class="nav-link" title="POS"><span class="nav-icon material-symbols-outlined">point_of_sale</span><span class="nav-label">POS</span></a>
+            <a href="sales.html" class="nav-link active" title="Sales History"><span class="nav-icon material-symbols-outlined">receipt</span><span class="nav-label">Sales History</span></a>
+            <a href="suppliers.html" class="nav-link" title="Suppliers"><span class="nav-icon material-symbols-outlined">local_shipping</span><span class="nav-label">Suppliers</span></a>
+            <a href="reports.html" class="nav-link" title="Reports"><span class="nav-icon material-symbols-outlined">assessment</span><span class="nav-label">Reports</span></a>
+            <a href="users.html" class="nav-link" id="usersLink" title="Users"><span class="nav-icon material-symbols-outlined">group</span><span class="nav-label">Users</span></a>
         </div>
         <div class="sidebar-footer">
-            <div class="sidebar-user">
-                <div class="avatar">👤</div>
+            <div class="sidebar-user" onclick="location.href='settings.html'" title="Your Profile">
+                <div class="avatar">
+                    <span class="avatar-initials">AD</span>
+                    <span class="avatar-status"></span>
+                </div>
                 <div class="user-info">
                     <span id="userName">Loading...</span>
                     <small id="userRole">Staff</small>
                 </div>
+                <button class="user-settings-btn" onclick="event.stopPropagation();location.href='settings.html'" title="Settings">
+                    <span class="material-symbols-outlined">settings</span>
+                </button>
             </div>
             <div class="sidebar-actions">
-                <button class="sidebar-btn" onclick="openGlobalSearch()" title="Search (⌘K)">🔍</button>
-                <button class="sidebar-btn" id="themeToggleBtn" title="Toggle theme">🌙</button>
-                <button class="sidebar-btn sidebar-logout" onclick="logout()" title="Logout">🚪</button>
+                <button class="sidebar-btn" id="themeToggleBtn" title="Toggle theme"><span class="material-symbols-outlined">dark_mode</span></button>
+                <button class="sidebar-btn notif-bell-btn" id="notifBellBtn" onclick="openNotifDropdown()" title="Notifications">
+                    <span class="material-symbols-outlined" style="font-size:18px;">notifications</span>
+                    <span class="notif-badge" id="notifBadge">0</span>
+                    </button>
+                <button class="sidebar-btn sidebar-logout" onclick="logout()" title="Logout"><span class="material-symbols-outlined">logout</span></button>
             </div>
         </div>
     </nav>
@@ -54,45 +65,57 @@
     <div class="main-wrapper">
         <div class="page-header">
             <div>
-                <h1>Sales</h1>
-                <div class="breadcrumb"><span>Point of Sale</span></div>
+                <h1>Sales History</h1>
+                <div class="breadcrumb"><span>Records</span> · Past transactions</div>
             </div>
             <div class="page-header-actions">
-                <input type="text" id="searchInput" class="search-box" placeholder="Search sales..." style="width:180px;">
-                <button class="btn-primary" onclick="openNewSaleModal()" style="padding:10px 20px;">➕ New Sale</button>
-                <button class="btn-secondary" onclick="exportSalesCsv()">📥 Export CSV</button>
             </div>
         </div>
+    <div class="toolbar">
+                <div class="toolbar-left">
+                    <input type="text" id="searchInput" class="search-box" placeholder="Search sales..." style="width:180px;">
+                </div>
+                <div class="toolbar-right">
+                    <a href="pos.html" class="btn-primary"><span class="material-symbols-outlined" style="font-size:16px;">point_of_sale</span> Open POS</a>
+                    <button class="btn-secondary" onclick="exportSalesCsv()"><span class="material-symbols-outlined" style="font-size:16px;">download</span> Export CSV</button>
+                </div>
+            </div>
 
         <div class="content">
             <div class="filter-bar" style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
                 <label style="font-size:12px;font-weight:600;color:var(--text-secondary);">From:</label>
-                <input type="date" id="dateFrom" style="padding:7px 10px;background:white;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);color:var(--text-primary);font-size:13px;font-family:var(--font-sans);">
+                <input type="date" id="dateFrom">
                 <label style="font-size:12px;font-weight:600;color:var(--text-secondary);">To:</label>
-                <input type="date" id="dateTo" style="padding:7px 10px;background:white;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);color:var(--text-primary);font-size:13px;font-family:var(--font-sans);">
-                <button class="btn-primary" onclick="filterSalesByDate()" style="padding:7px 16px;font-size:13px;">🔍 Filter</button>
+                <input type="date" id="dateTo">
+                <button class="btn-primary" onclick="filterSalesByDate()" style="padding:7px 16px;font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;">search</span> Filter</button>
                 <button class="btn-secondary" onclick="clearDateFilter()" style="padding:7px 16px;font-size:13px;">Clear</button>
             </div>
             <div class="stat-row">
                 <div class="stat-card">
-                    <div class="stat-icon green">💰</div>
+                    <div class="stat-icon green"><span class="material-symbols-outlined" style="font-size:18px;">payments</span></div>
                     <div class="stat-body">
                         <span class="stat-label">Total Sales Amount</span>
-                        <span class="stat-value" id="totalSalesAmount">₱0.00</span>
+                        <span class="stat-value" id="totalSalesAmount">
+<span class="skeleton" style="display:inline-block;width:70px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
+</span>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon blue">📋</div>
+                    <div class="stat-icon blue"><span class="material-symbols-outlined" style="font-size:18px;">assignment</span></div>
                     <div class="stat-body">
                         <span class="stat-label">Total Transactions</span>
-                        <span class="stat-value" id="totalTransactions">0</span>
+                        <span class="stat-value" id="totalTransactions">
+<span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
+</span>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon purple">📈</div>
+                    <div class="stat-icon purple"><span class="material-symbols-outlined" style="font-size:18px;">trending_up</span></div>
                     <div class="stat-body">
                         <span class="stat-label">Today's Sales</span>
-                        <span class="stat-value" id="todaysSales">₱0.00</span>
+                        <span class="stat-value" id="todaysSales">
+<span class="skeleton" style="display:inline-block;width:70px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
+</span>
                     </div>
                 </div>
             </div>
@@ -113,10 +136,15 @@
                         </tr>
                     </thead>
                     <tbody id="salesTableBody">
-                        <tr><td colspan="9" class="text-center">Loading sales...</td></tr>
+                        <tr><td colspan="9"><div class="skeleton" style="height:16px;max-width:92%;margin:12px 0;"></div></td></tr>
+                        <tr><td colspan="9"><div class="skeleton" style="height:16px;max-width:84%;margin:12px 0;"></div></td></tr>
+                        <tr><td colspan="9"><div class="skeleton" style="height:16px;max-width:88%;margin:12px 0;"></div></td></tr>
+                        <tr><td colspan="9"><div class="skeleton" style="height:16px;max-width:76%;margin:12px 0;"></div></td></tr>
+                        <tr><td colspan="9"><div class="skeleton" style="height:16px;max-width:90%;margin:12px 0;"></div></td></tr>
                     </tbody>
                 </table>
             </div>
+            <div class="pagination-bar" id="salesPagination" style="display:flex;justify-content:center;padding:16px;"></div>
         </div>
     </div>
 
@@ -147,8 +175,8 @@
                         <div style="position: relative;">
                             <div class="barcode-row">
                                 <input type="text" class="form-input barcode-input" id="barcodeScanInput" placeholder="Scan barcode or type to search... (F2)" autofocus>
-                                <button type="button" class="btn-secondary" onclick="clearBarcodeInput()" title="Clear">✕</button>
-                                <button type="button" class="btn-primary" onclick="focusBarcodeScanner()" title="Focus scanner (F2)">📷 Scan</button>
+                                <button type="button" class="btn-secondary" onclick="clearBarcodeInput()" title="Clear"><span class="material-symbols-outlined" style="font-size:14px;">close</span></button>
+                                <button type="button" class="btn-primary" onclick="focusBarcodeScanner()" title="Focus scanner (F2)"><span class="material-symbols-outlined" style="font-size:16px;">camera_alt</span> Scan</button>
                             </div>
                             <div id="productAutocomplete" class="barcode-results" style="display:none;"></div>
                         </div>
@@ -175,15 +203,21 @@
                                 <button type="button" class="btn-secondary" onclick="addItemToSale()">Add Item</button>
                             </div>
                         </div>
-                        <div id="qtyWarning" class="hidden" style="color:#d32f2f;font-size:13px;margin-top:5px;">⚠️ Quantity exceeds available stock</div>
+                        <div id="qtyWarning" class="hidden" style="color:#d32f2f;font-size:13px;margin-top:5px;"><span class="material-symbols-outlined" style="font-size:14px;color:#d32f2f;vertical-align:middle;">warning</span> Quantity exceeds available stock</div>
                         <div style="text-align:right;font-size:14px;color:#666;margin-top:5px;">
-                            Item Total: <span id="itemTotal">₱0.00</span>
-                            <span style="margin-left:15px;">Max Stock: <span id="maxStock">0</span></span>
+                            Item Total: <span id="itemTotal">
+<span class="skeleton" style="display:inline-block;width:70px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
+</span>
+                            <span style="margin-left:15px;">Max Stock: <span id="maxStock">
+<span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
+</span></span>
                         </div>
                     </div>
 
                     <div class="form-section">
-                        <h3>Sale Items (<span id="itemCount">0</span>)</h3>
+                        <h3>Sale Items (<span id="itemCount">
+<span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
+</span>)</h3>
                         <div class="items-list" id="saleItemsList">
                             <p class="text-center text-muted">No items added yet</p>
                         </div>
@@ -210,10 +244,14 @@
                     <div class="total-section">
                         <div class="total-row">
                             <span>Subtotal:</span>
-                            <span id="subtotal">₱0.00</span>
+                            <span id="subtotal">
+<span class="skeleton" style="display:inline-block;width:70px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
+</span>
                         </div>
                         <div class="total-row">
-                            <span>Discount (<span id="discountPercent">0</span>%):</span>
+                            <span>Discount (<span id="discountPercent">
+<span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
+</span>%):</span>
                             <span id="discountAmount">-₱0.00</span>
                         </div>
                         <div class="total-row">
@@ -222,14 +260,16 @@
                         </div>
                         <div class="total-row highlight">
                             <span>Total Amount:</span>
-                            <span id="totalAmount">₱0.00</span>
+                            <span id="totalAmount">
+<span class="skeleton" style="display:inline-block;width:70px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
+</span>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn-secondary" onclick="closeSaleModal()">Cancel</button>
-                    <button type="button" class="btn-warning" onclick="printCurrentReceipt()">🖨️ Print Receipt</button>
-                    <button type="submit" class="btn-primary">💰 Complete Sale</button>
+                    <button type="button" class="btn-warning" onclick="printCurrentReceipt()"><span class="material-symbols-outlined" style="font-size:16px;">print</span> Print Receipt</button>
+                    <button type="submit" class="btn-primary"><span class="material-symbols-outlined" style="font-size:16px;">payments</span> Complete Sale</button>
                 </div>
             </form>
         </div>
@@ -244,7 +284,7 @@
             <div class="modal-body" id="saleDetailsContent"></div>
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeViewSaleModal()">Close</button>
-                <button type="button" class="btn-primary" onclick="printReceipt(viewingSaleId)">🖨️ Print Receipt</button>
+                <button type="button" class="btn-primary" onclick="printReceipt(viewingSaleId)"><span class="material-symbols-outlined" style="font-size:16px;">print</span> Print Receipt</button>
                 <button type="button" class="btn-danger" onclick="deleteSaleFromDetail()">Delete Sale</button>
             </div>
         </div>
@@ -252,7 +292,14 @@
 
     <script>
         function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('open');
+            if (document.documentElement.classList.contains('sidebar-hidden')) {
+                toggleSidebarVisibility();
+                if (window.innerWidth <= 768) {
+                    document.getElementById('sidebar').classList.add('open');
+                }
+            } else if (window.innerWidth <= 768) {
+                document.getElementById('sidebar').classList.toggle('open');
+            }
         }
         document.addEventListener('click', function(e) {
             var sidebar = document.getElementById('sidebar');
@@ -262,7 +309,62 @@
             }
         });
     </script>
-    <script src="js/auth.js"></script>
+        <script src="js/utils.js"></script>
+<script src="js/format.js"></script>
+<script src="js/auth.js"></script>
     <script src="js/point-of-sale.js"></script>
 </body>
 </html>
+
+<div id="helpGuideModal">
+    <div class="modal-content" style="max-width:640px;">
+        <div class="modal-header">
+            <h2><span class="material-symbols-outlined" style="font-size:20px;">help</span> Help Guide</h2>
+            <button class="close-btn" onclick="closeHelpGuide()">&times;</button>
+        </div>
+        <div class="help-guide-content">
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">dashboard</span> Dashboard</h3>
+                <p>The Dashboard gives you a real-time overview of your business — total sales, low-stock alerts, expiring products, and recent transactions. Use it as your daily command center.</p>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">point_of_sale</span> Point of Sale (POS)</h3>
+                <p>The POS page is a split-screen checkout system:</p>
+                <ul>
+                    <li><strong>Left panel</strong> — Browse/search products by name or category. Click a product to add it to the cart.</li>
+                    <li><strong>Right panel</strong> — Shows the current cart. Adjust quantities with +/- buttons, remove items, or set a discount percentage.</li>
+                    <li>Scan barcodes using a scanner or press <span class="shortcut">F2</span> to focus the scan field.</li>
+                    <li>Fill in customer name/phone (optional), select payment method, then click <strong>Pay</strong> to complete the sale.</li>
+                </ul>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">inventory_2</span> Inventory</h3>
+                <p>Manage your products: add, edit, view details, adjust stock, and set reorder levels. Use the CSV import tool to bulk-add products. The table shows SKU, name, category, price, stock, and expiration status.</p>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">receipt</span> Sales History</h3>
+                <p>View past transactions, search by sale number or staff name, and filter by date range. Click <strong>View</strong> on any sale to see item details and print a receipt.</p>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">local_shipping</span> Suppliers</h3>
+                <p>Track your suppliers, contact info, payment terms, and performance metrics (delivery time, on-time rate). View email history for purchase orders and alerts sent to each supplier.</p>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">assessment</span> Reports &amp; Analytics</h3>
+                <p>Reports give you printable summaries. Analytics shows charts and trends — top-selling products, monthly revenue, and stock distribution.</p>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">notifications</span> Notifications</h3>
+                <p>Get alerts for low stock, out-of-stock items, and expiring products. Click the bell icon in the sidebar or visit the Notifications page to view and mark alerts as read.</p>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">keyboard</span> Keyboard Shortcuts</h3>
+                <ul>
+                    <li><span class="shortcut">F2</span> — Focus barcode scanner input (POS page)</li>
+                    <li><span class="shortcut">⌘K</span> — Open global search</li>
+                    <li><span class="shortcut">Esc</span> — Close any open modal</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

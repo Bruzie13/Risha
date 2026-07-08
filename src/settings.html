@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RISHA — Settings</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="css/settings.css">
+    <script>
+        (function() {
+            var saved = localStorage.getItem('theme');
+            if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark-mode');
+            }
+            if (localStorage.getItem('sidebarHidden') === 'true') {
+                document.documentElement.classList.add('sidebar-hidden');
+            }
+        }());
+    </script>
+</head>
+<body>
+
+    <button class="sidebar-hamburger" id="hamburgerBtn" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+        <span class="material-symbols-outlined">menu</span>
+    </button>
+    <button class="sidebar-floating-toggle" id="sidebarFloatingToggle" onclick="toggleSidebarVisibility()" aria-label="Expand sidebar"><span class="material-symbols-outlined">menu</span></button>
+
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <div class="brand-icon">
+                    <img src="images/logo.jpeg" alt="RISHA" title="RISHA Pet Shop">
+                </div>
+                <div class="brand-text">
+                    <span>RISHA</span>
+                    <small>Pet Supplies</small>
+                </div>
+            </div>
+            <button class="sidebar-collapse-btn" id="sidebarToggleBtn" onclick="toggleSidebarVisibility()" title="Collapse sidebar"><span class="material-symbols-outlined">chevron_left</span></button>
+        </div>
+        <div class="sidebar-nav">
+            <a href="dashboard.html" class="nav-link" title="Dashboard"><span class="nav-icon material-symbols-outlined">dashboard</span><span class="nav-label">Dashboard</span></a>
+            <a href="inventory.html" class="nav-link" title="Inventory"><span class="nav-icon material-symbols-outlined">inventory_2</span><span class="nav-label">Inventory</span></a>
+            <a href="pos.html" class="nav-link" title="POS"><span class="nav-icon material-symbols-outlined">point_of_sale</span><span class="nav-label">POS</span></a>
+            <a href="sales.html" class="nav-link" title="Sales History"><span class="nav-icon material-symbols-outlined">receipt</span><span class="nav-label">Sales History</span></a>
+            <a href="suppliers.html" class="nav-link" title="Suppliers"><span class="nav-icon material-symbols-outlined">local_shipping</span><span class="nav-label">Suppliers</span></a>
+            <a href="reports.html" class="nav-link" title="Reports"><span class="nav-icon material-symbols-outlined">assessment</span><span class="nav-label">Reports</span></a>
+            <a href="users.html" class="nav-link" id="usersLink" title="Users"><span class="nav-icon material-symbols-outlined">group</span><span class="nav-label">Users</span></a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="sidebar-user" onclick="location.href='settings.html'" title="Your Profile">
+                <div class="avatar">
+                    <span class="avatar-initials">AD</span>
+                    <span class="avatar-status"></span>
+                </div>
+                <div class="user-info">
+                    <span id="userName">Loading...</span>
+                    <small id="userRole">Staff</small>
+                </div>
+                <button class="user-settings-btn" onclick="event.stopPropagation();location.href='settings.html'" title="Settings">
+                    <span class="material-symbols-outlined">settings</span>
+                </button>
+            </div>
+            <div class="sidebar-actions">
+                <button class="sidebar-btn" id="themeToggleBtn" title="Toggle theme"><span class="material-symbols-outlined">dark_mode</span></button>
+                <button class="sidebar-btn notif-bell-btn" id="notifBellBtn" onclick="openNotifDropdown()" title="Notifications">
+                    <span class="material-symbols-outlined" style="font-size:18px;">notifications</span>
+                    <span class="notif-badge" id="notifBadge">0</span>
+                </button>
+                <button class="sidebar-btn sidebar-logout" onclick="logout()" title="Logout"><span class="material-symbols-outlined">logout</span></button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-wrapper">
+        <div class="page-header">
+            <div>
+                <h1>Settings</h1>
+                <div class="breadcrumb"><span>Preferences</span> · Manage your account and preferences</div>
+            </div>
+            <div class="page-header-actions">
+                <span style="padding:6px 14px;border:1px solid var(--border-glass);border-radius:var(--radius-md);font-size:12px;color:var(--text-muted);font-weight:500;" id="settingsDateDisplay"></span>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="settings-layout">
+                <div class="settings-sidebar">
+                    <button class="settings-tab active" data-tab="profile">
+                        <span class="material-symbols-outlined">person</span>
+                        Profile
+                    </button>
+                    <button class="settings-tab" data-tab="password">
+                        <span class="material-symbols-outlined">lock</span>
+                        Password
+                    </button>
+                    <button class="settings-tab" data-tab="preferences">
+                        <span class="material-symbols-outlined">tune</span>
+                        Preferences
+                    </button>
+                    <button class="settings-tab" data-tab="session">
+                        <span class="material-symbols-outlined">devices</span>
+                        Session
+                    </button>
+                </div>
+
+                <div class="settings-content">
+                    <div class="settings-panel active" id="panel-profile">
+                        <div class="settings-card">
+                            <div class="settings-card-header">
+                                <h3>Profile Information</h3>
+                                <p>Your personal details and account info</p>
+                            </div>
+                            <div class="settings-card-body">
+                                <div class="settings-avatar-section">
+                                    <div class="settings-avatar">
+                                        <span class="settings-avatar-initials">AD</span>
+                                    </div>
+                                    <div>
+                                        <div class="settings-name-display" id="settingsDisplayName">Admin</div>
+                                        <div class="settings-role-display" id="settingsDisplayRole">Administrator</div>
+                                    </div>
+                                </div>
+                                <div class="settings-divider"></div>
+                                <div class="settings-field">
+                                    <label>Full Name</label>
+                                    <input type="text" class="form-input" id="settingsFullName" placeholder="Your full name">
+                                </div>
+                                <div class="settings-field">
+                                    <label>Email</label>
+                                    <input type="email" class="form-input" id="settingsEmail" placeholder="your@email.com" disabled>
+                                </div>
+                                <div class="settings-field">
+                                    <label>Username</label>
+                                    <input type="text" class="form-input" id="settingsUsername" placeholder="username" disabled>
+                                </div>
+                                <button class="btn-primary" onclick="saveProfile()" style="margin-top:8px;padding:10px 28px;">
+                                    <span class="material-symbols-outlined" style="font-size:16px;">save</span>
+                                    Save Changes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-panel" id="panel-password">
+                        <div class="settings-card">
+                            <div class="settings-card-header">
+                                <h3>Change Password</h3>
+                                <p>Update your account password</p>
+                            </div>
+                            <div class="settings-card-body">
+                                <div class="settings-field">
+                                    <label>Current Password</label>
+                                    <input type="password" class="form-input" id="settingsCurrentPw" placeholder="Enter current password">
+                                    <span class="field-error" id="errorCurrentPw"></span>
+                                </div>
+                                <div class="settings-field">
+                                    <label>New Password</label>
+                                    <input type="password" class="form-input" id="settingsNewPw" placeholder="Enter new password">
+                                    <span class="field-error" id="errorNewPw"></span>
+                                </div>
+                                <div class="settings-field">
+                                    <label>Confirm New Password</label>
+                                    <input type="password" class="form-input" id="settingsConfirmPw" placeholder="Confirm new password">
+                                    <span class="field-error" id="errorConfirmPw"></span>
+                                </div>
+                                <button class="btn-primary" onclick="changePassword()" style="margin-top:8px;padding:10px 28px;">
+                                    <span class="material-symbols-outlined" style="font-size:16px;">lock_reset</span>
+                                    Update Password
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-panel" id="panel-preferences">
+                        <div class="settings-card">
+                            <div class="settings-card-header">
+                                <h3>Preferences</h3>
+                                <p>Customize your experience</p>
+                            </div>
+                            <div class="settings-card-body">
+                                <div class="settings-toggle-row">
+                                    <div>
+                                        <div class="settings-toggle-label">Dark Mode</div>
+                                        <div class="settings-toggle-desc">Switch between light and dark theme</div>
+                                    </div>
+                                    <label class="settings-toggle">
+                                        <input type="checkbox" id="settingsDarkModeToggle">
+                                        <span class="settings-toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="settings-divider"></div>
+                                <div class="settings-toggle-row">
+                                    <div>
+                                        <div class="settings-toggle-label">Notifications</div>
+                                        <div class="settings-toggle-desc">Receive alerts for low stock and expirations</div>
+                                    </div>
+                                    <label class="settings-toggle">
+                                        <input type="checkbox" id="settingsNotifToggle" checked>
+                                        <span class="settings-toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="settings-divider"></div>
+                                <div class="settings-toggle-row">
+                                    <div>
+                                        <div class="settings-toggle-label">Compact Sidebar</div>
+                                        <div class="settings-toggle-desc">Collapse sidebar for more workspace</div>
+                                    </div>
+                                    <label class="settings-toggle">
+                                        <input type="checkbox" id="settingsSidebarToggle">
+                                        <span class="settings-toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-panel" id="panel-session">
+                        <div class="settings-card">
+                            <div class="settings-card-header">
+                                <h3>Session</h3>
+                                <p>Your current login session</p>
+                            </div>
+                            <div class="settings-card-body">
+                                <div class="settings-field">
+                                    <label>Logged in as</label>
+                                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);" id="settingsSessionUser">Administrator</div>
+                                </div>
+                                <div class="settings-field">
+                                    <label>Role</label>
+                                    <div style="font-size:14px;color:var(--text-secondary);" id="settingsSessionRole">admin</div>
+                                </div>
+                                <div class="settings-field">
+                                    <label>Account Status</label>
+                                    <div><span class="status-badge status-active" id="settingsSessionStatus">Active</span></div>
+                                </div>
+                                <div class="settings-divider"></div>
+                                <button class="btn-danger" onclick="logout()" style="padding:10px 28px;">
+                                    <span class="material-symbols-outlined" style="font-size:16px;">logout</span>
+                                    Sign Out
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            var s = document.getElementById('sidebar');
+            if (s) { s.classList.toggle('open'); }
+        }
+        document.addEventListener('click', function(e) {
+            var s = document.getElementById('sidebar');
+            var h = document.getElementById('hamburgerBtn');
+            if (s && h && window.innerWidth <= 768 && s.classList.contains('open') && !s.contains(e.target) && !h.contains(e.target)) {
+                s.classList.remove('open');
+            }
+        });
+    </script>
+    <script src="js/utils.js"></script>
+    <script src="js/format.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/settings.js"></script>
+</body>
+</html>

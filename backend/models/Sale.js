@@ -1,16 +1,43 @@
 const pool = require('../config/database');
 
 class Sale {
-    static async getAll() {
+    static async getAll(filters = {}) {
         const connection = await pool.getConnection();
         try {
-            const [rows] = await connection.execute(
-                `SELECT s.*, u.full_name as staff_name,
+            let sql = `SELECT s.id, s.sale_number, s.customer_name, s.customer_phone, s.total_amount, s.discount,
+                        s.final_amount, s.payment_method, s.payment_status, s.notes, s.created_by,
+                        UNIX_TIMESTAMP(s.created_at) * 1000 as created_at,
+                        UNIX_TIMESTAMP(s.updated_at) * 1000 as updated_at,
+                        u.full_name as staff_name,
                  (SELECT COUNT(*) FROM sale_items si WHERE si.sale_id = s.id) as item_count
                  FROM sales s 
-                 LEFT JOIN users u ON s.created_by = u.id 
-                 ORDER BY s.created_at DESC`
-            );
+                 LEFT JOIN users u ON s.created_by = u.id`;
+            const params = [];
+            const conditions = [];
+
+            if (filters.startDate) {
+                conditions.push('DATE(s.created_at) >= ?');
+                params.push(filters.startDate);
+            }
+            if (filters.endDate) {
+                conditions.push('DATE(s.created_at) <= ?');
+                params.push(filters.endDate);
+            }
+            if (filters.limit) {
+                conditions.push('1=1');
+            }
+
+            if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
+            sql += ' ORDER BY s.created_at DESC';
+
+            if (filters.limit) {
+                const limitVal = parseInt(filters.limit);
+                if (!isNaN(limitVal) && limitVal > 0) {
+                    sql += ' LIMIT ' + limitVal;
+                }
+            }
+
+            const [rows] = await connection.execute(sql, params);
             return rows;
         } finally {
             connection.release();
@@ -21,7 +48,11 @@ class Sale {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                `SELECT s.*, u.full_name as staff_name 
+                `SELECT s.id, s.sale_number, s.customer_name, s.customer_phone, s.total_amount, s.discount,
+                        s.final_amount, s.payment_method, s.payment_status, s.notes, s.created_by,
+                        UNIX_TIMESTAMP(s.created_at) * 1000 as created_at,
+                        UNIX_TIMESTAMP(s.updated_at) * 1000 as updated_at,
+                        u.full_name as staff_name 
                  FROM sales s 
                  LEFT JOIN users u ON s.created_by = u.id 
                  WHERE s.id = ?`,
@@ -53,6 +84,18 @@ class Sale {
         const connection = await pool.getConnection();
         try {
             await connection.beginTransaction();
+
+            for (const item of saleData.items) {
+                const [rows] = await connection.execute(
+                    'SELECT stock_quantity FROM products WHERE id = ? FOR UPDATE',
+                    [item.product_id]
+                );
+                if (!rows.length || rows[0].stock_quantity < item.quantity) {
+                    await connection.rollback();
+                    const name = rows.length ? rows[0].name || `Product #${item.product_id}` : `Product #${item.product_id}`;
+                    throw new Error(`Insufficient stock for ${name}. Available: ${rows[0]?.stock_quantity || 0}, requested: ${item.quantity}`);
+                }
+            }
 
             const saleNumber = 'SALE-' + Date.now();
 

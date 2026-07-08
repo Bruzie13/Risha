@@ -1,17 +1,30 @@
 const pool = require('../config/database');
 
 class PurchaseOrder {
-    static async getAll() {
+    static async getAll(filters = {}) {
         const connection = await pool.getConnection();
         try {
-            const [rows] = await connection.execute(
-                `SELECT po.*, s.name as supplier_name, u.full_name as created_by_name,
+            let sql = `SELECT po.id, po.po_number, po.supplier_id, po.order_date, po.expected_delivery_date,
+                        po.total_amount, po.status, po.notes, po.created_by,
+                        UNIX_TIMESTAMP(po.created_at) * 1000 as created_at,
+                        UNIX_TIMESTAMP(po.updated_at) * 1000 as updated_at,
+                        s.name as supplier_name, u.full_name as created_by_name,
                  (SELECT COUNT(*) FROM po_items poi WHERE poi.po_id = po.id) as item_count
                  FROM purchase_orders po
                  LEFT JOIN suppliers s ON po.supplier_id = s.id
-                 LEFT JOIN users u ON po.created_by = u.id
-                 ORDER BY po.created_at DESC`
-            );
+                 LEFT JOIN users u ON po.created_by = u.id`;
+            const params = [];
+            const conditions = [];
+
+            if (filters.status) {
+                conditions.push('po.status = ?');
+                params.push(filters.status);
+            }
+
+            if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
+            sql += ' ORDER BY po.created_at DESC';
+
+            const [rows] = await connection.execute(sql, params);
             return rows;
         } finally {
             connection.release();
@@ -22,7 +35,11 @@ class PurchaseOrder {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                `SELECT po.*, s.name as supplier_name, u.full_name as created_by_name
+                `SELECT po.id, po.po_number, po.supplier_id, po.order_date, po.expected_delivery_date,
+                        po.total_amount, po.status, po.notes, po.created_by,
+                        UNIX_TIMESTAMP(po.created_at) * 1000 as created_at,
+                        UNIX_TIMESTAMP(po.updated_at) * 1000 as updated_at,
+                        s.name as supplier_name, u.full_name as created_by_name
                  FROM purchase_orders po
                  LEFT JOIN suppliers s ON po.supplier_id = s.id
                  LEFT JOIN users u ON po.created_by = u.id

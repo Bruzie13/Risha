@@ -1,0 +1,206 @@
+document.addEventListener('DOMContentLoaded', function () {
+    if (!isAuthenticated()) {
+        window.location.href = 'login.html';
+        return;
+    }
+
+    loadSettings();
+    setupTabs();
+    setupThemeToggle();
+    setupSidebarToggle();
+    setupNotifToggle();
+    updateDate();
+
+    const nameEl = document.getElementById('userName');
+    const avatarEl = document.querySelector('.avatar .avatar-initials');
+    const user = getUser();
+    if (user && nameEl) nameEl.textContent = user.full_name || user.username || user.email;
+    if (user && avatarEl) {
+        const name = user.full_name || user.username || user.email;
+        avatarEl.textContent = name.split(' ').map(function (w) { return w[0]; }).filter(Boolean).slice(0, 2).join('').toUpperCase();
+    }
+});
+
+function updateDate() {
+    var el = document.getElementById('settingsDateDisplay');
+    if (!el) return;
+    var d = new Date();
+    el.textContent = d.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function setupTabs() {
+    var tabs = document.querySelectorAll('.settings-tab');
+    tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            tabs.forEach(function (t) { t.classList.remove('active'); });
+            tab.classList.add('active');
+            var panels = document.querySelectorAll('.settings-panel');
+            panels.forEach(function (p) { p.classList.remove('active'); });
+            var target = document.getElementById('panel-' + tab.dataset.tab);
+            if (target) target.classList.add('active');
+        });
+    });
+}
+
+function loadSettings() {
+    var user = getUser();
+    if (!user) return;
+
+    var initialsEl = document.querySelector('.settings-avatar-initials');
+    var displayNameEl = document.getElementById('settingsDisplayName');
+    var roleEl = document.getElementById('settingsDisplayRole');
+    var nameInput = document.getElementById('settingsFullName');
+    var emailInput = document.getElementById('settingsEmail');
+    var usernameInput = document.getElementById('settingsUsername');
+    var sessionUser = document.getElementById('settingsSessionUser');
+    var sessionRole = document.getElementById('settingsSessionRole');
+
+    var name = user.full_name || user.username || user.email || 'User';
+    if (initialsEl) {
+        initialsEl.textContent = name.split(' ').map(function (w) { return w[0]; }).filter(Boolean).slice(0, 2).join('').toUpperCase();
+    }
+    if (displayNameEl) displayNameEl.textContent = name;
+    if (roleEl) roleEl.textContent = (user.role || 'staff');
+    if (nameInput) nameInput.value = user.full_name || '';
+    if (emailInput) emailInput.value = user.email || '';
+    if (usernameInput) usernameInput.value = user.username || '';
+    if (sessionUser) sessionUser.textContent = name;
+    if (sessionRole) sessionRole.textContent = user.role || 'staff';
+}
+
+function setupThemeToggle() {
+    var checkbox = document.getElementById('settingsDarkModeToggle');
+    if (!checkbox) return;
+    checkbox.checked = document.documentElement.classList.contains('dark-mode');
+    checkbox.addEventListener('change', function () {
+        var isDark = checkbox.checked;
+        document.documentElement.classList.toggle('dark-mode', isDark);
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        var btn = document.getElementById('themeToggleBtn');
+        if (btn) {
+            btn.innerHTML = isDark ? '<span class="material-symbols-outlined">light_mode</span>' : '<span class="material-symbols-outlined">dark_mode</span>';
+            btn.title = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+        }
+    });
+}
+
+function setupSidebarToggle() {
+    var checkbox = document.getElementById('settingsSidebarToggle');
+    if (!checkbox) return;
+    checkbox.checked = document.documentElement.classList.contains('sidebar-hidden');
+    checkbox.addEventListener('change', function () {
+        var hidden = checkbox.checked;
+        document.documentElement.classList.toggle('sidebar-hidden', hidden);
+        localStorage.setItem('sidebarHidden', hidden ? 'true' : 'false');
+        var btn = document.getElementById('sidebarToggleBtn');
+        if (btn) btn.innerHTML = hidden ? '<span class="material-symbols-outlined">chevron_right</span>' : '<span class="material-symbols-outlined">chevron_left</span>';
+    });
+}
+
+function setupNotifToggle() {
+    var checkbox = document.getElementById('settingsNotifToggle');
+    if (!checkbox) return;
+    var saved = localStorage.getItem('notifEnabled');
+    if (saved !== null) checkbox.checked = saved === 'true';
+    checkbox.addEventListener('change', function () {
+        localStorage.setItem('notifEnabled', checkbox.checked);
+    });
+}
+
+async function saveProfile() {
+    var nameInput = document.getElementById('settingsFullName');
+    var name = nameInput ? nameInput.value.trim() : '';
+    if (!name) {
+        showToast('Please enter your full name', 'error');
+        return;
+    }
+
+    try {
+        var user = getUser();
+        if (!user) return;
+        var res = await fetch(API_BASE + '/auth/users/' + user.id, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ full_name: name })
+        });
+        var data = await res.json();
+        if (data.success) {
+            user.full_name = name;
+            localStorage.setItem('user', JSON.stringify(user));
+            loadSettings();
+            var nameEl = document.getElementById('userName');
+            if (nameEl) nameEl.textContent = name;
+            var avatarEl = document.querySelector('.avatar .avatar-initials');
+            if (avatarEl) {
+                avatarEl.textContent = name.split(' ').map(function (w) { return w[0]; }).filter(Boolean).slice(0, 2).join('').toUpperCase();
+            }
+            showToast('Profile updated successfully', 'success');
+        } else {
+            showToast(data.message || 'Failed to update profile', 'error');
+        }
+    } catch (e) {
+        showToast('Error updating profile', 'error');
+    }
+}
+
+function clearFieldErrors() {
+    document.querySelectorAll('.field-error').forEach(function (el) { el.textContent = ''; });
+}
+
+function showFieldError(id, message) {
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">error</span> ' + message;
+}
+
+async function changePassword() {
+    clearFieldErrors();
+    var currentPw = document.getElementById('settingsCurrentPw');
+    var newPw = document.getElementById('settingsNewPw');
+    var confirmPw = document.getElementById('settingsConfirmPw');
+
+    if (!currentPw.value && !newPw.value && !confirmPw.value) {
+        showFieldError('errorCurrentPw', 'Enter current password');
+        showFieldError('errorNewPw', 'Enter new password');
+        showFieldError('errorConfirmPw', 'Confirm new password');
+        return;
+    }
+    if (!currentPw.value) {
+        showFieldError('errorCurrentPw', 'Enter current password');
+        return;
+    }
+    if (!newPw.value) {
+        showFieldError('errorNewPw', 'Enter new password');
+        return;
+    }
+    if (!confirmPw.value) {
+        showFieldError('errorConfirmPw', 'Confirm new password');
+        return;
+    }
+    if (newPw.value.length < 6) {
+        showFieldError('errorNewPw', 'Must be at least 6 characters');
+        return;
+    }
+    if (newPw.value !== confirmPw.value) {
+        showFieldError('errorConfirmPw', 'Passwords do not match');
+        return;
+    }
+
+    try {
+        var res = await fetch(API_BASE + '/auth/change-password', {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ currentPassword: currentPw.value, newPassword: newPw.value })
+        });
+        var data = await res.json();
+        if (data.success) {
+            showToast('Password changed successfully', 'success');
+            currentPw.value = '';
+            newPw.value = '';
+            confirmPw.value = '';
+        } else {
+            showFieldError('errorCurrentPw', data.message || 'Failed to change password');
+        }
+    } catch (e) {
+        showFieldError('errorCurrentPw', 'Failed to change password');
+    }
+}

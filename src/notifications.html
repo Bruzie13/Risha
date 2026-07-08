@@ -6,19 +6,16 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RISHA — Analytics</title>
+    <title>RISHA — Notifications</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css">
-    <link rel="stylesheet" href="css/analytics.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>if(localStorage.getItem('theme')==='dark'||(!localStorage.getItem('theme')&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');</script>
-<script>window.location.replace('reports.html?tab=analytics');</script>
     </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
-    <button class="sidebar-floating-toggle" id="sidebarFloatingToggle" onclick="toggleSidebarVisibility()"><span class="material-symbols-outlined">menu</span></button>
+    <button class="sidebar-floating-toggle" id="sidebarFloatingToggle" onclick="toggleSidebarVisibility()"><span class="material-symbols-outlined">menu</span></button>    
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-brand">
@@ -67,142 +64,60 @@
     <div class="main-wrapper">
         <div class="page-header">
             <div>
-                <h1>Analytics</h1>
-                <div class="breadcrumb"><span>AI Insights</span> · Demand forecasting &amp; predictions</div>
+                <h1>Notifications</h1>
+                <div class="breadcrumb"><span>System</span> · Notification center</div>
             </div>
-            <div class="page-header-actions">
+            <div class="notif-center-actions">
+                <button class="btn-secondary" onclick="markAllRead()"><span class="material-symbols-outlined" style="font-size:16px;">check</span> Mark All Read</button>
+                <button class="btn-secondary" onclick="refreshList()"><span class="material-symbols-outlined" style="font-size:16px;">refresh</span> Refresh</button>
             </div>
         </div>
 
         <div class="content">
-            <div class="perf-overview">
-                <div class="perf-card perf-fast">
-                    <div class="perf-icon"><span class="material-symbols-outlined" style="font-size:20px;">rocket_launch</span></div>
-                    <div class="perf-info">
-                        <span class="perf-label">Fast Movers</span>
-                        <span class="perf-value" id="fastMoversCount">--</span>
-                    </div>
-                    <span class="perf-hint">High demand, rising trend</span>
-                </div>
-                <div class="perf-card perf-slow">
-                    <div class="perf-icon"><span class="material-symbols-outlined" style="font-size:20px;">hourglass_bottom</span></div>
-                    <div class="perf-info">
-                        <span class="perf-label">Slow Movers</span>
-                        <span class="perf-value" id="slowMoversCount">--</span>
-                    </div>
-                    <span class="perf-hint">Declining demand</span>
-                </div>
-                <div class="perf-card perf-risk">
-                    <div class="perf-icon"><span class="material-symbols-outlined" style="font-size:20px;">warning</span></div>
-                    <div class="perf-info">
-                        <span class="perf-label">At Risk</span>
-                        <span class="perf-value" id="atRiskCount">--</span>
-                    </div>
-                    <span class="perf-hint">May stock out within 30 days</span>
-                </div>
-                <div class="perf-card perf-steady">
-                    <div class="perf-icon"><span class="material-symbols-outlined" style="font-size:20px;">check_circle</span></div>
-                    <div class="perf-info">
-                        <span class="perf-label">Steady</span>
-                        <span class="perf-value" id="steadyCount">--</span>
-                    </div>
-                    <span class="perf-hint">Stable demand, healthy stock</span>
-                </div>
-            </div>
-
-            <div class="perf-panels">
-                <div class="perf-panel">
-                    <div class="perf-panel-header fast-header">
-                        <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--accent);">emoji_events</span> Top Fast Movers</h3>
-                        <span>Highest predicted demand with rising trends</span>
-                    </div>
-                    <div class="perf-panel-body" id="fastMoversList">
-                        <div class="perf-placeholder">Loading...</div>
-                    </div>
-                </div>
-                <div class="perf-panel">
-                    <div class="perf-panel-header risk-header">
-                        <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--danger);">fiber_manual_record</span> Needs Attention</h3>
-                        <span>Products at risk of stockout or declining</span>
-                    </div>
-                    <div class="perf-panel-body" id="needsAttentionList">
-                        <div class="perf-placeholder">Loading...</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="analytics-controls">
-                <div class="form-group" style="margin-bottom:0;">
-                    <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Select Product for Detailed Forecast</label>
-                    <select id="productSelector" onchange="onProductChange()" style="padding:9px 14px;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);font-size:13px;color:var(--text-primary);font-family:var(--font-sans);min-width:280px;">
-                        <option value="">-- Select a product --</option>
+            <div id="notifSummary"></div>
+            <div class="notif-center-header">
+                <div class="notif-filter">
+                    <select id="notifTypeFilter" onchange="loadNotifications()">
+                        <option value="">All Types</option>
+                        <option value="low_stock">Low Stock</option>
+                        <option value="stockout">Stock Out</option>
+                        <option value="expiration">Expiration</option>
+                        <option value="overstock">Overstock</option>
+                        <option value="reorder">Reorder</option>
+                        <option value="info">Information</option>
+                    </select>
+                    <select id="notifStatusFilter" onchange="loadNotifications()">
+                        <option value="">All Status</option>
+                        <option value="unread">Unread</option>
+                        <option value="read">Read</option>
                     </select>
                 </div>
-                <button class="btn-primary" onclick="refreshAnalytics()"><span class="material-symbols-outlined" style="font-size:16px;">refresh</span> Refresh All</button>
             </div>
-
-            <div class="metrics-grid" id="metricsGrid" style="display:none;">
-                <div class="metric-card">
-                    <div class="metric-icon green"><span class="material-symbols-outlined" style="font-size:22px;">bar_chart</span></div>
-                    <div class="metric-label">Predicted Next Month Sales</div>
-                    <div class="metric-value" id="predictedSales">--</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-icon blue"><span class="material-symbols-outlined" style="font-size:22px;">inventory_2</span></div>
-                    <div class="metric-label">Recommended Reorder Point</div>
-                    <div class="metric-value" id="reorderPoint">--</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-icon purple"><span class="material-symbols-outlined" style="font-size:22px;">track_changes</span></div>
-                    <div class="metric-label">Confidence Score</div>
-                    <div class="metric-value" id="confidenceScore">--</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-icon gold"><span class="material-symbols-outlined" style="font-size:22px;">trending_up</span></div>
-                    <div class="metric-label">Trend</div>
-                    <div class="metric-value" id="trendIndicator">--</div>
-                    <div class="metric-trend" id="trendText"></div>
-                </div>
-            </div>
-
-            <div class="analytics-charts" id="chartsSection" style="display:none;">
-                <div class="analytics-chart-card full-width">
-                    <h3>Demand Forecast: Predicted vs Historical Sales</h3>
-                    <div class="chart-container">
-                        <canvas id="demandForecastChart"></canvas>
+            <div class="notif-list" id="notifList">
+                <div style="padding:20px;">
+                    <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--border-glass);">
+                        <div class="skeleton" style="width:36px;height:36px;border-radius:50%;flex-shrink:0;"></div>
+                        <div style="flex:1;"><div class="skeleton" style="height:14px;width:85%;margin-bottom:8px;"></div><div class="skeleton" style="height:11px;width:55%;"></div></div>
                     </div>
-                </div>
-                <div class="analytics-chart-card">
-                    <h3>Seasonal Trends</h3>
-                    <div class="chart-container">
-                        <canvas id="seasonalTrendsChart"></canvas>
+                    <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--border-glass);">
+                        <div class="skeleton" style="width:36px;height:36px;border-radius:50%;flex-shrink:0;"></div>
+                        <div style="flex:1;"><div class="skeleton" style="height:14px;width:75%;margin-bottom:8px;"></div><div class="skeleton" style="height:11px;width:65%;"></div></div>
+                    </div>
+                    <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--border-glass);">
+                        <div class="skeleton" style="width:36px;height:36px;border-radius:50%;flex-shrink:0;"></div>
+                        <div style="flex:1;"><div class="skeleton" style="height:14px;width:90%;margin-bottom:8px;"></div><div class="skeleton" style="height:11px;width:45%;"></div></div>
+                    </div>
+                    <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--border-glass);">
+                        <div class="skeleton" style="width:36px;height:36px;border-radius:50%;flex-shrink:0;"></div>
+                        <div style="flex:1;"><div class="skeleton" style="height:14px;width:65%;margin-bottom:8px;"></div><div class="skeleton" style="height:11px;width:70%;"></div></div>
+                    </div>
+                    <div style="display:flex;gap:14px;padding:14px 0;">
+                        <div class="skeleton" style="width:36px;height:36px;border-radius:50%;flex-shrink:0;"></div>
+                        <div style="flex:1;"><div class="skeleton" style="height:14px;width:80%;margin-bottom:8px;"></div><div class="skeleton" style="height:11px;width:50%;"></div></div>
                     </div>
                 </div>
             </div>
-
-            <div class="analytics-chart-card full-width">
-                <h3>All Products — Demand Forecast & Reorder Status</h3>
-                <div class="table-container">
-                    <table class="data-table predictions-table">
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th>Current Stock</th>
-                                <th>Predicted Demand (Next 30d)</th>
-                                <th>Daily Avg</th>
-                                <th>Days Until Stockout</th>
-                                <th>Trend</th>
-                                <th>Reorder</th>
-                            </tr>
-                        </thead>
-                        <tbody id="predictionsTableBody">
-                            <tr>
-                                <td colspan="7" class="text-center">Loading predictions...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <div class="pagination-bar" id="notifPagination" style="display:flex;justify-content:center;padding:16px;"></div>
         </div>
     </div>
 
@@ -225,9 +140,10 @@
             }
         });
     </script>
-        <script src="js/format.js"></script>
-<script src="js/auth.js"></script>
-    <script src="js/analytics.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/format.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/notifications.js"></script>
 </body>
 </html>
 

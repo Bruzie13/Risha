@@ -4,16 +4,6 @@ let totalLogs = 0;
 
 window.addEventListener('load', async () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
-    const user = getUser();
-    if (user) {
-        const nameEl = document.getElementById('userName');
-        const avatarEl = document.querySelector('.avatar');
-        if (nameEl) nameEl.textContent = user.full_name || user.username || user.email;
-        if (avatarEl) {
-            const name = user.full_name || user.username || user.email;
-            avatarEl.textContent = name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
-        }
-    }
     await loadAuditLogs();
 });
 
@@ -55,15 +45,15 @@ function renderPage(page, logs) {
     } else {
         list.innerHTML = pageItems.map(l => {
             const action = l.action || 'info';
-            const icon = action === 'create' || action === 'login' ? '✅' : action === 'update' ? '✏️' : action === 'delete' ? '🗑️' : 'ℹ️';
+            const icon = action === 'create' || action === 'login' ? '<span class="material-symbols-outlined" style="font-size:16px;">add_circle</span>' : action === 'update' ? '<span class="material-symbols-outlined" style="font-size:16px;">edit</span>' : action === 'delete' ? '<span class="material-symbols-outlined" style="font-size:16px;">delete</span>' : '<span class="material-symbols-outlined" style="font-size:16px;">info</span>';
             const iconClass = action === 'create' || action === 'login' ? 'create' : action === 'update' ? 'update' : action === 'delete' ? 'delete' : 'info';
             const table = formatTableName(l.table_name);
-            const userInfo = l.user_name ? ` by ${l.user_name}` : '';
+            const userInfo = l.user_name ? ` by ${escHtml(l.user_name)}` : '';
             const detailHtml = buildDetailHtml(l);
             return `<div class="audit-item" onclick="toggleDetail(this)">
                 <div class="audit-icon ${iconClass}">${icon}</div>
                 <div class="audit-info">
-                    <div class="audit-action">${escHtml(table)}${detailHtml ? ' <span style="font-size:10px;color:var(--primary);cursor:pointer;">▼</span>' : ''}</div>
+                    <div class="audit-action">${table}${detailHtml ? ' <span style="font-size:10px;color:var(--primary);cursor:pointer;">▼</span>' : ''}</div>
                     <div class="audit-detail">${escHtml(formatAction(action))} on ${escHtml(l.table_name)}${userInfo}</div>
                     ${detailHtml}
                 </div>
@@ -89,12 +79,12 @@ function formatAction(action) {
 
 function formatTableName(name) {
     const map = {
-        products: '📦 Product',
-        sales: '💰 Sale',
-        purchase_orders: '📋 Purchase Order',
-        suppliers: '🚚 Supplier',
-        users: '👤 User',
-        supplier_performance: '📊 Supplier Performance'
+        products: '<span class="material-symbols-outlined" style="font-size:13px;">inventory</span> Product',
+        sales: '<span class="material-symbols-outlined" style="font-size:13px;">payments</span> Sale',
+        purchase_orders: '<span class="material-symbols-outlined" style="font-size:13px;">assignment</span> Purchase Order',
+        suppliers: '<span class="material-symbols-outlined" style="font-size:13px;">local_shipping</span> Supplier',
+        users: '<span class="material-symbols-outlined" style="font-size:13px;">person</span> User',
+        supplier_performance: '<span class="material-symbols-outlined" style="font-size:13px;">bar_chart</span> Supplier Performance'
     };
     return map[name] || name;
 }
@@ -113,19 +103,19 @@ function buildDetailHtml(log) {
     const val = newVal || oldVal;
     if (val.po_number) {
         let h = `<div class="audit-detail-expand" style="display:none;margin-top:6px;padding:8px 10px;background:var(--gray-50);border-radius:6px;font-size:12px;line-height:1.6;">`;
-        h += `📋 <strong>PO:</strong> ${escHtml(val.po_number)}<br>`;
-        if (val.supplier_name) h += `🏢 <strong>Supplier:</strong> ${escHtml(val.supplier_name)}<br>`;
-        if (val.total_amount) h += `💰 <strong>Total:</strong> ₱${parseFloat(val.total_amount).toFixed(2)}<br>`;
-        if (val.items_count) h += `📦 <strong>Items:</strong> ${val.items_count}<br>`;
-        if (val.status) h += `🔵 <strong>Status:</strong> ${escHtml(val.status)}`;
+        h += `<span class="material-symbols-outlined" style="font-size:13px;">assignment</span> <strong>PO:</strong> ${escHtml(val.po_number)}<br>`;
+        if (val.supplier_name) h += `<span class="material-symbols-outlined" style="font-size:13px;">business</span> <strong>Supplier:</strong> ${escHtml(val.supplier_name)}<br>`;
+        if (val.total_amount) h += `<span class="material-symbols-outlined" style="font-size:13px;">payments</span> <strong>Total:</strong> ${formatCurrency(val.total_amount)}<br>`;
+        if (val.items_count) h += `<span class="material-symbols-outlined" style="font-size:13px;">inventory</span> <strong>Items:</strong> ${val.items_count}<br>`;
+        if (val.status) h += `<span class="material-symbols-outlined" style="font-size:13px;">circle</span> <strong>Status:</strong> ${escHtml(val.status)}`;
         h += `</div>`;
         return h;
     }
     if (val.status && oldVal && oldVal.status) {
         let h = `<div class="audit-detail-expand" style="display:none;margin-top:6px;padding:8px 10px;background:var(--gray-50);border-radius:6px;font-size:12px;line-height:1.6;">`;
-        if (val.po_number) h += `📋 <strong>PO:</strong> ${escHtml(val.po_number)}<br>`;
-        if (val.supplier_name) h += `🏢 <strong>Supplier:</strong> ${escHtml(val.supplier_name)}<br>`;
-        h += `🔄 <strong>Status:</strong> ${escHtml(oldVal.status)} → ${escHtml(val.status)}`;
+        if (val.po_number) h += `<span class="material-symbols-outlined" style="font-size:13px;">assignment</span> <strong>PO:</strong> ${escHtml(val.po_number)}<br>`;
+        if (val.supplier_name) h += `<span class="material-symbols-outlined" style="font-size:13px;">business</span> <strong>Supplier:</strong> ${escHtml(val.supplier_name)}<br>`;
+        h += `<span class="material-symbols-outlined" style="font-size:13px;">sync</span> <strong>Status:</strong> ${escHtml(oldVal.status)} → ${escHtml(val.status)}`;
         h += `</div>`;
         return h;
     }
