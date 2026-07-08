@@ -300,15 +300,24 @@
 
                 <div class="analytics-charts" id="chartsSection" style="display:none;">
                     <div class="analytics-chart-card full-width">
-                        <h3>Demand Forecast: Predicted vs Historical Sales</h3>
+                        <h3>Demand Forecast: Predicted vs Historical Sales <span style="font-size:11px;font-weight:400;color:var(--text-muted);">(shaded area = 80% confidence range)</span></h3>
                         <div class="chart-container">
                             <canvas id="demandForecastChart"></canvas>
                         </div>
                     </div>
+                </div>
+
+                <div class="analytics-charts" style="grid-template-columns:1fr 1fr;">
                     <div class="analytics-chart-card">
-                        <h3>Seasonal Trends</h3>
+                        <h3>Seasonal Trends <span style="font-size:11px;font-weight:400;color:var(--text-muted);">(avg daily sales by month)</span></h3>
                         <div class="chart-container">
                             <canvas id="seasonalTrendsChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="analytics-chart-card">
+                        <h3>Weekly Sales Pattern <span style="font-size:11px;font-weight:400;color:var(--text-muted);">(avg sales by day of week)</span></h3>
+                        <div class="chart-container">
+                            <canvas id="dowTrendsChart"></canvas>
                         </div>
                     </div>
                 </div>

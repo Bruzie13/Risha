@@ -96,29 +96,57 @@ function displayProducts(products) {
     const colSpan = viewer ? 11 : 12;
     
     if (products.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center">No products found</td></tr>`;
+        const hasFilters = !!(document.getElementById('searchInput')?.value ||
+            document.getElementById('categoryFilter')?.value ||
+            document.getElementById('speciesFilter')?.value || reorderTab);
+        const icon = hasFilters ? 'search_off' : 'inventory_2';
+        const title = hasFilters ? 'No products match your filters' : 'No products yet';
+        const hint = hasFilters
+            ? 'Try adjusting your search or filters.'
+            : (viewer ? 'Products will appear here once added.' : 'Add your first product or import from CSV to get started.');
+        const action = hasFilters
+            ? '<button class="btn-secondary" onclick="showAllProducts()" style="margin-top:14px;padding:8px 18px;font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;">filter_alt_off</span> Clear Filters</button>'
+            : (viewer ? '' : '<button class="btn-primary" onclick="openAddProductModal()" style="margin-top:14px;padding:8px 18px;font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;">add</span> Add Product</button>');
+        tbody.innerHTML = `<tr><td colspan="${colSpan}">
+            <div class="empty-state" style="padding:48px 22px;">
+                <span class="material-symbols-outlined" style="font-size:44px;color:var(--border-strong,#ccc);display:block;margin-bottom:10px;">${icon}</span>
+                <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">${title}</div>
+                <div>${hint}</div>
+                ${action}
+            </div>
+        </td></tr>`;
         updatePagination('inventoryPagination', products, displayCount, 'showMoreProducts');
         return;
     }
 
     const shown = products.slice(0, displayCount);
     tbody.innerHTML = shown.map(product => {
-        let expDateFormatted = 'N/A';
-        
+        let expDateFormatted = '<span style="color:var(--text-muted);">—</span>';
+
         if (product.expiration_date) {
-            try {
-                const date = new Date(product.expiration_date);
-                if (!isNaN(date.getTime())) {
-                    expDateFormatted = date.toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit'
-                    });
+            const date = new Date(product.expiration_date);
+            if (!isNaN(date.getTime())) {
+                const formatted = date.toLocaleDateString('en-US', {
+                    year: 'numeric', month: '2-digit', day: '2-digit'
+                });
+                const daysLeft = Math.floor((date - new Date()) / 86400000);
+                if (daysLeft < 0) {
+                    expDateFormatted = `<span style="color:var(--danger);font-weight:600;" title="Expired">${formatted}</span>`;
+                } else if (daysLeft <= 30) {
+                    expDateFormatted = `<span style="color:var(--warning,#e65100);font-weight:600;" title="Expires in ${daysLeft} day(s)">${formatted}</span>`;
+                } else {
+                    expDateFormatted = formatted;
                 }
-            } catch (e) {
-                console.log('Date parsing error:', product.expiration_date);
             }
         }
+
+        const stockNum = Number(product.stock_quantity) || 0;
+        const stockDisplay = formatNumber(product.stock_quantity) + getUnitLabel(product.unit_type);
+        const stockCell = stockNum === 0
+            ? `<span style="color:var(--danger);font-weight:700;">${stockDisplay}</span>`
+            : stockNum <= product.reorder_level
+                ? `<span style="color:var(--warning,#e65100);font-weight:700;">${stockDisplay}</span>`
+                : stockDisplay;
 
         return `
             <tr>
@@ -129,7 +157,7 @@ function displayProducts(products) {
                 <td>${escHtml(product.category_name || 'N/A')}</td>
                 <td>${escHtml(product.species || 'N/A')}</td>
                 <td>${formatCurrency(product.unit_price)}</td>
-                <td>${formatNumber(product.stock_quantity)}${getUnitLabel(product.unit_type)}</td>
+                <td>${stockCell}</td>
                 <td>${product.reorder_level}</td>
                 <td>${expDateFormatted}</td>
                 <td>${getStatusBadge(product.stock_quantity, product.reorder_level, product.expiration_date)}</td>

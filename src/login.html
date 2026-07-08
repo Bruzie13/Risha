@@ -313,7 +313,7 @@
                 if (data.success && data.token) {
                     localStorage.setItem('authToken', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
-                    document.cookie = 'token=' + data.token + ';path=/;max-age=86400';
+                    // Auth cookie is set by the server as HttpOnly on login
                     window.location.href = 'dashboard.html';
                 } else {
                     errorEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">error</span> ' + (data.message || 'Invalid username or password');

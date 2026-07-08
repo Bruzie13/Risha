@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', function () {
     setupThemeToggle();
     setupSidebarToggle();
     setupNotifToggle();
+    setupEmailSettings();
     updateDate();
 
     const nameEl = document.getElementById('userName');
@@ -150,6 +151,119 @@ function clearFieldErrors() {
 function showFieldError(id, message) {
     var el = document.getElementById(id);
     if (el) el.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">error</span> ' + message;
+}
+
+// ------- Email settings (admin only) -------
+
+function setupEmailSettings() {
+    var user = getUser();
+    if (!user || user.role !== 'admin') return;
+    var tabBtn = document.getElementById('emailTabBtn');
+    if (tabBtn) tabBtn.style.display = '';
+    loadEmailSettings();
+}
+
+function setEmailStatus(message, type) {
+    var el = document.getElementById('emailConfigStatus');
+    if (!el) return;
+    var color = type === 'success' ? 'var(--success, #4caf50)' : type === 'error' ? 'var(--danger, #F4A7A7)' : 'var(--text-muted, #888)';
+    el.style.color = color;
+    el.textContent = message || '';
+}
+
+async function loadEmailSettings() {
+    try {
+        var res = await fetch(API_BASE + '/email-settings', { headers: getAuthHeaders() });
+        var data = await res.json();
+        if (!data.success) return;
+        var s = data.data;
+        var userInput = document.getElementById('emailSenderUser');
+        var passInput = document.getElementById('emailSenderPass');
+        var nameInput = document.getElementById('emailFromName');
+        var enabledToggle = document.getElementById('emailEnabledToggle');
+        var testInput = document.getElementById('emailTestRecipient');
+        if (userInput) userInput.value = s.email_user || '';
+        if (passInput) passInput.placeholder = s.email_pass_set ? '•••••••• (saved — leave blank to keep)' : '16-character app password';
+        if (nameInput) nameInput.value = s.email_from_name || '';
+        if (enabledToggle) enabledToggle.checked = !!s.email_enabled;
+        var me = getUser();
+        if (testInput && !testInput.value && me && me.email) testInput.value = me.email;
+        if (s.email_user && s.email_pass_set) {
+            setEmailStatus('Configured — sender: ' + s.email_user + (s.source === 'env' ? ' (from .env file)' : ''), 'info');
+        } else {
+            setEmailStatus('Not configured yet. Enter a Gmail address and app password.', 'error');
+        }
+    } catch (e) {
+        setEmailStatus('Could not load email settings', 'error');
+    }
+}
+
+async function saveEmailSettings() {
+    var btn = document.getElementById('saveEmailBtn');
+    var emailUser = (document.getElementById('emailSenderUser').value || '').trim();
+    var emailPass = document.getElementById('emailSenderPass').value;
+    var fromName = (document.getElementById('emailFromName').value || '').trim();
+    var enabled = document.getElementById('emailEnabledToggle').checked;
+
+    if (!emailUser) {
+        setEmailStatus('Sender Gmail address is required', 'error');
+        return;
+    }
+
+    btn.disabled = true;
+    setEmailStatus('Verifying credentials with Gmail…', 'info');
+    try {
+        var res = await fetch(API_BASE + '/email-settings', {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                email_user: emailUser,
+                email_pass: emailPass || undefined,
+                email_from_name: fromName,
+                email_enabled: enabled
+            })
+        });
+        var data = await res.json();
+        if (data.success) {
+            setEmailStatus('Saved — credentials verified with Gmail ✓', 'success');
+            showToast('Email settings saved', 'success');
+            document.getElementById('emailSenderPass').value = '';
+            loadEmailSettings();
+        } else {
+            setEmailStatus(data.message || 'Failed to save settings', 'error');
+            showToast(data.message || 'Failed to save email settings', 'error');
+        }
+    } catch (e) {
+        setEmailStatus('Error saving settings', 'error');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function sendTestEmail() {
+    var btn = document.getElementById('testEmailBtn');
+    var to = (document.getElementById('emailTestRecipient').value || '').trim();
+    if (!to) {
+        showToast('Enter a recipient email first', 'error');
+        return;
+    }
+    btn.disabled = true;
+    var original = btn.innerHTML;
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">hourglass_top</span> Sending…';
+    try {
+        var res = await fetch(API_BASE + '/email-settings/test', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ to: to })
+        });
+        var data = await res.json();
+        showToast(data.message || (data.success ? 'Test email sent' : 'Failed to send test email'), data.success ? 'success' : 'error');
+    } catch (e) {
+        showToast('Error sending test email', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = original;
+    }
 }
 
 async function changePassword() {

@@ -41,6 +41,19 @@ class User {
         }
     }
 
+    static async findByIdWithPassword(id) {
+        const connection = await pool.getConnection();
+        try {
+            const [rows] = await connection.execute(
+                'SELECT * FROM users WHERE id = ? AND is_active = TRUE',
+                [id]
+            );
+            return rows[0] || null;
+        } finally {
+            connection.release();
+        }
+    }
+
     static async getAll() {
         const connection = await pool.getConnection();
         try {
@@ -166,19 +179,6 @@ class User {
                 [id]
             );
             return true;
-        } finally {
-            connection.release();
-        }
-    }
-
-    static async findByIdWithPassword(id) {
-        const connection = await pool.getConnection();
-        try {
-            const [rows] = await connection.execute(
-                'SELECT id, username, email, full_name, role, password FROM users WHERE id = ?',
-                [id]
-            );
-            return rows[0] || null;
         } finally {
             connection.release();
         }

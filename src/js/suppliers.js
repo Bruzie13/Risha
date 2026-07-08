@@ -255,7 +255,7 @@ async function showEmailLogs(supplierId, supplierName) {
     const body = document.getElementById('emailLogsBody');
     body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">Loading...</div>';
     modal.classList.add('active');
-    document.getElementById('emailLogsTitle').innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">mail</span> Email History — ' + supplierName;
+    document.getElementById('emailLogsTitle').innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">mail</span> Email History — ' + escHtml(supplierName);
 
     try {
         const res = await fetch(`${API_BASE}/email-logs/${supplierId}`, { headers: getAuthHeaders() });
@@ -281,13 +281,9 @@ async function showEmailLogs(supplierId, supplierName) {
                 const typeLabels = { po: '<span class="material-symbols-outlined" style="font-size:13px;">inventory</span> Purchase Order', low_stock: '<span class="material-symbols-outlined" style="font-size:13px;">inventory_2</span> Low Stock Alert' };
                 return '<tr style="border-bottom:1px solid var(--border-glass)">' +
                     '<td style="padding:10px;font-size:13px;font-weight:500">' + escHtml(l.subject || 'N/A') + '</td>' +
-                    '<td style="padding:10px;font-size:12px">' + escHtml(typeLabels[l.email_type] || l.email_type) + '</td>' +
+                    '<td style="padding:10px;font-size:12px">' + (typeLabels[l.email_type] || escHtml(l.email_type)) + '</td>' +
                     '<td style="padding:10px;font-size:12px;color:var(--text-muted)">' + sentDate + '</td>' +
-                    '<td style="padding:10px;text-align:center">' +
-                        (opened
-                            ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;background:var(--success-bg);color:var(--success)"><span class="material-symbols-outlined" style="font-size:14px;">check</span> Read</span>'
-                            : '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;background:var(--accent-dim);color:var(--accent)"><span class="material-symbols-outlined" style="font-size:14px;">hourglass_bottom</span> Sent</span>') +
-                    '</td>' +
+                    '<td style="padding:10px;text-align:center">' + emailStatusBadge(l, opened) + '</td>' +
                     '<td style="padding:10px;text-align:center;font-size:12px;color:var(--text-muted)">' + (openedDate || '—') + (l.opened_count > 1 ? ' <span style="color:var(--primary);font-weight:600">(' + l.opened_count + 'x)</span>' : '') + '</td>' +
                 '</tr>';
             }).join('') +
@@ -295,6 +291,15 @@ async function showEmailLogs(supplierId, supplierName) {
     } catch (e) {
         body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">Failed to load email history</div>';
     }
+}
+
+function emailStatusBadge(l, opened) {
+    const badge = (bg, color, icon, label, title) =>
+        '<span title="' + escHtml(title || '') + '" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;background:' + bg + ';color:' + color + '"><span class="material-symbols-outlined" style="font-size:14px;">' + icon + '</span> ' + label + '</span>';
+    if (l.status === 'failed') return badge('var(--danger-bg, #fdecea)', 'var(--danger)', 'error', 'Failed', l.error_message || 'Delivery failed');
+    if (l.status === 'skipped') return badge('var(--warning-bg, #fff8e1)', 'var(--warning, #e65100)', 'block', 'Skipped', l.error_message || 'Email sending disabled');
+    if (opened) return badge('var(--success-bg)', 'var(--success)', 'check', 'Read');
+    return badge('var(--accent-dim)', 'var(--accent)', 'hourglass_bottom', 'Sent');
 }
 
 function closeEmailLogsModal() {

@@ -56,6 +56,15 @@ exports.login = async (req, res) => {
 
         notifyUserLogin(user, req.ip).catch(e => console.error('Notif error:', e.message));
 
+        // HttpOnly cookie for the server-side page guard (not readable by JS)
+        res.cookie('token', token, {
+            httpOnly: true,
+            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 24 * 60 * 60 * 1000,
+            path: '/'
+        });
+
         res.status(200).json({
             success: true,
             message: 'Login successful',
@@ -76,6 +85,11 @@ exports.login = async (req, res) => {
             message: 'Server error during login'
         });
     }
+};
+
+exports.logout = (req, res) => {
+    res.clearCookie('token', { path: '/' });
+    res.status(200).json({ success: true, message: 'Logged out' });
 };
 
 exports.register = async (req, res) => {

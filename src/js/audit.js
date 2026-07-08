@@ -86,7 +86,7 @@ function formatTableName(name) {
         users: '<span class="material-symbols-outlined" style="font-size:13px;">person</span> User',
         supplier_performance: '<span class="material-symbols-outlined" style="font-size:13px;">bar_chart</span> Supplier Performance'
     };
-    return map[name] || name;
+    return map[name] || escHtml(name);
 }
 
 function parseJsonField(val) {

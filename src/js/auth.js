@@ -9,15 +9,7 @@ function getAuthHeaders() {
     return token ? { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` } : { 'Content-Type': 'application/json' };
 }
 
-// Sync localStorage token to cookie for server-side page guard
-(function() {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-        document.cookie = 'token=' + token + ';path=/;max-age=86400';
-    } else {
-        document.cookie = 'token=;path=/;max-age=0';
-    }
-})();
+// The auth cookie is managed by the server (HttpOnly): set on login, cleared on logout.
 
 // Auto-redirect to login on auth failures
 const origFetch = window.fetch;
@@ -100,8 +92,10 @@ function logout() {
             localStorage.removeItem('authToken');
             localStorage.removeItem('user');
             localStorage.removeItem('rememberUser');
-            document.cookie = 'token=;path=/;max-age=0';
-            window.location.href = 'login.html';
+            // Ask the server to clear the HttpOnly auth cookie, then redirect
+            fetch(API_BASE + '/auth/logout', { method: 'POST' })
+                .catch(function () {})
+                .finally(function () { window.location.href = 'login.html'; });
         },
         'Yes, Logout'
     );

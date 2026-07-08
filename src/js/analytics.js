@@ -1,6 +1,7 @@
 const PRED_API = `${API_BASE}/predictions`;
 let forecastChart = null;
 let seasonalChart = null;
+let dowChart = null;
 let allProducts = [];
 let allPredictions = [];
 const PRED_PAGE_SIZE = 10;
@@ -65,7 +66,7 @@ async function loadProductPrediction(productId) {
         console.error('Error loading prediction:', error);
         clearCharts();
         if (error.name === 'AbortError') {
-            showToast('Prediction request timed out. ML service may still be loading.', 'warning');
+            showToast('Prediction request timed out. Please try again.', 'warning');
         } else {
             showToast('Prediction service unavailable. Try again later.', 'error');
         }
@@ -96,6 +97,8 @@ function renderForecastChart(data) {
     const labels = [];
     const histValues = [];
     const predValues = [];
+    const lowerValues = [];
+    const upperValues = [];
 
     if (historical.length > 0) {
         const recentHistorical = historical.slice(-60);
@@ -112,45 +115,80 @@ function renderForecastChart(data) {
         predValues.push(null);
     }
 
+    while (lowerValues.length < labels.length) { lowerValues.push(null); upperValues.push(null); }
+
     if (predicted.length > 0) {
         predicted.forEach(p => {
             labels.push(p.date || `Day ${p.day || ''}`);
             predValues.push(parseFloat(p.predicted_quantity || 0));
+            lowerValues.push(p.lower_bound != null ? parseFloat(p.lower_bound) : null);
+            upperValues.push(p.upper_bound != null ? parseFloat(p.upper_bound) : null);
         });
     }
 
     while (histValues.length < labels.length) histValues.push(null);
 
+    const hasBand = upperValues.some(v => v != null);
+    const datasets = [
+        {
+            label: 'Historical Sales',
+            data: histValues,
+            borderColor: '#4f46e5',
+            backgroundColor: 'rgba(79, 70, 229, 0.1)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 2
+        },
+        {
+            label: 'Predicted Sales',
+            data: predValues,
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245, 158, 11, 0.08)',
+            borderDash: [5, 5],
+            fill: false,
+            tension: 0.3,
+            pointRadius: 2
+        }
+    ];
+
+    if (hasBand) {
+        datasets.push({
+            label: 'Forecast Range (upper)',
+            data: upperValues,
+            borderColor: 'rgba(245, 158, 11, 0)',
+            backgroundColor: 'rgba(245, 158, 11, 0.15)',
+            fill: false,
+            pointRadius: 0,
+            tension: 0.3
+        });
+        datasets.push({
+            label: 'Forecast Range',
+            data: lowerValues,
+            borderColor: 'rgba(245, 158, 11, 0)',
+            backgroundColor: 'rgba(245, 158, 11, 0.15)',
+            fill: '-1',
+            pointRadius: 0,
+            tension: 0.3
+        });
+    }
+
     forecastChart = new Chart(ctx, {
         type: 'line',
-        data: {
-            labels,
-            datasets: [
-                {
-                    label: 'Historical Sales',
-                    data: histValues,
-                    borderColor: '#4f46e5',
-                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 2
-                },
-                {
-                    label: 'Predicted Sales',
-                    data: predValues,
-                    borderColor: '#f59e0b',
-                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                    borderDash: [5, 5],
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 2
-                }
-            ]
-        },
+        data: { labels, datasets },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { position: 'top' } },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        filter: (item) => item.text !== 'Forecast Range (upper)'
+                    }
+                },
+                tooltip: {
+                    filter: (item) => item.dataset.label !== 'Forecast Range (upper)' && item.dataset.label !== 'Forecast Range'
+                }
+            },
             scales: { y: { beginAtZero: true, title: { display: true, text: 'Units Sold' } } }
         }
     });
@@ -187,19 +225,24 @@ function renderPredictionMetrics(data) {
         }
     }
 
-    if (reorder.days_until_stockout != null && reorder.days_until_stockout < 999) {
-        if (trendTextEl) {
-            trendTextEl.textContent += ` | Stockout in ~${reorder.days_until_stockout} days`;
+    if (trendTextEl) {
+        const extras = [];
+        if (reorder.days_until_stockout != null && reorder.days_until_stockout < 999) {
+            extras.push(`Stockout in ~${reorder.days_until_stockout} days`);
         }
+        if (reorder.reorder_triggered && reorder.recommended_order_quantity > 0) {
+            extras.push(`Suggest ordering ~${reorder.recommended_order_quantity} units`);
+        }
+        if (extras.length) trendTextEl.textContent += ' | ' + extras.join(' | ');
     }
 }
 
 async function loadAllPredictions() {
     const tableBody = document.getElementById('predictionsTableBody');
-    if (tableBody)         tableBody.innerHTML = '<tr><td colspan="7" class="text-center"><span class="material-symbols-outlined" style="font-size:16px;">hourglass_top</span> Loading predictions... (this may take 30-60 seconds on first load as ML models train)</td></tr>';
+    if (tableBody) tableBody.innerHTML = '<tr><td colspan="7" class="text-center"><span class="material-symbols-outlined" style="font-size:16px;">hourglass_top</span> Analyzing sales history and computing forecasts...</td></tr>';
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 120000);
+    const timeout = setTimeout(() => controller.abort(), 30000);
 
     const allPromise = fetch(`${PRED_API}/all`, { headers: getAuthHeaders(), signal: controller.signal })
         .then(r => r.json())
@@ -211,11 +254,16 @@ async function loadAllPredictions() {
         .then(d => { if (d.success) renderSeasonalChart(d.data.seasonal_trends || []); })
         .catch(e => { if (e.name !== 'AbortError') console.error('Error loading summary:', e); });
 
-    await Promise.all([allPromise, summaryPromise]);
+    const trendsPromise = fetch(`${PRED_API}/trends`, { headers: getAuthHeaders(), signal: controller.signal })
+        .then(r => r.json())
+        .then(d => { if (d.success) renderDowChart((d.data.seasonality && d.data.seasonality.day_of_week_patterns) || []); })
+        .catch(e => { if (e.name !== 'AbortError') console.error('Error loading trends:', e); });
+
+    await Promise.all([allPromise, summaryPromise, trendsPromise]);
     clearTimeout(timeout);
 
     if (allPredictions.length === 0) {
-        if (tableBody) tableBody.innerHTML = '<tr><td colspan="7" class="text-center"><span class="material-symbols-outlined" style="font-size:16px;">warning_amber</span> Prediction service is still initializing. Select a product below to get a forecast, or try again later.</td></tr>';
+        if (tableBody) tableBody.innerHTML = '<tr><td colspan="7" class="text-center"><span class="material-symbols-outlined" style="font-size:16px;">warning_amber</span> No sales history yet — forecasts will appear once products have recorded sales.</td></tr>';
     } else {
         renderPerformanceAnalysis();
         mergeAndRenderTable();
@@ -392,6 +440,37 @@ function renderSeasonalChart(seasonalTrends) {
                 label: 'Avg Daily Sales',
                 data: values,
                 backgroundColor: colors.slice(0, labels.length),
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, title: { display: true, text: 'Avg Units Sold' } } }
+        }
+    });
+}
+
+function renderDowChart(patterns) {
+    const canvas = document.getElementById('dowTrendsChart');
+    if (!canvas) return;
+    if (!Array.isArray(patterns) || patterns.length === 0) return;
+    const ctx = canvas.getContext('2d');
+    if (dowChart) dowChart.destroy();
+    const order = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const sorted = [...patterns].sort((a, b) => order.indexOf(a.day) - order.indexOf(b.day));
+    const labels = sorted.map(p => p.day || '');
+    const values = sorted.map(p => parseFloat(p.avg_daily_sales || 0));
+    const maxVal = Math.max(...values);
+    dowChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Avg Daily Sales',
+                data: values,
+                backgroundColor: values.map(v => v === maxVal ? '#4f46e5' : 'rgba(79, 70, 229, 0.45)'),
                 borderRadius: 4
             }]
         },
