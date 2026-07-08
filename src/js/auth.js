@@ -9,6 +9,14 @@ function getAuthHeaders() {
     return token ? { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` } : { 'Content-Type': 'application/json' };
 }
 
+// Sync localStorage token to cookie for server-side page guard
+(function() {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+        document.cookie = 'token=' + token + ';path=/;max-age=86400';
+    }
+})();
+
 // Auto-redirect to login on auth failures
 const origFetch = window.fetch;
 window.fetch = function() {

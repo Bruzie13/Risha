@@ -2,6 +2,8 @@ const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const http = require('http');
+const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken');
 require('dotenv').config({ path: __dirname + '/.env', override: true });
 
 const authRoutes = require('./routes/auth');
@@ -24,6 +26,24 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+function authPageGuard(req, res, next) {
+    const publicPages = ['/login.html', '/', ''];
+    if (publicPages.includes(req.path)) return next();
+    if (!req.path.endsWith('.html')) return next();
+
+    const token = req.query.token || req.cookies?.token;
+    if (token) {
+        try {
+            jwt.verify(token, process.env.JWT_SECRET);
+            return next();
+        } catch (e) {}
+    }
+    res.redirect('/login.html');
+}
+
+app.use(authPageGuard);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
