@@ -38,6 +38,28 @@
             background: radial-gradient(circle, var(--primary-bg), transparent 70%);
             pointer-events: none;
         }
+        .dash-hero .hero-id { display: flex; align-items: center; gap: 15px; position: relative; }
+        .dash-hero .hero-avatar {
+            width: 54px; height: 54px;
+            border-radius: 18px;
+            background: var(--primary-gradient);
+            display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-display);
+            font-size: 19px; font-weight: 800; color: #fff;
+            letter-spacing: 0.5px;
+            flex-shrink: 0;
+            position: relative;
+            transform: rotate(-4deg);
+            box-shadow: 0 6px 16px rgba(238, 106, 95, 0.35);
+        }
+        .dash-hero .hero-avatar > span:first-child { transform: rotate(4deg); }
+        .dash-hero .hero-avatar-dot {
+            position: absolute; bottom: -3px; right: -3px;
+            width: 14px; height: 14px; border-radius: 50%;
+            background: var(--success);
+            border: 3px solid var(--bg-card);
+        }
+        .dash-hero .hero-name-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .dash-hero .greeting h2 {
             font-family: var(--font-display);
             font-size: 21px;
@@ -45,7 +67,17 @@
             color: var(--text-primary);
             letter-spacing: -0.4px;
         }
-        .dash-hero .greeting p { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+        .dash-hero .role-chip {
+            font-size: 10px; font-weight: 800;
+            letter-spacing: 0.8px; text-transform: uppercase;
+            padding: 3px 10px; border-radius: var(--radius-full);
+            background: var(--primary-bg); color: var(--primary-dark, var(--primary));
+            border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+        }
+        .dash-hero .greeting p { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+        .dash-hero .greeting p .brief-sep { margin: 0 7px; color: var(--border-glass-strong); }
+        .dash-hero .greeting p strong { color: var(--text-primary); font-weight: 700; }
+        .dash-hero .greeting p strong.brief-alert { color: var(--warning); }
         .dash-hero .hero-side { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; position: relative; }
         .hero-chip {
             display: inline-flex;
@@ -242,7 +274,6 @@
     </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
-    <button class="sidebar-floating-toggle" id="sidebarFloatingToggle" onclick="toggleSidebarVisibility()"><span class="material-symbols-outlined">menu</span></button>
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-brand">
@@ -302,9 +333,15 @@
 
         <div class="content">
             <div class="dash-hero">
-                <div class="greeting">
-                    <h2 id="dashGreeting">Welcome back!</h2>
-                    <p id="dashGreetingSub">Here's what's happening in your pet shop today.</p>
+                <div class="hero-id">
+                    <div class="hero-avatar"><span id="heroInitials">·</span><span class="hero-avatar-dot" title="On duty"></span></div>
+                    <div class="greeting">
+                        <div class="hero-name-row">
+                            <h2 id="dashGreeting">Welcome back</h2>
+                            <span class="role-chip" id="heroRoleChip">staff</span>
+                        </div>
+                        <p id="dashGreetingSub">Pulling up today's numbers…</p>
+                    </div>
                 </div>
                 <div class="hero-side">
                     <span class="hero-chip" id="liveChip" title="Data refreshes every 10 seconds"><span class="pulse-dot"></span> <span id="liveChipText">Live</span></span>

@@ -638,7 +638,7 @@ async function deleteProduct(id) {
             });
             const data = await response.json();
             if (data.success) {
-                showToast('Product deleted!', 'success');
+                showSuccessDialog('Product deleted', 'The product has been removed from your inventory.', { tone: 'danger' });
                 closeProductDetailsModal();
                 await loadProducts();
             } else {
@@ -699,7 +699,11 @@ async function handleProductSubmit(event) {
         const data = await response.json();
 
         if (data.success) {
-            showToast(editingProductId ? 'Product updated!' : 'Product added!', 'success');
+            showSuccessDialog(
+                editingProductId ? 'Product updated' : 'Product added',
+                editingProductId ? `${productData.name} has been saved with the new details.` : `${productData.name} is now in your inventory.`,
+                { icon: 'inventory_2' }
+            );
             closeProductModal();
             await loadProducts();
         } else {
@@ -745,7 +749,7 @@ async function saveStockAdjustment() {
         });
         const data = await response.json();
         if (data.success) {
-            showToast('Stock adjusted!', 'success');
+            showSuccessDialog('Stock adjusted', `Recorded ${type === 'in' ? '+' : '−'}${qty} — inventory levels are up to date.`, { icon: 'sync_alt' });
             closeStockModal();
             await loadProducts();
         } else {
@@ -886,7 +890,11 @@ async function doReorder(productIds) {
         const data = await response.json();
         if (data.success) {
             const count = data.count || (Array.isArray(data.data) ? data.data.length : 0);
-            showToast(`Generated ${count} purchase order(s)!`, count > 0 ? 'success' : 'warning');
+            if (count > 0) {
+                showSuccessDialog('Reorder placed', `${count} purchase order${count === 1 ? '' : 's'} generated — suppliers have been emailed.`, { icon: 'local_shipping' });
+            } else {
+                showToast(data.message || 'No purchase orders generated', 'warning');
+            }
             if (data.warnings && data.warnings.length > 0) {
                 setTimeout(() => showWarnings(data.warnings), 500);
             }
@@ -945,10 +953,11 @@ async function bulkReorder() {
             });
             const data = await response.json();
             const count = data.count || (Array.isArray(data.data) ? data.data.length : 0);
-            const msg = count > 0
-                ? `Generated ${count} purchase order(s)!`
-                : (data.message || 'No purchase orders generated');
-            showToast(msg, count > 0 ? 'success' : 'warning');
+            if (count > 0) {
+                showSuccessDialog('Reorder placed', `${count} purchase order${count === 1 ? '' : 's'} generated — suppliers have been emailed.`, { icon: 'local_shipping' });
+            } else {
+                showToast(data.message || 'No purchase orders generated', 'warning');
+            }
             if (data.warnings && data.warnings.length > 0) {
                 setTimeout(() => showWarnings(data.warnings), 500);
             }
@@ -981,7 +990,7 @@ async function bulkAdjustStock() {
                     const data = await res.json();
                     if (data.success) successCount++;
                 }
-                showToast(`Adjusted stock for ${successCount}/${ids.length} product(s)`, 'success');
+                showSuccessDialog('Stock adjusted', `Updated ${successCount} of ${ids.length} selected product${ids.length === 1 ? '' : 's'}.`, { icon: 'sync_alt' });
                 clearSelection();
                 await loadProducts();
             } catch (error) {
@@ -1006,7 +1015,7 @@ async function bulkDelete() {
                 const data = await res.json();
                 if (data.success) successCount++;
             }
-            showToast(`Deleted ${successCount}/${ids.length} product(s)`, 'success');
+            showSuccessDialog('Products deleted', `Removed ${successCount} of ${ids.length} selected product${ids.length === 1 ? '' : 's'} from inventory.`, { tone: 'danger' });
             clearSelection();
             await loadProducts();
         } catch (error) {
@@ -1136,7 +1145,7 @@ async function importCsvProducts() {
         });
         const data = await response.json();
         if (data.success) {
-            showToast(data.message || `Imported ${products.length} product(s)`, 'success');
+            showSuccessDialog('Import complete', data.message || `Imported ${products.length} product${products.length === 1 ? '' : 's'} from CSV.`, { icon: 'upload_file' });
         } else {
             showToast('Import failed: ' + (data.message || 'Unknown'), 'error');
         }

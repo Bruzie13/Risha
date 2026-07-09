@@ -154,7 +154,11 @@ async function handleSupplierSubmit(event) {
         }
         const result = await response.json();
         if (result.success) {
-            showToast(editingSupplierId ? 'Supplier updated!' : 'Supplier added!', 'success');
+            showSuccessDialog(
+                editingSupplierId ? 'Supplier updated' : 'Supplier added',
+                editingSupplierId ? 'The supplier details have been saved.' : 'The new supplier is ready for purchase orders.',
+                { icon: 'local_shipping' }
+            );
             closeSupplierModal();
             await loadSuppliers();
         } else {
@@ -175,7 +179,7 @@ async function deleteSupplier(id) {
             });
             const data = await response.json();
             if (data.success) {
-                showToast('Supplier deleted!', 'success');
+                showSuccessDialog('Supplier deleted', 'The supplier has been removed from your directory.', { tone: 'danger' });
                 await loadSuppliers();
             } else {
                 showToast('Error: ' + (data.message || 'Unknown'), 'error');

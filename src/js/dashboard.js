@@ -5,6 +5,7 @@ window.addEventListener('load', async () => {
     renderGreeting();
     await loadUserInfo();
     await loadDashboardStats();
+    await loadDayBrief();
     await loadNotifications();
     await loadCharts();
     await loadAdvancedMetrics();
@@ -20,14 +21,51 @@ window.addEventListener('load', async () => {
 });
 
 function renderGreeting() {
-    const h = new Date().getHours();
-    const word = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
     const user = getUser();
-    const first = ((user?.full_name || user?.username || '').trim().split(' ')[0]) || '';
+    const name = (user?.full_name || user?.username || '').trim();
+    const first = name.split(' ')[0] || 'there';
     const el = document.getElementById('dashGreeting');
-    if (el) el.textContent = `${word}${first ? ', ' + first : ''}!`;
+    if (el) el.textContent = first;
+    const initialsEl = document.getElementById('heroInitials');
+    if (initialsEl && name) {
+        initialsEl.textContent = name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+    }
+    const roleEl = document.getElementById('heroRoleChip');
+    if (roleEl) roleEl.textContent = user?.role || 'staff';
     const dateEl = document.getElementById('dateDisplay');
     if (dateEl) dateEl.textContent = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// Day brief: replaces the generic greeting sub-line with today's real numbers
+let briefAttention = { low: 0, expiring: 0 };
+
+async function loadDayBrief() {
+    const el = document.getElementById('dashGreetingSub');
+    if (!el) return;
+    try {
+        const res = await fetch(`${API_BASE}/sales/daily-sales?days=1`, { headers: getAuthHeaders() });
+        const json = await res.json();
+        const today = new Date();
+        const row = (json.data || []).find(r => {
+            const d = parseExpiryDate(r.date);
+            return d && d.getTime() === new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+        });
+        const txns = row ? Number(row.transaction_count) : 0;
+        const revenue = row ? Number(row.daily_total) : 0;
+        const h = today.getHours();
+        const shift = h < 12 ? 'Morning shift' : h < 18 ? 'Afternoon shift' : 'Evening shift';
+        const attention = (briefAttention.low || 0) + (briefAttention.expiring || 0);
+        const sep = '<span class="brief-sep">·</span>';
+        const salesPart = txns > 0
+            ? `<strong>${formatNumber(txns)}</strong> sale${txns === 1 ? '' : 's'} rung up${sep}<strong>${formatCurrency(revenue)}</strong> in the till`
+            : 'no sales yet — register is warmed up';
+        const attentionPart = attention > 0
+            ? `${sep}<strong class="brief-alert">${formatNumber(attention)}</strong> item${attention === 1 ? '' : 's'} need${attention === 1 ? 's' : ''} attention`
+            : `${sep}shelves looking good`;
+        el.innerHTML = `${shift}${sep}${salesPart}${attentionPart}`;
+    } catch {
+        el.textContent = "Here's what's happening in your pet shop today.";
+    }
 }
 
 async function loadUserInfo() {
@@ -61,6 +99,7 @@ async function loadDashboardStats() {
             const s = data.data;
             const low = s.low_stock_count ?? 0;
             const expiring = s.expiring_count ?? 0;
+            briefAttention = { low, expiring };
             document.getElementById('metricCards').innerHTML =
                 kpiCard('Total Products', 'inventory_2', 'blue',
                     formatNumber(s.total_products ?? 0),
@@ -411,6 +450,7 @@ function watchThemeForCharts() {
 
 async function refreshDashboard() {
     await loadDashboardStats();
+    await loadDayBrief();
     await loadAdvancedMetrics();
     await loadNotifications();
     await loadExpirationRisk();
@@ -489,7 +529,12 @@ async function autoReorderDashboard() {
             });
             const data = await response.json();
             if (data.success) {
-                showToast(data.data ? `Created ${data.data.length} PO(s)` : data.message, 'success');
+                const count = Array.isArray(data.data) ? data.data.length : 0;
+                if (count > 0) {
+                    showSuccessDialog('Reorder placed', `${count} purchase order${count === 1 ? '' : 's'} generated — suppliers have been emailed.`, { icon: 'local_shipping' });
+                } else {
+                    showToast(data.message || 'No purchase orders generated', 'warning');
+                }
                 await loadDashboardStats();
             } else {
                 showToast('Error: ' + (data.message || 'Unknown'), 'error');

@@ -431,7 +431,7 @@ async function handleSaleSubmit(event) {
         });
         const data = await response.json();
         if (data.success) {
-            showToast('Sale completed!', 'success');
+            showSuccessDialog('Sale completed', 'The cash sale has been recorded and stock levels updated.', { icon: 'point_of_sale' });
             closeSaleModal();
             await loadSales();
         } else {
@@ -503,7 +503,7 @@ async function deleteSale(id) {
             });
             const data = await response.json();
             if (data.success) {
-                showToast('Sale deleted!', 'success');
+                showSuccessDialog('Sale deleted', 'The sale record was removed and stock has been restored.', { tone: 'danger' });
                 await loadSales();
             } else {
                 showToast('Error: ' + (data.message || 'Unknown'), 'error');

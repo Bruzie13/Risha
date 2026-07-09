@@ -144,6 +144,56 @@ function showConfirmDialog(title, message, onConfirm, confirmText, icon) {
     document.head.appendChild(style);
 }
 
+// Success popup shown after any confirmed action completes (reorder, save, delete…).
+// Auto-dismisses after 4s; click, Enter or Escape closes it immediately.
+function showSuccessDialog(title, message, opts) {
+    const existing = document.getElementById('successDialogOverlay');
+    if (existing) existing.remove();
+    const o = opts || {};
+
+    const overlay = document.createElement('div');
+    overlay.id = 'successDialogOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.45);backdrop-filter:blur(2px);z-index:10000;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s ease;';
+
+    const dialog = document.createElement('div');
+    dialog.style.cssText = 'background:var(--bg-card,#fff);border-radius:18px;padding:32px 34px 26px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp 0.25s ease;text-align:center;';
+
+    const iconColor = o.tone === 'danger' ? 'var(--danger,#E5484D)' : 'var(--success,#2FA36B)';
+    const iconBg = o.tone === 'danger' ? 'var(--danger-bg,rgba(229,72,77,0.12))' : 'var(--success-bg,rgba(47,163,107,0.12))';
+    const iconName = o.icon || (o.tone === 'danger' ? 'delete' : 'check');
+    dialog.innerHTML = `
+        <div style="width:66px;height:66px;border-radius:50%;background:${iconBg};display:flex;align-items:center;justify-content:center;margin:0 auto 16px;animation:successPop 0.45s cubic-bezier(0.34,1.56,0.64,1);">
+            <span class="material-symbols-outlined" style="font-size:36px;color:${iconColor};font-variation-settings:'wght' 600;">${iconName}</span>
+        </div>
+        <h3 style="font-family:var(--font-display,inherit);font-size:19px;color:var(--text-primary,#1c1c1c);margin-bottom:8px;font-weight:800;letter-spacing:-0.3px;">${title}</h3>
+        <p style="font-size:14px;color:var(--text-muted,#888);margin-bottom:22px;line-height:1.55;">${message}</p>
+        <button id="successOkBtn" style="padding:11px 34px;border:none;border-radius:10px;background:var(--primary,#EE6A5F);color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;box-shadow:0 4px 12px rgba(238,106,95,0.3);">Done</button>
+        <div style="margin-top:14px;height:3px;border-radius:2px;background:var(--gray-100,#f0f0f0);overflow:hidden;"><div id="successTimerBar" style="height:100%;width:100%;background:${iconColor};transform-origin:left;animation:successDrain 4s linear forwards;"></div></div>
+    `;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    const close = () => {
+        clearTimeout(timer);
+        document.removeEventListener('keydown', onKey);
+        overlay.remove();
+        if (typeof o.onClose === 'function') o.onClose();
+    };
+    const timer = setTimeout(close, 4000);
+    const onKey = (e) => { if (e.key === 'Escape' || e.key === 'Enter') close(); };
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    dialog.querySelector('#successOkBtn').addEventListener('click', close);
+
+    if (!document.getElementById('successDialogKeyframes')) {
+        const style = document.createElement('style');
+        style.id = 'successDialogKeyframes';
+        style.textContent = '@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}@keyframes successPop{0%{transform:scale(0.4);opacity:0}100%{transform:scale(1);opacity:1}}@keyframes successDrain{from{transform:scaleX(1)}to{transform:scaleX(0)}}';
+        document.head.appendChild(style);
+    }
+}
+
 function showPromptDialog(title, message, onConfirm, confirmText, icon, inputType, defaultValue) {
     const existing = document.getElementById('confirmDialogOverlay');
     if (existing) existing.remove();

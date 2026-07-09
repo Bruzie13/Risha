@@ -230,9 +230,7 @@ body {
   transition: all var(--transition);
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
-html.sidebar-hidden .sidebar-floating-toggle {
-  display: flex;
-}
+/* Floating toggle retired: the collapse button stays visible inside the rail header */
 .sidebar-floating-toggle:hover {
   color: var(--primary);
   border-color: var(--primary);
@@ -1802,10 +1800,13 @@ html.sidebar-hidden {
 html.sidebar-hidden .sidebar {
   width: var(--sidebar-collapsed-w) !important;
   min-width: var(--sidebar-collapsed-w);
+  /* visible so nav tooltips can escape the rail and no inner scrollbar appears */
+  overflow: visible;
 }
 
 html.sidebar-hidden .sidebar .sidebar-nav {
-  overflow-y: hidden;
+  overflow: visible;
+  padding-top: 14px;
 }
 
 html.sidebar-hidden .sidebar .sidebar-brand .brand-icon,
@@ -1813,9 +1814,20 @@ html.sidebar-hidden .sidebar .sidebar-brand .brand-text,
 html.sidebar-hidden .sidebar .sidebar-nav .nav-link .nav-label,
 html.sidebar-hidden .sidebar .sidebar-nav .nav-section-label,
 html.sidebar-hidden .sidebar .sidebar-user .user-info,
-html.sidebar-hidden .sidebar .sidebar-user .user-settings-btn,
-html.sidebar-hidden .sidebar-collapse-btn {
+html.sidebar-hidden .sidebar .sidebar-user .user-settings-btn {
   display: none;
+}
+
+/* The expand button lives inside the rail header — the only control up there */
+html.sidebar-hidden .sidebar .sidebar-header {
+  justify-content: center;
+  padding: 14px 10px;
+}
+html.sidebar-hidden .sidebar-collapse-btn {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
 }
 
 html.sidebar-hidden .sidebar .sidebar-nav .nav-link {
@@ -1925,33 +1937,29 @@ html.sidebar-hidden .toolbar {
   padding-right: 32px;
 }
 
-/* Hamburger visible on all screens when sidebar is hidden (desktop + mobile) */
-html.sidebar-hidden .sidebar-hamburger {
-  display: flex !important;
-  position: fixed;
-  top: 12px;
-  left: 12px;
-  z-index: 1001;
-  width: 40px;
-  height: 40px;
-  background: var(--nav-bg);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-size: 20px;
-  color: var(--text-primary);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  transition: all var(--transition);
-  align-items: center;
-  justify-content: center;
-}
+/* Desktop keeps a single expand control inside the rail header;
+   the fixed hamburger only exists on mobile (see @media max-width: 768px) */
 
-html.sidebar-hidden .sidebar-hamburger:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+/* On mobile the sidebar is a slide-in drawer — restore full width/labels even
+   if the desktop "hidden" preference is saved */
+@media (max-width: 768px) {
+  html.sidebar-hidden .sidebar {
+    width: var(--sidebar-w) !important;
+    min-width: var(--sidebar-w);
+    overflow: hidden;
+  }
+  html.sidebar-hidden .sidebar .sidebar-brand .brand-icon,
+  html.sidebar-hidden .sidebar .sidebar-brand .brand-text { display: flex; }
+  html.sidebar-hidden .sidebar .sidebar-nav { padding-top: 12px; overflow-y: auto; }
+  html.sidebar-hidden .sidebar .sidebar-nav .nav-link { justify-content: flex-start; padding: 10px 14px; }
+  html.sidebar-hidden .sidebar .sidebar-nav .nav-link .nav-label,
+  html.sidebar-hidden .sidebar .sidebar-nav .nav-section-label { display: block; }
+  html.sidebar-hidden .sidebar .sidebar-nav .nav-link::after { display: none; }
+  html.sidebar-hidden .sidebar .sidebar-user .user-info { display: block; }
+  html.sidebar-hidden .sidebar .sidebar-header { justify-content: space-between; padding: 20px 20px 16px; }
+  html.sidebar-hidden .sidebar-collapse-btn { display: none; }
+  html.sidebar-hidden .main-wrapper { margin-left: 0 !important; }
 }
-
-html.dark-mode.sidebar-hidden .sidebar-hamburger { background: var(--bg-card); }
 
 /* ===== NOTIFICATION BELL & BADGE ===== */
 .notif-bell-btn {

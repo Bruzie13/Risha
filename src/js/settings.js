@@ -135,7 +135,7 @@ async function saveProfile() {
             if (avatarEl) {
                 avatarEl.textContent = name.split(' ').map(function (w) { return w[0]; }).filter(Boolean).slice(0, 2).join('').toUpperCase();
             }
-            showToast('Profile updated successfully', 'success');
+            showSuccessDialog('Profile updated', 'Your account details have been saved.', { icon: 'person' });
         } else {
             showToast(data.message || 'Failed to update profile', 'error');
         }
@@ -226,7 +226,7 @@ async function saveEmailSettings() {
         var data = await res.json();
         if (data.success) {
             setEmailStatus('Saved — credentials verified with Gmail ✓', 'success');
-            showToast('Email settings saved', 'success');
+            showSuccessDialog('Email settings saved', 'Credentials verified with Gmail — supplier emails are good to go.', { icon: 'mark_email_read' });
             document.getElementById('emailSenderPass').value = '';
             loadEmailSettings();
         } else {
@@ -257,7 +257,11 @@ async function sendTestEmail() {
             body: JSON.stringify({ to: to })
         });
         var data = await res.json();
-        showToast(data.message || (data.success ? 'Test email sent' : 'Failed to send test email'), data.success ? 'success' : 'error');
+        if (data.success) {
+            showSuccessDialog('Test email sent', data.message || 'Check the inbox to confirm delivery.', { icon: 'outgoing_mail' });
+        } else {
+            showToast(data.message || 'Failed to send test email', 'error');
+        }
     } catch (e) {
         showToast('Error sending test email', 'error');
     } finally {
@@ -307,7 +311,7 @@ async function changePassword() {
         });
         var data = await res.json();
         if (data.success) {
-            showToast('Password changed successfully', 'success');
+            showSuccessDialog('Password changed', 'Use your new password the next time you log in.', { icon: 'lock_reset' });
             currentPw.value = '';
             newPw.value = '';
             confirmPw.value = '';

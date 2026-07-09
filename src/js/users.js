@@ -136,7 +136,11 @@ async function handleUserSubmit(event) {
         }
         const data = await response.json();
         if (data.success) {
-            showToast(editingUserId ? 'User updated!' : 'User created!', 'success');
+            showSuccessDialog(
+                editingUserId ? 'User updated' : 'User created',
+                editingUserId ? 'The account details have been saved.' : 'The new account can log in right away.',
+                { icon: 'person' }
+            );
             closeUserModal();
             await loadUsers();
         } else {
@@ -156,7 +160,7 @@ async function deleteUser(id) {
             });
             const data = await response.json();
             if (data.success) {
-                showToast('User deleted!', 'success');
+                showSuccessDialog('User deleted', 'The account has been removed and can no longer log in.', { tone: 'danger' });
                 await loadUsers();
             } else {
                 showToast('Error: ' + (data.message || 'Unknown'), 'error');
