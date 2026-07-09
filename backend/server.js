@@ -95,6 +95,7 @@ async function ensureEmailLogsTable() {
         // Migrate older installs: add delivery status columns if missing
         try { await conn.execute("ALTER TABLE email_logs ADD COLUMN status VARCHAR(20) DEFAULT 'pending'"); } catch (e) { /* column exists */ }
         try { await conn.execute('ALTER TABLE email_logs ADD COLUMN error_message VARCHAR(500) NULL'); } catch (e) { /* column exists */ }
+        try { await conn.execute('ALTER TABLE email_logs ADD COLUMN clicked_at DATETIME NULL'); } catch (e) { /* column exists */ }
         await conn.execute(`
             CREATE TABLE IF NOT EXISTS app_settings (
                 setting_key VARCHAR(100) PRIMARY KEY,
@@ -173,6 +174,55 @@ app.get('/track/:trackingId.gif', rateLimitTracking, async (req, res) => {
     } catch (e) {}
     res.set({ 'Content-Type': 'image/gif', 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' });
     res.send(TRACKING_PIXEL);
+});
+
+// Click tracking — the "View / Confirm" button inside supplier emails points here.
+// Clicking marks the email as read (even when the mail client blocks images)
+// and shows the supplier a small branded confirmation page.
+app.get('/track/click/:trackingId', rateLimitTracking, async (req, res) => {
+    const { trackingId } = req.params;
+    let known = false;
+    try {
+        const conn = await pool.getConnection();
+        const [result] = await conn.execute(
+            `UPDATE email_logs
+             SET opened_at = COALESCE(opened_at, NOW()),
+                 clicked_at = COALESCE(clicked_at, NOW()),
+                 opened_count = opened_count + 1
+             WHERE tracking_id = ?`,
+            [trackingId]
+        );
+        known = result.affectedRows > 0;
+        conn.release();
+    } catch (e) {}
+    res.set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RISHA Pet Supplies — Confirmed</title>
+<style>
+    body { margin:0; font-family:-apple-system,'Segoe UI',Arial,sans-serif; background:#F4F6FB; display:flex; align-items:center; justify-content:center; min-height:100vh; }
+    .card { background:#fff; border:1px solid #E9EDF4; border-radius:20px; box-shadow:0 16px 48px rgba(16,24,40,.10); padding:40px 44px; max-width:420px; text-align:center; margin:20px; }
+    .tick { width:64px; height:64px; border-radius:50%; background:rgba(47,163,107,.12); color:#2FA36B; display:flex; align-items:center; justify-content:center; font-size:32px; margin:0 auto 18px; }
+    h1 { font-size:20px; color:#1B2437; margin:0 0 8px; }
+    p { font-size:14px; color:#5A6478; line-height:1.6; margin:0; }
+    .brand { margin-top:22px; font-size:12px; color:#8A94A8; font-weight:600; letter-spacing:.4px; }
+    .brand b { color:#E14C42; }
+</style>
+</head>
+<body>
+    <div class="card">
+        <div class="tick">✓</div>
+        <h1>${known ? 'Thank you — received!' : 'Link acknowledged'}</h1>
+        <p>${known
+            ? 'Your confirmation has been recorded and RISHA Pet Supplies has been notified that you viewed this email. No further action is needed.'
+            : 'This confirmation link is no longer active, but you can reply to the original email if you have questions.'}</p>
+        <div class="brand"><b>RISHA</b> PET SUPPLIES</div>
+    </div>
+</body>
+</html>`);
 });
 
 // Get email logs for a supplier

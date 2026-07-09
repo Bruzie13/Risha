@@ -124,6 +124,23 @@ function trackingPixel(trackingId) {
 }
 
 /**
+ * Visible call-to-action button. Clicking it marks the email as read in
+ * email_logs (works even when the recipient's mail client blocks images,
+ * which would defeat the tracking pixel).
+ */
+function confirmButton(trackingId, label) {
+    if (!trackingId) return '';
+    return `
+        <div style="text-align:center;margin:24px 0 8px;">
+            <a href="${BASE_URL}/track/click/${trackingId}"
+               style="display:inline-block;background:#E14C42;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 32px;border-radius:10px;">
+                ${label}
+            </a>
+            <div style="font-size:11px;color:#999;margin-top:8px;">Clicking lets RISHA Pet Supplies know you've seen this email.</div>
+        </div>`;
+}
+
+/**
  * Shared send helper: validates recipient, builds transporter from config,
  * sends, and records delivery status in email_logs.
  */
@@ -174,28 +191,30 @@ async function sendPOEmail(supplierId, supplierEmail, supplierName, poNumber, it
         subject: `Purchase Order ${poNumber} from RISHA Pet Supplies`,
         html: `
             <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
-                <div style="background:#2d6a4f;padding:20px;border-radius:10px 10px 0 0;">
-                    <h1 style="color:white;margin:0;font-size:22px;">RISHA Pet Supplies</h1>
+                <div style="background:#E14C42;padding:22px 24px;border-radius:14px 14px 0 0;">
+                    <h1 style="color:white;margin:0;font-size:21px;">RISHA Pet Supplies</h1>
+                    <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:13px;">New Purchase Order</p>
                 </div>
-                <div style="padding:25px;border:1px solid #e0e0e0;border-top:0;">
-                    <p style="font-size:16px;color:#333;">Dear <strong>${supplierName}</strong>,</p>
-                    <p style="color:#555;">We have generated a new purchase order. Please process at your earliest convenience.</p>
-                    <p style="font-size:14px;color:#333;"><strong>PO Number:</strong> ${poNumber}</p>
+                <div style="padding:25px;border:1px solid #e6eaf2;border-top:0;border-radius:0 0 14px 14px;background:#ffffff;">
+                    <p style="font-size:16px;color:#1B2437;">Dear <strong>${supplierName}</strong>,</p>
+                    <p style="color:#5A6478;">We have generated a new purchase order. Please process at your earliest convenience.</p>
+                    <p style="font-size:14px;color:#1B2437;"><strong>PO Number:</strong> ${poNumber}</p>
                     <table style="width:100%;border-collapse:collapse;margin:15px 0;">
                         <thead>
-                            <tr style="background:#f5f5f5;">
-                                <th style="padding:10px;text-align:left;font-size:13px;color:#2d6a4f;">Item</th>
-                                <th style="padding:10px;text-align:center;font-size:13px;color:#2d6a4f;">Qty</th>
-                                <th style="padding:10px;text-align:right;font-size:13px;color:#2d6a4f;">Unit Price</th>
-                                <th style="padding:10px;text-align:right;font-size:13px;color:#2d6a4f;">Subtotal</th>
+                            <tr style="background:#F7F9FC;">
+                                <th style="padding:10px;text-align:left;font-size:13px;color:#E14C42;">Item</th>
+                                <th style="padding:10px;text-align:center;font-size:13px;color:#E14C42;">Qty</th>
+                                <th style="padding:10px;text-align:right;font-size:13px;color:#E14C42;">Unit Price</th>
+                                <th style="padding:10px;text-align:right;font-size:13px;color:#E14C42;">Subtotal</th>
                             </tr>
                         </thead>
                         <tbody>${itemsHtml}</tbody>
                     </table>
-                    <div style="text-align:right;padding:15px;font-size:18px;font-weight:700;color:#2d6a4f;border-top:2px solid #2d6a4f;">
+                    <div style="text-align:right;padding:15px;font-size:18px;font-weight:700;color:#E14C42;border-top:2px solid #E14C42;">
                         Total: ₱${Number(totalAmount || 0).toFixed(2)}
                     </div>
-                    <p style="color:#888;font-size:12px;margin-top:20px;">This is an auto-generated email. Please contact us if you have any questions.</p>
+                    ${confirmButton(trackingId, 'View & Confirm Order')}
+                    <p style="color:#8A94A8;font-size:12px;margin-top:20px;">This is an auto-generated email. Please contact us if you have any questions.</p>
                 </div>
             </div>
             ${trackingPixel(trackingId)}
@@ -223,25 +242,27 @@ async function sendLowStockAlert(supplierId, supplierEmail, supplierName, items)
         subject: `⚠️ LOW STOCK ALERT - ${items.length} product(s) need restocking`,
         html: `
             <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
-                <div style="background:#d32f2f;padding:20px;border-radius:10px 10px 0 0;">
-                    <h1 style="color:white;margin:0;font-size:22px;">⚠️ Low Stock Alert</h1>
+                <div style="background:#E8930C;padding:22px 24px;border-radius:14px 14px 0 0;">
+                    <h1 style="color:white;margin:0;font-size:21px;">⚠️ Low Stock Alert</h1>
+                    <p style="color:rgba(255,255,255,0.9);margin:4px 0 0;font-size:13px;">RISHA Pet Supplies</p>
                 </div>
-                <div style="padding:25px;border:1px solid #e0e0e0;border-top:0;">
-                    <p style="font-size:16px;color:#333;">Dear <strong>${supplierName}</strong>,</p>
-                    <p style="color:#555;">The following products from your supply are running low and need restocking:</p>
+                <div style="padding:25px;border:1px solid #e6eaf2;border-top:0;border-radius:0 0 14px 14px;background:#ffffff;">
+                    <p style="font-size:16px;color:#1B2437;">Dear <strong>${supplierName}</strong>,</p>
+                    <p style="color:#5A6478;">The following products from your supply are running low and need restocking:</p>
                     <table style="width:100%;border-collapse:collapse;margin:15px 0;">
                         <thead>
-                            <tr style="background:#fff3e0;">
-                                <th style="padding:10px;text-align:left;font-size:13px;color:#e65100;">Product</th>
-                                <th style="padding:10px;text-align:left;font-size:13px;color:#e65100;">SKU</th>
-                                <th style="padding:10px;text-align:center;font-size:13px;color:#e65100;">Current Stock</th>
-                                <th style="padding:10px;text-align:center;font-size:13px;color:#e65100;">Reorder Level</th>
-                                <th style="padding:10px;text-align:center;font-size:13px;color:#e65100;">Status</th>
+                            <tr style="background:#FDF4E3;">
+                                <th style="padding:10px;text-align:left;font-size:13px;color:#B45309;">Product</th>
+                                <th style="padding:10px;text-align:left;font-size:13px;color:#B45309;">SKU</th>
+                                <th style="padding:10px;text-align:center;font-size:13px;color:#B45309;">Current Stock</th>
+                                <th style="padding:10px;text-align:center;font-size:13px;color:#B45309;">Reorder Level</th>
+                                <th style="padding:10px;text-align:center;font-size:13px;color:#B45309;">Status</th>
                             </tr>
                         </thead>
                         <tbody>${itemsHtml}</tbody>
                     </table>
-                    <p style="color:#888;font-size:12px;margin-top:20px;">This is an automated alert from RISHA Pet Supplies. Please arrange restock at your earliest convenience.</p>
+                    ${confirmButton(trackingId, 'Acknowledge Alert')}
+                    <p style="color:#8A94A8;font-size:12px;margin-top:20px;">This is an automated alert from RISHA Pet Supplies. Please arrange restock at your earliest convenience.</p>
                 </div>
             </div>
             ${trackingPixel(trackingId)}

@@ -17,7 +17,8 @@ let allProducts = [];
 let cartItems = [];
 let barcodeBuffer = '';
 let lastKeyTime = 0;
-let currentPaymentMethod = 'cash';
+// This POS is cash-only: every sale is recorded with payment_method 'cash'.
+const PAYMENT_METHOD = 'cash';
 const POS_PAGE_SIZE = 20;
 let posDisplayCount = POS_PAGE_SIZE;
 let posFilteredProducts = [];
@@ -47,9 +48,13 @@ async function loadProducts() {
     }
 }
 
+function productCategory(p) {
+    return p.category_name || p.category || '';
+}
+
 function renderCategoryFilters() {
     const cats = new Set();
-    allProducts.forEach(p => { if (p.category) cats.add(p.category); });
+    allProducts.forEach(p => { const c = productCategory(p); if (c) cats.add(c); });
     const container = document.getElementById('categoryFilters');
     if (!container) return;
     let html = '<button class="pos-category-filter active" data-cat="" onclick="filterByCategory(this,\'\')">All</button>';
@@ -74,7 +79,7 @@ function filterProducts() {
     const q = (document.getElementById('posSearchInput')?.value || '').toLowerCase();
     const filtered = allProducts.filter(p => {
         const matchSearch = !q || (p.name || '').toLowerCase().includes(q) || (p.barcode || '').toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q);
-        const matchCat = !activeCategory || (p.category || '') === activeCategory;
+        const matchCat = !activeCategory || productCategory(p) === activeCategory;
         return matchSearch && matchCat;
     });
     renderProducts(filtered);
@@ -97,8 +102,14 @@ function renderProducts(products) {
         let stockText = stock + unitLabel;
         if (stock <= 0) { stockClass = 'out'; stockText = 'Out of stock'; }
         else if (stock <= 10) stockClass = 'low';
+        const cat = productCategory(p).toLowerCase();
+        const icon = cat.includes('food') || cat.includes('treat') ? 'pet_supplies'
+            : cat.includes('toy') ? 'toys'
+            : cat.includes('medicine') || cat.includes('health') ? 'medication'
+            : cat.includes('groom') ? 'soap'
+            : 'inventory_2';
         return `<div class="pos-product-card" onclick="addToCart(${p.id})" title="${escHtml(p.name)}">
-            <div class="p-img"><span class="material-symbols-outlined" style="font-size:24px;">${p.category?.toLowerCase().includes('food') ? 'pet_food' : p.category?.toLowerCase().includes('toy') ? 'toys' : p.category?.toLowerCase().includes('medicine') ? 'medication' : 'inventory_2'}</span></div>
+            <div class="p-img"><span class="material-symbols-outlined" style="font-size:22px;">${icon}</span></div>
             <div class="p-name">${escHtml(p.name)}</div>
             <div class="p-price">₱${parseFloat(p.unit_price || 0).toFixed(2)}</div>
             <div class="p-stock ${stockClass}">${stockText}</div>
@@ -274,6 +285,8 @@ function updateCartTotals() {
     document.getElementById('posSubtotal').textContent = '₱' + subtotal.toFixed(2);
     document.getElementById('posDiscountAmount').textContent = '-₱' + discAmt.toFixed(2);
     document.getElementById('posTotal').textContent = '₱' + total.toFixed(2);
+    const payTotal = document.getElementById('posPayTotal');
+    if (payTotal) payTotal.textContent = '₱' + total.toFixed(2);
     updateChange();
 }
 
@@ -283,15 +296,6 @@ function getCartTotal() {
     return subtotal - subtotal * (discPct / 100);
 }
 
-function setPaymentMethod(method, btn) {
-    currentPaymentMethod = method;
-    document.querySelectorAll('.pos-pay-btn').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
-    const tenderSection = document.getElementById('posTenderSection');
-    if (tenderSection) tenderSection.style.display = method === 'cash' ? '' : 'none';
-    updateChange();
-}
-
 function updateChange() {
     const changeEl = document.getElementById('posChange');
     const changeRow = document.getElementById('posChangeRow');
@@ -299,7 +303,7 @@ function updateChange() {
     const tendered = parseFloat(document.getElementById('posTendered')?.value) || 0;
     const total = getCartTotal();
     const change = tendered - total;
-    if (currentPaymentMethod !== 'cash' || tendered <= 0) {
+    if (tendered <= 0) {
         changeEl.textContent = '₱0.00';
         changeRow.classList.remove('insufficient', 'sufficient');
         return;
@@ -329,28 +333,24 @@ async function completeSale() {
     const discAmt = subtotal * (discount / 100);
     const total = subtotal - discAmt;
     const itemSummary = cartItems.map(i => `${escHtml(i.product_name)} × ${i.quantity}`).join('<br>');
-    const paymentMethod = currentPaymentMethod || 'cash';
     const customer = document.getElementById('posCustomerName')?.value || 'Walk-in';
-    let tendered = 0;
-    let change = 0;
-    if (paymentMethod === 'cash') {
-        tendered = parseFloat(document.getElementById('posTendered')?.value) || 0;
-        if (tendered <= 0) { showToast('Enter the cash amount tendered', 'error'); document.getElementById('posTendered')?.focus(); return; }
-        if (tendered < total) { showToast('Insufficient cash — customer gave less than the total', 'error'); return; }
-        change = tendered - total;
-    }
+    const tendered = parseFloat(document.getElementById('posTendered')?.value) || 0;
+    if (tendered <= 0) { showToast('Enter the cash amount received', 'error'); document.getElementById('posTendered')?.focus(); return; }
+    if (tendered < total) { showToast('Insufficient cash — customer gave less than the total', 'error'); return; }
+    const change = tendered - total;
     const msg = `<div style="text-align:left;font-size:13px;line-height:1.7;">
         <div style="margin-bottom:10px;"><strong>Items:</strong><br>${itemSummary}</div>
         <div><strong>Subtotal:</strong> ₱${subtotal.toFixed(2)}</div>
         ${discount > 0 ? `<div><strong>Discount:</strong> ${discount}% (-₱${discAmt.toFixed(2)})</div>` : ''}
         <div style="font-size:16px;font-weight:800;margin-top:6px;padding-top:8px;border-top:2px solid var(--border-glass);"><strong>Total:</strong> ₱${total.toFixed(2)}</div>
-        <div style="margin-top:6px;"><strong>Payment:</strong> ${paymentMethod.toUpperCase()}</div>
-        ${paymentMethod === 'cash' ? `<div><strong>Cash tendered:</strong> ₱${tendered.toFixed(2)}</div><div><strong>Change:</strong> <span style="font-weight:800;color:var(--success, #A8DDB5);">₱${change.toFixed(2)}</span></div>` : ''}
+        <div style="margin-top:6px;"><strong>Payment:</strong> CASH</div>
+        <div><strong>Cash received:</strong> ₱${tendered.toFixed(2)}</div>
+        <div><strong>Change:</strong> <span style="font-weight:800;color:var(--success);">₱${change.toFixed(2)}</span></div>
         <div><strong>Customer:</strong> ${escHtml(customer)}</div>
     </div>`;
-    showConfirmDialog('Confirm Sale', msg, async () => {
+    showConfirmDialog('Confirm Cash Sale', msg, async () => {
         const saleData = {
-            payment_method: paymentMethod,
+            payment_method: PAYMENT_METHOD,
             notes: 'POS sale',
             customer_name: document.getElementById('posCustomerName')?.value || '',
             customer_phone: document.getElementById('posCustomerPhone')?.value || '',
@@ -367,7 +367,7 @@ async function completeSale() {
             });
             const data = await response.json();
             if (data.success) {
-                showToast('Sale completed!' + (paymentMethod === 'cash' && change > 0 ? ' Change: ₱' + change.toFixed(2) : ''), 'success');
+                showToast('Sale completed!' + (change > 0 ? ' Change: ₱' + change.toFixed(2) : ''), 'success');
                 const saleId = data.data?.id || data.data?.sale_id;
                 cartItems = [];
                 renderCart();
@@ -386,7 +386,7 @@ async function completeSale() {
             console.error('Error creating sale:', error);
             showToast('Failed to create sale', 'error');
         }
-    }, 'Pay Now', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">payments</span>');
+    }, 'Complete Sale', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">payments</span>');
 }
 
 async function printReceipt(saleId, tendered, change) {

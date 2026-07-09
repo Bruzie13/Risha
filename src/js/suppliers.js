@@ -56,22 +56,36 @@ function displaySuppliers(suppliers) {
     document.getElementById('totalSuppliers').textContent = suppliers.length;
     document.getElementById('activeSuppliers').textContent = suppliers.filter(s => s.is_active === 1 || s.is_active === true).length;
     const shown = suppliers.slice(0, displayCount);
-    tbody.innerHTML = shown.map(s => `
+    tbody.innerHTML = shown.map(s => {
+        const initials = (s.name || '?').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+        const tint = (s.id % 5) + 1;
+        return `
         <tr>
-            <td><strong>${escHtml(s.name)}</strong></td>
+            <td>
+                <div class="cell-product">
+                    <div class="cp-avatar tint-${tint}">${initials}</div>
+                    <div class="cp-info">
+                        <div class="cp-name">${escHtml(s.name)}</div>
+                        ${s.city ? `<div class="cp-sub">${escHtml(s.city)}</div>` : ''}
+                    </div>
+                </div>
+            </td>
             <td>${escHtml(s.contact_person || 'N/A')}</td>
-            <td>${escHtml(s.email || 'N/A')}</td>
+            <td>${s.email
+                ? `<span class="supplier-email-link" onclick="showEmailLogs(${s.id}, '${escHtml(s.name).replace(/'/g, "\\'")}')" title="View email history & read receipts">${escHtml(s.email)}</span>`
+                : 'N/A'}</td>
             <td>${escHtml(s.phone || 'N/A')}</td>
             <td>${paymentTermsMap[s.payment_terms] || 'Net 30'}</td>
-            <td>${(s.is_active === 1 || s.is_active === true) ? '<span class="status-badge status-in-stock">Active</span>' : '<span class="status-badge status-expired">Inactive</span>'}</td>
-            <td><button class="btn-view" onclick="showEmailLogs(${s.id}, '${escHtml(s.name).replace(/'/g, "\\'")}')" style="font-size:11px"><span class="material-symbols-outlined" style="font-size:13px;">mail</span> Emails</button></td>
+            <td>${(s.is_active === 1 || s.is_active === true) ? '<span class="status-badge status-active">Active</span>' : '<span class="status-badge status-inactive">Inactive</span>'}</td>
+            <td><button class="btn-action" onclick="showEmailLogs(${s.id}, '${escHtml(s.name).replace(/'/g, "\\'")}')" style="font-size:11px"><span class="material-symbols-outlined" style="font-size:13px;">mark_email_read</span> Emails</button></td>
             <td>
                 <button class="btn-view" onclick="showPerformance(${s.id})">Performance</button>
                 ${viewer ? '' : `<button class="btn-edit" onclick="openEditSupplierModal(${s.id})">Edit</button>
                 <button class="btn-delete" onclick="deleteSupplier(${s.id})">Delete</button>`}
             </td>
         </tr>
-    `).join('');
+    `;
+    }).join('');
     updatePagination('supplierPagination', suppliers, displayCount, 'showMoreSuppliers');
 }
 
@@ -249,13 +263,14 @@ document.addEventListener('click', (e) => {
     if (e.target === document.getElementById('emailLogsModal')) closeEmailLogsModal();
 });
 
-/* ═══ Email Logs ═══ */
+/* ═══ Email Logs — sent / read tracking ═══ */
 async function showEmailLogs(supplierId, supplierName) {
     const modal = document.getElementById('emailLogsModal');
     const body = document.getElementById('emailLogsBody');
+    if (!modal || !body) return;
     body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">Loading...</div>';
     modal.classList.add('active');
-    document.getElementById('emailLogsTitle').innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">mail</span> Email History — ' + escHtml(supplierName);
+    document.getElementById('emailLogsTitle').innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">mark_email_read</span> Email History — ' + escHtml(supplierName);
 
     try {
         const res = await fetch(`${API_BASE}/email-logs/${supplierId}`, { headers: getAuthHeaders() });
@@ -263,43 +278,68 @@ async function showEmailLogs(supplierId, supplierName) {
         const logs = result.data || [];
 
         if (!logs.length) {
-            body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">No emails sent to this supplier yet</div>';
+            body.innerHTML = `<div class="empty-state" style="padding:48px 20px;">
+                <span class="material-symbols-outlined" style="font-size:42px;color:var(--gray-300);display:block;margin-bottom:10px;">outgoing_mail</span>
+                <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">No emails yet</div>
+                <div>Purchase orders and low-stock alerts sent to this supplier will appear here.</div>
+            </div>`;
             return;
         }
 
-        body.innerHTML = '<table style="width:100%;border-collapse:collapse"><thead><tr>' +
-            '<th style="padding:10px;text-align:left;font-size:12px;color:var(--text-muted);border-bottom:1px solid var(--border-glass)">Subject</th>' +
-            '<th style="padding:10px;text-align:left;font-size:12px;color:var(--text-muted);border-bottom:1px solid var(--border-glass)">Type</th>' +
-            '<th style="padding:10px;text-align:left;font-size:12px;color:var(--text-muted);border-bottom:1px solid var(--border-glass)">Sent</th>' +
-            '<th style="padding:10px;text-align:center;font-size:12px;color:var(--text-muted);border-bottom:1px solid var(--border-glass)">Status</th>' +
-            '<th style="padding:10px;text-align:center;font-size:12px;color:var(--text-muted);border-bottom:1px solid var(--border-glass)">Opened</th>' +
-            '</tr></thead><tbody>' +
-            logs.map(l => {
-                const opened = l.opened_at ? true : false;
-                const sentDate = new Date(l.created_at).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-                const openedDate = l.opened_at ? new Date(l.opened_at).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-                const typeLabels = { po: '<span class="material-symbols-outlined" style="font-size:13px;">inventory</span> Purchase Order', low_stock: '<span class="material-symbols-outlined" style="font-size:13px;">inventory_2</span> Low Stock Alert' };
-                return '<tr style="border-bottom:1px solid var(--border-glass)">' +
-                    '<td style="padding:10px;font-size:13px;font-weight:500">' + escHtml(l.subject || 'N/A') + '</td>' +
-                    '<td style="padding:10px;font-size:12px">' + (typeLabels[l.email_type] || escHtml(l.email_type)) + '</td>' +
-                    '<td style="padding:10px;font-size:12px;color:var(--text-muted)">' + sentDate + '</td>' +
-                    '<td style="padding:10px;text-align:center">' + emailStatusBadge(l, opened) + '</td>' +
-                    '<td style="padding:10px;text-align:center;font-size:12px;color:var(--text-muted)">' + (openedDate || '—') + (l.opened_count > 1 ? ' <span style="color:var(--primary);font-weight:600">(' + l.opened_count + 'x)</span>' : '') + '</td>' +
-                '</tr>';
-            }).join('') +
-            '</tbody></table>';
+        const isRead = l => !!(l.opened_at || l.clicked_at);
+        const total = logs.length;
+        const delivered = logs.filter(l => l.status === 'sent' || isRead(l)).length;
+        const readCount = logs.filter(isRead).length;
+        const failed = logs.filter(l => l.status === 'failed' || l.status === 'skipped').length;
+
+        const summary = `<div class="email-summary-row">
+            <div class="email-summary-cell"><div class="es-num">${total}</div><div class="es-label">Total</div></div>
+            <div class="email-summary-cell"><div class="es-num">${delivered}</div><div class="es-label">Delivered</div></div>
+            <div class="email-summary-cell reads"><div class="es-num">${readCount}</div><div class="es-label">Read</div></div>
+            <div class="email-summary-cell fails"><div class="es-num">${failed}</div><div class="es-label">Failed</div></div>
+        </div>`;
+
+        const typeMeta = {
+            po: { icon: 'receipt_long', cls: 'po', label: 'Purchase Order' },
+            low_stock: { icon: 'inventory_2', cls: 'low_stock', label: 'Low Stock Alert' }
+        };
+
+        body.innerHTML = summary + '<div class="email-log-list">' + logs.map(l => {
+            const read = isRead(l);
+            const meta = typeMeta[l.email_type] || { icon: 'mail', cls: 'generic', label: l.email_type || 'Email' };
+            const sentDate = new Date(l.created_at).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const readVia = l.clicked_at ? 'clicked the email' : 'opened the email';
+            const readDate = read ? new Date(l.clicked_at || l.opened_at).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+            const ticks = read
+                ? '<span class="ticks read" title="Read by supplier">✓✓</span>'
+                : (l.status === 'sent' ? '<span class="ticks sent" title="Delivered, not read yet">✓</span>' : '');
+            return `<div class="email-log-item">
+                <div class="el-icon ${meta.cls}"><span class="material-symbols-outlined" style="font-size:18px;">${meta.icon}</span></div>
+                <div class="el-main">
+                    <div class="el-subject">${escHtml(l.subject || 'N/A')}</div>
+                    <div class="el-meta">
+                        <span>${meta.label}</span> · <span>Sent ${sentDate}</span>
+                        ${read ? `· <span style="color:var(--success);font-weight:600;">Supplier ${readVia} ${readDate}${l.opened_count > 1 ? ' (' + l.opened_count + '×)' : ''}</span>` : ''}
+                        ${l.status === 'failed' && l.error_message ? `· <span style="color:var(--danger);">${escHtml(l.error_message)}</span>` : ''}
+                    </div>
+                </div>
+                <div class="el-status">
+                    ${emailStatusBadge(l, read)}
+                    ${ticks}
+                </div>
+            </div>`;
+        }).join('') + '</div>';
     } catch (e) {
         body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">Failed to load email history</div>';
     }
 }
 
-function emailStatusBadge(l, opened) {
-    const badge = (bg, color, icon, label, title) =>
-        '<span title="' + escHtml(title || '') + '" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;background:' + bg + ';color:' + color + '"><span class="material-symbols-outlined" style="font-size:14px;">' + icon + '</span> ' + label + '</span>';
-    if (l.status === 'failed') return badge('var(--danger-bg, #fdecea)', 'var(--danger)', 'error', 'Failed', l.error_message || 'Delivery failed');
-    if (l.status === 'skipped') return badge('var(--warning-bg, #fff8e1)', 'var(--warning, #e65100)', 'block', 'Skipped', l.error_message || 'Email sending disabled');
-    if (opened) return badge('var(--success-bg)', 'var(--success)', 'check', 'Read');
-    return badge('var(--accent-dim)', 'var(--accent)', 'hourglass_bottom', 'Sent');
+function emailStatusBadge(l, read) {
+    if (l.status === 'failed') return '<span class="status-badge status-failed" title="' + escHtml(l.error_message || 'Delivery failed') + '">Failed</span>';
+    if (l.status === 'skipped') return '<span class="status-badge status-pending" title="' + escHtml(l.error_message || 'Email sending disabled') + '">Skipped</span>';
+    if (read) return '<span class="status-badge status-read">Read</span>';
+    if (l.status === 'sent') return '<span class="status-badge status-sent">Sent</span>';
+    return '<span class="status-badge status-pending">Pending</span>';
 }
 
 function closeEmailLogsModal() {

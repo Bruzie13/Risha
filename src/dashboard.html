@@ -6,294 +6,173 @@
     <title>RISHA — Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
-        .dash-ambient-header {
-            background: var(--bg-elevated);
-            border: 1px solid var(--border-glass);
-            border-radius: var(--radius-xl);
-            padding: 24px 32px;
-            margin-bottom: 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-            animation: slideUp 0.5s ease;
-        }
-        :root.dark-mode .dash-ambient-header { background: var(--bg-card); }
-        .dash-ambient-header .greeting h2 {
-            font-family: 'Nunito', sans-serif;
-            font-size: 22px;
-            font-weight: 800;
-            color: var(--text-primary);
-            letter-spacing: -0.3px;
-        }
-        .dash-ambient-header .greeting p {
-            font-size: 13px;
-            color: var(--text-muted);
-            margin-top: 4px;
-        }
-        .dash-ambient-header .greeting p span { color: var(--primary); font-weight: 600; }
-        .dash-ambient-header .sys-status {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-        .sys-status-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-        .sys-status-item .pulse-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--primary);
-            box-shadow: 0 0 8px rgba(42, 157, 143, 0.4);
-        }
-        .sys-status-item .pulse-dot.warning { background: var(--accent); }
-        .sys-status-item .pulse-dot.danger { background: var(--danger); }
-        .orbit-vis {
-            position: relative;
-            width: 100px;
-            height: 100px;
-            flex-shrink: 0;
-            transition: transform 0.3s ease;
-            z-index: 2;
-        }
-        .orbit-vis:hover {
-            transform: scale(1.18);
-        }
-        .orbit-vis canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-            cursor: pointer;
-        }
-        .orbit-tooltip {
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translate(-50%, -8px);
-            background: var(--bg-elevated);
-            border: 1px solid var(--border-glass);
-            border-radius: var(--radius-md);
-            padding: 6px 10px;
-            font-size: 10px;
-            color: var(--text-primary);
-            white-space: nowrap;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.15s ease;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            line-height: 1.4;
-            z-index: 10;
-            max-width: 160px;
-            text-align: center;
-        }
-        .orbit-tooltip.visible { opacity: 1; }
-        .orbit-center-label {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 2px;
-            pointer-events: none;
-        }
-        .orbit-center-label .orbit-pulse {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--primary);
-            animation: orbit-center-pulse 1.5s ease-in-out infinite;
-        }
-        .orbit-center-label small {
-            font-size: 8px;
-            font-weight: 700;
-            color: var(--text-muted);
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-        }
-        .orbit-center-label .orbit-alert-count {
-            font-size: 9px;
-            font-weight: 800;
-            color: var(--danger);
-            margin-top: 1px;
-        }
-        @keyframes orbit-center-pulse {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(255,181,167,0.6); transform: scale(1); }
-            50% { box-shadow: 0 0 0 8px rgba(255,181,167,0); transform: scale(1.15); }
-        }
-        .data-orbs {
-            display: flex;
-            overflow-x: auto;
-            gap: 16px;
-            padding-bottom: 8px;
-            margin-bottom: 24px;
-            -webkit-overflow-scrolling: touch;
-        }
-        .data-orb {
+        /* ── Welcome hero strip ── */
+        .dash-hero {
             background: var(--bg-card);
             border: 1px solid var(--border-glass);
             border-radius: var(--radius-xl);
-            padding: 24px;
-            text-align: center;
+            padding: 22px 28px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            box-shadow: var(--shadow-sm);
+            animation: slideUp 0.4s ease;
             position: relative;
             overflow: hidden;
-            transition: all var(--transition);
-            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-            flex-shrink: 0;
-            min-width: 220px;
         }
-        :root.dark-mode .data-orb { background: var(--bg-card); }
-        :root.dark-mode .data-orb { background: var(--bg-card); }
-        .data-orb:nth-child(2) { animation-delay: 0.7s; }
-        .data-orb:nth-child(3) { animation-delay: 1.4s; }
-        .data-orb:nth-child(4) { animation-delay: 2.1s; }
-        .data-orb:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 32px rgba(0,0,0,0.08);
-            border-color: var(--border-glass-strong);
-        }
-        .data-orb .orb-ring {
-            width: 64px;
-            height: 64px;
+        .dash-hero::before {
+            content: '';
+            position: absolute;
+            top: -70px;
+            right: -40px;
+            width: 210px;
+            height: 210px;
             border-radius: 50%;
-            margin: 0 auto 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 26px;
-            position: relative;
+            background: radial-gradient(circle, var(--primary-bg), transparent 70%);
+            pointer-events: none;
         }
-        .data-orb .orb-ring.cyan { background: var(--primary-bg); }
-        .data-orb .orb-ring.amber { background: var(--accent-dim); }
-        .data-orb .orb-ring.rose { background: var(--danger-bg); }
-        .data-orb .orb-ring.lilac { background: var(--purple-bg); }
-        .data-orb .orb-value {
-            font-size: 28px;
+        .dash-hero .greeting h2 {
+            font-family: var(--font-display);
+            font-size: 21px;
             font-weight: 800;
             color: var(--text-primary);
-            letter-spacing: -0.5px;
-            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.4px;
         }
-        .data-orb .orb-label {
-            font-size: 11px;
-            color: var(--text-muted);
+        .dash-hero .greeting p { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+        .dash-hero .hero-side { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; position: relative; }
+        .hero-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 14px;
+            border-radius: var(--radius-full);
+            border: 1px solid var(--border-glass);
+            background: var(--bg-raised);
+            font-size: 12px;
             font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            margin-top: 6px;
+            color: var(--text-secondary);
         }
-        .data-orb .orb-change {
-            font-size: 11px;
-            font-weight: 600;
-            margin-top: 6px;
+        .hero-chip .pulse-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 0 0 rgba(47, 163, 107, 0.4);
+            animation: pulse 2s infinite;
         }
-        .data-orb .orb-change.up { color: var(--primary); }
-        .data-orb .orb-change.down { color: var(--danger); }
-        .dash-asymmetric {
+        .hero-chip.alerts { cursor: pointer; }
+        .hero-chip.alerts.has-alerts { border-color: color-mix(in srgb, var(--danger) 35%, transparent); color: var(--danger); background: var(--danger-bg); }
+        /* Connection status: turns red when polling fails or the browser goes offline */
+        .hero-chip.offline {
+            border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+            color: var(--danger);
+            background: var(--danger-bg);
+        }
+        .hero-chip.offline .pulse-dot {
+            background: var(--danger);
+            animation: none;
+            box-shadow: none;
+        }
+
+        /* ── Charts row ── */
+        .dash-charts {
+            display: grid;
+            grid-template-columns: 1.9fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        /* ── Two-column list rows ── */
+        .dash-row {
             display: grid;
             grid-template-columns: 1.6fr 1fr;
-            gap: 20px;
-            margin-bottom: 24px;
+            gap: 16px;
+            margin-bottom: 20px;
         }
+
         .live-dot {
             display: inline-block;
-            width: 8px;
-            height: 8px;
+            width: 7px; height: 7px;
             border-radius: 50%;
-            background: #22c55e;
-            margin-right: 4px;
-            animation: live-pulse 1.5s ease-in-out infinite;
+            background: var(--success);
+            animation: pulse 2s infinite;
             vertical-align: middle;
         }
-        @keyframes live-pulse {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.5); }
-            50% { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
-        }
+
         @keyframes feed-slide-in {
-            from { opacity: 0; transform: translateY(-12px); }
+            from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        /* Recent sales timeline */
         .timeline-list { padding: 4px 0; }
         .timeline-item {
             display: flex;
-            gap: 16px;
-            padding: 14px 22px;
-            position: relative;
-            transition: background var(--transition);
+            gap: 14px;
+            padding: 12px 22px;
+            align-items: center;
+            transition: background 0.15s ease;
         }
-        .timeline-item:hover { background: var(--gray-50); }
-        .timeline-item::before {
-            content: '';
-            position: absolute;
-            left: 30px;
-            top: 44px;
-            bottom: 0;
-            width: 1px;
-            background: var(--border-glass);
-        }
-        .timeline-item:last-child::before { display: none; }
-        .timeline-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-top: 4px;
+        .timeline-item:hover { background: var(--bg-raised); }
+        .timeline-item + .timeline-item { border-top: 1px solid var(--border-subtle); }
+        .timeline-avatar {
+            width: 36px; height: 36px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
             flex-shrink: 0;
-            position: relative;
-            z-index: 1;
+            background: var(--success-bg);
+            color: var(--success);
         }
-        .timeline-dot.cyan { background: var(--primary); }
-        .timeline-dot.amber { background: var(--accent); }
-        .timeline-dot.rose { background: var(--danger); }
-        .timeline-dot.lilac { background: var(--purple); }
+        .timeline-avatar.pending { background: var(--warning-bg); color: var(--warning); }
+        .timeline-avatar.other { background: var(--purple-bg); color: var(--purple); }
         .timeline-content { flex: 1; min-width: 0; }
-        .timeline-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        .timeline-title { font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .timeline-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
         .timeline-right { text-align: right; flex-shrink: 0; }
-        .timeline-value { font-size: 14px; font-weight: 700; color: var(--text-primary); }
-        .timeline-status { font-size: 10px; font-weight: 600; margin-top: 2px; text-transform: capitalize; }
+        .timeline-value { font-size: 13.5px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+        .timeline-status { font-size: 10.5px; font-weight: 600; margin-top: 2px; text-transform: capitalize; }
+        .timeline-status.completed { color: var(--success); }
+        .timeline-status.pending { color: var(--warning); }
+        .timeline-status.other { color: var(--purple); }
+
+        /* Low stock bars */
         .stock-bar-item {
             display: flex;
             align-items: center;
             gap: 14px;
             padding: 12px 22px;
-            transition: background var(--transition);
+            transition: background 0.15s ease;
         }
-        .stock-bar-item:hover { background: var(--gray-50); }
+        .stock-bar-item:hover { background: var(--bg-raised); }
+        .stock-bar-item + .stock-bar-item { border-top: 1px solid var(--border-subtle); }
         .stock-bar-info { flex: 1; min-width: 0; }
-        .stock-bar-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        .stock-bar-name { font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .stock-bar-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
         .stock-bar-track {
-            flex: 0 0 120px;
-            height: 6px;
+            flex: 0 0 90px;
+            height: 5px;
             background: var(--gray-100);
             border-radius: 10px;
             overflow: hidden;
         }
-        .stock-bar-fill {
-            height: 100%;
-            border-radius: 10px;
-            transition: width 1s ease;
-        }
+        .stock-bar-fill { height: 100%; border-radius: 10px; transition: width 1s ease; }
         .stock-bar-fill.danger { background: var(--danger); }
-        .stock-bar-fill.warning { background: var(--accent); }
-        .stock-bar-fill.ok { background: var(--primary); }
+        .stock-bar-fill.warning { background: var(--warning); }
+        .stock-bar-fill.ok { background: var(--success); }
         .stock-bar-num {
-            font-size: 12px;
+            font-size: 12.5px;
             font-weight: 700;
-            color: var(--text-primary);
-            min-width: 32px;
+            min-width: 34px;
             text-align: right;
             font-variant-numeric: tabular-nums;
         }
+
+        /* Expiry radar */
         .expiry-radar {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -302,57 +181,61 @@
         }
         .expiry-radar-card {
             text-align: center;
-            padding: 18px 12px;
+            padding: 16px 12px;
             border-radius: var(--radius-md);
             cursor: pointer;
-            transition: all var(--transition);
+            transition: all 0.2s ease;
             border: 1px solid transparent;
         }
-        .expiry-radar-card:hover { transform: translateY(-3px); }
-        .expiry-radar-card.critical { background: var(--danger-bg); border-color: rgba(231, 111, 81, 0.2); }
-        .expiry-radar-card.critical:hover { border-color: rgba(231, 111, 81, 0.4); }
-        .expiry-radar-card.warning { background: var(--accent-dim); border-color: rgba(244, 162, 97, 0.2); }
-        .expiry-radar-card.warning:hover { border-color: rgba(244, 162, 97, 0.4); }
-        .expiry-radar-card.notice { background: var(--info-bg); border-color: rgba(69, 123, 157, 0.2); }
-        .expiry-radar-card.notice:hover { border-color: rgba(69, 123, 157, 0.4); }
-        .expiry-radar-card .radar-num { font-size: 28px; font-weight: 800; margin-bottom: 2px; }
+        .expiry-radar-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+        .expiry-radar-card.critical { background: var(--danger-bg); border-color: color-mix(in srgb, var(--danger) 20%, transparent); }
+        .expiry-radar-card.warning { background: var(--warning-bg); border-color: color-mix(in srgb, var(--warning) 20%, transparent); }
+        .expiry-radar-card.notice { background: var(--info-bg); border-color: color-mix(in srgb, var(--info) 20%, transparent); }
+        .expiry-radar-card .radar-num { font-family: var(--font-display); font-size: 26px; font-weight: 800; margin-bottom: 2px; }
         .expiry-radar-card.critical .radar-num { color: var(--danger); }
-        .expiry-radar-card.warning .radar-num { color: var(--accent); }
+        .expiry-radar-card.warning .radar-num { color: var(--warning); }
         .expiry-radar-card.notice .radar-num { color: var(--info); }
-        .expiry-radar-card .radar-label { font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        .dash-bottom {
-            display: grid;
-            grid-template-columns: 1.6fr 1fr;
-            gap: 20px;
-        }
+        .expiry-radar-card .radar-label { font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+
         .product-expiry-item {
             display: flex;
             align-items: center;
             gap: 14px;
             padding: 10px 22px;
-            border-bottom: 1px solid var(--border-glass);
+            border-top: 1px solid var(--border-subtle);
         }
-        .product-expiry-item:last-child { border-bottom: none; }
         .product-expiry-item .pei-info { flex: 1; min-width: 0; }
-        .product-expiry-item .pei-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
-        .product-expiry-item .pei-sub { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+        .product-expiry-item .pei-name { font-size: 12.5px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .product-expiry-item .pei-sub { font-size: 10.5px; color: var(--text-muted); margin-top: 1px; }
         .product-expiry-item .pei-days { font-size: 12px; font-weight: 700; white-space: nowrap; }
         .product-expiry-item .pei-days.danger { color: var(--danger); }
-        .product-expiry-item .pei-days.warning { color: var(--accent); }
+        .product-expiry-item .pei-days.warning { color: var(--warning); }
         .product-expiry-item .pei-days.info { color: var(--info); }
-        .stat-row { display: none; }
+
+        /* Supply chain items */
+        .dash-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 22px;
+            transition: background 0.15s ease;
+        }
+        .dash-item:hover { background: var(--bg-raised); }
+        .dash-item + .dash-item { border-top: 1px solid var(--border-subtle); }
+        .dash-item .item-info { flex: 1; min-width: 0; }
+        .dash-item .item-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        .dash-item .item-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .dash-item .item-right { text-align: right; flex-shrink: 0; }
+        .dash-item .item-value { font-size: 13.5px; font-weight: 700; color: var(--text-primary); }
+
+        @media (max-width: 1100px) {
+            .dash-charts { grid-template-columns: 1fr; }
+        }
         @media (max-width: 1024px) {
-            .dash-asymmetric { grid-template-columns: 1fr; }
-            .dash-bottom { grid-template-columns: 1fr; }
-            .stock-bar-track { flex: 0 0 80px; }
+            .dash-row { grid-template-columns: 1fr; }
         }
         @media (max-width: 768px) {
-            .data-orb { padding: 18px; }
-            .data-orb .orb-ring { width: 52px; height: 52px; font-size: 22px; }
-            .data-orb .orb-value { font-size: 22px; }
-            .dash-ambient-header { flex-direction: column; align-items: flex-start; gap: 12px; }
-            .orbit-vis { display: none; }
-            .expiry-radar { grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 12px 16px; }
+            .dash-hero { flex-direction: column; align-items: flex-start; }
         }
     </style>
 <script>if(localStorage.getItem('theme')==='dark'||(!localStorage.getItem('theme')&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');</script>
@@ -412,42 +295,61 @@
                 <div class="breadcrumb"><span>Overview</span> · Real-time business insights</div>
             </div>
             <div class="page-header-actions">
-                <span id="dateDisplay" style="padding:6px 14px;border:1px solid var(--border-glass);border-radius:var(--radius-md);font-size:12px;color:var(--text-muted);font-weight:500;"></span>
+                <a href="pos.html" class="btn-primary"><span class="material-symbols-outlined" style="font-size:16px;">add</span> New Sale</a>
+                <a href="inventory.html" class="btn-secondary"><span class="material-symbols-outlined" style="font-size:16px;">inventory_2</span> Add Product</a>
             </div>
         </div>
 
         <div class="content">
-            <div class="dash-ambient-header">
+            <div class="dash-hero">
                 <div class="greeting">
-                    <h2>Good morning, Operator!</h2>
-                    <p>Your pet shop is running smoothly. <span>All systems nominal.</span></p>
+                    <h2 id="dashGreeting">Welcome back!</h2>
+                    <p id="dashGreetingSub">Here's what's happening in your pet shop today.</p>
                 </div>
-                <div class="orbit-vis" id="orbitVis">
-                    <canvas id="activityOrbit"></canvas>
-                    <div class="orbit-center-label">
-                        <span class="orbit-pulse"></span>
-                        <small>LIVE</small>
-                        <span class="orbit-alert-count" id="alertCount">0</span>
+                <div class="hero-side">
+                    <span class="hero-chip" id="liveChip" title="Data refreshes every 10 seconds"><span class="pulse-dot"></span> <span id="liveChipText">Live</span></span>
+                    <span class="hero-chip alerts" id="alertChip" onclick="openNotifDropdown()">
+                        <span class="material-symbols-outlined" style="font-size:15px;">notifications</span>
+                        <span id="alertCount">0</span> alerts
+                    </span>
+                    <span class="hero-chip" id="dateDisplay"></span>
+                </div>
+            </div>
+
+            <div class="kpi-grid" id="metricCards">
+                <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Total Products</span><span class="kpi-icon blue"><span class="material-symbols-outlined">inventory_2</span></span></div><div class="skeleton" style="height:28px;width:90px;"></div><div class="skeleton" style="height:11px;width:110px;margin-top:10px;"></div></div>
+                <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Total Revenue</span><span class="kpi-icon coral"><span class="material-symbols-outlined">payments</span></span></div><div class="skeleton" style="height:28px;width:90px;"></div><div class="skeleton" style="height:11px;width:110px;margin-top:10px;"></div></div>
+                <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Low Stock</span><span class="kpi-icon amber"><span class="material-symbols-outlined">warning</span></span></div><div class="skeleton" style="height:28px;width:90px;"></div><div class="skeleton" style="height:11px;width:110px;margin-top:10px;"></div></div>
+                <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Expiring Soon</span><span class="kpi-icon red"><span class="material-symbols-outlined">schedule</span></span></div><div class="skeleton" style="height:28px;width:90px;"></div><div class="skeleton" style="height:11px;width:110px;margin-top:10px;"></div></div>
+                <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Inventory Value</span><span class="kpi-icon green"><span class="material-symbols-outlined">account_balance</span></span></div><div class="skeleton" style="height:28px;width:90px;"></div><div class="skeleton" style="height:11px;width:110px;margin-top:10px;"></div></div>
+            </div>
+
+            <div class="dash-charts">
+                <div class="panel-card">
+                    <div class="panel-head">
+                        <h3><span class="icon-chip coral"><span class="material-symbols-outlined" style="font-size:16px;">show_chart</span></span> Sales Trend</h3>
+                        <span class="panel-sub">Daily revenue</span>
                     </div>
-                    <div id="orbitTooltip" class="orbit-tooltip"></div>
+                    <div class="panel-body">
+                        <div class="chart-box"><canvas id="salesChart"></canvas></div>
+                    </div>
+                </div>
+                <div class="panel-card">
+                    <div class="panel-head">
+                        <h3><span class="icon-chip blue"><span class="material-symbols-outlined" style="font-size:16px;">donut_small</span></span> Stock by Category</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="chart-box"><canvas id="categoryChart"></canvas></div>
+                    </div>
                 </div>
             </div>
 
-            <div class="data-orbs" id="metricCards">
-                <div class="data-orb"><div class="orb-ring cyan"><span class="material-symbols-outlined" style="font-size:26px;">inventory_2</span></div><div class="skeleton" style="height:28px;width:80px;margin:0 auto 6px;"></div><div class="skeleton" style="height:11px;width:100px;margin:0 auto;"></div></div>
-                <div class="data-orb"><div class="orb-ring amber"><span class="material-symbols-outlined" style="font-size:26px;">payments</span></div><div class="skeleton" style="height:28px;width:80px;margin:0 auto 6px;"></div><div class="skeleton" style="height:11px;width:100px;margin:0 auto;"></div></div>
-                <div class="data-orb"><div class="orb-ring rose"><span class="material-symbols-outlined" style="font-size:26px;">warning</span></div><div class="skeleton" style="height:28px;width:80px;margin:0 auto 6px;"></div><div class="skeleton" style="height:11px;width:100px;margin:0 auto;"></div></div>
-                <div class="data-orb"><div class="orb-ring lilac"><span class="material-symbols-outlined" style="font-size:26px;">schedule</span></div><div class="skeleton" style="height:28px;width:80px;margin:0 auto 6px;"></div><div class="skeleton" style="height:11px;width:100px;margin:0 auto;"></div></div>
-            </div>
-
-            <div class="dash-asymmetric">
-                <div class="card">
-                    <div class="card-header">
-                        <h3>
+            <div class="dash-row">
+                <div class="panel-card">
+                    <div class="panel-head">
+                        <h3><span class="icon-chip green"><span class="material-symbols-outlined" style="font-size:16px;">shopping_cart</span></span> Recent Sales
                             <span class="live-dot" id="recentSalesLiveDot"></span>
-                            <span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">shopping_cart</span>
-                            Recent Sales
-                            <span class="live-feed-status" id="recentSalesLiveStatus" style="font-size:10px;font-weight:600;color:#22c55e;margin-left:4px;">● Live</span>
+                            <span id="recentSalesLiveStatus" style="font-size:10px;font-weight:700;color:var(--success);">Live</span>
                         </h3>
                         <a href="sales.html" class="view-all">View all →</a>
                     </div>
@@ -460,9 +362,9 @@
                     </div>
                     <div id="recentSalesPagination" style="padding:8px 22px 12px;"></div>
                 </div>
-                <div class="card">
-                    <div class="card-header">
-                        <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--danger);">warning_amber</span> Low Stock Alert</h3>
+                <div class="panel-card">
+                    <div class="panel-head">
+                        <h3><span class="icon-chip amber"><span class="material-symbols-outlined" style="font-size:16px;">warning_amber</span></span> Low Stock Alert</h3>
                         <a href="inventory.html" class="view-all">View all →</a>
                     </div>
                     <div id="lowStockList">
@@ -474,21 +376,23 @@
                     </div>
                 </div>
             </div>
-            <div class="dash-bottom">
-                <div class="card">
-                    <div class="card-header">
-                        <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--accent);">schedule</span> Expiry Radar</h3>
+
+            <div class="dash-row" style="grid-template-columns:1.6fr 1fr;">
+                <div class="panel-card">
+                    <div class="panel-head">
+                        <h3><span class="icon-chip red"><span class="material-symbols-outlined" style="font-size:16px;">schedule</span></span> Expiry Radar</h3>
+                        <span class="panel-sub">Click a tier for details</span>
                     </div>
                     <div class="expiry-radar" id="expiryGrid">
-                        <div class="skeleton" style="height:80px;border-radius:8px;"></div>
-                        <div class="skeleton" style="height:80px;border-radius:8px;"></div>
-                        <div class="skeleton" style="height:80px;border-radius:8px;"></div>
+                        <div class="skeleton" style="height:80px;border-radius:12px;"></div>
+                        <div class="skeleton" style="height:80px;border-radius:12px;"></div>
+                        <div class="skeleton" style="height:80px;border-radius:12px;"></div>
                     </div>
-                    <div id="expiryProductList" style="border-top:1px solid var(--border-glass);max-height:180px;overflow-y:auto;"></div>
+                    <div id="expiryProductList" style="max-height:180px;overflow-y:auto;"></div>
                 </div>
-                <div class="card">
-                    <div class="card-header">
-                        <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--info);">inventory_2</span> Supply Chain</h3>
+                <div class="panel-card">
+                    <div class="panel-head">
+                        <h3><span class="icon-chip blue"><span class="material-symbols-outlined" style="font-size:16px;">local_shipping</span></span> Supply Chain</h3>
                         <a href="suppliers.html" class="view-all">View all →</a>
                     </div>
                     <div id="recentPOList">
@@ -560,12 +464,12 @@
                     <li><strong>Left panel</strong> — Browse/search products by name or category. Click a product to add it to the cart.</li>
                     <li><strong>Right panel</strong> — Shows the current cart. Adjust quantities with +/- buttons, remove items, or set a discount percentage.</li>
                     <li>Scan barcodes using a scanner or press <span class="shortcut">F2</span> to focus the scan field.</li>
-                    <li>Fill in customer name/phone (optional), select payment method, then click <strong>Pay</strong> to complete the sale.</li>
+                    <li>Payments are <strong>cash only</strong> — enter the cash received and the system computes the change.</li>
                 </ul>
             </div>
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">inventory_2</span> Inventory</h3>
-                <p>Manage your products: add, edit, view details, adjust stock, and set reorder levels. Use the CSV import tool to bulk-add products. The table shows SKU, name, category, price, stock, and expiration status.</p>
+                <p>Manage your products: add, edit, view details, adjust stock, and set reorder levels. Use the quick filter chips (Low Stock, Expiring, Expired) and click any column header to sort. Use the CSV import tool to bulk-add products.</p>
             </div>
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">receipt</span> Sales History</h3>
@@ -573,7 +477,7 @@
             </div>
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">local_shipping</span> Suppliers</h3>
-                <p>Track your suppliers, contact info, payment terms, and performance metrics (delivery time, on-time rate). View email history for purchase orders and alerts sent to each supplier.</p>
+                <p>Track your suppliers, contact info, payment terms, and performance metrics. Click <strong>Emails</strong> on a supplier to see every email sent to them and whether they've opened it (read receipts).</p>
             </div>
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">assessment</span> Reports &amp; Analytics</h3>

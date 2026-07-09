@@ -249,3 +249,20 @@
     flex-wrap: wrap;
   }
 }
+
+/* ── 2026 redesign additions ── */
+.supplier-email-link {
+  color: var(--info);
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  border-bottom: 1px dashed color-mix(in srgb, var(--info) 45%, transparent);
+  transition: all 0.15s ease;
+}
+
+.supplier-email-link:hover {
+  color: var(--primary-dark);
+  border-bottom-color: var(--primary);
+}
+
+.supplier-table td { vertical-align: middle; }

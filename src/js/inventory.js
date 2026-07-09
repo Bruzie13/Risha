@@ -6,6 +6,9 @@ let allProducts = [];
 let editingProductId = null;
 let lowStockOnly = false;
 let reorderTab = false;
+let statusFilter = '';
+let sortKey = '';
+let sortDir = 1;
 
 // Load page on startup
 window.addEventListener('load', async () => {
@@ -90,15 +93,75 @@ async function loadProducts() {
     }
 }
 
+/* ── Status helpers ── */
+// Priority: expired > expiring > out > low > in (matches badge logic)
+function productStatus(p) {
+    const days = daysUntilExpiry(p);
+    if (days !== null) {
+        if (days < 0) return 'expired';
+        if (days <= 30) return 'expiring';
+    }
+    const stock = Number(p.stock_quantity) || 0;
+    if (stock === 0) return 'out';
+    if (stock <= (p.reorder_level ?? 10)) return 'low';
+    return 'in';
+}
+
+function daysUntilExpiry(p) {
+    if (!p.expiration_date) return null;
+    const raw = String(p.expiration_date);
+    // Date-only strings parse as local midnight; ISO datetimes (UTC from the DB)
+    // must be converted to local time BEFORE stripping the time, or PH dates
+    // stored as previous-day 16:00Z land on the wrong calendar day.
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? new Date(raw + 'T00:00:00') : new Date(raw);
+    if (isNaN(d.getTime())) return null;
+    const expiry = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((expiry - today) / 86400000);
+}
+
+// Chip filters match plain facts (a product can be both low-stock AND expiring);
+// productStatus() above is only for the single badge shown in the table.
+function statusMatches(p, filter) {
+    if (!filter) return true;
+    const stock = Number(p.stock_quantity) || 0;
+    const days = daysUntilExpiry(p);
+    switch (filter) {
+        case 'low': return stock > 0 && stock <= (p.reorder_level ?? 10);
+        case 'out': return stock === 0;
+        case 'reorder': return stock <= (p.reorder_level ?? 10);
+        case 'expiring': return days !== null && days >= 0 && days <= 30;
+        case 'expired': return days !== null && days < 0;
+        case 'in': return productStatus(p) === 'in';
+        default: return true;
+    }
+}
+
+const STATUS_RANK = { expired: 0, out: 1, expiring: 2, low: 3, in: 4 };
+
+const AVATAR_ICONS = {
+    food: 'pet_supplies', treat: 'pet_supplies', toy: 'toys', medicine: 'medication',
+    health: 'medication', grooming: 'soap', accessor: 'checkroom', litter: 'delete_sweep'
+};
+
+function productIcon(p) {
+    const cat = (p.category_name || p.category || '').toLowerCase();
+    for (const key in AVATAR_ICONS) {
+        if (cat.includes(key)) return AVATAR_ICONS[key];
+    }
+    return 'inventory_2';
+}
+
 function displayProducts(products) {
     const tbody = document.getElementById('productsTableBody');
     const viewer = isViewer();
-    const colSpan = viewer ? 11 : 12;
-    
+    const colSpan = viewer ? 7 : 8;
+
     if (products.length === 0) {
         const hasFilters = !!(document.getElementById('searchInput')?.value ||
             document.getElementById('categoryFilter')?.value ||
-            document.getElementById('speciesFilter')?.value || reorderTab);
+            document.getElementById('speciesFilter')?.value || statusFilter || reorderTab);
         const icon = hasFilters ? 'search_off' : 'inventory_2';
         const title = hasFilters ? 'No products match your filters' : 'No products yet';
         const hint = hasFilters
@@ -120,46 +183,58 @@ function displayProducts(products) {
     }
 
     const shown = products.slice(0, displayCount);
-    tbody.innerHTML = shown.map(product => {
-        let expDateFormatted = '<span style="color:var(--text-muted);">—</span>';
+    tbody.innerHTML = shown.map((product, i) => {
+        const status = productStatus(product);
+        const days = daysUntilExpiry(product);
 
-        if (product.expiration_date) {
-            const date = new Date(product.expiration_date);
-            if (!isNaN(date.getTime())) {
-                const formatted = date.toLocaleDateString('en-US', {
-                    year: 'numeric', month: '2-digit', day: '2-digit'
-                });
-                const daysLeft = Math.floor((date - new Date()) / 86400000);
-                if (daysLeft < 0) {
-                    expDateFormatted = `<span style="color:var(--danger);font-weight:600;" title="Expired">${formatted}</span>`;
-                } else if (daysLeft <= 30) {
-                    expDateFormatted = `<span style="color:var(--warning,#e65100);font-weight:600;" title="Expires in ${daysLeft} day(s)">${formatted}</span>`;
-                } else {
-                    expDateFormatted = formatted;
-                }
-            }
+        // Expiration cell: date + human-readable countdown
+        let expiryCell = '<span class="text-muted">—</span>';
+        if (product.expiration_date && days !== null) {
+            const formatted = new Date(product.expiration_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const cls = days < 0 ? 'expired' : days <= 30 ? 'soon' : '';
+            const sub = days < 0
+                ? `Expired ${Math.abs(days)}d ago`
+                : days === 0 ? 'Expires today'
+                : days <= 60 ? `In ${days} day${days === 1 ? '' : 's'}`
+                : '';
+            expiryCell = `<div class="cell-expiry ${cls}">
+                <div class="ce-date">${formatted}</div>
+                ${sub ? `<div class="ce-sub">${sub}</div>` : ''}
+            </div>`;
         }
 
+        // Stock cell: number + mini meter vs. reorder level
         const stockNum = Number(product.stock_quantity) || 0;
-        const stockDisplay = formatNumber(product.stock_quantity) + getUnitLabel(product.unit_type);
-        const stockCell = stockNum === 0
-            ? `<span style="color:var(--danger);font-weight:700;">${stockDisplay}</span>`
-            : stockNum <= product.reorder_level
-                ? `<span style="color:var(--warning,#e65100);font-weight:700;">${stockDisplay}</span>`
-                : stockDisplay;
+        const reorder = product.reorder_level ?? 10;
+        const pct = Math.min(100, Math.round((stockNum / Math.max(reorder * 2, 1)) * 100));
+        const fillClass = stockNum === 0 ? 'out' : stockNum <= reorder ? 'warn' : '';
+        const stockColor = stockNum === 0 ? 'var(--danger)' : stockNum <= reorder ? 'var(--warning)' : 'var(--text-primary)';
+        const stockCell = `<div class="cell-stock">
+            <div class="cs-num" style="color:${stockColor}">${formatNumber(product.stock_quantity)}${getUnitLabel(product.unit_type)}</div>
+            <div class="cs-track"><div class="cs-fill ${fillClass}" style="width:${Math.max(stockNum > 0 ? 6 : 0, pct)}%"></div></div>
+        </div>`;
+
+        const tint = (product.id % 5) + 1;
 
         return `
             <tr>
                 ${viewer ? '' : `<td><input type="checkbox" class="product-checkbox" value="${product.id}"></td>`}
-                <td>${escHtml(product.sku)}</td>
-                <td>${escHtml(product.name)}</td>
-                <td>${escHtml(product.brand || 'N/A')}</td>
-                <td>${escHtml(product.category_name || 'N/A')}</td>
-                <td>${escHtml(product.species || 'N/A')}</td>
-                <td>${formatCurrency(product.unit_price)}</td>
+                <td>
+                    <div class="cell-product">
+                        <div class="cp-avatar tint-${tint}"><span class="material-symbols-outlined" style="font-size:17px;">${productIcon(product)}</span></div>
+                        <div class="cp-info">
+                            <div class="cp-name" title="${escHtml(product.name)}">${escHtml(product.name)}</div>
+                            <div class="cp-sub">${escHtml(product.sku)}${product.brand ? ' · ' + escHtml(product.brand) : ''}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div style="font-size:12.5px;font-weight:500;color:var(--text-secondary);">${escHtml(product.category_name || 'N/A')}</div>
+                    ${product.species ? `<div style="font-size:11px;color:var(--text-muted);margin-top:1px;">${escHtml(product.species)}</div>` : ''}
+                </td>
+                <td style="font-weight:600;color:var(--text-primary);font-variant-numeric:tabular-nums;">${formatCurrency(product.unit_price)}</td>
                 <td>${stockCell}</td>
-                <td>${product.reorder_level}</td>
-                <td>${expDateFormatted}</td>
+                <td>${expiryCell}</td>
                 <td>${getStatusBadge(product.stock_quantity, product.reorder_level, product.expiration_date)}</td>
                 <td>
                     <div class="actions-cell">
@@ -176,27 +251,8 @@ function displayProducts(products) {
 }
 
 function showMoreProducts() {
-    const step = reorderTab ? LOW_STOCK_PAGE_SIZE : PAGE_SIZE;
-    displayCount += step;
-    let filtered;
-    if (reorderTab) {
-        filtered = allProducts.filter(p => p.stock_quantity <= p.reorder_level);
-    } else {
-        const searchTerm = document.getElementById('searchInput')?.value?.toLowerCase() || '';
-        const categoryId = document.getElementById('categoryFilter')?.value || '';
-        const species = document.getElementById('speciesFilter')?.value || '';
-        filtered = allProducts.filter(p => {
-            const matchesSearch = !searchTerm ||
-                (p.name || '').toLowerCase().includes(searchTerm) ||
-                (p.sku || '').toLowerCase().includes(searchTerm) ||
-                (p.brand || '').toLowerCase().includes(searchTerm) ||
-                (p.barcode || '').toLowerCase().includes(searchTerm);
-            const matchesCategory = !categoryId || p.category_id == categoryId;
-            const matchesSpecies = !species || (p.species || '').toLowerCase() === species.toLowerCase();
-            return matchesSearch && matchesCategory && matchesSpecies;
-        });
-    }
-    displayProducts(filtered);
+    displayCount += reorderTab ? LOW_STOCK_PAGE_SIZE : PAGE_SIZE;
+    displayProducts(getFilteredProducts());
 }
 
 
@@ -207,15 +263,11 @@ function getUnitLabel(unitType) {
 
 // Get status badge with expiration check
 function getStatusBadge(stock, reorder, expirationDate) {
-    // Check if product is expiring soon (within 30 days)
     if (expirationDate) {
-        const expDate = new Date(expirationDate);
-        const today = new Date();
-        const daysUntilExpiry = Math.floor((expDate - today) / (1000 * 60 * 60 * 24));
-        
-        if (daysUntilExpiry < 0) {
+        const daysLeft = daysUntilExpiry({ expiration_date: expirationDate });
+        if (daysLeft !== null && daysLeft < 0) {
             return '<span class="status-badge status-expired">Expired</span>';
-        } else if (daysUntilExpiry <= 30) {
+        } else if (daysLeft !== null && daysLeft <= 30) {
             return '<span class="status-badge status-expiring-soon">Expiring Soon</span>';
         }
     }
@@ -229,52 +281,168 @@ function getStatusBadge(stock, reorder, expirationDate) {
     }
 }
 
+/* ── Filtering + sorting pipeline ── */
+function getFilteredProducts() {
+    const searchTerm = document.getElementById('searchInput')?.value?.toLowerCase() || '';
+    const categoryId = document.getElementById('categoryFilter')?.value || '';
+    const species = document.getElementById('speciesFilter')?.value || '';
+
+    let filtered = allProducts.filter(p => {
+        const matchesSearch = !searchTerm ||
+            (p.name || '').toLowerCase().includes(searchTerm) ||
+            (p.sku || '').toLowerCase().includes(searchTerm) ||
+            (p.brand || '').toLowerCase().includes(searchTerm) ||
+            (p.barcode || '').toLowerCase().includes(searchTerm);
+        const matchesCategory = !categoryId || p.category_id == categoryId;
+        const matchesSpecies = !species || (p.species || '').toLowerCase() === species.toLowerCase();
+        const matchesStatus = statusMatches(p, statusFilter);
+        return matchesSearch && matchesCategory && matchesSpecies && matchesStatus;
+    });
+
+    if (sortKey) filtered = sortProducts(filtered);
+    return filtered;
+}
+
+function sortProducts(list) {
+    const sorted = [...list];
+    const dir = sortDir;
+    sorted.sort((a, b) => {
+        switch (sortKey) {
+            case 'name':
+                return dir * (a.name || '').localeCompare(b.name || '');
+            case 'category':
+                return dir * (a.category_name || '').localeCompare(b.category_name || '');
+            case 'price':
+                return dir * ((parseFloat(a.unit_price) || 0) - (parseFloat(b.unit_price) || 0));
+            case 'stock':
+                return dir * ((Number(a.stock_quantity) || 0) - (Number(b.stock_quantity) || 0));
+            case 'expiry': {
+                // Products without an expiry date always sink to the bottom
+                const da = daysUntilExpiry(a), db = daysUntilExpiry(b);
+                if (da === null && db === null) return 0;
+                if (da === null) return 1;
+                if (db === null) return -1;
+                return dir * (da - db);
+            }
+            case 'status':
+                return dir * (STATUS_RANK[productStatus(a)] - STATUS_RANK[productStatus(b)]);
+            default:
+                return 0;
+        }
+    });
+    return sorted;
+}
+
+function sortBy(key) {
+    if (sortKey === key) {
+        sortDir = -sortDir;
+    } else {
+        sortKey = key;
+        sortDir = 1;
+    }
+    const select = document.getElementById('sortSelect');
+    if (select) {
+        const mapped = key === 'status' ? 'status' : `${key}-${sortDir === 1 ? 'asc' : 'desc'}`;
+        select.value = [...select.options].some(o => o.value === mapped) ? mapped : '';
+    }
+    updateSortArrows();
+    displayCount = PAGE_SIZE;
+    displayProducts(getFilteredProducts());
+}
+
+function applySortSelect(value) {
+    if (!value) {
+        sortKey = '';
+        sortDir = 1;
+    } else if (value === 'status') {
+        sortKey = 'status';
+        sortDir = 1;
+    } else {
+        const [key, dir] = value.split('-');
+        sortKey = key;
+        sortDir = dir === 'desc' ? -1 : 1;
+    }
+    updateSortArrows();
+    displayCount = PAGE_SIZE;
+    displayProducts(getFilteredProducts());
+}
+
+function updateSortArrows() {
+    document.querySelectorAll('.data-table th.th-sort').forEach(th => {
+        const isActive = th.dataset.key === sortKey;
+        th.classList.toggle('sorted', isActive);
+        const arrow = th.querySelector('.sort-arrow');
+        if (arrow) arrow.textContent = isActive && sortDir === -1 ? '▼' : '▲';
+    });
+}
+
+function setStatusFilter(status, chipEl) {
+    statusFilter = status;
+    reorderTab = false;
+    lowStockOnly = false;
+    document.querySelectorAll('#statusChips .chip').forEach(c => c.classList.remove('active'));
+    if (chipEl) chipEl.classList.add('active');
+    else document.querySelector(`#statusChips .chip[data-status="${status}"]`)?.classList.add('active');
+    const banner = document.getElementById('reorderBanner');
+    if (banner) banner.style.display = 'none';
+    displayCount = PAGE_SIZE;
+    displayProducts(getFilteredProducts());
+}
+
 function filterLowStock() {
-    lowStockOnly = true;
-    reorderTab = true;
-    displayCount = LOW_STOCK_PAGE_SIZE;
+    // Stat-card click: show everything at/below reorder level (low + out of stock)
+    setStatusFilter('reorder');
     const lowStock = allProducts.filter(p => p.stock_quantity <= p.reorder_level);
     const banner = document.getElementById('reorderBanner');
-    if (banner) { banner.style.display = 'flex'; }
+    if (banner) banner.style.display = 'flex';
     const ct = document.getElementById('reorderCount');
-    if (ct) { ct.textContent = `${lowStock.length} product(s) need reordering`; }
-    displayProducts(lowStock);
+    if (ct) ct.textContent = `${lowStock.length} product(s) need reordering`;
 }
 
 function showAllProducts() {
     lowStockOnly = false;
     reorderTab = false;
+    statusFilter = '';
     displayCount = PAGE_SIZE;
     const banner = document.getElementById('reorderBanner');
     if (banner) { banner.style.display = 'none'; }
     document.getElementById('searchInput').value = '';
     document.getElementById('categoryFilter').value = '';
     document.getElementById('speciesFilter').value = '';
-    displayProducts(allProducts);
+    document.querySelectorAll('#statusChips .chip').forEach(c => c.classList.remove('active'));
+    document.querySelector('#statusChips .chip[data-status=""]')?.classList.add('active');
+    displayProducts(getFilteredProducts());
 }
 
-// Update statistics
+// Update statistics + chip counts
 function updateStats() {
     const totalProducts = allProducts.length;
+    const count = f => allProducts.filter(p => statusMatches(p, f)).length;
+
     const lowStockProducts = allProducts.filter(p => p.stock_quantity <= p.reorder_level).length;
-    
-    // Count products expiring within 30 days
-    const today = new Date();
-    const expiringProducts = allProducts.filter(p => {
-        if (!p.expiration_date) return false;
-        const expDate = new Date(p.expiration_date);
-        const daysUntilExpiry = Math.floor((expDate - today) / (1000 * 60 * 60 * 24));
-        return daysUntilExpiry > 0 && daysUntilExpiry <= 30;
-    }).length;
-    
     const totalValue = allProducts.reduce((sum, p) => sum + (p.unit_price * p.stock_quantity), 0);
     const overstockProducts = allProducts.filter(p => p.max_stock_level && p.stock_quantity > p.max_stock_level * 1.5).length;
 
     document.getElementById('totalProductsCount').textContent = formatNumber(totalProducts);
     document.getElementById('lowStockCount').textContent = formatNumber(lowStockProducts);
-    document.getElementById('expiringCount').textContent = formatNumber(expiringProducts);
-    document.getElementById('totalValue').textContent = formatCurrency(totalValue);
+    document.getElementById('expiringCount').textContent = formatNumber(count('expiring'));
+    const valueEl = document.getElementById('totalValue');
+    valueEl.textContent = formatCompactCurrency(totalValue);
+    valueEl.title = formatCurrency(totalValue);
     document.getElementById('overstockCount').textContent = formatNumber(overstockProducts);
+
+    const chipCounts = {
+        chipCountAll: totalProducts,
+        chipCountLow: count('low'),
+        chipCountOut: count('out'),
+        chipCountExpiring: count('expiring'),
+        chipCountExpired: count('expired'),
+        chipCountIn: count('in')
+    };
+    for (const id in chipCounts) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = formatNumber(chipCounts[id]);
+    }
 }
 
 // Search products
@@ -283,28 +451,14 @@ document.getElementById('categoryFilter')?.addEventListener('change', filterProd
 document.getElementById('speciesFilter')?.addEventListener('change', filterProducts);
 
 function filterProducts() {
-    if (lowStockOnly) {
+    if (lowStockOnly || reorderTab) {
         lowStockOnly = false;
         reorderTab = false;
         const banner = document.getElementById('reorderBanner');
         if (banner) { banner.style.display = 'none'; }
     }
-    const searchTerm = document.getElementById('searchInput')?.value?.toLowerCase() || '';
-    const categoryId = document.getElementById('categoryFilter')?.value || '';
-    const species = document.getElementById('speciesFilter')?.value || '';
-
     displayCount = PAGE_SIZE;
-    const filtered = allProducts.filter(p => {
-        const matchesSearch = !searchTerm ||
-            (p.name || '').toLowerCase().includes(searchTerm) ||
-            (p.sku || '').toLowerCase().includes(searchTerm) ||
-            (p.brand || '').toLowerCase().includes(searchTerm) ||
-            (p.barcode || '').toLowerCase().includes(searchTerm);
-        const matchesCategory = !categoryId || p.category_id == categoryId;
-        const matchesSpecies = !species || (p.species || '').toLowerCase() === species.toLowerCase();
-        return matchesSearch && matchesCategory && matchesSpecies;
-    });
-    displayProducts(filtered);
+    displayProducts(getFilteredProducts());
 }
 
 // Open add product modal

@@ -127,9 +127,9 @@ async function loadReport(period, dateFrom, dateTo) {
 function renderSummary(summary) {
     if (!summary) return;
     document.getElementById('summaryRevenue').textContent = formatCurrency(summary.total_revenue || 0);
-    document.getElementById('summaryTransactions').textContent = (summary.total_transactions || 0).toLocaleString();
+    document.getElementById('summaryTransactions').textContent = (Number(summary.total_transactions) || 0).toLocaleString();
     document.getElementById('summaryAvg').textContent = formatCurrency(summary.avg_transaction_value || 0);
-    document.getElementById('summaryItems').textContent = (summary.total_items_sold || 0).toLocaleString();
+    document.getElementById('summaryItems').textContent = (Number(summary.total_items_sold) || 0).toLocaleString();
 }
 
 function renderReportTable(period, data) {
@@ -161,7 +161,7 @@ function renderReportTable(period, data) {
                 <td>${r.date ? new Date(r.date).toLocaleDateString() : 'N/A'}</td>
                 <td>${r.total_sales ?? 0}</td>
                 <td>${formatCurrency(r.total_amount ?? 0)}</td>
-                <td>${r.item_count ?? r.total_items ?? '-'}</td>
+                <td>${formatNumber(parseFloat(r.item_count ?? r.total_items) || 0)}</td>
             </tr>
         `).join('');
     } else if (period === 'weekly') {
@@ -206,6 +206,15 @@ function renderSalesChart(rows) {
     if (!Array.isArray(rows) || rows.length === 0) return;
     const ctx = canvas.getContext('2d');
     if (salesChart) salesChart.destroy();
+    // API returns rows newest-first; the time axis should read left → right
+    rows = [...rows];
+    const firstDate = new Date(rows[0]?.date);
+    const lastDate = new Date(rows[rows.length - 1]?.date);
+    if (!isNaN(firstDate) && !isNaN(lastDate)) {
+        rows.sort((a, b) => new Date(a.date) - new Date(b.date));
+    } else {
+        rows.reverse();
+    }
     const labels = rows.map(r => {
         const d = new Date(r.date);
         return isNaN(d.getTime()) ? (r.week || r.month || '') : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -217,14 +226,15 @@ function renderSalesChart(rows) {
         data: {
             labels,
             datasets: [
-                { label: 'Sales Count', data: salesCount, backgroundColor: '#6FB3DF', yAxisID: 'y' },
-                { label: 'Revenue (₱)', data: revenue, backgroundColor: '#7FC98F', yAxisID: 'y1' }
+                { label: 'Sales Count', data: salesCount, backgroundColor: '#61B6E7', borderRadius: 5, yAxisID: 'y' },
+                { label: 'Revenue (₱)', data: revenue, backgroundColor: '#F1867B', borderRadius: 5, yAxisID: 'y1' }
             ]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
-            plugins: { legend: { position: 'top' } },
+            plugins: { legend: { position: 'top', labels: { boxWidth: 10, boxHeight: 10, usePointStyle: true, pointStyle: 'circle' } } },
             scales: {
                 y: { beginAtZero: true, position: 'left', title: { display: true, text: 'Sales Count' } },
                 y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Revenue (₱)' } }
@@ -241,16 +251,17 @@ function renderTopProductsChart(products) {
     if (topProductsChart) topProductsChart.destroy();
     const labels = products.map(p => p.name || p.label || '');
     const values = products.map(p => parseInt(p.quantity || p.count || 0));
-    const colors = ['#6FB3DF', '#F0B95A', '#7FC98F', '#E8746C', '#B78FD6'];
+    const colors = ['#61B6E7', '#F3B950', '#57BE8C', '#F1867B', '#9F86DC'];
     topProductsChart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels,
-            datasets: [{ label: 'Units Sold', data: values, backgroundColor: colors.slice(0, labels.length) }]
+            datasets: [{ label: 'Units Sold', data: values, backgroundColor: colors.slice(0, labels.length), borderRadius: 5 }]
         },
         options: {
             indexAxis: 'y',
             responsive: true,
+            maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: { x: { beginAtZero: true } }
         }
@@ -265,17 +276,19 @@ function renderPaymentChart(payments) {
     if (paymentChart) paymentChart.destroy();
     const labels = payments.map(p => (p.payment_method || 'unknown').charAt(0).toUpperCase() + (p.payment_method || 'unknown').slice(1));
     const values = payments.map(p => parseFloat(p.total || 0));
-    const colors = ['#7FC98F', '#6FB3DF', '#F0B95A', '#E8746C'];
+    const colors = ['#57BE8C', '#61B6E7', '#F3B950', '#F1867B'];
     paymentChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels,
-            datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length) }]
+            datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length), borderWidth: 2, hoverOffset: 6 }]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
+            cutout: '62%',
             plugins: {
-                legend: { position: 'bottom' },
+                legend: { position: 'bottom', labels: { boxWidth: 9, boxHeight: 9, usePointStyle: true, pointStyle: 'circle', padding: 12 } },
                 tooltip: {
                     callbacks: {
                         label: ctx => ` ${ctx.label}: ${formatCurrency(ctx.raw)}`
@@ -294,17 +307,21 @@ function renderCategoryChart(categories) {
     if (categoryChart) categoryChart.destroy();
     const labels = categories.map(c => c.category_name || 'Unknown');
     const values = categories.map(c => parseFloat(c.total_revenue || 0));
-    const colors = ['#6FB3DF', '#7FC98F', '#F0B95A', '#E8746C', '#B78FD6', '#F49AC1', '#66C2B5', '#F5A25F'];
+    const colors = ['#61B6E7', '#57BE8C', '#F3B950', '#F1867B', '#9F86DC', '#E88BB5', '#6BC6BD', '#F5A25F'];
     categoryChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels,
-            datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length) }]
+            datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length), borderWidth: 2, hoverOffset: 6 }]
         },
         options: {
+            // maintainAspectRatio:false keeps the doughnut inside the fixed-height
+            // .chart-wrapper — without it the canvas grows square and overflows the card
             responsive: true,
+            maintainAspectRatio: false,
+            cutout: '62%',
             plugins: {
-                legend: { position: 'bottom' },
+                legend: { position: 'bottom', labels: { boxWidth: 9, boxHeight: 9, usePointStyle: true, pointStyle: 'circle', padding: 12 } },
                 tooltip: {
                     callbacks: {
                         label: ctx => ` ${ctx.label}: ${formatCurrency(ctx.raw)}`
@@ -389,7 +406,7 @@ function showToast(message, type) {
         toast.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:12px 24px;border-radius:8px;color:#fff;font-weight:500;z-index:9999;transition:opacity 0.3s;display:flex;align-items:center;gap:8px;';
         document.body.appendChild(toast);
     }
-    toast.style.background = type === 'error' ? '#E8746C' : type === 'success' ? '#7FC98F' : '#5FA8D8';
+    toast.style.background = type === 'error' ? '#E5484D' : type === 'success' ? '#2FA36B' : '#3E9BD6';
     const icons = {
         success: '<span class="material-symbols-outlined" style="font-size:16px;">check_circle</span>',
         error: '<span class="material-symbols-outlined" style="font-size:16px;">error</span>',

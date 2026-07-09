@@ -77,18 +77,17 @@
             <div class="pos-layout">
                 <!-- Left: Product Grid -->
                 <div class="pos-products">
-                    <div class="pos-scanner-bar">
-                        <span class="scanner-label"><span class="material-symbols-outlined" style="font-size:14px;">qr_code_scanner</span> Scan (F2)</span>
-                        <input type="text" id="barcodeScanInput" placeholder="Scan barcode or search..." autofocus>
-                        <button class="btn-secondary" style="padding:6px 10px;font-size:11px;" onclick="clearBarcodeInput()"><span class="material-symbols-outlined" style="font-size:14px;">close</span></button>
-                    </div>
                     <div class="pos-toolbar">
+                        <div class="pos-scan-wrap" title="Press F2 to focus the scanner">
+                            <span class="material-symbols-outlined scan-icon">barcode_scanner</span>
+                            <input type="text" id="barcodeScanInput" placeholder="Scan barcode (F2)" autofocus>
+                        </div>
                         <div class="pos-search-wrap">
                             <span class="material-symbols-outlined search-icon">search</span>
                             <input type="text" class="pos-search" id="posSearchInput" placeholder="Search products..." oninput="filterProducts()">
                         </div>
-                        <div id="categoryFilters" class="pos-category-filter"></div>
                     </div>
+                    <div class="pos-cats-bar" id="categoryFilters"></div>
                     <div class="pos-grid" id="productGrid">
                     </div>
                     <div id="posPagination" class="pagination-bar"></div>
@@ -97,8 +96,8 @@
                 <!-- Right: Cart Panel -->
                 <div class="pos-cart">
                     <div class="pos-cart-header">
-                        <h3><span class="material-symbols-outlined" style="font-size:18px;">shopping_cart</span> Current Sale</h3>
-                        <span class="cart-count" id="cartCount">0 items</span>
+                        <h3><span class="icon-chip coral"><span class="material-symbols-outlined" style="font-size:16px;">shopping_cart</span></span> Current Sale</h3>
+                        <span class="cart-count" id="cartCount">0</span>
                     </div>
                     <div class="pos-cart-items" id="cartItems">
                         <div class="pos-cart-empty">
@@ -112,39 +111,40 @@
                         <input type="text" id="posCustomerPhone" placeholder="Phone (optional)">
                     </div>
                     <div class="pos-cart-summary">
-                        <div class="discount-input">
-                            <label>Discount %:</label>
-                            <input type="number" id="posDiscount" value="0" min="0" max="100" step="0.01" oninput="updateCartTotals()">
-                        </div>
                         <div class="summary-row">
                             <span>Subtotal</span>
                             <span id="posSubtotal">₱0.00</span>
                         </div>
-                        <div class="summary-row">
-                            <span>Discount</span>
+                        <div class="summary-row discount-row">
+                            <span>Discount
+                                <span class="discount-inline">
+                                    <input type="number" id="posDiscount" value="0" min="0" max="100" step="0.01" oninput="updateCartTotals()">%
+                                </span>
+                            </span>
                             <span id="posDiscountAmount">-₱0.00</span>
                         </div>
                         <div class="summary-row total">
                             <span>Total</span>
                             <span class="total-val" id="posTotal">₱0.00</span>
                         </div>
-                        <div class="pos-payment-methods" id="posPaymentMethods">
-                            <button type="button" class="pos-pay-btn active" data-method="cash" onclick="setPaymentMethod('cash', this)"><span class="material-symbols-outlined">payments</span> Cash</button>
-                            <button type="button" class="pos-pay-btn" data-method="card" onclick="setPaymentMethod('card', this)"><span class="material-symbols-outlined">credit_card</span> Card</button>
-                            <button type="button" class="pos-pay-btn" data-method="check" onclick="setPaymentMethod('check', this)"><span class="material-symbols-outlined">contract</span> Check</button>
-                            <button type="button" class="pos-pay-btn" data-method="online" onclick="setPaymentMethod('online', this)"><span class="material-symbols-outlined">smartphone</span> Online</button>
+
+                        <div class="pos-cash-banner">
+                            <span class="material-symbols-outlined" style="font-size:17px;">payments</span>
+                            Cash payment only
                         </div>
+
                         <div class="pos-tender-section" id="posTenderSection">
                             <div class="pos-tender-row">
-                                <label for="posTendered">Cash tendered</label>
+                                <label for="posTendered">Cash received</label>
                                 <input type="number" id="posTendered" min="0" step="0.01" placeholder="0.00" oninput="updateChange()">
                             </div>
                             <div class="pos-quick-cash">
-                                <button type="button" onclick="quickCash('exact')">Exact</button>
-                                <button type="button" onclick="quickCash(100)">₱100</button>
-                                <button type="button" onclick="quickCash(200)">₱200</button>
-                                <button type="button" onclick="quickCash(500)">₱500</button>
-                                <button type="button" onclick="quickCash(1000)">₱1000</button>
+                                <button type="button" class="exact" onclick="quickCash('exact')">Exact</button>
+                                <button type="button" onclick="quickCash(20)">+20</button>
+                                <button type="button" onclick="quickCash(50)">+50</button>
+                                <button type="button" onclick="quickCash(100)">+100</button>
+                                <button type="button" onclick="quickCash(500)">+500</button>
+                                <button type="button" onclick="quickCash(1000)">+1000</button>
                             </div>
                             <div class="pos-change-row" id="posChangeRow">
                                 <span>Change</span>
@@ -154,7 +154,7 @@
                     </div>
                     <div class="pos-cart-actions">
                         <button class="btn-secondary" onclick="clearCart()"><span class="material-symbols-outlined" style="font-size:14px;">delete_sweep</span> Clear</button>
-                        <button class="btn-primary" onclick="completeSale()"><span class="material-symbols-outlined" style="font-size:15px;">payments</span> Pay</button>
+                        <button class="btn-primary pos-pay-main" id="posPayBtn" onclick="completeSale()"><span class="material-symbols-outlined" style="font-size:16px;">point_of_sale</span> Charge <span id="posPayTotal">₱0.00</span></button>
                     </div>
                 </div>
             </div>
@@ -205,7 +205,7 @@
                     <li><strong>Left panel</strong> — Browse/search products by name or category. Click a product to add it to the cart.</li>
                     <li><strong>Right panel</strong> — Shows the current cart. Adjust quantities with +/- buttons, remove items, or set a discount percentage.</li>
                     <li>Scan barcodes using a scanner or press <span class="shortcut">F2</span> to focus the scan field.</li>
-                    <li>Fill in customer name/phone (optional), select payment method, then click <strong>Pay</strong> to complete the sale.</li>
+                    <li>Payments are <strong>cash only</strong> — enter the cash received (or tap the quick-amount buttons) and the system computes the change, then click <strong>Charge</strong>.</li>
                 </ul>
             </div>
             <div class="help-section">

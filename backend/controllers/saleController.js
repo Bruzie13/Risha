@@ -104,7 +104,8 @@ exports.createSale = async (req, res) => {
             total_amount,
             final_amount,
             discount: discPct,
-            payment_method: payment_method || 'cash',
+            // POS is cash-only: ignore whatever the client sends
+            payment_method: 'cash',
             notes: notes || null,
             customer_name: customer_name || null,
             customer_phone: customer_phone || null,
