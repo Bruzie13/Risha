@@ -64,12 +64,49 @@ function buildTransporter(config) {
     });
 }
 
+// Railway blocks outbound SMTP on its free plan, so production sends over
+// Brevo's HTTPS API when BREVO_API_KEY is set. The sender address must be a
+// verified sender in the Brevo account.
+async function sendViaBrevo(config, mailOptions) {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+            'api-key': process.env.BREVO_API_KEY,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+            sender: { email: config.user, name: config.fromName },
+            to: [{ email: mailOptions.to }],
+            subject: mailOptions.subject,
+            htmlContent: mailOptions.html
+        })
+    });
+    if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`Brevo API ${res.status}: ${body.slice(0, 200)}`);
+    }
+}
+
+async function sendMessage(config, mailOptions) {
+    if (process.env.BREVO_API_KEY) {
+        await sendViaBrevo(config, mailOptions);
+        return;
+    }
+    const transporter = buildTransporter(config);
+    if (!transporter) throw new Error('Email credentials not configured');
+    await transporter.sendMail(mailOptions);
+}
+
 /**
  * Verify credentials actually work by connecting to Gmail SMTP.
  */
 async function verifyEmailConfig(user, pass) {
-    if (!user || !pass) return { ok: false, error: 'Email and app password are required' };
     if (!isValidEmail(user)) return { ok: false, error: 'Sender email address is not a valid email' };
+    // Sends go over Brevo's HTTPS API — Gmail SMTP is unused and can't be
+    // verified from hosts that block SMTP, so accept the settings as-is.
+    if (process.env.BREVO_API_KEY) return { ok: true };
+    if (!user || !pass) return { ok: false, error: 'Email and app password are required' };
     const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: { user, pass: pass.replace(/\s+/g, '') }
@@ -158,8 +195,7 @@ async function deliver(trackingId, recipientEmail, mailOptions, context) {
         return false;
     }
 
-    const transporter = buildTransporter(config);
-    if (!transporter) {
+    if (!process.env.BREVO_API_KEY && !buildTransporter(config)) {
         console.error(`[Email] ${context}: no email credentials configured (set them in Settings → Email or backend/.env) — email not sent`);
         await updateEmailStatus(trackingId, 'failed', 'Email credentials not configured');
         return false;
@@ -168,7 +204,7 @@ async function deliver(trackingId, recipientEmail, mailOptions, context) {
     mailOptions.from = `"${config.fromName}" <${config.user}>`;
 
     try {
-        await transporter.sendMail(mailOptions);
+        await sendMessage(config, mailOptions);
         console.log(`[Email] ${context}: sent to ${recipientEmail}`);
         await updateEmailStatus(trackingId, 'sent');
         return true;
@@ -281,8 +317,7 @@ async function sendTestEmail(toEmail) {
     }
 
     const config = await getEmailConfig(true);
-    const transporter = buildTransporter(config);
-    if (!transporter) {
+    if (!process.env.BREVO_API_KEY && !buildTransporter(config)) {
         return { success: false, message: 'Email credentials are not configured yet' };
     }
 
@@ -305,7 +340,7 @@ async function sendTestEmail(toEmail) {
     };
 
     try {
-        await transporter.sendMail(mailOptions);
+        await sendMessage(config, mailOptions);
         return { success: true, message: `Test email sent to ${toEmail}` };
     } catch (error) {
         console.error('[Email] Test email failed:', error.message);
