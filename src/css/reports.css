@@ -855,3 +855,9 @@
     align-items: center;
     flex-wrap: wrap;
 }
+
+/* Clickable analytics segment cards (spotlight filter) */
+.perf-card.perf-clickable { cursor: pointer; transition: all 0.18s ease; }
+.perf-card.perf-clickable:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+.perf-card.perf-active { border-color: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 25%, transparent); }
+.perf-badge-steady { background: var(--success-bg, rgba(47,163,107,0.12)); color: var(--success, #2FA36B); }

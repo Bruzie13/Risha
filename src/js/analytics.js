@@ -4,6 +4,8 @@ let seasonalChart = null;
 let dowChart = null;
 let allProducts = [];
 let allPredictions = [];
+let predictionsMeta = null;   // totals + backtested accuracy from /predictions/all
+let currentSegments = null;   // fast / slow / risk / steady product lists
 const PRED_PAGE_SIZE = 10;
 let predDisplayCount = PRED_PAGE_SIZE;
 
@@ -255,14 +257,14 @@ function renderPredictionMetrics(data) {
 
 async function loadAllPredictions() {
     const tableBody = document.getElementById('predictionsTableBody');
-    if (tableBody) tableBody.innerHTML = '<tr><td colspan="7" class="text-center"><span class="material-symbols-outlined" style="font-size:16px;">hourglass_top</span> Analyzing sales history and computing forecasts...</td></tr>';
+    if (tableBody) tableBody.innerHTML = '<tr><td colspan="8" class="text-center"><span class="material-symbols-outlined" style="font-size:16px;">hourglass_top</span> Analyzing sales history and computing forecasts...</td></tr>';
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
 
     const allPromise = fetch(`${PRED_API}/all`, { headers: getAuthHeaders(), signal: controller.signal })
         .then(r => r.json())
-        .then(d => { if (d.success) allPredictions = d.data.predictions || []; })
+        .then(d => { if (d.success) { allPredictions = d.data.predictions || []; predictionsMeta = d.data; } })
         .catch(e => { if (e.name !== 'AbortError') console.error('Error loading all predictions:', e); });
 
     const summaryPromise = fetch(`${PRED_API}/summary`, { headers: getAuthHeaders(), signal: controller.signal })
@@ -279,7 +281,7 @@ async function loadAllPredictions() {
     clearTimeout(timeout);
 
     if (allPredictions.length === 0) {
-        if (tableBody) tableBody.innerHTML = '<tr><td colspan="7" class="text-center"><span class="material-symbols-outlined" style="font-size:16px;">warning_amber</span> No sales history yet — forecasts will appear once products have recorded sales.</td></tr>';
+        if (tableBody) tableBody.innerHTML = '<tr><td colspan="8" class="text-center"><span class="material-symbols-outlined" style="font-size:16px;">warning_amber</span> No sales history yet — forecasts will appear once products have recorded sales.</td></tr>';
     } else {
         renderPerformanceAnalysis();
         mergeAndRenderTable();
@@ -292,10 +294,15 @@ function renderPerformanceAnalysis() {
     document.getElementById('slowMoversCount').textContent = '—';
     document.getElementById('atRiskCount').textContent = '—';
     document.getElementById('steadyCount').textContent = '—';
-
     if (!enabled) return;
 
-    const avgDemand = allPredictions.reduce((s, p) => s + (p.next_month_prediction || 0), 0) / allPredictions.length;
+    // Quartile thresholds: retail demand is long-tailed, so a mean split
+    // dumps nearly everything into "slow". Top quartile = fast, bottom
+    // quartile = slow, stockout-risk overrides, the rest are steady.
+    const demands = allPredictions.map(p => p.next_month_prediction || 0).sort((a, b) => a - b);
+    const q = (arr, f) => arr.length ? arr[Math.min(arr.length - 1, Math.floor(arr.length * f))] : 0;
+    const q75 = q(demands, 0.75);
+    const q25 = q(demands, 0.25);
 
     const analyzed = allProducts.map(product => {
         const pred = allPredictions.find(p => p.product_id === product.id);
@@ -303,74 +310,55 @@ function renderPerformanceAnalysis() {
         const stock = product.stock_quantity || 0;
         const dailyAvg = predictedDemand / 30;
         const daysUntilStockout = dailyAvg > 0 ? Math.floor(stock / dailyAvg) : 999;
-        const highDemand = predictedDemand >= avgDemand * 1.2;
-        const lowDemand = predictedDemand <= avgDemand * 0.5;
-        const atRisk = daysUntilStockout <= 14;
-
-        return { product, predictedDemand, stock, dailyAvg, daysUntilStockout, atRisk, highDemand, lowDemand };
+        return {
+            product, pred, predictedDemand, stock, dailyAvg, daysUntilStockout,
+            trend: pred ? pred.trend : null,
+            momentum: pred ? pred.trend_momentum : null,
+            confidence: pred ? pred.confidence_score : null,
+            atRisk: daysUntilStockout <= 14,
+            highDemand: predictedDemand > 0 && predictedDemand >= q75,
+            lowDemand: predictedDemand <= q25
+        };
     });
 
-    const fastMovers = analyzed.filter(a => a.highDemand).sort((a, b) => b.predictedDemand - a.predictedDemand);
-    const atRiskProducts = analyzed.filter(a => a.atRisk).sort((a, b) => a.daysUntilStockout - b.daysUntilStockout);
-    const slowMovers = analyzed.filter(a => a.lowDemand).sort((a, b) => a.predictedDemand - b.predictedDemand);
-    const steady = analyzed.filter(a => !a.highDemand && !a.lowDemand).sort((a, b) => b.predictedDemand - a.predictedDemand);
+    currentSegments = {
+        fast: analyzed.filter(a => a.highDemand).sort((a, b) => b.predictedDemand - a.predictedDemand),
+        risk: analyzed.filter(a => a.atRisk).sort((a, b) => a.daysUntilStockout - b.daysUntilStockout),
+        slow: analyzed.filter(a => a.lowDemand && !a.highDemand).sort((a, b) => a.predictedDemand - b.predictedDemand),
+        steady: analyzed.filter(a => !a.highDemand && !a.lowDemand && !a.atRisk).sort((a, b) => b.predictedDemand - a.predictedDemand)
+    };
 
-    document.getElementById('fastMoversCount').textContent = fastMovers.length;
-    document.getElementById('slowMoversCount').textContent = slowMovers.length;
-    document.getElementById('atRiskCount').textContent = atRiskProducts.length;
-    document.getElementById('steadyCount').textContent = steady.length;
+    document.getElementById('fastMoversCount').textContent = currentSegments.fast.length;
+    document.getElementById('slowMoversCount').textContent = currentSegments.slow.length;
+    document.getElementById('atRiskCount').textContent = currentSegments.risk.length;
+    document.getElementById('steadyCount').textContent = currentSegments.steady.length;
 
-    renderFastMoversList(fastMovers);
-    renderNeedsAttentionList(atRiskProducts, slowMovers);
-}
-
-function renderFastMoversList(items) {
-    const container = document.getElementById('fastMoversList');
-    if (!container) return;
-    if (items.length === 0) {
-        container.innerHTML = '<div class="perf-placeholder">No fast-moving products detected</div>';
-        return;
-    }
-    container.innerHTML = items.slice(0, 8).map((item, i) => `
-        <div class="perf-item">
-            <div class="perf-item-rank">#${i + 1}</div>
-            <div class="perf-item-info">
-                <div class="perf-item-name">${escHtml(item.product.name)}</div>
-                <div class="perf-item-detail">Stock: ${formatNumber(item.stock)} | ${formatDecimal(item.dailyAvg, 1)}/day avg</div>
-            </div>
-            <div class="perf-item-stats">
-                <div class="perf-stat-value">${formatNumber(item.predictedDemand)}</div>
-                <div class="perf-stat-label">next mo.</div>
-            </div>
-            <div class="perf-item-badge perf-badge-fast"><span class="material-symbols-outlined" style="font-size:14px;">rocket_launch</span> Fast</div>
-        </div>
-    `).join('');
+    renderAnalyticsKpis(analyzed);
+    showSegment('fast');
+    renderNeedsAttentionList(currentSegments.risk, currentSegments.slow);
 }
 
 function renderNeedsAttentionList(atRisk, slowMovers) {
     const container = document.getElementById('needsAttentionList');
     if (!container) return;
-
     const combined = [
-        ...atRisk.map(a => ({ ...a, attentionReason: 'stockout', label: `Stockout in ${a.daysUntilStockout}d` })),
-        ...slowMovers.filter(s => !atRisk.find(a => a.product.id === s.product.id)).map(s => ({ ...s, attentionReason: 'declining', label: 'Demand declining' }))
+        ...atRisk.map(a => ({ ...a, attentionReason: 'stockout' })),
+        ...slowMovers.filter(s => !atRisk.find(a => a.product.id === s.product.id)).map(s => ({ ...s, attentionReason: 'declining' }))
     ].sort((a, b) => {
         if (a.attentionReason === 'stockout' && b.attentionReason !== 'stockout') return -1;
         if (a.attentionReason !== 'stockout' && b.attentionReason === 'stockout') return 1;
         return a.daysUntilStockout - b.daysUntilStockout;
     });
-
     if (combined.length === 0) {
         container.innerHTML = '<div class="perf-placeholder">All products are in good shape</div>';
         return;
     }
-
     container.innerHTML = combined.slice(0, 8).map((item, i) => `
         <div class="perf-item">
             <div class="perf-item-rank rank-risk">#${i + 1}</div>
             <div class="perf-item-info">
                 <div class="perf-item-name">${escHtml(item.product.name)}</div>
-                <div class="perf-item-detail">Stock: ${formatNumber(item.stock)} | ${formatDecimal(item.dailyAvg, 1)}/day avg</div>
+                <div class="perf-item-detail">Stock: ${formatNumber(item.stock)} · ${formatDecimal(item.dailyAvg, 1)}/day avg</div>
             </div>
             <div class="perf-item-stats">
                 <div class="perf-stat-value">${formatNumber(item.predictedDemand)}</div>
@@ -381,12 +369,78 @@ function renderNeedsAttentionList(atRisk, slowMovers) {
     `).join('');
 }
 
+function renderAnalyticsKpis(analyzed) {
+    const meta = predictionsMeta || {};
+    const setKpi = (id, val, title) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = val;
+        if (title) el.title = title;
+    };
+    setKpi('kpiForecastUnits', meta.total_predicted_units != null ? formatNumber(meta.total_predicted_units) + ' units' : '--');
+    setKpi('kpiForecastRevenue', meta.total_predicted_revenue != null ? formatCompactCurrency(meta.total_predicted_revenue) : '--',
+        meta.total_predicted_revenue != null ? formatCurrency(meta.total_predicted_revenue) : '');
+    setKpi('kpiAccuracy', meta.overall_accuracy != null ? formatDecimal(meta.overall_accuracy, 1) + '%' : 'n/a',
+        meta.overall_accuracy != null ? 'Validated on ' + (meta.backtested_products || 0) + ' products with enough history' : 'Needs 3+ weeks of history to validate');
+    const risky = analyzed.filter(a => a.daysUntilStockout <= 30 && a.predictedDemand > 0).length;
+    setKpi('kpiAtRisk', risky + ' product' + (risky === 1 ? '' : 's'));
+}
+
+const SEGMENT_META = {
+    fast: { title: 'Top Fast Movers', sub: 'Highest predicted demand — keep these shelves full', icon: 'emoji_events', color: 'var(--accent)' },
+    slow: { title: 'Slow Movers', sub: 'Below-average demand — avoid over-ordering, consider promos', icon: 'hourglass_bottom', color: 'var(--warning)' },
+    risk: { title: 'Stockout Risk', sub: 'Projected to run out within 14 days at forecast demand', icon: 'warning', color: 'var(--danger)' },
+    steady: { title: 'Steady Sellers', sub: 'Stable demand with healthy cover — the backbone of revenue', icon: 'check_circle', color: 'var(--success)' }
+};
+
+function showSegment(name) {
+    if (!currentSegments) return;
+    const meta = SEGMENT_META[name] || SEGMENT_META.fast;
+    const items = currentSegments[name] || [];
+    const titleEl = document.getElementById('spotlightTitle');
+    const subEl = document.getElementById('spotlightSub');
+    if (titleEl) titleEl.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;color:${meta.color};">${meta.icon}</span> ${meta.title} (${items.length})`;
+    if (subEl) subEl.textContent = meta.sub;
+    document.querySelectorAll('.perf-card.perf-clickable').forEach(c => c.classList.remove('perf-active'));
+    document.querySelector(`.perf-card[onclick*="${name}"]`)?.classList.add('perf-active');
+
+    const container = document.getElementById('spotlightList');
+    if (!container) return;
+    if (items.length === 0) {
+        container.innerHTML = '<div class="perf-placeholder">No products in this segment right now</div>';
+        return;
+    }
+    const badge = {
+        fast: (it) => '<div class="perf-item-badge perf-badge-fast"><span class="material-symbols-outlined" style="font-size:14px;">rocket_launch</span> Fast</div>',
+        slow: () => '<div class="perf-item-badge perf-badge-slow"><span class="material-symbols-outlined" style="font-size:14px;">speed</span> Slow</div>',
+        risk: (it) => `<div class="perf-item-badge perf-badge-risk"><span class="material-symbols-outlined" style="font-size:14px;">warning_amber</span> ${it.daysUntilStockout}d</div>`,
+        steady: () => '<div class="perf-item-badge perf-badge-steady"><span class="material-symbols-outlined" style="font-size:14px;">check</span> Stable</div>'
+    }[name];
+    container.innerHTML = items.slice(0, 8).map((item, i) => {
+        const cover = item.daysUntilStockout >= 999 ? 'No demand' : `${item.daysUntilStockout}d of cover`;
+        const conf = item.confidence != null ? ` · ${item.confidence}% conf.` : '';
+        return `
+        <div class="perf-item">
+            <div class="perf-item-rank${name === 'risk' ? ' rank-risk' : ''}">#${i + 1}</div>
+            <div class="perf-item-info">
+                <div class="perf-item-name">${escHtml(item.product.name)}</div>
+                <div class="perf-item-detail">Stock: ${formatNumber(item.stock)} · ${formatDecimal(item.dailyAvg, 1)}/day · ${cover}${conf}</div>
+            </div>
+            <div class="perf-item-stats">
+                <div class="perf-stat-value">${formatNumber(item.predictedDemand)}</div>
+                <div class="perf-stat-label">next mo.</div>
+            </div>
+            ${badge(item)}
+        </div>`;
+    }).join('');
+}
+
 function mergeAndRenderTable() {
     const tbody = document.getElementById('predictionsTableBody');
     if (!tbody) return;
 
     if (allProducts.length === 0 || allPredictions.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center">Loading predictions...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center">Loading predictions...</td></tr>';
         return;
     }
 
@@ -394,12 +448,13 @@ function mergeAndRenderTable() {
         const pred = allPredictions.find(p => p.product_id === product.id);
         const predictedDemand = pred ? (pred.next_month_prediction || 0) : 0;
         const trend = pred ? (pred.trend || 'stable') : 'stable';
+        const momentum = pred ? parseFloat(pred.trend_momentum) : null;
+        const confidence = pred ? (pred.confidence_score || 0) : null;
         const stock = product.stock_quantity || 0;
         const dailyAvg = predictedDemand / 30;
         const daysUntilStockout = dailyAvg > 0 ? Math.floor(stock / dailyAvg) : 999;
         const reorderRecommended = daysUntilStockout <= 30;
-
-        return { product, predictedDemand, trend, stock, dailyAvg, daysUntilStockout, reorderRecommended };
+        return { product, predictedDemand, trend, momentum, confidence, stock, dailyAvg, daysUntilStockout, reorderRecommended };
     });
 
     rows.sort((a, b) => {
@@ -411,16 +466,28 @@ function mergeAndRenderTable() {
 
     const limited = rows.slice(0, predDisplayCount);
     tbody.innerHTML = limited.map(r => {
-        const stockoutDisplay = r.daysUntilStockout >= 999 ? 'N/A' : r.daysUntilStockout;
-        const trendIcon = r.trend === 'up' ? '<span class="material-symbols-outlined" style="font-size:16px;">trending_up</span>' : r.trend === 'down' ? '<span class="material-symbols-outlined" style="font-size:16px;">trending_down</span>' : '<span class="material-symbols-outlined" style="font-size:16px;">trending_flat</span>';
+        const stockoutDisplay = r.daysUntilStockout >= 999 ? '—' : r.daysUntilStockout + 'd';
+        const trendIcon = r.trend === 'up' ? 'trending_up' : r.trend === 'down' ? 'trending_down' : 'trending_flat';
+        const trendColor = r.trend === 'up' ? 'var(--success)' : r.trend === 'down' ? 'var(--danger)' : 'var(--text-muted)';
+        const trendLabel = r.trend === 'up' ? 'Rising' : r.trend === 'down' ? 'Falling' : 'Stable';
+        const momentumChip = (r.momentum != null && isFinite(r.momentum) && r.momentum !== 0)
+            ? ` <span style="font-size:11px;color:${r.momentum > 0 ? 'var(--success)' : 'var(--danger)'};font-weight:700;">${r.momentum > 0 ? '+' : ''}${formatDecimal(r.momentum, 1)}%</span>`
+            : '';
+        const confCell = r.confidence != null
+            ? `<div style="display:flex;align-items:center;gap:8px;min-width:110px;">
+                   <div style="flex:1;height:5px;border-radius:3px;background:var(--gray-100,#eee);overflow:hidden;"><div style="height:100%;width:${r.confidence}%;border-radius:3px;background:${r.confidence >= 70 ? 'var(--success)' : r.confidence >= 45 ? 'var(--warning)' : 'var(--danger)'};"></div></div>
+                   <span style="font-size:12px;font-weight:700;color:var(--text-secondary);">${r.confidence}%</span>
+               </div>`
+            : '—';
         return `
             <tr>
                 <td><strong>${escHtml(r.product.name)}</strong></td>
-                <td>${r.stock}</td>
-                <td>${r.predictedDemand > 0 ? formatDecimal(r.predictedDemand, 1) : 'N/A'}</td>
-                <td>${r.dailyAvg > 0 ? formatDecimal(r.dailyAvg, 1) : 'N/A'}</td>
-                <td>${stockoutDisplay}</td>
-                <td>${trendIcon} ${r.trend.charAt(0).toUpperCase() + r.trend.slice(1)}</td>
+                <td>${formatNumber(r.stock)}</td>
+                <td>${r.predictedDemand > 0 ? formatDecimal(r.predictedDemand, 1) : '—'}</td>
+                <td>${r.dailyAvg > 0 ? formatDecimal(r.dailyAvg, 1) : '—'}</td>
+                <td${r.daysUntilStockout <= 14 ? ' style="color:var(--danger);font-weight:700;"' : ''}>${stockoutDisplay}</td>
+                <td><span style="color:${trendColor};display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:16px;">${trendIcon}</span> ${trendLabel}</span>${momentumChip}</td>
+                <td>${confCell}</td>
                 <td>
                     ${r.reorderRecommended
                         ? '<span class="reorder-badge yes">Yes</span>'

@@ -207,8 +207,38 @@
             </div>
 
             <div class="tab-content" id="tab-analytics" role="tabpanel" style="display:none;">
+                <div class="stat-row" id="analyticsKpis" style="margin-bottom:18px;">
+                    <div class="stat-card">
+                        <div class="stat-icon blue"><span class="material-symbols-outlined" style="font-size:18px;">query_stats</span></div>
+                        <div class="stat-body">
+                            <span class="stat-label">30-Day Demand Forecast</span>
+                            <span class="stat-value" id="kpiForecastUnits">--</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green"><span class="material-symbols-outlined" style="font-size:18px;">payments</span></div>
+                        <div class="stat-body">
+                            <span class="stat-label">Projected Revenue (30d)</span>
+                            <span class="stat-value" id="kpiForecastRevenue">--</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon purple"><span class="material-symbols-outlined" style="font-size:18px;">verified</span></div>
+                        <div class="stat-body">
+                            <span class="stat-label">Model Accuracy <span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;" title="Backtested: the most recent 1–2 weeks were hidden from the model, re-forecast from older data only, and compared against the sales that actually happened (scored on total demand volume)">info</span></span>
+                            <span class="stat-value" id="kpiAccuracy">--</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon red"><span class="material-symbols-outlined" style="font-size:18px;">warning</span></div>
+                        <div class="stat-body">
+                            <span class="stat-label">Stockout Risk (30d)</span>
+                            <span class="stat-value" id="kpiAtRisk">--</span>
+                        </div>
+                    </div>
+                </div>
                 <div class="perf-overview">
-                    <div class="perf-card perf-fast">
+                    <div class="perf-card perf-fast perf-clickable" onclick="showSegment(&quot;fast&quot;)" title="Click to list these products">
                         <div class="perf-icon"><span class="material-symbols-outlined" style="font-size:20px;">rocket_launch</span></div>
                         <div class="perf-info">
                             <span class="perf-label">Fast Movers</span>
@@ -216,7 +246,7 @@
                         </div>
                         <span class="perf-hint">High demand, rising trend</span>
                     </div>
-                    <div class="perf-card perf-slow">
+                    <div class="perf-card perf-slow perf-clickable" onclick="showSegment(&quot;slow&quot;)" title="Click to list these products">
                         <div class="perf-icon"><span class="material-symbols-outlined" style="font-size:20px;">hourglass_bottom</span></div>
                         <div class="perf-info">
                             <span class="perf-label">Slow Movers</span>
@@ -224,7 +254,7 @@
                         </div>
                         <span class="perf-hint">Declining demand</span>
                     </div>
-                    <div class="perf-card perf-risk">
+                    <div class="perf-card perf-risk perf-clickable" onclick="showSegment(&quot;risk&quot;)" title="Click to list these products">
                         <div class="perf-icon"><span class="material-symbols-outlined" style="font-size:20px;">warning</span></div>
                         <div class="perf-info">
                             <span class="perf-label">At Risk</span>
@@ -232,7 +262,7 @@
                         </div>
                         <span class="perf-hint">May stock out within 30 days</span>
                     </div>
-                    <div class="perf-card perf-steady">
+                    <div class="perf-card perf-steady perf-clickable" onclick="showSegment(&quot;steady&quot;)" title="Click to list these products">
                         <div class="perf-icon"><span class="material-symbols-outlined" style="font-size:20px;">check_circle</span></div>
                         <div class="perf-info">
                             <span class="perf-label">Steady</span>
@@ -245,10 +275,10 @@
                 <div class="perf-panels">
                     <div class="perf-panel">
                         <div class="perf-panel-header fast-header">
-                            <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--accent);">emoji_events</span> Top Fast Movers</h3>
-                            <span>Highest predicted demand with rising trends</span>
+                            <h3 id="spotlightTitle"><span class="material-symbols-outlined" style="font-size:18px;color:var(--accent);">emoji_events</span> Top Fast Movers</h3>
+                            <span id="spotlightSub">Highest predicted demand with rising trends</span>
                         </div>
-                        <div class="perf-panel-body" id="fastMoversList">
+                        <div class="perf-panel-body" id="spotlightList">
                             <div class="perf-placeholder">Loading...</div>
                         </div>
                     </div>
@@ -338,12 +368,13 @@
                                 <th>Daily Avg</th>
                                 <th>Days Until Stockout</th>
                                 <th>Trend</th>
+                                <th>Confidence</th>
                                 <th>Reorder</th>
                             </tr>
                         </thead>
                         <tbody id="predictionsTableBody">
                             <tr>
-                                <td colspan="7" class="text-center">Loading predictions...</td>
+                                <td colspan="8" class="text-center">Loading predictions...</td>
                             </tr>
                         </tbody>
                     </table>
