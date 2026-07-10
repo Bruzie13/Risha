@@ -2822,3 +2822,85 @@ button:disabled { cursor: not-allowed; }
   .sidebar-collapse-btn { display: none; }
   .stat-card .stat-value { font-size: 18px; }
 }
+
+/* ===== INSTANT TOOLTIPS — icon-only sidebar controls =====
+   Same pill style as the collapsed-rail nav tooltips; native title attrs
+   stay in place for accessibility. */
+.sidebar-footer .sidebar-btn,
+.sidebar-user .user-settings-btn,
+.sidebar-user,
+.sidebar-collapse-btn,
+.sidebar-brand .brand-icon {
+  position: relative;
+}
+.sidebar-footer .sidebar-btn::after,
+.sidebar-user .user-settings-btn::after,
+html.sidebar-hidden .sidebar-user::after,
+.sidebar-collapse-btn::after,
+.sidebar-brand .brand-icon::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text-primary);
+  color: var(--bg-card);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  padding: 5px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, visibility 0.15s;
+  z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+/* header controls sit at the top — flip their tooltips below */
+.sidebar-collapse-btn::after,
+.sidebar-brand .brand-icon::after {
+  bottom: auto;
+  top: calc(100% + 8px);
+}
+.sidebar-footer .sidebar-btn:hover::after,
+.sidebar-user .user-settings-btn:hover::after,
+html.sidebar-hidden .sidebar-user:hover::after,
+.sidebar-collapse-btn:hover::after,
+.sidebar-brand .brand-icon:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+/* collapsed rail: tooltips fly out to the right like the nav icons */
+html.sidebar-hidden .sidebar-footer .sidebar-btn::after,
+html.sidebar-hidden .sidebar-user::after,
+html.sidebar-hidden .sidebar-collapse-btn::after {
+  bottom: auto;
+  top: 50%;
+  left: calc(100% + 12px);
+  transform: translateY(-50%);
+}
+/* no hover on touch screens — hide the hover tooltips there */
+@media (hover: none) {
+  .sidebar-footer .sidebar-btn::after,
+  .sidebar-user .user-settings-btn::after,
+  .sidebar-collapse-btn::after,
+  .sidebar-brand .brand-icon::after { display: none; }
+}
+
+/* keep tooltips inside the sidebar: edge-align instead of centering */
+.sidebar-footer .sidebar-btn::after,
+.sidebar-brand .brand-icon::after {
+  left: 0;
+  transform: none;
+}
+.sidebar-user .user-settings-btn::after {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+html.sidebar-hidden .sidebar-footer .sidebar-btn::after {
+  left: calc(100% + 12px);
+  transform: translateY(-50%);
+}
