@@ -492,46 +492,76 @@
         <div class="help-guide-content">
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">dashboard</span> Dashboard</h3>
-                <p>The Dashboard gives you a real-time overview of your business — total sales, low-stock alerts, expiring products, and recent transactions. Use it as your daily command center.</p>
+                <p>Your daily command center: sales KPIs, the live day brief (today's sales and items needing attention), Sales Trend chart, Expiry Radar, and Supply Chain status. The <strong>Live</strong> chip turns red if the connection drops.</p>
             </div>
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">point_of_sale</span> Point of Sale (POS)</h3>
-                <p>The POS page is a split-screen checkout system:</p>
+                <p>Cash-only checkout, built for speed:</p>
                 <ul>
-                    <li><strong>Left panel</strong> — Browse/search products by name or category. Click a product to add it to the cart.</li>
-                    <li><strong>Right panel</strong> — Shows the current cart. Adjust quantities with +/- buttons, remove items, or set a discount percentage.</li>
-                    <li>Scan barcodes using a scanner or press <span class="shortcut">F2</span> to focus the scan field.</li>
-                    <li>Payments are <strong>cash only</strong> — enter the cash received and the system computes the change.</li>
+                    <li><strong>Left panel</strong> — search or browse products; click to add to cart. Out-of-stock and expired items can't be sold.</li>
+                    <li><strong>Right panel</strong> — adjust quantities, set a discount, enter cash received (use the <strong>Exact / +20 / +50 / +100</strong> quick buttons) and the change is computed for you.</li>
+                    <li>Scan barcodes anytime, or press <span class="shortcut">F2</span> to focus the scan field.</li>
+                    <li><strong>Charge</strong> completes the sale, updates stock instantly, and shows a printable receipt.</li>
                 </ul>
             </div>
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">inventory_2</span> Inventory</h3>
-                <p>Manage your products: add, edit, view details, adjust stock, and set reorder levels. Use the quick filter chips (Low Stock, Expiring, Expired) and click any column header to sort. Use the CSV import tool to bulk-add products.</p>
+                <ul>
+                    <li>Filter with the status chips (Low Stock, Out of Stock, Expiring Soon, Expired, Healthy) and sort any column by clicking its header.</li>
+                    <li><strong>Reorder</strong> lets you pick low-stock products; after a final confirmation it creates purchase orders and emails the suppliers. Expired items can be reordered — the new batch replaces the old one.</li>
+                    <li>Use <strong>Import</strong> for bulk CSV product uploads, and the checkboxes for bulk reorder/adjust/delete.</li>
+                    <li>Staff accounts see inventory read-only; only admins and managers can add, edit, or delete.</li>
+                </ul>
             </div>
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">receipt</span> Sales History</h3>
-                <p>View past transactions, search by sale number or staff name, and filter by date range. Click <strong>View</strong> on any sale to see item details and print a receipt.</p>
+                <ul>
+                    <li>Search and filter past sales by date; click <strong>View</strong> for item details and a printable receipt.</li>
+                    <li><strong>Void</strong> (admins/managers) cancels a sale with a required reason — the items go back into stock and the sale stays in history marked <em>Voided</em>, excluded from all totals.</li>
+                    <li><strong>End of Day</strong> records the drawer count: the system shows the expected cash from today's sales, you enter what was actually counted, and any over/short is saved with notes for the daily record.</li>
+                </ul>
             </div>
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">local_shipping</span> Suppliers</h3>
-                <p>Track your suppliers, contact info, payment terms, and performance metrics. Click <strong>Emails</strong> on a supplier to see every email sent to them and whether they've opened it (read receipts).</p>
+                <p>Contacts, payment terms, and delivery performance per supplier. Click a supplier's <strong>email address</strong> or the <strong>Emails</strong> button to see every message sent to them with read receipts: <strong>✓</strong> delivered, <strong>✓✓</strong> the supplier actually opened or clicked it (automated mail scanners are filtered out).</p>
             </div>
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">assessment</span> Reports &amp; Analytics</h3>
-                <p>Reports give you printable summaries. Analytics shows charts and trends — top-selling products, monthly revenue, and stock distribution.</p>
+                <ul>
+                    <li><strong>Daily / Weekly / Monthly</strong> tabs show printable sales summaries with category and payment breakdowns.</li>
+                    <li><strong>Analytics</strong> is the forecasting hub: 30-day demand and revenue projections, and a <strong>Model Accuracy</strong> score that is backtested — the system hides recent sales from itself, forecasts them, and grades the result against what really sold.</li>
+                    <li>Click the <strong>Fast Movers / Slow Movers / At Risk / Steady</strong> cards to list the products in each segment with stock, daily rate, and days of cover.</li>
+                    <li>Pick any product for its detailed forecast chart with confidence range and reorder advice.</li>
+                    <li><strong>Audit Logs</strong> (admins) show who did what, when, from which address.</li>
+                </ul>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">group</span> Users &amp; Roles</h3>
+                <ul>
+                    <li><strong>Admin</strong> — everything, including users, audit logs, email settings, and backups.</li>
+                    <li><strong>Manager</strong> — inventory, suppliers, reorders, voids; no user management.</li>
+                    <li><strong>Staff</strong> — sell on the POS, record the end-of-day count, view everything else read-only.</li>
+                    <li>Passwords need at least 6 characters with an uppercase letter, a number, and a special character. Five failed logins locks the account for a few minutes.</li>
+                </ul>
+            </div>
+            <div class="help-section">
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">cloud_download</span> Backups &amp; Safety</h3>
+                <p>A full database backup is emailed automatically once a day. Admins can also download one anytime from <strong>Settings → Preferences → Data Backup</strong> — do this before big changes. Every confirmed action (reorders, voids, deletes) asks before executing and shows a popup when done.</p>
             </div>
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">notifications</span> Notifications</h3>
-                <p>Get alerts for low stock, out-of-stock items, and expiring products. Click the bell icon in the sidebar or visit the Notifications page to view and mark alerts as read.</p>
+                <p>Alerts for low stock, stockouts, and expiring products. Open them from the bell in the sidebar or the Notifications page; suppliers with low-stock products are emailed automatically at most once per day.</p>
             </div>
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">keyboard</span> Keyboard Shortcuts</h3>
                 <ul>
                     <li><span class="shortcut">F2</span> — Focus barcode scanner input (POS page)</li>
                     <li><span class="shortcut">⌘K</span> — Open global search</li>
-                    <li><span class="shortcut">Esc</span> — Close any open modal</li>
+                    <li><span class="shortcut">Esc</span> — Close any open modal or popup</li>
+                    <li><span class="shortcut">Enter</span> — Confirm the open popup</li>
                 </ul>
             </div>
+        </div>
         </div>
     </div>
 </div>
