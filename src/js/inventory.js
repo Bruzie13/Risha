@@ -617,8 +617,10 @@ function closeProductDetailsModal() {
 // Edit from details modal
 function editProduct() {
     if (isViewer()) { showToast('View-only account. Cannot edit products.', 'error'); return; }
+    // capture before closing — closeProductDetailsModal() resets editingProductId
+    const id = editingProductId;
     closeProductDetailsModal();
-    openEditProductModal(editingProductId);
+    if (id) openEditProductModal(id);
 }
 
 // Delete from details modal
@@ -875,8 +877,16 @@ async function autoReorder() {
         }
         if (e.target.id === 'reorderSubmitBtn') {
             if (selected.size === 0) { showToast('Select at least one product to reorder', 'warning'); return; }
+            const ids = Array.from(selected);
             overlay.remove();
-            doReorder(Array.from(selected));
+            // Second confirmation before anything is ordered or emailed
+            showConfirmDialog(
+                'Final check',
+                `This will generate purchase orders for ${ids.length} product${ids.length === 1 ? '' : 's'} and email the suppliers. Proceed?`,
+                () => doReorder(ids),
+                'Yes, Send Orders',
+                '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">outgoing_mail</span>'
+            );
         }
     });
 }
@@ -945,7 +955,9 @@ async function bulkReorder() {
     if (isViewer()) { showToast('View-only account. Cannot reorder.', 'error'); return; }
     const ids = getSelectedIds();
     if (ids.length === 0) return;
-    showConfirmDialog('Bulk Reorder', `Generate purchase orders for ${ids.length} selected product(s)?`, async () => {
+    showConfirmDialog('Bulk Reorder', `Generate purchase orders for ${ids.length} selected product(s)?`, () => {
+        // Second confirmation before anything is ordered or emailed
+        showConfirmDialog('Final check', `This will create the purchase orders and email the suppliers. Proceed?`, async () => {
         try {
             const response = await fetch(`${API_URL}/purchase-orders/auto-generate`, {
                 method: 'POST', headers: getAuthHeaders(),
@@ -967,6 +979,7 @@ async function bulkReorder() {
             console.error('Bulk reorder error:', error);
             showToast('Failed to reorder', 'error');
         }
+        }, 'Yes, Send Orders', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">outgoing_mail</span>');
     }, 'Yes, Reorder', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">inventory</span>');
 }
 

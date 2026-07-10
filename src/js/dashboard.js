@@ -522,7 +522,9 @@ async function loadExpirationRisk() {
 }
 
 async function autoReorderDashboard() {
-    showConfirmDialog('Auto-Reorder', 'Auto-generate purchase orders for all low-stock products? Suppliers will be emailed.', async () => {
+    showConfirmDialog('Auto-Reorder', 'Auto-generate purchase orders for all low-stock products? Suppliers will be emailed.', () => {
+        // Second confirmation before anything is ordered or emailed
+        showConfirmDialog('Final check', 'This will create the purchase orders and email the suppliers. Proceed?', async () => {
         try {
             const response = await fetch(`${API_BASE}/purchase-orders/auto-generate`, {
                 method: 'POST', headers: getAuthHeaders()
@@ -543,6 +545,7 @@ async function autoReorderDashboard() {
             console.error('Auto-reorder error:', error);
             showToast('Failed to auto-reorder', 'error');
         }
+        }, 'Yes, Send Orders', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">outgoing_mail</span>');
     }, 'Yes, Reorder', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">inventory</span>');
 }
 
