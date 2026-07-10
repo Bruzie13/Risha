@@ -240,6 +240,7 @@ class Sale {
                  SUM(total_amount) as daily_total 
                  FROM sales 
                  WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                   AND payment_status <> 'voided'
                  GROUP BY DATE(created_at) 
                  ORDER BY date DESC`,
                 [interval]
@@ -261,6 +262,7 @@ class Sale {
                  SUM(total_amount) as weekly_total 
                  FROM sales 
                  WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? WEEK)
+                   AND payment_status <> 'voided'
                  GROUP BY YEAR(created_at), WEEK(created_at) 
                  ORDER BY year DESC, week DESC`,
                 [interval]
@@ -282,6 +284,7 @@ class Sale {
                  SUM(total_amount) as monthly_total 
                  FROM sales 
                  WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? MONTH)
+                   AND payment_status <> 'voided'
                  GROUP BY YEAR(created_at), MONTH(created_at) 
                  ORDER BY year DESC, month DESC`,
                 [interval]
@@ -296,9 +299,41 @@ class Sale {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                'SELECT SUM(total_amount) as total FROM sales'
+                "SELECT SUM(total_amount) as total FROM sales WHERE payment_status <> 'voided'"
             );
             return rows[0].total || 0;
+        } finally {
+            connection.release();
+        }
+    }
+
+    // Void a sale: restores the stock and marks the record (kept for audit —
+    // deleting sales history hides mistakes instead of documenting them).
+    static async void(id, reason) {
+        const connection = await pool.getConnection();
+        try {
+            await connection.beginTransaction();
+            const [rows] = await connection.execute(
+                'SELECT payment_status FROM sales WHERE id = ? FOR UPDATE', [id]);
+            if (!rows.length) { await connection.rollback(); return { error: 'Sale not found' }; }
+            if (rows[0].payment_status === 'voided') { await connection.rollback(); return { error: 'Sale is already voided' }; }
+
+            const [items] = await connection.execute(
+                'SELECT product_id, quantity FROM sale_items WHERE sale_id = ?', [id]);
+            for (const item of items) {
+                await connection.execute(
+                    'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?',
+                    [item.quantity, item.product_id]);
+            }
+            await connection.execute(
+                `UPDATE sales SET payment_status = 'voided',
+                        notes = CONCAT(COALESCE(CONCAT(notes, ' | '), ''), 'VOIDED: ', ?)
+                 WHERE id = ?`, [reason || 'no reason given', id]);
+            await connection.commit();
+            return { success: true, items_restored: items.length };
+        } catch (err) {
+            await connection.rollback();
+            throw err;
         } finally {
             connection.release();
         }
@@ -332,6 +367,7 @@ class Sale {
                  COALESCE(SUM(si.subtotal), 0) as total_revenue
                  FROM products p
                  LEFT JOIN sale_items si ON si.product_id = p.id
+                 LEFT JOIN sales s ON si.sale_id = s.id AND s.payment_status <> 'voided'
                  GROUP BY p.id
                  ORDER BY total_quantity_sold DESC
                  LIMIT ${maxLimit}`
@@ -348,11 +384,11 @@ class Sale {
             let sql, topSql;
             const params = [];
             const topParams = [];
-            let dateFilter = '';
+            let dateFilter = "WHERE s.payment_status <> 'voided'";
             let dateParams = [];
 
             if (startDate && endDate) {
-                dateFilter = 'WHERE DATE(s.created_at) BETWEEN ? AND ?';
+                dateFilter = "WHERE DATE(s.created_at) BETWEEN ? AND ? AND s.payment_status <> 'voided'";
                 dateParams = [startDate, endDate];
             }
 
@@ -371,7 +407,7 @@ class Sale {
                           FROM sale_items si
                           JOIN products p ON si.product_id = p.id
                           JOIN sales s ON si.sale_id = s.id
-                          ${dateFilter ? 'WHERE DATE(s.created_at) BETWEEN ? AND ?' : ''}
+                          ${dateFilter}
                           GROUP BY p.id
                           ORDER BY quantity DESC
                           LIMIT 5`;
@@ -391,7 +427,7 @@ class Sale {
                           FROM sale_items si
                           JOIN products p ON si.product_id = p.id
                           JOIN sales s ON si.sale_id = s.id
-                          ${dateFilter ? 'WHERE DATE(s.created_at) BETWEEN ? AND ?' : ''}
+                          ${dateFilter}
                           GROUP BY p.id
                           ORDER BY quantity DESC
                           LIMIT 5`;
@@ -412,7 +448,7 @@ class Sale {
                           FROM sale_items si
                           JOIN products p ON si.product_id = p.id
                           JOIN sales s ON si.sale_id = s.id
-                          ${dateFilter ? 'WHERE DATE(s.created_at) BETWEEN ? AND ?' : ''}
+                          ${dateFilter}
                           GROUP BY p.id
                           ORDER BY quantity DESC
                           LIMIT 5`;
@@ -438,10 +474,10 @@ class Sale {
     static async getSalesReportSummary(startDate = null, endDate = null) {
         const connection = await pool.getConnection();
         try {
-            let dateFilter = '';
+            let dateFilter = "WHERE s.payment_status <> 'voided'";
             const params = [];
             if (startDate && endDate) {
-                dateFilter = 'WHERE DATE(s.created_at) BETWEEN ? AND ?';
+                dateFilter = "WHERE DATE(s.created_at) BETWEEN ? AND ? AND s.payment_status <> 'voided'";
                 params.push(startDate, endDate);
             }
 
@@ -474,10 +510,10 @@ class Sale {
                  JOIN products p ON si.product_id = p.id
                  JOIN categories c ON p.category_id = c.id
                  JOIN sales s ON si.sale_id = s.id
-                 ${dateFilter ? `WHERE DATE(s.created_at) BETWEEN ? AND ?` : ''}
+                 ${dateFilter}
                  GROUP BY c.id, c.name
                  ORDER BY total_revenue DESC`,
-                startDate && endDate ? [startDate, endDate] : []
+                params
             );
 
             const r = revenueRows[0] || {};

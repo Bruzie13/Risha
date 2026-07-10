@@ -242,14 +242,145 @@ function displaySales(sales) {
             <td>${s.item_count || 0}</td>
             <td>₱${parseFloat(s.total_amount).toFixed(2)}</td>
             <td>${s.payment_method || 'N/A'}</td>
-            <td>${s.payment_status === 'completed' ? '<span class="status-badge status-in-stock">Completed</span>' : '<span class="status-badge status-expired">' + (s.payment_status || 'N/A') + '</span>'}</td>
+            <td>${s.payment_status === 'completed'
+                ? '<span class="status-badge status-in-stock">Completed</span>'
+                : s.payment_status === 'voided'
+                    ? '<span class="status-badge status-expired" title="Voided — stock was restored">Voided</span>'
+                    : '<span class="status-badge status-expired">' + (s.payment_status || 'N/A') + '</span>'}</td>
             <td>
                 <button class="btn-view" onclick="viewSaleDetails(${s.id})">View</button>
-                ${viewer ? '' : `<button class="btn-delete" onclick="deleteSale(${s.id})">Delete</button>`}
+                ${viewer || s.payment_status === 'voided' ? '' : `<button class="btn-delete" onclick="voidSale(${s.id})">Void</button>`}
             </td>
         </tr>
     `).join('');
     updatePagination('salesPagination', sales, displayCount, 'showMoreSales');
+}
+
+// Void: restores stock, keeps the record with a Voided badge (audit-friendly)
+function voidSale(id) {
+    if (!canManage()) { showToast("Your role can't void sales.", 'error'); return; }
+    showPromptDialog(
+        'Void Sale #' + id,
+        'The sale stays in history marked as voided and its items return to stock. Why is it being voided?',
+        async (reason) => {
+            if (!reason || !reason.trim()) { showToast('A reason is required to void a sale', 'error'); return; }
+            try {
+                const res = await fetch(`${API_BASE}/sales/${id}/void`, {
+                    method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ reason: reason.trim() })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showSuccessDialog('Sale voided', 'The sale was marked voided and its stock has been restored.', { tone: 'danger', icon: 'undo' });
+                    await loadSales();
+                    await updateStats();
+                } else {
+                    showErrorDialog('Could not void sale', data.message || 'Unknown error');
+                }
+            } catch (e) {
+                showToast('Failed to void sale', 'error');
+            }
+        },
+        'Void Sale',
+        '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">undo</span>',
+        'text', ''
+    );
+}
+
+// ---- End-of-day cash reconciliation ----
+
+async function openEodModal() {
+    const modal = document.getElementById('eodModal');
+    if (!modal) return;
+    modal.classList.add('active');
+    const dateInput = document.getElementById('eodDate');
+    if (!dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
+    await loadEod();
+    await loadEodHistory();
+}
+
+function closeEodModal() {
+    document.getElementById('eodModal')?.classList.remove('active');
+}
+
+let eodExpected = 0;
+
+async function loadEod() {
+    const date = document.getElementById('eodDate').value;
+    try {
+        const res = await fetch(`${API_BASE}/sales/eod?date=${date}`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) return;
+        const d = data.data;
+        eodExpected = d.expected_cash;
+        document.getElementById('eodExpected').textContent = formatCurrency(d.expected_cash);
+        document.getElementById('eodTxns').textContent = `${d.transactions} cash sale${d.transactions === 1 ? '' : 's'}` + (d.voided_sales ? ` · ${d.voided_sales} voided` : '');
+        const counted = document.getElementById('eodCounted');
+        const notes = document.getElementById('eodNotes');
+        if (d.reconciliation) {
+            counted.value = parseFloat(d.reconciliation.counted_cash);
+            notes.value = d.reconciliation.notes || '';
+            document.getElementById('eodStatus').textContent = 'Already recorded by ' + (d.reconciliation.counted_by_name || 'someone') + ' — saving again overwrites it.';
+        } else {
+            counted.value = '';
+            notes.value = '';
+            document.getElementById('eodStatus').textContent = '';
+        }
+        updateEodDiff();
+    } catch (e) { console.error('EOD load error:', e); }
+}
+
+function updateEodDiff() {
+    const counted = parseFloat(document.getElementById('eodCounted').value);
+    const el = document.getElementById('eodDiff');
+    if (isNaN(counted)) { el.textContent = '—'; el.style.color = 'var(--text-muted)'; return; }
+    const diff = Math.round((counted - eodExpected) * 100) / 100;
+    if (diff === 0) { el.textContent = 'Balanced ✓'; el.style.color = 'var(--success)'; }
+    else if (diff > 0) { el.textContent = 'Over by ' + formatCurrency(diff); el.style.color = 'var(--warning)'; }
+    else { el.textContent = 'Short by ' + formatCurrency(Math.abs(diff)); el.style.color = 'var(--danger)'; }
+}
+
+async function saveEod() {
+    const date = document.getElementById('eodDate').value;
+    const counted = parseFloat(document.getElementById('eodCounted').value);
+    if (isNaN(counted) || counted < 0) { showErrorDialog('Invalid amount', 'Enter the cash amount actually counted in the drawer.'); return; }
+    try {
+        const res = await fetch(`${API_BASE}/sales/eod`, {
+            method: 'POST', headers: getAuthHeaders(),
+            body: JSON.stringify({ date, counted_cash: counted, notes: document.getElementById('eodNotes').value })
+        });
+        const data = await res.json();
+        if (data.success) {
+            const d = data.data;
+            const msg = d.discrepancy === 0
+                ? 'Drawer balanced perfectly with ' + formatCurrency(d.expected_cash) + ' expected.'
+                : (d.discrepancy > 0 ? 'Over by ' + formatCurrency(d.discrepancy) : 'Short by ' + formatCurrency(Math.abs(d.discrepancy))) + ' against ' + formatCurrency(d.expected_cash) + ' expected.';
+            showSuccessDialog('Day closed', msg, { icon: 'point_of_sale' });
+            await loadEodHistory();
+        } else {
+            showErrorDialog('Could not save', data.message || 'Unknown error');
+        }
+    } catch (e) { showToast('Failed to save reconciliation', 'error'); }
+}
+
+async function loadEodHistory() {
+    const list = document.getElementById('eodHistory');
+    if (!list) return;
+    try {
+        const res = await fetch(`${API_BASE}/sales/eod/history`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success || !data.data.length) { list.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:12px;">No reconciliations recorded yet.</div>'; return; }
+        list.innerHTML = data.data.map(r => {
+            const diff = parseFloat(r.discrepancy);
+            const color = diff === 0 ? 'var(--success)' : diff > 0 ? 'var(--warning)' : 'var(--danger)';
+            const label = diff === 0 ? 'Balanced' : diff > 0 ? '+' + formatCurrency(diff) : '−' + formatCurrency(Math.abs(diff));
+            const d = new Date(r.business_date);
+            return `<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border-subtle);font-size:12.5px;">
+                <span style="font-weight:600;color:var(--text-primary);">${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                <span style="color:var(--text-muted);">counted ${formatCurrency(parseFloat(r.counted_cash))} / expected ${formatCurrency(parseFloat(r.expected_cash))}</span>
+                <span style="font-weight:700;color:${color};">${label}</span>
+            </div>`;
+        }).join('');
+    } catch (e) { console.error(e); }
 }
 
 async function updateStats() {

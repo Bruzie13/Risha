@@ -180,6 +180,20 @@
                     </div>
 
                     <div class="settings-panel" id="panel-preferences">
+                        <div class="settings-card" id="backupCard" style="display:none;margin-bottom:20px;">
+                            <div class="settings-card-header">
+                                <h3>Data Backup</h3>
+                                <p>Full database export — keep copies somewhere safe</p>
+                            </div>
+                            <div class="settings-card-body">
+                                <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+                                    A backup is also emailed automatically once a day. Download one now before making big changes.
+                                </p>
+                                <button class="btn-primary" id="downloadBackupBtn" onclick="downloadBackup()">
+                                    <span class="material-symbols-outlined" style="font-size:16px;">cloud_download</span> Download Backup
+                                </button>
+                            </div>
+                        </div>
                         <div class="settings-card">
                             <div class="settings-card-header">
                                 <h3>Preferences</h3>

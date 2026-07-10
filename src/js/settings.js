@@ -156,9 +156,31 @@ function showFieldError(id, message) {
 
 // ------- Email settings (admin only) -------
 
+async function downloadBackup() {
+    var btn = document.getElementById('downloadBackupBtn');
+    btn.disabled = true;
+    try {
+        var res = await fetch(API_BASE + '/backup', { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error('Backup failed (' + res.status + ')');
+        var blob = await res.blob();
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'risha-backup-' + new Date().toISOString().slice(0, 10) + '.json.gz';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        showSuccessDialog('Backup downloaded', 'Store the file somewhere safe — restore with scripts/restore-backup.js.', { icon: 'cloud_download' });
+    } catch (e) {
+        showErrorDialog('Backup failed', e.message);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
 function setupEmailSettings() {
     var user = getUser();
     if (!user || user.role !== 'admin') return;
+    var backupCard = document.getElementById('backupCard');
+    if (backupCard) backupCard.style.display = '';
     var tabBtn = document.getElementById('emailTabBtn');
     if (tabBtn) tabBtn.style.display = '';
     loadEmailSettings();

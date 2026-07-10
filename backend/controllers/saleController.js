@@ -144,6 +144,105 @@ exports.createSale = async (req, res) => {
     }
 };
 
+exports.voidSale = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const reason = (req.body && req.body.reason ? String(req.body.reason) : '').slice(0, 300);
+        const result = await Sale.void(id, reason);
+        if (result.error) {
+            return res.status(400).json({ success: false, message: result.error });
+        }
+        logAudit(req.user.id, 'update', 'sales', parseInt(id), null, { voided: true, reason }, req.ip);
+        res.status(200).json({ success: true, message: 'Sale voided and stock restored', data: result });
+    } catch (error) {
+        console.error('Void sale error:', error);
+        res.status(500).json({ success: false, message: 'Error voiding sale' });
+    }
+};
+
+// ---- End-of-day cash reconciliation ----
+
+const pool = require('../config/database');
+
+exports.getEod = async (req, res) => {
+    try {
+        const date = /^\d{4}-\d{2}-\d{2}$/.test(req.query.date || '') ? req.query.date : new Date().toISOString().slice(0, 10);
+        const conn = await pool.getConnection();
+        try {
+            const [sales] = await conn.execute(
+                `SELECT COUNT(*) as transactions, COALESCE(SUM(final_amount), 0) as expected_cash,
+                        MIN(created_at) as first_sale, MAX(created_at) as last_sale
+                 FROM sales
+                 WHERE DATE(created_at) = ? AND payment_method = 'cash' AND payment_status = 'completed'`, [date]);
+            const [voided] = await conn.execute(
+                `SELECT COUNT(*) as c FROM sales WHERE DATE(created_at) = ? AND payment_status = 'voided'`, [date]);
+            const [existing] = await conn.execute(
+                `SELECT cr.*, u.full_name as counted_by_name FROM cash_reconciliations cr
+                 LEFT JOIN users u ON cr.counted_by = u.id WHERE cr.business_date = ?`, [date]);
+            res.json({
+                success: true,
+                data: {
+                    date,
+                    expected_cash: parseFloat(sales[0].expected_cash) || 0,
+                    transactions: sales[0].transactions || 0,
+                    voided_sales: voided[0].c || 0,
+                    first_sale: sales[0].first_sale,
+                    last_sale: sales[0].last_sale,
+                    reconciliation: existing[0] || null
+                }
+            });
+        } finally { conn.release(); }
+    } catch (error) {
+        console.error('EOD error:', error);
+        res.status(500).json({ success: false, message: 'Error computing end of day' });
+    }
+};
+
+exports.saveEod = async (req, res) => {
+    try {
+        const { date, counted_cash, notes } = req.body;
+        const bizDate = /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? date : new Date().toISOString().slice(0, 10);
+        const counted = parseFloat(counted_cash);
+        if (isNaN(counted) || counted < 0) {
+            return res.status(400).json({ success: false, message: 'Counted cash must be a valid amount' });
+        }
+        const conn = await pool.getConnection();
+        try {
+            const [sales] = await conn.execute(
+                `SELECT COALESCE(SUM(final_amount), 0) as expected FROM sales
+                 WHERE DATE(created_at) = ? AND payment_method = 'cash' AND payment_status = 'completed'`, [bizDate]);
+            const expected = parseFloat(sales[0].expected) || 0;
+            const discrepancy = Math.round((counted - expected) * 100) / 100;
+            await conn.execute(
+                `INSERT INTO cash_reconciliations (business_date, expected_cash, counted_cash, discrepancy, notes, counted_by)
+                 VALUES (?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE expected_cash = VALUES(expected_cash), counted_cash = VALUES(counted_cash),
+                     discrepancy = VALUES(discrepancy), notes = VALUES(notes), counted_by = VALUES(counted_by)`,
+                [bizDate, expected, counted, discrepancy, (notes || '').slice(0, 500) || null, req.user.id]);
+            logAudit(req.user.id, 'create', 'cash_reconciliations', null, null, { date: bizDate, expected, counted, discrepancy }, req.ip);
+            res.json({ success: true, data: { date: bizDate, expected_cash: expected, counted_cash: counted, discrepancy } });
+        } finally { conn.release(); }
+    } catch (error) {
+        console.error('EOD save error:', error);
+        res.status(500).json({ success: false, message: 'Error saving reconciliation' });
+    }
+};
+
+exports.getEodHistory = async (req, res) => {
+    try {
+        const conn = await pool.getConnection();
+        try {
+            const [rows] = await conn.execute(
+                `SELECT cr.*, u.full_name as counted_by_name FROM cash_reconciliations cr
+                 LEFT JOIN users u ON cr.counted_by = u.id
+                 ORDER BY cr.business_date DESC LIMIT 30`);
+            res.json({ success: true, data: rows });
+        } finally { conn.release(); }
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error loading reconciliation history' });
+    }
+};
+
 exports.updateSale = async (req, res) => {
     try {
         const { id } = req.params;

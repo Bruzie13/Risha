@@ -348,8 +348,55 @@ async function sendTestEmail(toEmail) {
     }
 }
 
+// Daily database backup, attached as .json.gz. Sent to the configured
+// sender address (the shop's own inbox acts as offsite storage).
+async function sendBackupEmail(gzBuffer, meta) {
+    const config = await getEmailConfig();
+    if (!config.enabled) return false;
+    const to = config.user;
+    const filename = 'risha-backup-' + new Date().toISOString().slice(0, 10) + '.json.gz';
+    const html = `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
+            <h2 style="color:#E14C42;">RISHA daily backup</h2>
+            <p>Attached is today's full database backup (${meta.tables} tables, ${meta.rows} rows, ${(gzBuffer.length / 1024).toFixed(0)} KB compressed).</p>
+            <p style="color:#888;font-size:12px;">Restore with <code>scripts/restore-backup.js</code>. Keep at least the last 7 of these.</p>
+        </div>`;
+    try {
+        if (process.env.BREVO_API_KEY) {
+            const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+                method: 'POST',
+                headers: { 'api-key': process.env.BREVO_API_KEY, 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({
+                    sender: { email: config.user, name: config.fromName },
+                    to: [{ email: to }],
+                    subject: `RISHA Backup — ${new Date().toISOString().slice(0, 10)}`,
+                    htmlContent: html,
+                    attachment: [{ name: filename, content: gzBuffer.toString('base64') }]
+                })
+            });
+            if (!res.ok) throw new Error('Brevo ' + res.status + ': ' + (await res.text()).slice(0, 150));
+        } else {
+            const transporter = buildTransporter(config);
+            if (!transporter) return false;
+            await transporter.sendMail({
+                from: `"${config.fromName}" <${config.user}>`,
+                to,
+                subject: `RISHA Backup — ${new Date().toISOString().slice(0, 10)}`,
+                html,
+                attachments: [{ filename, content: gzBuffer }]
+            });
+        }
+        console.log(`[Backup] emailed ${filename} to ${to} (${(gzBuffer.length / 1024).toFixed(0)} KB)`);
+        return true;
+    } catch (e) {
+        console.error('[Backup] email failed:', e.message);
+        return false;
+    }
+}
+
 module.exports = {
     sendPOEmail,
+    sendBackupEmail,
     sendLowStockAlert,
     sendTestEmail,
     verifyEmailConfig,

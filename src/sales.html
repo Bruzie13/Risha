@@ -75,6 +75,7 @@
                     <input type="text" id="searchInput" class="search-box" placeholder="Search sales..." style="width:180px;">
                 </div>
                 <div class="toolbar-right">
+                    <button class="btn-secondary" onclick="openEodModal()"><span class="material-symbols-outlined" style="font-size:16px;">savings</span> End of Day</button>
                     <a href="pos.html" class="btn-primary"><span class="material-symbols-outlined" style="font-size:16px;">point_of_sale</span> Open POS</a>
                     <button class="btn-secondary" onclick="exportSalesCsv()"><span class="material-symbols-outlined" style="font-size:16px;">download</span> Export CSV</button>
                 </div>
@@ -305,6 +306,49 @@
             }
         });
     </script>
+    <div id="eodModal" class="modal">
+        <div class="modal-content" style="max-width:520px;">
+            <div class="modal-header">
+                <h2>End of Day — Cash Count</h2>
+                <button class="close-btn" title="Close" onclick="closeEodModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Business date</label>
+                    <input type="date" class="form-input" id="eodDate" onchange="loadEod()">
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0;">
+                    <div style="background:var(--bg-raised);border:1px solid var(--border-glass);border-radius:12px;padding:14px;">
+                        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Expected in drawer</div>
+                        <div id="eodExpected" style="font-size:22px;font-weight:800;color:var(--text-primary);margin-top:4px;">—</div>
+                        <div id="eodTxns" style="font-size:11.5px;color:var(--text-muted);margin-top:2px;"></div>
+                    </div>
+                    <div style="background:var(--bg-raised);border:1px solid var(--border-glass);border-radius:12px;padding:14px;">
+                        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Over / Short</div>
+                        <div id="eodDiff" style="font-size:22px;font-weight:800;color:var(--text-muted);margin-top:4px;">—</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Cash counted in drawer (₱) *</label>
+                    <input type="number" class="form-input" id="eodCounted" min="0" step="0.01" placeholder="0.00" oninput="updateEodDiff()">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notes (optional)</label>
+                    <input type="text" class="form-input" id="eodNotes" placeholder="e.g. ₱200 used for water delivery">
+                </div>
+                <div id="eodStatus" style="font-size:12px;color:var(--warning);margin-top:4px;"></div>
+                <div style="margin-top:16px;">
+                    <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">Recent closes</div>
+                    <div id="eodHistory" style="max-height:170px;overflow-y:auto;border:1px solid var(--border-glass);border-radius:10px;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeEodModal()">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveEod()"><span class="material-symbols-outlined" style="font-size:16px;">savings</span> Save Count</button>
+            </div>
+        </div>
+    </div>
+
         <script src="js/utils.js"></script>
 <script src="js/format.js"></script>
 <script src="js/auth.js"></script>

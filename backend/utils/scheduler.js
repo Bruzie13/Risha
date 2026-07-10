@@ -1,19 +1,51 @@
 const pool = require('../config/database');
 const Notification = require('../models/Notification');
 const notifier = require('../services/notifier');
-const { sendLowStockAlert } = require('./mailer');
+const { sendLowStockAlert, sendBackupEmail } = require('./mailer');
 
 const CHECK_INTERVAL = 60 * 60 * 1000;
+const BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
 let intervalHandle = null;
+let backupHandle = null;
 
 function start() {
-    console.log('[Scheduler] Started (every 60 min)');
+    console.log('[Scheduler] Started (every 60 min; backups daily)');
     runAllChecks();
     intervalHandle = setInterval(runAllChecks, CHECK_INTERVAL);
+    // first backup shortly after boot, then daily
+    setTimeout(runBackup, 2 * 60 * 1000);
+    backupHandle = setInterval(runBackup, BACKUP_INTERVAL);
+}
+
+async function runBackup() {
+    try {
+        // avoid double-backup within 20h across restarts
+        const conn = await pool.getConnection();
+        const [last] = await conn.execute(
+            "SELECT setting_value FROM app_settings WHERE setting_key = 'last_backup_at'");
+        const lastAt = last.length ? Date.parse(last[0].setting_value) : 0;
+        if (lastAt && Date.now() - lastAt < 20 * 60 * 60 * 1000) { conn.release(); return; }
+        conn.release();
+
+        const { buildBackup } = require('../server');
+        const b = await buildBackup();
+        const ok = await sendBackupEmail(b.gz, b);
+        if (ok) {
+            const c2 = await pool.getConnection();
+            await c2.execute(
+                `INSERT INTO app_settings (setting_key, setting_value) VALUES ('last_backup_at', ?)
+                 ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
+                [new Date().toISOString()]);
+            c2.release();
+        }
+    } catch (e) {
+        console.error('[Backup] scheduled backup error:', e.message);
+    }
 }
 
 function stop() {
     if (intervalHandle) clearInterval(intervalHandle);
+    if (backupHandle) clearInterval(backupHandle);
     console.log('[Scheduler] Stopped');
 }
 

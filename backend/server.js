@@ -89,6 +89,69 @@ app.use('/api/email-settings', emailSettingsRoutes);
 const pool = require('./config/database');
 const crypto = require('crypto');
 
+const zlib = require('zlib');
+
+// Full-database dump as gzipped JSON. Used by the admin download button and
+// the daily scheduled backup email. Restore with scripts/restore-backup.js.
+async function buildBackup() {
+    const conn = await pool.getConnection();
+    try {
+        const [tables] = await conn.query('SHOW TABLES');
+        const tableNames = tables.map(t => Object.values(t)[0]);
+        const dump = { created_at: new Date().toISOString(), database: 'risha', tables: {} };
+        for (const t of tableNames) {
+            const [rows] = await conn.query(`SELECT * FROM \`${t}\``);
+            dump.tables[t] = rows;
+        }
+        const json = JSON.stringify(dump);
+        return { gz: zlib.gzipSync(Buffer.from(json)), tables: tableNames.length, rows: Object.values(dump.tables).reduce((a, r) => a + r.length, 0) };
+    } finally {
+        conn.release();
+    }
+}
+
+const backupAuth = require('./middleware/auth');
+app.get('/api/backup', backupAuth.authenticateToken, backupAuth.authorizeRole('admin'), async (req, res) => {
+    try {
+        const b = await buildBackup();
+        const name = 'risha-backup-' + new Date().toISOString().slice(0, 10) + '.json.gz';
+        res.set({
+            'Content-Type': 'application/gzip',
+            'Content-Disposition': `attachment; filename="${name}"`
+        });
+        res.send(b.gz);
+    } catch (e) {
+        console.error('Backup error:', e.message);
+        res.status(500).json({ success: false, message: 'Backup failed' });
+    }
+});
+
+async function ensureOpsTables() {
+    try {
+        const conn = await pool.getConnection();
+        // sales.payment_status gains 'voided' (safe to re-run)
+        await conn.execute(
+            "ALTER TABLE sales MODIFY payment_status ENUM('pending','completed','failed','voided') DEFAULT 'completed'");
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS cash_reconciliations (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                business_date DATE NOT NULL UNIQUE,
+                expected_cash DECIMAL(12,2) NOT NULL DEFAULT 0,
+                counted_cash DECIMAL(12,2) NOT NULL DEFAULT 0,
+                discrepancy DECIMAL(12,2) NOT NULL DEFAULT 0,
+                notes VARCHAR(500) NULL,
+                counted_by INT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )`);
+        conn.release();
+        console.log('[DB] ops tables ready (voided status, cash_reconciliations)');
+    } catch (e) {
+        console.error('[DB] ops table migration error:', e.message);
+    }
+}
+ensureOpsTables();
+
 async function ensureEmailLogsTable() {
     try {
         const conn = await pool.getConnection();
@@ -340,3 +403,5 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     scheduler.start();
 });
+
+module.exports = { buildBackup };
