@@ -257,7 +257,10 @@ async function updateStats() {
         const totalRes = await fetch(`${API_BASE}/sales/total-sales`, { headers: getAuthHeaders() });
         const totalData = await totalRes.json();
         if (totalData.success) {
-            setText('totalSalesAmount', '₱' + parseFloat(totalData.data.total_sales).toFixed(2));
+            const totalAmount = parseFloat(totalData.data.total_sales) || 0;
+            setText('totalSalesAmount', formatCompactCurrency(totalAmount));
+            const el = document.getElementById('totalSalesAmount');
+            if (el) el.title = formatCurrency(totalAmount);
         }
         setText('totalTransactions', allSales.length);
         const today = new Date().toDateString();

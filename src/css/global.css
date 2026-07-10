@@ -1734,6 +1734,10 @@ input[type="datetime-local"] {
   .sidebar .sidebar-user { justify-content: flex-start; padding: 8px 14px; }
   .sidebar .sidebar-actions { justify-content: flex-start; }
   .sidebar .sidebar-btn { flex: 1; display: flex; }
+  /* the fixed hamburger overlaps the drawer's top-left corner */
+  .sidebar .sidebar-header { padding-left: 68px; }
+  /* collapse-to-rail is a desktop-only control */
+  .sidebar-collapse-btn { display: none; }
   .sidebar-hamburger {
     display: flex;
     align-items: center;
@@ -1759,15 +1763,17 @@ input[type="datetime-local"] {
   .content { padding: 16px; }
   .grid-2 { grid-template-columns: 1fr; }
   .grid-3 { grid-template-columns: 1fr; }
-  .page-header { padding: 16px 16px 0; }
+  /* clear the fixed hamburger button so page titles aren't hidden behind it */
+  .page-header { padding: 64px 16px 0; }
   .page-header h1 { font-size: 22px; }
-  .page-header.has-hamburger { padding-top: 60px; }
-  .content.has-hamburger { padding-top: 12px; }
+  .toolbar { padding-left: 16px; padding-right: 16px; }
+  .stat-row { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 480px) {
   .content { padding: 12px; }
-  .page-header { padding: 12px 12px 0; }
+  /* keep clearing the fixed hamburger */
+  .page-header { padding: 64px 12px 0; }
   .sidebar { width: 100%; max-width: 300px; }
 }
 
@@ -2807,4 +2813,12 @@ button:disabled { cursor: not-allowed; }
 .expiry-radar-card, .hero-chip, .help-float-btn, .notif-bell-btn {
   -webkit-user-select: none;
   user-select: none;
+}
+
+/* ===== MOBILE OVERRIDES (kept last so they win the cascade) ===== */
+@media (max-width: 768px) {
+  #notifSummary { grid-template-columns: repeat(2, 1fr); }
+  /* collapse-to-rail is a desktop-only control; the drawer replaces it */
+  .sidebar-collapse-btn { display: none; }
+  .stat-card .stat-value { font-size: 18px; }
 }

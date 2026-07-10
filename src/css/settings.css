@@ -236,5 +236,6 @@
         white-space: nowrap;
         flex-shrink: 0;
         padding: 10px 14px;
+        width: auto;
     }
 }
