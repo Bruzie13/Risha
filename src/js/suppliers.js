@@ -5,7 +5,7 @@ let editingSupplierId = null;
 
 window.addEventListener('load', async () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
-    if (isViewer()) {
+    if (!canManage()) {
         document.querySelector('.page-header-actions .btn-primary')?.remove();
         const actionsTh = document.querySelector('.data-table thead th:last-child');
         if (actionsTh) actionsTh.textContent = '';
@@ -41,7 +41,7 @@ function showMoreSuppliers() {
 function displaySuppliers(suppliers) {
     const tbody = document.getElementById('suppliersTableBody');
     if (!tbody) return;
-    const viewer = isViewer();
+    const viewer = !canManage();
     if (suppliers.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" class="text-center">No suppliers found</td></tr>';
         updatePagination('supplierPagination', suppliers, displayCount, 'showMoreSuppliers');
@@ -102,7 +102,7 @@ document.getElementById('searchInput')?.addEventListener('keyup', (e) => {
 });
 
 function openAddSupplierModal() {
-    if (isViewer()) { showToast('View-only account. Cannot add suppliers.', 'error'); return; }
+    if (!canManage()) { showToast("Your role can't add suppliers.", 'error'); return; }
     editingSupplierId = null;
     document.getElementById('supplierModalTitle').textContent = 'Add Supplier';
     document.getElementById('supplierForm').reset();
@@ -110,7 +110,7 @@ function openAddSupplierModal() {
 }
 
 function openEditSupplierModal(id) {
-    if (isViewer()) { showToast('View-only account. Cannot edit suppliers.', 'error'); return; }
+    if (!canManage()) { showToast("Your role can't edit suppliers.", 'error'); return; }
     editingSupplierId = id;
     const supplier = allSuppliers.find(s => s.id === id);
     if (!supplier) return;
@@ -171,7 +171,7 @@ async function handleSupplierSubmit(event) {
 }
 
 async function deleteSupplier(id) {
-    if (isViewer()) { showToast('View-only account. Cannot delete suppliers.', 'error'); return; }
+    if (!canManage()) { showToast("Your role can't delete suppliers.", 'error'); return; }
     showConfirmDialog('Delete Supplier', 'Are you sure you want to delete this supplier? This cannot be undone.', async () => {
         try {
             const response = await fetch(`${API_BASE}/suppliers/${id}`, {

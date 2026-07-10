@@ -11,11 +11,12 @@ function getAuthHeaders() {
 
 // The auth cookie is managed by the server (HttpOnly): set on login, cleared on logout.
 
-// Auto-redirect to login on auth failures
+// Auto-redirect to login when the session is invalid/expired (401 only —
+// 403 means "logged in but not allowed", which must NOT end the session)
 const origFetch = window.fetch;
 window.fetch = function() {
     return origFetch.apply(this, arguments).then(function(res) {
-        if ((res.status === 401 || res.status === 403) && !res.url.includes('/auth/login')) {
+        if (res.status === 401 && !res.url.includes('/auth/login')) {
             localStorage.removeItem('authToken');
             localStorage.removeItem('user');
             if (!window.location.pathname.includes('login.html')) {
@@ -25,6 +26,13 @@ window.fetch = function() {
         return res;
     });
 };
+
+// UI gating: staff (cashier) can sell and view, but only admins/managers
+// may modify inventory, suppliers, and purchase orders
+function canManage() {
+    const role = getUserRole();
+    return role === 'admin' || role === 'manager';
+}
 
 // Apply saved theme and sidebar state immediately (before DOMContentLoaded to avoid flash)
 (function() {

@@ -16,7 +16,7 @@ window.addEventListener('load', async () => {
         window.location.href = 'login.html';
         return;
     }
-    if (isViewer()) {
+    if (!canManage()) {
         document.querySelectorAll('.page-header-actions .btn-primary, .page-header-actions .btn-secondary, .page-header-actions .btn-warning').forEach(b => b.style.display = 'none');
         document.getElementById('bulkBar').style.display = 'none';
         document.querySelector('#productDetailsModal .btn-primary')?.remove();
@@ -155,7 +155,7 @@ function productIcon(p) {
 
 function displayProducts(products) {
     const tbody = document.getElementById('productsTableBody');
-    const viewer = isViewer();
+    const viewer = !canManage();
     const colSpan = viewer ? 7 : 8;
 
     if (products.length === 0) {
@@ -463,7 +463,7 @@ function filterProducts() {
 
 // Open add product modal
 function openAddProductModal() {
-    if (isViewer()) { showToast('View-only account. Cannot add products.', 'error'); return; }
+    if (!canManage()) { showToast("Your role can't add products.", 'error'); return; }
     editingProductId = null;
     document.getElementById('modalTitle').textContent = 'Add New Product';
     document.getElementById('productForm').reset();
@@ -472,7 +472,7 @@ function openAddProductModal() {
 
 // Open edit product modal
 async function openEditProductModal(id) {
-    if (isViewer()) { showToast('View-only account. Cannot edit products.', 'error'); return; }
+    if (!canManage()) { showToast("Your role can't edit products.", 'error'); return; }
     try {
         const response = await fetch(`${API_URL}/products/${id}`, { headers: getAuthHeaders() });
         const data = await response.json();
@@ -616,7 +616,7 @@ function closeProductDetailsModal() {
 
 // Edit from details modal
 function editProduct() {
-    if (isViewer()) { showToast('View-only account. Cannot edit products.', 'error'); return; }
+    if (!canManage()) { showToast("Your role can't edit products.", 'error'); return; }
     // capture before closing — closeProductDetailsModal() resets editingProductId
     const id = editingProductId;
     closeProductDetailsModal();
@@ -631,7 +631,7 @@ function deleteFromDetails() {
 
 // Delete product with confirmation
 async function deleteProduct(id) {
-    if (isViewer()) { showToast('View-only account. Cannot delete products.', 'error'); return; }
+    if (!canManage()) { showToast("Your role can't delete products.", 'error'); return; }
     showConfirmDialog('Delete Product', 'Are you sure you want to delete this product? This cannot be undone.', async () => {
         try {
             const response = await fetch(`${API_URL}/products/${id}`, {
@@ -721,7 +721,7 @@ async function handleProductSubmit(event) {
 let stockAdjustProductId = null;
 
 function openStockModal(productId) {
-    if (isViewer()) { showToast('View-only account. Cannot adjust stock.', 'error'); return; }
+    if (!canManage()) { showToast("Your role can't adjust stock.", 'error'); return; }
     stockAdjustProductId = productId;
     const product = allProducts.find(p => p.id === productId);
     document.getElementById('stockProductName').textContent = product ? product.name : 'Unknown Product';
@@ -772,7 +772,7 @@ function showWarnings(warnings) {
 const REORDER_PAGE_SIZE = 5;
 
 async function autoReorder() {
-    if (isViewer()) { showToast('View-only account. Cannot reorder.', 'error'); return; }
+    if (!canManage()) { showToast("Your role can't reorder.", 'error'); return; }
     if (!allProducts.length) await loadProducts();
     const lowStock = allProducts.filter(p => p.stock_quantity <= p.reorder_level);
     if (!lowStock.length) { showToast('No products need reordering', 'info'); return; }
@@ -952,7 +952,7 @@ function clearSelection() {
 }
 
 async function bulkReorder() {
-    if (isViewer()) { showToast('View-only account. Cannot reorder.', 'error'); return; }
+    if (!canManage()) { showToast("Your role can't reorder.", 'error'); return; }
     const ids = getSelectedIds();
     if (ids.length === 0) return;
     showConfirmDialog('Bulk Reorder', `Generate purchase orders for ${ids.length} selected product(s)?`, () => {
@@ -984,7 +984,7 @@ async function bulkReorder() {
 }
 
 async function bulkAdjustStock() {
-    if (isViewer()) { showToast('View-only account. Cannot adjust stock.', 'error'); return; }
+    if (!canManage()) { showToast("Your role can't adjust stock.", 'error'); return; }
     const ids = getSelectedIds();
     if (ids.length === 0) return;
     showPromptDialog('Bulk Stock Adjust', `Enter quantity to add/remove for ${ids.length} product(s):<br>(positive = add stock, negative = remove stock)`, (qty) => {
@@ -1015,7 +1015,7 @@ async function bulkAdjustStock() {
 }
 
 async function bulkDelete() {
-    if (isViewer()) { showToast('View-only account. Cannot delete products.', 'error'); return; }
+    if (!canManage()) { showToast("Your role can't delete products.", 'error'); return; }
     const ids = getSelectedIds();
     if (ids.length === 0) return;
     showConfirmDialog('Bulk Delete', `Delete ${ids.length} product(s)? This cannot be undone.`, async () => {
@@ -1063,7 +1063,7 @@ document.addEventListener('click', (e) => {
 let csvParsedData = [];
 
 function openCsvImportModal() {
-    if (isViewer()) { showToast('View-only account. Cannot import products.', 'error'); return; }
+    if (!canManage()) { showToast("Your role can't import products.", 'error'); return; }
     document.getElementById('csvImportModal').classList.add('active');
     document.getElementById('csvPreview').innerHTML = '';
     document.getElementById('csvFile').value = '';
@@ -1119,7 +1119,7 @@ document.getElementById('csvFile')?.addEventListener('change', function(e) {
 });
 
 async function importCsvProducts() {
-    if (isViewer()) { showToast('View-only account. Cannot import products.', 'error'); return; }
+    if (!canManage()) { showToast("Your role can't import products.", 'error'); return; }
     if (!csvParsedData.length) { showToast('No valid products to import', 'error'); return; }
     const btn = document.getElementById('importBtn');
     btn.disabled = true;

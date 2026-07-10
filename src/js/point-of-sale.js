@@ -28,7 +28,7 @@ window.addEventListener('load', async () => {
         document.querySelector('.page-header-actions .btn-primary')?.remove();
     }
     const viewer = isViewer();
-    if (viewer) document.querySelector('#viewSaleModal .btn-danger')?.remove();
+    if (!canManage()) document.querySelector('#viewSaleModal .btn-danger')?.remove();
     await Promise.all([loadProducts(), loadSales()]);
     setupBarcodeListener();
     setupAutocomplete();
@@ -226,7 +226,7 @@ function showMoreSales() {
 function displaySales(sales) {
     const tbody = document.getElementById('salesTableBody');
     if (!tbody) return;
-    const viewer = isViewer();
+    const viewer = !canManage(); // delete is admin/manager-only
     if (sales.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" class="text-center">No sales found</td></tr>';
         updatePagination('salesPagination', sales, displayCount, 'showMoreSales');
@@ -490,7 +490,7 @@ function closeViewSaleModal() {
 }
 
 async function deleteSaleFromDetail() {
-    if (isViewer()) { showToast('View-only account. Cannot delete sales.', 'error'); return; }
+    if (!canManage()) { showToast("Your role can't delete sales.", 'error'); return; }
     if (viewingSaleId) {
         await deleteSale(viewingSaleId);
         closeViewSaleModal();
@@ -498,7 +498,7 @@ async function deleteSaleFromDetail() {
 }
 
 async function deleteSale(id) {
-    if (isViewer()) { showToast('View-only account. Cannot delete sales.', 'error'); return; }
+    if (!canManage()) { showToast("Your role can't delete sales.", 'error'); return; }
     showConfirmDialog('Delete Sale', 'Are you sure you want to delete this sale? This cannot be undone.', async () => {
         try {
             const response = await fetch(`${API_BASE}/sales/${id}`, {

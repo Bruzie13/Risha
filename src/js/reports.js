@@ -9,6 +9,8 @@ let displayCount = PAGE_SIZE;
 
 window.addEventListener('load', async () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
+    // the audit API is admin-only — hide its tab from everyone else
+    if (getUserRole() !== 'admin') document.querySelector('.report-tab[data-tab="audit"]')?.remove();
     setupTabs();
     setupDateRange();
     const params = new URLSearchParams(window.location.search);
