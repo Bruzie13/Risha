@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const auditController = require('../controllers/auditController');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
-router.get('/', authenticateToken, auditController.getAuditLogs);
+// Audit trail exposes every user's actions and IPs — admins only
+router.get('/', authenticateToken, authorizeRole('admin'), auditController.getAuditLogs);
 
 module.exports = router;

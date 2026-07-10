@@ -119,7 +119,8 @@ async function saveProfile() {
     try {
         var user = getUser();
         if (!user) return;
-        var res = await fetch(API_BASE + '/auth/users/' + user.id, {
+        // /auth/profile is self-service (any role); /auth/users/:id is admin-only
+        var res = await fetch(API_BASE + '/auth/profile', {
             method: 'PUT',
             headers: getAuthHeaders(),
             body: JSON.stringify({ full_name: name })
