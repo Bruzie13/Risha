@@ -203,15 +203,16 @@ exports.autoGeneratePO = async (req, res) => {
 
         const warnings = [];
 
-        // Filter out expired products
+        // Expired products can still be reordered — the new batch replaces the
+        // expired one. Expired units are unusable, so size the order as if
+        // on-hand stock were zero, and remind staff to pull the old batch.
         const now = new Date();
-        lowStockProducts = lowStockProducts.filter(p => {
+        for (const p of lowStockProducts) {
             if (p.expiration_date && new Date(p.expiration_date) <= now) {
-                warnings.push(`"${p.name}" skipped: product has expired`);
-                return false;
+                warnings.push(`"${p.name}" is expired — ordering a fresh batch; remove the expired units from shelves`);
+                p.stock_quantity = 0;
             }
-            return true;
-        });
+        }
 
         if (!lowStockProducts || lowStockProducts.length === 0) {
             return res.status(200).json({

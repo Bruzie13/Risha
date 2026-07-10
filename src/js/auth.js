@@ -158,9 +158,9 @@ function showSuccessDialog(title, message, opts) {
     const dialog = document.createElement('div');
     dialog.style.cssText = 'background:var(--bg-card,#fff);border-radius:18px;padding:32px 34px 26px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp 0.25s ease;text-align:center;';
 
-    const iconColor = o.tone === 'danger' ? 'var(--danger,#E5484D)' : 'var(--success,#2FA36B)';
-    const iconBg = o.tone === 'danger' ? 'var(--danger-bg,rgba(229,72,77,0.12))' : 'var(--success-bg,rgba(47,163,107,0.12))';
-    const iconName = o.icon || (o.tone === 'danger' ? 'delete' : 'check');
+    const iconColor = o.tone === 'danger' ? 'var(--danger,#E5484D)' : o.tone === 'info' ? 'var(--info,#3E9BD6)' : 'var(--success,#2FA36B)';
+    const iconBg = o.tone === 'danger' ? 'var(--danger-bg,rgba(229,72,77,0.12))' : o.tone === 'info' ? 'var(--info-bg,rgba(62,155,214,0.12))' : 'var(--success-bg,rgba(47,163,107,0.12))';
+    const iconName = o.icon || (o.tone === 'danger' ? 'delete' : o.tone === 'info' ? 'info' : 'check');
     dialog.innerHTML = `
         <div style="width:66px;height:66px;border-radius:50%;background:${iconBg};display:flex;align-items:center;justify-content:center;margin:0 auto 16px;animation:successPop 0.45s cubic-bezier(0.34,1.56,0.64,1);">
             <span class="material-symbols-outlined" style="font-size:36px;color:${iconColor};font-variation-settings:'wght' 600;">${iconName}</span>

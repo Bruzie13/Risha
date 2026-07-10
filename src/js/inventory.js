@@ -893,7 +893,7 @@ async function doReorder(productIds) {
             if (count > 0) {
                 showSuccessDialog('Reorder placed', `${count} purchase order${count === 1 ? '' : 's'} generated — suppliers have been emailed.`, { icon: 'local_shipping' });
             } else {
-                showToast(data.message || 'No purchase orders generated', 'warning');
+                showSuccessDialog('No orders generated', data.message || 'Nothing needed reordering — see the notes for details.', { tone: 'info' });
             }
             if (data.warnings && data.warnings.length > 0) {
                 setTimeout(() => showWarnings(data.warnings), 500);
@@ -956,7 +956,7 @@ async function bulkReorder() {
             if (count > 0) {
                 showSuccessDialog('Reorder placed', `${count} purchase order${count === 1 ? '' : 's'} generated — suppliers have been emailed.`, { icon: 'local_shipping' });
             } else {
-                showToast(data.message || 'No purchase orders generated', 'warning');
+                showSuccessDialog('No orders generated', data.message || 'Nothing needed reordering — see the notes for details.', { tone: 'info' });
             }
             if (data.warnings && data.warnings.length > 0) {
                 setTimeout(() => showWarnings(data.warnings), 500);

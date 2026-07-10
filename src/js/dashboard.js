@@ -533,7 +533,7 @@ async function autoReorderDashboard() {
                 if (count > 0) {
                     showSuccessDialog('Reorder placed', `${count} purchase order${count === 1 ? '' : 's'} generated — suppliers have been emailed.`, { icon: 'local_shipping' });
                 } else {
-                    showToast(data.message || 'No purchase orders generated', 'warning');
+                    showSuccessDialog('No orders generated', data.message || 'Nothing needed reordering — see the notes for details.', { tone: 'info' });
                 }
                 await loadDashboardStats();
             } else {
