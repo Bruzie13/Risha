@@ -2,6 +2,43 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const logAudit = require('../services/audit');
 const { notifyUserLogin } = require('../services/notifier');
+const { validatePassword } = require('../utils/passwordPolicy');
+
+// Brute-force protection: after 5 failed logins per IP+username within
+// 10 minutes, further attempts are rejected until the window expires.
+const loginAttempts = new Map();
+const MAX_ATTEMPTS = 5;
+const ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
+
+function attemptKey(req, username) {
+    return `${req.ip}|${String(username || '').toLowerCase()}`;
+}
+
+function tooManyAttempts(key) {
+    const entry = loginAttempts.get(key);
+    if (!entry) return false;
+    if (Date.now() - entry.first > ATTEMPT_WINDOW_MS) {
+        loginAttempts.delete(key);
+        return false;
+    }
+    return entry.count >= MAX_ATTEMPTS;
+}
+
+function recordFailure(key) {
+    const now = Date.now();
+    const entry = loginAttempts.get(key);
+    if (!entry || now - entry.first > ATTEMPT_WINDOW_MS) {
+        loginAttempts.set(key, { count: 1, first: now });
+    } else {
+        entry.count++;
+    }
+    // keep the map from growing unbounded
+    if (loginAttempts.size > 10000) {
+        for (const [k, v] of loginAttempts) {
+            if (now - v.first > ATTEMPT_WINDOW_MS) loginAttempts.delete(k);
+        }
+    }
+}
 
 const generateToken = (user) => {
     return jwt.sign(
@@ -27,8 +64,17 @@ exports.login = async (req, res) => {
             });
         }
 
+        const key = attemptKey(req, username);
+        if (tooManyAttempts(key)) {
+            return res.status(429).json({
+                success: false,
+                message: 'Too many failed login attempts. Please try again in a few minutes.'
+            });
+        }
+
         const user = await User.findByUsername(username);
         if (!user) {
+            recordFailure(key);
             return res.status(401).json({
                 success: false,
                 message: 'Invalid username or password'
@@ -44,11 +90,14 @@ exports.login = async (req, res) => {
 
         const isPasswordValid = await User.verifyPassword(password, user.password);
         if (!isPasswordValid) {
+            recordFailure(key);
             return res.status(401).json({
                 success: false,
                 message: 'Invalid username or password'
             });
         }
+
+        loginAttempts.delete(key);
 
         const token = generateToken(user);
 
@@ -108,6 +157,11 @@ exports.register = async (req, res) => {
                 success: false,
                 message: 'Username, password, and full name are required'
             });
+        }
+
+        const pwError = validatePassword(password);
+        if (pwError) {
+            return res.status(400).json({ success: false, message: pwError });
         }
 
         const existingUser = await User.findByUsername(username);
@@ -215,6 +269,13 @@ exports.updateUser = async (req, res) => {
     try {
         const { id } = req.params;
         const updateData = req.body;
+
+        if (updateData.password) {
+            const pwError = validatePassword(updateData.password);
+            if (pwError) {
+                return res.status(400).json({ success: false, message: pwError });
+            }
+        }
 
         const oldUser = await User.findById(id);
         const user = await User.update(id, updateData);
@@ -378,11 +439,9 @@ exports.changePassword = async (req, res) => {
             });
         }
 
-        if (newPassword.length < 6) {
-            return res.status(400).json({
-                success: false,
-                message: 'New password must be at least 6 characters'
-            });
+        const pwError = validatePassword(newPassword);
+        if (pwError) {
+            return res.status(400).json({ success: false, message: pwError });
         }
 
         const user = await User.findByIdWithPassword(userId);

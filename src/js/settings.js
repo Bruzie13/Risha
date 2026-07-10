@@ -294,8 +294,9 @@ async function changePassword() {
         showFieldError('errorConfirmPw', 'Confirm new password');
         return;
     }
-    if (newPw.value.length < 6) {
-        showFieldError('errorNewPw', 'Must be at least 6 characters');
+    var pwError = passwordPolicyError(newPw.value);
+    if (pwError) {
+        showFieldError('errorNewPw', pwError);
         return;
     }
     if (newPw.value !== confirmPw.value) {

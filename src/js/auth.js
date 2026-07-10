@@ -64,6 +64,16 @@ function toggleSidebarVisibility() {
     if (sidebar) sidebar.classList.remove('open');
 }
 
+// Mirrors backend/utils/passwordPolicy.js — returns null if OK, else the reason
+function passwordPolicyError(pw) {
+    if (typeof pw !== 'string' || pw.length < 6) return 'Must be at least 6 characters';
+    if (!/[A-Z]/.test(pw)) return 'Add at least one uppercase letter (A–Z)';
+    if (!/[a-z]/.test(pw)) return 'Add at least one lowercase letter (a–z)';
+    if (!/[0-9]/.test(pw)) return 'Add at least one number (0–9)';
+    if (!/[^A-Za-z0-9]/.test(pw)) return 'Add at least one special character (e.g. !@#$%)';
+    return null;
+}
+
 function isAuthenticated() {
     return !!getToken();
 }

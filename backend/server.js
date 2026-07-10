@@ -35,6 +35,19 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
+// Security headers on every response
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');   // no MIME sniffing
+    res.setHeader('X-Frame-Options', 'DENY');             // no clickjacking via iframes
+    res.setHeader('Referrer-Policy', 'same-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    if (process.env.NODE_ENV === 'production') {
+        // force HTTPS for 180 days once a browser has seen the site over HTTPS
+        res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+    }
+    next();
+});
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

@@ -121,7 +121,14 @@ async function handleUserSubmit(event) {
         role: document.getElementById('userRole').value
     };
     const password = document.getElementById('userPassword').value;
-    if (password) userData.password = password;
+    if (password) {
+        const pwError = passwordPolicyError(password);
+        if (pwError) { showToast('Password: ' + pwError, 'error'); return; }
+        userData.password = password;
+    } else if (!editingUserId) {
+        showToast('Password is required for a new user', 'error');
+        return;
+    }
 
     try {
         let response;
