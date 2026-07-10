@@ -1,16 +1,32 @@
+# Render blueprint — deploys the RISHA app as a free web service.
+# In Render: New + → Blueprint → pick this repo, then fill in the env values
+# (copy from backend/.env; database stays on the existing free Aiven MySQL).
 services:
   - type: web
-    name: risha-backend
+    name: risha-pets
     runtime: node
-    repo: https://github.com/Bruzie13/Risha
-    rootDir: backend
+    plan: free
     buildCommand: npm install
-    startCommand: node server.js
-
-  - type: web
-    name: risha-ml
-    runtime: python
-    repo: https://github.com/Bruzie13/Risha
-    rootDir: ml-service
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn -w 2 -b 0.0.0.0:$PORT app:app
+    startCommand: npm start
+    healthCheckPath: /login.html
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_SSL
+        value: "true"
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BASE_URL
+        value: https://risha-pets.onrender.com
