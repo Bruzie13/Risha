@@ -58,6 +58,16 @@ async function checkLowStock() {
 
         for (const [sid, group] of Object.entries(grouped)) {
             if (!group.email) continue;
+            // don't nag: at most one low-stock email per supplier per 24h
+            const cdConn = await pool.getConnection();
+            const [recent] = await cdConn.execute(
+                `SELECT id FROM email_logs
+                 WHERE supplier_id = ? AND email_type = 'low_stock'
+                   AND status IN ('sent', 'pending')
+                   AND created_at > NOW() - INTERVAL 24 HOUR
+                 LIMIT 1`, [sid]);
+            cdConn.release();
+            if (recent.length) continue;
             const sent = await sendLowStockAlert(sid, group.email, group.name, group.items);
             if (sent) {
                 await Notification.create({

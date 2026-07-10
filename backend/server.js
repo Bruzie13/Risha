@@ -179,8 +179,13 @@ app.get('/track/:trackingId.gif', rateLimitTracking, async (req, res) => {
     const { trackingId } = req.params;
     try {
         const conn = await pool.getConnection();
+        // Mail scanners (Gmail especially) prefetch images seconds after
+        // delivery — an "open" in the first minute is a robot, not a reader.
         await conn.execute(
-            'UPDATE email_logs SET opened_at = COALESCE(opened_at, NOW()), opened_count = opened_count + 1 WHERE tracking_id = ?',
+            `UPDATE email_logs
+             SET opened_at = IF(created_at < NOW() - INTERVAL 60 SECOND, COALESCE(opened_at, NOW()), opened_at),
+                 opened_count = opened_count + 1
+             WHERE tracking_id = ?`,
             [trackingId]
         );
         conn.release();
@@ -192,20 +197,34 @@ app.get('/track/:trackingId.gif', rateLimitTracking, async (req, res) => {
 // Click tracking — the "View / Confirm" button inside supplier emails points here.
 // Clicking marks the email as read (even when the mail client blocks images)
 // and shows the supplier a small branded confirmation page.
-app.get('/track/click/:trackingId', rateLimitTracking, async (req, res) => {
-    const { trackingId } = req.params;
-    let known = false;
+// The confirm page marks the email via a JS POST below — link-scanning bots
+// follow GETs but don't execute JavaScript, so a bare GET no longer counts.
+app.post('/track/confirm/:trackingId', rateLimitTracking, async (req, res) => {
     try {
         const conn = await pool.getConnection();
-        const [result] = await conn.execute(
+        await conn.execute(
             `UPDATE email_logs
              SET opened_at = COALESCE(opened_at, NOW()),
                  clicked_at = COALESCE(clicked_at, NOW()),
                  opened_count = opened_count + 1
              WHERE tracking_id = ?`,
+            [req.params.trackingId]
+        );
+        conn.release();
+    } catch (e) {}
+    res.json({ ok: true });
+});
+
+app.get('/track/click/:trackingId', rateLimitTracking, async (req, res) => {
+    const { trackingId } = req.params;
+    let known = false;
+    try {
+        const conn = await pool.getConnection();
+        const [rows] = await conn.execute(
+            'SELECT id FROM email_logs WHERE tracking_id = ? LIMIT 1',
             [trackingId]
         );
-        known = result.affectedRows > 0;
+        known = rows.length > 0;
         conn.release();
     } catch (e) {}
     res.set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -234,6 +253,10 @@ app.get('/track/click/:trackingId', rateLimitTracking, async (req, res) => {
             : 'This confirmation link is no longer active, but you can reply to the original email if you have questions.'}</p>
         <div class="brand"><b>RISHA</b> PET SUPPLIES</div>
     </div>
+    <script>
+        // recorded only when a real browser runs this (bots don't)
+        fetch('/track/confirm/${trackingId}', { method: 'POST' }).catch(function () {});
+    </script>
 </body>
 </html>`);
 });
