@@ -7,3 +7,4 @@ __pycache__/
 .DS_Store
 database/generate_dummy_data.py
 .claude/
+backups/
