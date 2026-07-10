@@ -111,78 +111,127 @@ function logout() {
     );
 }
 
-function showConfirmDialog(title, message, onConfirm, confirmText, icon) {
-    const existing = document.getElementById('confirmDialogOverlay');
-    if (existing) existing.remove();
+/* ===== ONE DIALOG DESIGN =====
+   Every centered popup in the app (confirm, prompt, success, error) is built
+   from this shell so they all look identical: tinted icon circle, display
+   title, muted message, rounded buttons. */
 
-    const overlay = document.createElement('div');
-    overlay.id = 'confirmDialogOverlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s ease;';
+const DIALOG_TONES = {
+    primary: { color: 'var(--primary,#EE6A5F)', bg: 'var(--primary-bg,rgba(238,106,95,0.12))' },
+    success: { color: 'var(--success,#2FA36B)', bg: 'var(--success-bg,rgba(47,163,107,0.12))' },
+    danger: { color: 'var(--danger,#E5484D)', bg: 'var(--danger-bg,rgba(229,72,77,0.12))' },
+    info: { color: 'var(--info,#3E9BD6)', bg: 'var(--info-bg,rgba(62,155,214,0.12))' },
+    warning: { color: 'var(--warning,#E8930C)', bg: 'var(--warning-bg,rgba(232,147,12,0.12))' }
+};
 
-    const dialog = document.createElement('div');
-    dialog.style.cssText = 'background:var(--bg-card,#fff);border-radius:12px;padding:30px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp 0.25s ease;text-align:center;';
-
-    const btnText = confirmText || 'Confirm';
-    const iconHtml = icon && icon.startsWith('<')
-        ? icon
-        : '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">warning</span>';
-    dialog.innerHTML = `
-        <div style="margin-bottom:15px;">${iconHtml}</div>
-        <h3 style="font-size:20px;color:var(--primary,#F28B82);margin-bottom:10px;font-weight:700;">${title}</h3>
-        <p style="font-size:15px;color:var(--text-muted,#888);margin-bottom:25px;line-height:1.5;">${message}</p>
-        <div style="display:flex;gap:12px;justify-content:center;">
-            <button id="confirmCancelBtn" style="padding:12px 28px;border:2px solid var(--border-color,#e0e0e0);border-radius:8px;background:var(--bg-card,#fff);color:var(--text-secondary,#555);font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;">Cancel</button>
-            <button id="confirmOkBtn" style="padding:12px 28px;border:none;border-radius:8px;background:var(--danger,#E96A6A);color:#fff;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;">${btnText}</button>
-        </div>
-    `;
-
-    overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
-
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-    const cancelBtn = dialog.querySelector('#confirmCancelBtn');
-    const okBtn = dialog.querySelector('#confirmOkBtn');
-    cancelBtn.addEventListener('mouseenter', () => { cancelBtn.style.background = 'var(--gray-100,#f5f5f5)'; });
-    cancelBtn.addEventListener('mouseleave', () => { cancelBtn.style.background = 'var(--bg-card,#fff)'; });
-    cancelBtn.addEventListener('click', () => overlay.remove());
-    okBtn.addEventListener('mouseenter', () => { okBtn.style.background = '#D98275'; });
-    okBtn.addEventListener('mouseleave', () => { okBtn.style.background = 'var(--danger,#E96A6A)'; });
-    okBtn.addEventListener('click', () => { overlay.remove(); onConfirm(); });
-
+function ensureDialogKeyframes() {
+    if (document.getElementById('dialogKeyframes')) return;
     const style = document.createElement('style');
-    style.textContent = '@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}';
+    style.id = 'dialogKeyframes';
+    style.textContent = '@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}@keyframes successPop{0%{transform:scale(0.4);opacity:0}100%{transform:scale(1);opacity:1}}@keyframes successDrain{from{transform:scaleX(1)}to{transform:scaleX(0)}}';
     document.head.appendChild(style);
 }
 
-// Success popup shown after any confirmed action completes (reorder, save, delete…).
-// Auto-dismisses after 4s; click, Enter or Escape closes it immediately.
-function showSuccessDialog(title, message, opts) {
-    const existing = document.getElementById('successDialogOverlay');
+function buildDialogShell(overlayId, tone, iconName, title, message) {
+    ensureDialogKeyframes();
+    const existing = document.getElementById(overlayId);
     if (existing) existing.remove();
-    const o = opts || {};
+    const t = DIALOG_TONES[tone] || DIALOG_TONES.primary;
 
     const overlay = document.createElement('div');
-    overlay.id = 'successDialogOverlay';
+    overlay.id = overlayId;
     overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.45);backdrop-filter:blur(2px);z-index:10000;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s ease;';
 
     const dialog = document.createElement('div');
     dialog.style.cssText = 'background:var(--bg-card,#fff);border-radius:18px;padding:32px 34px 26px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp 0.25s ease;text-align:center;';
-
-    const iconColor = o.tone === 'danger' ? 'var(--danger,#E5484D)' : o.tone === 'info' ? 'var(--info,#3E9BD6)' : 'var(--success,#2FA36B)';
-    const iconBg = o.tone === 'danger' ? 'var(--danger-bg,rgba(229,72,77,0.12))' : o.tone === 'info' ? 'var(--info-bg,rgba(62,155,214,0.12))' : 'var(--success-bg,rgba(47,163,107,0.12))';
-    const iconName = o.icon || (o.tone === 'danger' ? 'delete' : o.tone === 'info' ? 'info' : 'check');
     dialog.innerHTML = `
-        <div style="width:66px;height:66px;border-radius:50%;background:${iconBg};display:flex;align-items:center;justify-content:center;margin:0 auto 16px;animation:successPop 0.45s cubic-bezier(0.34,1.56,0.64,1);">
-            <span class="material-symbols-outlined" style="font-size:36px;color:${iconColor};font-variation-settings:'wght' 600;">${iconName}</span>
+        <div style="width:66px;height:66px;border-radius:50%;background:${t.bg};display:flex;align-items:center;justify-content:center;margin:0 auto 16px;animation:successPop 0.45s cubic-bezier(0.34,1.56,0.64,1);">
+            <span class="material-symbols-outlined" style="font-size:36px;color:${t.color};font-variation-settings:'wght' 600;">${iconName}</span>
         </div>
         <h3 style="font-family:var(--font-display,inherit);font-size:19px;color:var(--text-primary,#1c1c1c);margin-bottom:8px;font-weight:800;letter-spacing:-0.3px;">${title}</h3>
         <p style="font-size:14px;color:var(--text-muted,#888);margin-bottom:22px;line-height:1.55;">${message}</p>
-        <button id="successOkBtn" style="padding:11px 34px;border:none;border-radius:10px;background:var(--primary,#EE6A5F);color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;box-shadow:0 4px 12px rgba(238,106,95,0.3);">Done</button>
-        <div style="margin-top:14px;height:3px;border-radius:2px;background:var(--gray-100,#f0f0f0);overflow:hidden;"><div id="successTimerBar" style="height:100%;width:100%;background:${iconColor};transform-origin:left;animation:successDrain 4s linear forwards;"></div></div>
+        <div class="dialog-body"></div>
     `;
-
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
+    return { overlay, dialog, tone: t };
+}
+
+const DIALOG_BTN_GHOST = 'padding:11px 24px;border:1px solid var(--border-glass-strong,#ddd);border-radius:10px;background:transparent;color:var(--text-secondary,#555);font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;';
+function dialogBtnSolid(color, shadow) {
+    return `padding:11px 28px;border:none;border-radius:10px;background:${color};color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;box-shadow:0 4px 12px ${shadow};`;
+}
+
+// Legacy call sites pass raw icon HTML — recover the icon name and tone from it
+function parseLegacyIcon(icon, fallbackIcon) {
+    let name = fallbackIcon, tone = 'primary';
+    if (typeof icon === 'string' && icon.startsWith('<')) {
+        const m = icon.match(/>\s*([a-z_0-9]+)\s*</);
+        if (m) name = m[1];
+        if (icon.includes('--danger')) tone = 'danger';
+        else if (icon.includes('--warning')) tone = 'warning';
+    }
+    return { name, tone };
+}
+
+function showConfirmDialog(title, message, onConfirm, confirmText, icon) {
+    const { name, tone } = parseLegacyIcon(icon, 'help');
+    const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', tone, name, title, message);
+    const destructive = tone === 'danger';
+    const solid = destructive
+        ? dialogBtnSolid('var(--danger,#E5484D)', 'rgba(229,72,77,0.3)')
+        : dialogBtnSolid('var(--primary,#EE6A5F)', 'rgba(238,106,95,0.3)');
+
+    dialog.querySelector('.dialog-body').innerHTML = `
+        <div style="display:flex;gap:12px;justify-content:center;">
+            <button id="confirmCancelBtn" style="${DIALOG_BTN_GHOST}">Cancel</button>
+            <button id="confirmOkBtn" style="${solid}">${confirmText || 'Confirm'}</button>
+        </div>
+    `;
+
+    const close = () => { document.removeEventListener('keydown', onKey); overlay.remove(); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    dialog.querySelector('#confirmCancelBtn').addEventListener('click', close);
+    dialog.querySelector('#confirmOkBtn').addEventListener('click', () => { close(); onConfirm(); });
+}
+
+function showPromptDialog(title, message, onConfirm, confirmText, icon, inputType, defaultValue) {
+    const { name, tone } = parseLegacyIcon(icon, 'edit_note');
+    const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', tone, name, title, message);
+
+    dialog.querySelector('.dialog-body').innerHTML = `
+        <input id="promptInput" type="${inputType || 'number'}" value="${defaultValue || ''}" style="width:100%;padding:12px 16px;border:1px solid var(--border-glass-strong,#ddd);border-radius:10px;font-size:16px;text-align:center;font-family:inherit;outline:none;box-sizing:border-box;margin-bottom:18px;background:var(--bg-raised,#fafafa);color:var(--text-primary,#1c1c1c);">
+        <div style="display:flex;gap:12px;justify-content:center;">
+            <button id="confirmCancelBtn" style="${DIALOG_BTN_GHOST}">Cancel</button>
+            <button id="confirmOkBtn" style="${dialogBtnSolid('var(--primary,#EE6A5F)', 'rgba(238,106,95,0.3)')}">${confirmText || 'Confirm'}</button>
+        </div>
+    `;
+
+    const input = dialog.querySelector('#promptInput');
+    const close = () => { document.removeEventListener('keydown', onKey); overlay.remove(); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { close(); onConfirm(input.value); } });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    dialog.querySelector('#confirmCancelBtn').addEventListener('click', close);
+    dialog.querySelector('#confirmOkBtn').addEventListener('click', () => { close(); onConfirm(input.value); });
+    setTimeout(() => input.focus(), 50);
+}
+
+// Success/info/error popup shown after an action completes (or fails validation).
+// Auto-dismisses after 4s; click, Enter or Escape closes it immediately.
+function showSuccessDialog(title, message, opts) {
+    const o = opts || {};
+    const tone = o.tone || 'success';
+    const iconName = o.icon || (tone === 'danger' ? 'delete' : tone === 'info' ? 'info' : 'check');
+    const { overlay, dialog, tone: t } = buildDialogShell('successDialogOverlay', tone, iconName, title, message);
+
+    dialog.querySelector('.dialog-body').innerHTML = `
+        <button id="successOkBtn" style="${dialogBtnSolid('var(--primary,#EE6A5F)', 'rgba(238,106,95,0.3)')}">${o.button || 'Done'}</button>
+        <div style="margin-top:14px;height:3px;border-radius:2px;background:var(--gray-100,#f0f0f0);overflow:hidden;"><div style="height:100%;width:100%;background:${t.color};transform-origin:left;animation:successDrain 4s linear forwards;"></div></div>
+    `;
 
     const close = () => {
         clearTimeout(timer);
@@ -195,61 +244,11 @@ function showSuccessDialog(title, message, opts) {
     document.addEventListener('keydown', onKey);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
     dialog.querySelector('#successOkBtn').addEventListener('click', close);
-
-    if (!document.getElementById('successDialogKeyframes')) {
-        const style = document.createElement('style');
-        style.id = 'successDialogKeyframes';
-        style.textContent = '@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}@keyframes successPop{0%{transform:scale(0.4);opacity:0}100%{transform:scale(1);opacity:1}}@keyframes successDrain{from{transform:scaleX(1)}to{transform:scaleX(0)}}';
-        document.head.appendChild(style);
-    }
 }
 
-function showPromptDialog(title, message, onConfirm, confirmText, icon, inputType, defaultValue) {
-    const existing = document.getElementById('confirmDialogOverlay');
-    if (existing) existing.remove();
-
-    const overlay = document.createElement('div');
-    overlay.id = 'confirmDialogOverlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s ease;';
-
-    const dialog = document.createElement('div');
-    dialog.style.cssText = 'background:var(--bg-card,#fff);border-radius:12px;padding:30px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp 0.25s ease;text-align:center;';
-
-    const btnText = confirmText || 'Confirm';
-    const iconHtml = icon && icon.startsWith('<')
-        ? icon
-        : '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">edit_note</span>';
-    const inputTypeAttr = inputType || 'number';
-    dialog.innerHTML = `
-        <div style="margin-bottom:15px;">${iconHtml}</div>
-        <h3 style="font-size:20px;color:var(--primary,#F28B82);margin-bottom:10px;font-weight:700;">${title}</h3>
-        <p style="font-size:15px;color:var(--text-muted,#888);margin-bottom:20px;line-height:1.5;">${message}</p>
-        <input id="promptInput" type="${inputTypeAttr}" value="${defaultValue || ''}" style="width:100%;padding:12px 16px;border:2px solid var(--border-color,#e0e0e0);border-radius:8px;font-size:16px;text-align:center;font-family:inherit;outline:none;box-sizing:border-box;margin-bottom:20px;" autofocus>
-        <div style="display:flex;gap:12px;justify-content:center;">
-            <button id="confirmCancelBtn" style="padding:12px 28px;border:2px solid var(--border-color,#e0e0e0);border-radius:8px;background:var(--bg-card,#fff);color:var(--text-secondary,#555);font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;">Cancel</button>
-            <button id="confirmOkBtn" style="padding:12px 28px;border:none;border-radius:8px;background:var(--danger,#E96A6A);color:#fff;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;">${btnText}</button>
-        </div>
-    `;
-
-    overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
-
-    const input = dialog.querySelector('#promptInput');
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { overlay.remove(); onConfirm(input.value); } });
-
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-    const cancelBtn = dialog.querySelector('#confirmCancelBtn');
-    const okBtn = dialog.querySelector('#confirmOkBtn');
-    cancelBtn.addEventListener('mouseenter', () => { cancelBtn.style.background = 'var(--gray-100,#f5f5f5)'; });
-    cancelBtn.addEventListener('mouseleave', () => { cancelBtn.style.background = 'var(--bg-card,#fff)'; });
-    cancelBtn.addEventListener('click', () => overlay.remove());
-    okBtn.addEventListener('mouseenter', () => { okBtn.style.background = '#D98275'; });
-    okBtn.addEventListener('mouseleave', () => { okBtn.style.background = 'var(--danger,#E96A6A)'; });
-    okBtn.addEventListener('click', () => { overlay.remove(); onConfirm(input.value); });
-
-    const style = document.createElement('style');
-    style.textContent = '@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}';
-    document.head.appendChild(style);
+// Validation/error popup — same design, red tone, OK button
+function showErrorDialog(title, message, opts) {
+    showSuccessDialog(title, message, Object.assign({ tone: 'danger', icon: 'error', button: 'OK' }, opts || {}));
 }
 
 function applyTheme() {

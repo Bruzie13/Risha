@@ -86,6 +86,9 @@ function openAddUserModal() {
     editingUserId = null;
     document.getElementById('userModalTitle').textContent = 'Add New User';
     document.getElementById('userForm').reset();
+    const unameEl = document.getElementById('userUsername');
+    unameEl.disabled = false;
+    unameEl.title = '';
     document.getElementById('userPassword').required = true;
     document.getElementById('passwordRequired').style.display = 'inline';
     document.getElementById('userSubmitBtn').textContent = 'Create User';
@@ -97,6 +100,10 @@ function openEditUserModal(id) {
     const user = allUsers.find(u => u.id === id);
     if (!user) return;
     document.getElementById('userModalTitle').textContent = 'Edit User';
+    const unameEl = document.getElementById('userUsername');
+    unameEl.value = user.username || '';
+    unameEl.disabled = true;
+    unameEl.title = 'Usernames cannot be changed';
     document.getElementById('userFullName').value = user.full_name || '';
     document.getElementById('userEmail').value = user.email || '';
     document.getElementById('userRole').value = user.role || 'staff';
@@ -123,10 +130,10 @@ async function handleUserSubmit(event) {
     const password = document.getElementById('userPassword').value;
     if (password) {
         const pwError = passwordPolicyError(password);
-        if (pwError) { showToast('Password: ' + pwError, 'error'); return; }
+        if (pwError) { showErrorDialog('Password too weak', pwError + '.'); return; }
         userData.password = password;
     } else if (!editingUserId) {
-        showToast('Password is required for a new user', 'error');
+        showErrorDialog('Password required', 'Set a password for the new account before saving.');
         return;
     }
 
@@ -142,7 +149,9 @@ async function handleUserSubmit(event) {
             });
         }
         const data = await response.json();
-        if (data.success) {
+        if (!data.success) {
+            showErrorDialog('Could not save user', data.message || 'Unknown error');
+        } else {
             showSuccessDialog(
                 editingUserId ? 'User updated' : 'User created',
                 editingUserId ? 'The account details have been saved.' : 'The new account can log in right away.',
@@ -150,8 +159,6 @@ async function handleUserSubmit(event) {
             );
             closeUserModal();
             await loadUsers();
-        } else {
-            showToast('Error: ' + (data.message || 'Unknown'), 'error');
         }
     } catch (error) {
         console.error('Error saving user:', error);

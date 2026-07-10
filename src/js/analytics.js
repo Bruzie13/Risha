@@ -507,22 +507,4 @@ function refreshAnalytics() {
     showToast('Analytics refreshed!', 'success');
 }
 
-function showToast(message, type) {
-    let toast = document.getElementById('toast');
-    if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'toast';
-        toast.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:12px 24px;border-radius:8px;color:#fff;font-weight:500;z-index:9999;transition:opacity 0.3s;display:flex;align-items:center;gap:8px;';
-        document.body.appendChild(toast);
-    }
-    toast.style.background = type === 'error' ? '#E8746C' : type === 'success' ? '#7FC98F' : type === 'warning' ? '#F0B95A' : '#5FA8D8';
-    const icons = {
-        success: '<span class="material-symbols-outlined" style="font-size:16px;">check_circle</span>',
-        error: '<span class="material-symbols-outlined" style="font-size:16px;">error</span>',
-        warning: '<span class="material-symbols-outlined" style="font-size:16px;">warning_amber</span>',
-        info: '<span class="material-symbols-outlined" style="font-size:16px;">info</span>'
-    };
-    toast.innerHTML = (icons[type] || icons.info) + ' ' + message;
-    toast.style.opacity = '1';
-    setTimeout(() => { toast.style.opacity = '0'; }, 3000);
-}
+// showToast comes from auth.js — one toast design everywhere

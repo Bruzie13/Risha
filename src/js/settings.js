@@ -298,10 +298,12 @@ async function changePassword() {
     var pwError = passwordPolicyError(newPw.value);
     if (pwError) {
         showFieldError('errorNewPw', pwError);
+        showErrorDialog('Password too weak', pwError + '.');
         return;
     }
     if (newPw.value !== confirmPw.value) {
         showFieldError('errorConfirmPw', 'Passwords do not match');
+        showErrorDialog('Passwords do not match', 'The new password and its confirmation must be identical.');
         return;
     }
 
@@ -319,6 +321,7 @@ async function changePassword() {
             confirmPw.value = '';
         } else {
             showFieldError('errorCurrentPw', data.message || 'Failed to change password');
+            showErrorDialog('Password not changed', data.message || 'Failed to change password.');
         }
     } catch (e) {
         showFieldError('errorCurrentPw', 'Failed to change password');

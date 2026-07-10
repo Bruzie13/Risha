@@ -191,6 +191,10 @@ exports.register = async (req, res) => {
         });
 
     } catch (error) {
+        // DB unique constraint — e.g. two admins creating the same username at once
+        if (error && error.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ success: false, message: 'Username already taken' });
+        }
         console.error('Register error:', error);
         res.status(500).json({
             success: false,
