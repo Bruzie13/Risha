@@ -34,6 +34,15 @@ function canManage() {
     return role === 'admin' || role === 'manager';
 }
 
+// After logout, the browser's Back button can resurrect a cached copy of an
+// authenticated page (back/forward cache). Re-check the session whenever a
+// page is restored that way and bounce to login if it's gone.
+window.addEventListener('pageshow', function (e) {
+    if (e.persisted && !localStorage.getItem('authToken') && !window.location.pathname.includes('login.html')) {
+        window.location.href = 'login.html';
+    }
+});
+
 // Apply saved theme and sidebar state immediately (before DOMContentLoaded to avoid flash)
 (function() {
     const saved = localStorage.getItem('theme');
