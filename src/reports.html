@@ -16,7 +16,7 @@
 <script>if(localStorage.getItem('theme')==='dark'||(!localStorage.getItem('theme')&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');</script>
     </head>
 <body>
-    <button class="sidebar-hamburger" id="hamburgerBtn" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
+    <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-brand">
@@ -460,7 +460,7 @@
     <div class="modal-content" style="max-width:640px;">
         <div class="modal-header">
             <h2><span class="material-symbols-outlined" style="font-size:20px;">help</span> Help Guide</h2>
-            <button class="close-btn" onclick="closeHelpGuide()">&times;</button>
+            <button class="close-btn" title="Close" onclick="closeHelpGuide()">&times;</button>
         </div>
         <div class="help-guide-content">
             <div class="help-section">

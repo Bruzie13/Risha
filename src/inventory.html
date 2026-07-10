@@ -15,7 +15,7 @@
 <script>if(localStorage.getItem('theme')==='dark'||(!localStorage.getItem('theme')&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');</script>
     </head>
 <body>
-    <button class="sidebar-hamburger" id="hamburgerBtn" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
+    <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-brand">
@@ -177,12 +177,12 @@
                     <thead>
                         <tr>
                             <th style="width:40px;"><input type="checkbox" id="selectAll"></th>
-                            <th class="th-sort" data-key="name" onclick="sortBy('name')">Product <span class="sort-arrow">▲</span></th>
-                            <th class="th-sort" data-key="category" onclick="sortBy('category')">Category <span class="sort-arrow">▲</span></th>
-                            <th class="th-sort" data-key="price" onclick="sortBy('price')">Price <span class="sort-arrow">▲</span></th>
-                            <th class="th-sort" data-key="stock" onclick="sortBy('stock')">Stock <span class="sort-arrow">▲</span></th>
-                            <th class="th-sort" data-key="expiry" onclick="sortBy('expiry')">Expiration <span class="sort-arrow">▲</span></th>
-                            <th class="th-sort" data-key="status" onclick="sortBy('status')">Status <span class="sort-arrow">▲</span></th>
+                            <th class="th-sort" title="Click to sort" data-key="name" onclick="sortBy('name')">Product <span class="sort-arrow">▲</span></th>
+                            <th class="th-sort" title="Click to sort" data-key="category" onclick="sortBy('category')">Category <span class="sort-arrow">▲</span></th>
+                            <th class="th-sort" title="Click to sort" data-key="price" onclick="sortBy('price')">Price <span class="sort-arrow">▲</span></th>
+                            <th class="th-sort" title="Click to sort" data-key="stock" onclick="sortBy('stock')">Stock <span class="sort-arrow">▲</span></th>
+                            <th class="th-sort" title="Click to sort" data-key="expiry" onclick="sortBy('expiry')">Expiration <span class="sort-arrow">▲</span></th>
+                            <th class="th-sort" title="Click to sort" data-key="status" onclick="sortBy('status')">Status <span class="sort-arrow">▲</span></th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -213,7 +213,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="modalTitle">Add New Product</h2>
-                <button class="close-btn" onclick="closeProductModal()">&times;</button>
+                <button class="close-btn" title="Close" onclick="closeProductModal()">&times;</button>
             </div>
             <form id="productForm" onsubmit="handleProductSubmit(event)">
                 <div class="modal-body">
@@ -356,7 +356,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Product Details</h2>
-                <button class="close-btn" onclick="closeProductDetailsModal()">&times;</button>
+                <button class="close-btn" title="Close" onclick="closeProductDetailsModal()">&times;</button>
             </div>
             <div class="modal-body" id="productDetailsContent"></div>
             <div class="modal-footer">
@@ -371,7 +371,7 @@
         <div class="modal-content" style="max-width:450px;">
             <div class="modal-header">
                 <h2>Adjust Stock</h2>
-                <button class="close-btn" onclick="closeStockModal()">&times;</button>
+                <button class="close-btn" title="Close" onclick="closeStockModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <p id="stockProductName" style="margin-bottom:15px;font-weight:600;"></p>
@@ -404,7 +404,7 @@
         <div class="modal-content" style="max-width:560px;">
             <div class="modal-header">
                 <h2><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">file_upload</span> Import Products from CSV</h2>
-                <button class="close-btn" onclick="closeCsvImportModal()">&times;</button>
+                <button class="close-btn" title="Close" onclick="closeCsvImportModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <div style="margin-bottom:20px;padding:16px;background:var(--gray-50);border-radius:8px;font-size:13px;color:var(--text-muted);">
@@ -456,7 +456,7 @@
     <div class="modal-content" style="max-width:640px;">
         <div class="modal-header">
             <h2><span class="material-symbols-outlined" style="font-size:20px;">help</span> Help Guide</h2>
-            <button class="close-btn" onclick="closeHelpGuide()">&times;</button>
+            <button class="close-btn" title="Close" onclick="closeHelpGuide()">&times;</button>
         </div>
         <div class="help-guide-content">
             <div class="help-section">
