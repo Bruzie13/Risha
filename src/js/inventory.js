@@ -29,6 +29,12 @@ window.addEventListener('load', async () => {
     await loadCategories();
     await loadSuppliers();
     await loadProducts();
+    // deep links from the dashboard (e.g. inventory.html?filter=reorder)
+    const wanted = new URLSearchParams(window.location.search).get('filter');
+    if (wanted) {
+        const chip = document.querySelector(`#statusChips .chip[data-status="${wanted}"]`);
+        if (chip) chip.click(); else setStatusFilter(wanted);
+    }
 });
 
 // Load categories for the dropdown and filter

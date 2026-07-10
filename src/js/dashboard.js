@@ -107,7 +107,7 @@ async function loadDashboardStats() {
                 kpiCard('Total Revenue', 'payments', 'coral',
                     `<span title="${formatCurrency(s.total_sales_amount ?? 0)}">${formatCompactCurrency(s.total_sales_amount ?? 0)}</span>`,
                     `${formatNumber(s.total_sales ?? 0)} transactions`) +
-                kpiCard('Low Stock', 'warning', 'amber',
+                kpiCard('Restock Needed', 'warning', 'amber',
                     formatNumber(low),
                     low > 0 ? '<span class="trend-pill down">Needs attention</span>' : '<span class="trend-pill up">All good</span>',
                     low > 0 ? 'var(--warning)' : null) +
