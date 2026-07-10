@@ -397,7 +397,7 @@ async function printReceipt(saleId, tendered, change) {
         const sale = data.data;
         const itemsHTML = (sale.items || []).map(item => {
             const ul = getUnitLabel(item.unit_type);
-            return `<tr><td style="padding:3px 4px;border-bottom:1px dashed #ccc;">${item.product_name}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:center;">${item.quantity}${ul}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.unit_price).toFixed(2)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.subtotal || item.quantity * item.unit_price).toFixed(2)}</td></tr>`;
+            return `<tr><td style="padding:3px 4px;border-bottom:1px dashed #ccc;">${item.product_name}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:center;">${parseFloat(item.quantity)}${ul}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.unit_price).toFixed(2)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.subtotal || item.quantity * item.unit_price).toFixed(2)}</td></tr>`;
         }).join('');
         const total = parseFloat(sale.total_amount || 0).toFixed(2);
         const disc = parseFloat(sale.discount_percent || 0).toFixed(2);
@@ -407,11 +407,12 @@ async function printReceipt(saleId, tendered, change) {
         receiptWindow.document.write(`
             <html><head><title>Receipt #${sale.id}</title>
             <style>
-                @page{width:80mm;margin:0;}
-                body{font-family:'Courier New',monospace;font-size:12px;width:80mm;padding:10px 15px;margin:0 auto;text-align:center;}
+                @page{margin:0;size:auto;}
+                body{font-family:'Courier New',monospace;font-size:11px;width:auto;max-width:80mm;padding:6px 8px;margin:0 auto;text-align:center;word-break:break-word;}
                 h2{margin:5px 0 2px;font-size:16px;letter-spacing:1px;text-transform:uppercase;}
                 .info{font-size:10px;color:#555;margin:2px 0;line-height:1.4;}
-                table{width:100%;border-collapse:collapse;margin:8px 0;text-align:left;font-size:11px;}
+                table{width:100%;border-collapse:collapse;margin:8px 0;text-align:left;font-size:10px;table-layout:auto;}
+            td:not(:first-child),th:not(:first-child){white-space:nowrap;}
                 th{padding:4px;border-bottom:2px solid #000;font-size:10px;text-transform:uppercase;}
                 .total-row{display:flex;justify-content:space-between;padding:3px 4px;font-size:12px;}
                 .grand-total{font-size:16px;font-weight:bold;border-top:2px solid #000;border-bottom:2px solid #000;padding:8px 4px;margin:8px 0;}
