@@ -230,6 +230,7 @@ function displaySales(sales) {
     if (sales.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" class="text-center">No sales found</td></tr>';
         updatePagination('salesPagination', sales, displayCount, 'showMoreSales');
+    if (window.fetchMotion && !fetchMotion.reduced) { tbody.classList.remove('rows-in'); void tbody.offsetWidth; tbody.classList.add('rows-in'); }
         return;
     }
     const shown = sales.slice(0, displayCount);

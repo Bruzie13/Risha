@@ -45,6 +45,7 @@ function displaySuppliers(suppliers) {
     if (suppliers.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" class="text-center">No suppliers found</td></tr>';
         updatePagination('supplierPagination', suppliers, displayCount, 'showMoreSuppliers');
+    if (window.fetchMotion && !fetchMotion.reduced) { tbody.classList.remove('rows-in'); void tbody.offsetWidth; tbody.classList.add('rows-in'); }
         return;
     }
     const paymentTermsMap = {

@@ -2904,3 +2904,68 @@ html.sidebar-hidden .sidebar-footer .sidebar-btn::after {
   left: calc(100% + 12px);
   transform: translateY(-50%);
 }
+
+/* ===== FETCH MOTION SYSTEM =====
+   Motion carries meaning: entrances show order, presses confirm touch,
+   pulses draw the eye to what changed. Disabled under reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .anim-in {
+    opacity: 0;
+    animation: fetchIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  @keyframes fetchIn {
+    from { opacity: 0; transform: translateY(14px) scale(0.985); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* touch feedback: anything tappable compresses slightly under the finger */
+  .btn-primary:active, .btn-secondary, .btn-secondary:active,
+  .chip:active, .pos-product-card:active, .sidebar-btn:active,
+  .btn-view:active, .btn-edit:active, .btn-delete:active, .btn-action:active,
+  .perf-card.perf-clickable:active, .report-tab:active, .settings-tab:active {
+    transition: transform 0.08s ease;
+  }
+  .btn-primary:active, .chip:active, .pos-product-card:active,
+  .sidebar-btn:active, .btn-view:active, .btn-edit:active,
+  .btn-delete:active, .btn-action:active, .perf-card.perf-clickable:active,
+  .report-tab:active, .settings-tab:active, .btn-secondary:active {
+    transform: scale(0.96);
+  }
+
+  /* hover lift for interactive cards */
+  .kpi-card, .stat-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+  .kpi-card:hover, .stat-card:hover { transform: translateY(-3px); box-shadow: 0 10px 26px rgba(16, 24, 40, 0.09); }
+
+  /* nav icons nudge toward their label on hover */
+  .sidebar-nav .nav-link .nav-icon { transition: transform 0.18s ease; }
+  .sidebar-nav .nav-link:hover .nav-icon { transform: translateX(2px) scale(1.08); }
+
+  /* chip selection springs */
+  .chip { transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease; }
+  .chip.active { animation: chipSpring 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  @keyframes chipSpring { 0% { transform: scale(0.92); } 100% { transform: scale(1); } }
+
+  /* cart reactions */
+  .badge-pop { animation: badgePop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  @keyframes badgePop { 0% { transform: scale(1); } 40% { transform: scale(1.45); } 100% { transform: scale(1); } }
+  .cart-item-in { animation: cartIn 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+  @keyframes cartIn { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
+
+  /* success dialog: draw the checkmark */
+  .check-circle { stroke-dasharray: 145; stroke-dashoffset: 145; animation: drawStroke 0.5s ease-out forwards; }
+  .check-mark { stroke-dasharray: 36; stroke-dashoffset: 36; animation: drawStroke 0.35s ease-out 0.35s forwards; }
+  @keyframes drawStroke { to { stroke-dashoffset: 0; } }
+
+  /* table rows cascade in after loads/filters */
+  .rows-in tr { opacity: 0; animation: fetchIn 0.35s ease forwards; }
+  .rows-in tr:nth-child(1) { animation-delay: 0.02s; } .rows-in tr:nth-child(2) { animation-delay: 0.06s; }
+  .rows-in tr:nth-child(3) { animation-delay: 0.10s; } .rows-in tr:nth-child(4) { animation-delay: 0.14s; }
+  .rows-in tr:nth-child(5) { animation-delay: 0.18s; } .rows-in tr:nth-child(6) { animation-delay: 0.22s; }
+  .rows-in tr:nth-child(7) { animation-delay: 0.26s; } .rows-in tr:nth-child(8) { animation-delay: 0.30s; }
+  .rows-in tr:nth-child(n+9) { animation-delay: 0.34s; }
+
+  /* theme switching cross-fades instead of snapping */
+  body, .sidebar, .panel-card, .kpi-card, .stat-card, .modal-content, .table-container {
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+  }
+}

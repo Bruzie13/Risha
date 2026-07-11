@@ -118,6 +118,10 @@ async function loadDashboardStats() {
                 kpiCard('Inventory Value', 'account_balance', 'green',
                     '<span id="inventoryValue">—</span>',
                     'Retail estimate');
+            if (window.fetchMotion) {
+                fetchMotion.stagger('#metricCards .kpi-card', 55);
+                fetchMotion.countUpAll('#metricCards .kpi-value');
+            }
         }
     } catch (error) {
         console.error('Error loading dashboard stats:', error);

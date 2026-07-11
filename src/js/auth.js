@@ -244,6 +244,11 @@ function showSuccessDialog(title, message, opts) {
     const tone = o.tone || 'success';
     const iconName = o.icon || (tone === 'danger' ? 'delete' : tone === 'info' ? 'info' : 'check');
     const { overlay, dialog, tone: t } = buildDialogShell('successDialogOverlay', tone, iconName, title, message);
+    // success checkmarks draw themselves in — clearer "it worked" signal
+    if (iconName === 'check' && window.fetchMotion) {
+        const iconWrap = dialog.querySelector('.material-symbols-outlined')?.parentElement;
+        if (iconWrap) iconWrap.innerHTML = fetchMotion.checkmarkSVG(t.color);
+    }
 
     dialog.querySelector('.dialog-body').innerHTML = `
         <button id="successOkBtn" style="${dialogBtnSolid('var(--primary,#EE6A5F)', 'rgba(238,106,95,0.3)')}">${o.button || 'Done'}</button>

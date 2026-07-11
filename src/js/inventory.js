@@ -185,6 +185,7 @@ function displayProducts(products) {
             </div>
         </td></tr>`;
         updatePagination('inventoryPagination', products, displayCount, 'showMoreProducts');
+    if (window.fetchMotion && !fetchMotion.reduced) { tbody.classList.remove('rows-in'); void tbody.offsetWidth; tbody.classList.add('rows-in'); }
         return;
     }
 

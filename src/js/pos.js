@@ -251,6 +251,7 @@ function setCartQty(idx, value) {
 }
 
 function renderCart() {
+    setTimeout(animateCartChange, 30);
     const container = document.getElementById('cartItems');
     if (!container) return;
     if (cartItems.length === 0) {
@@ -275,6 +276,12 @@ function renderCart() {
             <button class="pos-ci-remove" onclick="removeFromCart(${idx})" title="Remove"><span class="material-symbols-outlined">close</span></button>
         </div>`;
     }).join('');
+}
+
+function animateCartChange() {
+    if (!window.fetchMotion) return;
+    const items = document.querySelectorAll('.pos-cart-item');
+    fetchMotion.cartPulse(document.getElementById('cartCount'), items[items.length - 1]);
 }
 
 function updateCartTotals() {

@@ -384,6 +384,11 @@ function renderAnalyticsKpis(analyzed) {
         meta.overall_accuracy != null ? 'Validated on ' + (meta.backtested_products || 0) + ' products with enough history' : 'Needs 3+ weeks of history to validate');
     const risky = analyzed.filter(a => a.daysUntilStockout <= 30 && a.predictedDemand > 0).length;
     setKpi('kpiAtRisk', risky + ' product' + (risky === 1 ? '' : 's'));
+    if (window.fetchMotion) {
+        fetchMotion.stagger('#analyticsKpis .stat-card, .perf-card', 50);
+        fetchMotion.countUpAll('#analyticsKpis .stat-value');
+        fetchMotion.countUpAll('.perf-card .perf-value');
+    }
 }
 
 const SEGMENT_META = {
