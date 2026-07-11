@@ -259,6 +259,10 @@ async function loadAllPredictions() {
     const tableBody = document.getElementById('predictionsTableBody');
     if (tableBody) tableBody.innerHTML = '<tr><td colspan="8" class="text-center"><span class="material-symbols-outlined" style="font-size:16px;">hourglass_top</span> Analyzing sales history and computing forecasts...</td></tr>';
 
+    // the segment cards & table need the product list too; with /all now cached
+    // it can return before loadProductList(), so guarantee products are here
+    if (!allProducts.length) await loadProductList();
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
 
