@@ -193,6 +193,35 @@ async function deleteSupplier(id) {
 }
 
 // ===== Performance Scorecard =====
+function perfNextStep(status) {
+    switch (status) {
+        case 'pending': return { status: 'confirmed', label: 'Confirm' };
+        case 'confirmed': return { status: 'shipped', label: 'Shipped' };
+        case 'shipped': return { status: 'received', label: 'Receive' };
+        default: return null;
+    }
+}
+
+function advancePOFromModal(id, nextStatus, poNumber, supplierId) {
+    var msg = nextStatus === 'received'
+        ? 'Mark ' + poNumber + ' as received? The ordered quantities will be ADDED to stock.'
+        : 'Mark ' + poNumber + ' as ' + nextStatus + '?';
+    showConfirmDialog('Update Purchase Order', msg, async function () {
+        try {
+            var res = await fetch(API_BASE + '/purchase-orders/' + id + '/status', {
+                method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify({ status: nextStatus })
+            });
+            var data = await res.json();
+            if (data.success) {
+                showSuccessDialog('Order updated', poNumber + ' is now ' + nextStatus + (nextStatus === 'received' ? ' — stock updated and performance recorded.' : '.'), { icon: 'local_shipping' });
+                showPerformance(supplierId); // refresh the modal numbers
+            } else {
+                showErrorDialog('Could not update order', data.message || 'Unknown error');
+            }
+        } catch (e) { showToast('Failed to update purchase order', 'error'); }
+    }, 'Yes, Update', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">local_shipping</span>');
+}
+
 async function showPerformance(supplierId) {
     var supplier = allSuppliers.find(function(s) { return s.id === supplierId; });
     if (!supplier) return;
@@ -277,9 +306,13 @@ async function showPerformance(supplierId) {
                 var flag = (r.status === 'received' && r.confirmed != 1)
                     ? ' <span title="Received without supplier confirmation" style="color:var(--warning);"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">warning_amber</span></span>'
                     : '';
+                var next = perfNextStep(r.status);
+                var advance = (next && canManage())
+                    ? ' <button class="po-advance-btn" onclick="advancePOFromModal(' + r.id + ', \'' + next.status + '\', \'' + escHtml(r.po_number || ('#' + r.id)) + '\', ' + supplierId + ')">' + next.label + '</button>'
+                    : '';
                 return '<tr>'
                     + '<td>' + escHtml(r.po_number || ('#' + r.id)) + '</td>'
-                    + '<td><span class="' + cls + '">' + escHtml(r.status) + '</span>' + flag + '</td>'
+                    + '<td><span class="' + cls + '">' + escHtml(r.status) + '</span>' + flag + advance + '</td>'
                     + '<td>' + confirm + '</td>'
                     + '<td style="font-variant-numeric:tabular-nums;">' + val + '</td>'
                     + '<td>' + lead + '</td>'

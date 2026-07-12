@@ -263,6 +263,46 @@ function showMoreDashSales() {
     loadRecentSales();
 }
 
+// PO lifecycle: pending -> confirmed -> shipped -> received (server-enforced)
+function poNextStep(status) {
+    switch (status) {
+        case 'pending': return { status: 'confirmed', label: 'Confirm', icon: 'check', title: 'Supplier confirmed this order' };
+        case 'confirmed': return { status: 'shipped', label: 'Shipped', icon: 'local_shipping', title: 'Supplier has shipped the order' };
+        case 'shipped': return { status: 'received', label: 'Receive', icon: 'inventory', title: 'Goods arrived — adds the ordered items to stock' };
+        default: return null;
+    }
+}
+
+function advancePO(id, nextStatus, poNumber) {
+    const messages = {
+        confirmed: `Mark ${poNumber} as confirmed by the supplier?`,
+        shipped: `Mark ${poNumber} as shipped?`,
+        received: `Mark ${poNumber} as received? The ordered quantities will be ADDED to stock.`
+    };
+    showConfirmDialog('Update Purchase Order', messages[nextStatus] || 'Advance this order?', async () => {
+        try {
+            const res = await fetch(`${API_BASE}/purchase-orders/${id}/status`, {
+                method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify({ status: nextStatus })
+            });
+            const data = await res.json();
+            if (data.success) {
+                const notes = {
+                    confirmed: `${poNumber} is confirmed — mark it Shipped when the supplier dispatches it.`,
+                    shipped: `${poNumber} is on its way — mark it Received when the goods arrive.`,
+                    received: `${poNumber} received — the ordered items were added to stock and the supplier's performance record updated.`
+                };
+                showSuccessDialog('Order updated', notes[nextStatus], { icon: nextStatus === 'received' ? 'inventory' : 'local_shipping' });
+                await loadRecentPOs();
+                if (typeof loadDashboardStats === 'function') await loadDashboardStats();
+            } else {
+                showErrorDialog('Could not update order', data.message || 'Unknown error');
+            }
+        } catch (e) {
+            showToast('Failed to update purchase order', 'error');
+        }
+    }, 'Yes, Update', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">local_shipping</span>');
+}
+
 async function loadRecentPOs() {
     try {
         const response = await fetch(`${API_BASE}/purchase-orders`, { headers: getAuthHeaders() });
@@ -277,6 +317,10 @@ async function loadRecentPOs() {
             const badge = po.status === 'received' ? 'status-completed'
                 : po.status === 'pending' ? 'status-pending'
                 : po.status === 'cancelled' ? 'status-inactive' : 'status-shipped';
+            const next = poNextStep(po.status);
+            const actionBtn = (next && canManage())
+                ? `<button class="po-advance-btn" onclick="advancePO(${po.id}, '${next.status}', '${escHtml(po.po_number || 'PO#' + po.id)}')" title="${next.title}"><span class="material-symbols-outlined" style="font-size:14px;">${next.icon}</span> ${next.label}</button>`
+                : '';
             return `<div class="dash-item">
                 <div class="item-info">
                     <div class="item-name">${escHtml(po.po_number) || 'PO#' + po.id}</div>
@@ -284,7 +328,10 @@ async function loadRecentPOs() {
                 </div>
                 <div class="item-right">
                     <div class="item-value">${formatCurrency(po.total_amount || 0)}</div>
-                    <span class="status-badge ${badge}" style="margin-top:3px;">${po.status}</span>
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:3px;justify-content:flex-end;">
+                        <span class="status-badge ${badge}">${po.status}</span>
+                        ${actionBtn}
+                    </div>
                 </div>
             </div>`;
         }).join('');

@@ -3179,3 +3179,17 @@ html.sidebar-hidden .sidebar-footer .sidebar-btn::after {
     100% { opacity: 0; }
   }
 }
+
+/* PO lifecycle advance button (dashboard supply chain + supplier modal) */
+.po-advance-btn {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  background: var(--primary-bg);
+  color: var(--primary);
+  font-size: 10.5px; font-weight: 700;
+  cursor: pointer; font-family: inherit;
+  transition: all 0.15s ease;
+}
+.po-advance-btn:hover { background: var(--primary); color: #fff; }
