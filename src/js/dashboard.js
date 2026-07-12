@@ -26,10 +26,7 @@ function renderGreeting() {
     const first = name.split(' ')[0] || 'there';
     const el = document.getElementById('dashGreeting');
     if (el) el.textContent = first;
-    const initialsEl = document.getElementById('heroInitials');
-    if (initialsEl && name) {
-        initialsEl.textContent = name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
-    }
+    if (typeof applyUserIdentity === 'function') applyUserIdentity();
     const roleEl = document.getElementById('heroRoleChip');
     if (roleEl) roleEl.textContent = user?.role || 'staff';
     const dateEl = document.getElementById('dateDisplay');
@@ -72,12 +69,8 @@ async function loadUserInfo() {
     const user = getUser();
     if (!user) return;
     const nameEl = document.getElementById('userName');
-    const avatarEl = document.querySelector('.avatar-initials');
     if (nameEl) nameEl.textContent = user.full_name || user.username || user.email;
-    if (avatarEl) {
-        const name = user.full_name || user.username || user.email;
-        avatarEl.textContent = name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
-    }
+    if (typeof applyUserIdentity === 'function') applyUserIdentity();
 }
 
 function kpiCard(label, icon, iconClass, value, foot, valueColor) {

@@ -13,13 +13,9 @@ document.addEventListener('DOMContentLoaded', function () {
     updateDate();
 
     const nameEl = document.getElementById('userName');
-    const avatarEl = document.querySelector('.avatar .avatar-initials');
     const user = getUser();
     if (user && nameEl) nameEl.textContent = user.full_name || user.username || user.email;
-    if (user && avatarEl) {
-        const name = user.full_name || user.username || user.email;
-        avatarEl.textContent = name.split(' ').map(function (w) { return w[0]; }).filter(Boolean).slice(0, 2).join('').toUpperCase();
-    }
+    if (typeof applyUserIdentity === 'function') applyUserIdentity();
 });
 
 function updateDate() {
@@ -47,7 +43,7 @@ function loadSettings() {
     var user = getUser();
     if (!user) return;
 
-    var initialsEl = document.querySelector('.settings-avatar-initials');
+
     var displayNameEl = document.getElementById('settingsDisplayName');
     var roleEl = document.getElementById('settingsDisplayRole');
     var nameInput = document.getElementById('settingsFullName');
@@ -57,9 +53,7 @@ function loadSettings() {
     var sessionRole = document.getElementById('settingsSessionRole');
 
     var name = user.full_name || user.username || user.email || 'User';
-    if (initialsEl) {
-        initialsEl.textContent = name.split(' ').map(function (w) { return w[0]; }).filter(Boolean).slice(0, 2).join('').toUpperCase();
-    }
+    if (typeof applyUserIdentity === 'function') applyUserIdentity();
     if (displayNameEl) displayNameEl.textContent = name;
     if (roleEl) roleEl.textContent = (user.role || 'staff');
     if (nameInput) nameInput.value = user.full_name || '';
@@ -132,10 +126,7 @@ async function saveProfile() {
             loadSettings();
             var nameEl = document.getElementById('userName');
             if (nameEl) nameEl.textContent = name;
-            var avatarEl = document.querySelector('.avatar .avatar-initials');
-            if (avatarEl) {
-                avatarEl.textContent = name.split(' ').map(function (w) { return w[0]; }).filter(Boolean).slice(0, 2).join('').toUpperCase();
-            }
+            if (typeof applyUserIdentity === 'function') applyUserIdentity();
             showSuccessDialog('Profile updated', 'Your account details have been saved.', { icon: 'person' });
         } else {
             showToast(data.message || 'Failed to update profile', 'error');

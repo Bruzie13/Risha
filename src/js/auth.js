@@ -102,6 +102,35 @@ function getUser() {
     } catch { return null; }
 }
 
+// Pet-shop identity: each user gets a deterministic pet mascot + gradient
+// derived from their name — distinctive and on-theme instead of a bare initial.
+const USER_PETS = ['🐶', '🐱', '🐰', '🦊', '🐹', '🐨', '🐼', '🐧', '🦉', '🐢', '🦜', '🐭'];
+function userIdentity(name) {
+    let h = 0;
+    for (const ch of String(name || 'User')) h = (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0;
+    const hue = h % 360;
+    return {
+        emoji: USER_PETS[h % USER_PETS.length],
+        gradient: `linear-gradient(135deg, hsl(${hue} 72% 60%), hsl(${(hue + 42) % 360} 74% 48%))`
+    };
+}
+
+// Replace every user avatar on the page (sidebar, hero, settings) with the mascot
+function applyUserIdentity() {
+    const user = getUser();
+    if (!user) return;
+    const name = user.full_name || user.username || user.email || 'User';
+    const id = userIdentity(name);
+    document.querySelectorAll('.avatar, .settings-avatar, .hero-avatar').forEach(el => {
+        el.style.background = id.gradient;
+        el.dataset.mascot = '1';
+        const glyph = el.querySelector('.avatar-initials, .settings-avatar-initials');
+        if (glyph) { glyph.textContent = id.emoji; glyph.classList.add('mascot-glyph'); }
+    });
+    const hero = document.getElementById('heroInitials');
+    if (hero) { hero.textContent = id.emoji; hero.classList.add('mascot-glyph'); }
+}
+
 function getUserRole() {
     const user = getUser();
     return user ? user.role : null;
@@ -672,10 +701,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if ((nameEl || avatarEl) && !window.location.pathname.includes('login.html')) {
         const user = getUser();
         if (user && nameEl) nameEl.textContent = user.full_name || user.username || user.email;
-        if (user && avatarEl) {
-            const name = user.full_name || user.username || user.email;
-            avatarEl.textContent = name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
-        }
+        applyUserIdentity();
     }
 
     var themeBtn = document.getElementById('themeToggleBtn');

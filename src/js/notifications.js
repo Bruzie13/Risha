@@ -19,12 +19,9 @@ function loadUserInfo() {
     const user = getUser();
     if (!user) return;
     const nameEl = document.getElementById('userName');
-    const avatarEl = document.querySelector('.avatar-initials');
+
     if (nameEl) nameEl.textContent = user.full_name || user.username || user.email;
-    if (avatarEl) {
-        const name = user.full_name || user.username || user.email;
-        avatarEl.textContent = name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
-    }
+    if (typeof applyUserIdentity === 'function') applyUserIdentity();
 }
 
 async function loadSummary() {
