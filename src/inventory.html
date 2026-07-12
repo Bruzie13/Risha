@@ -100,6 +100,10 @@
                     </select>
                 </div>
                 <div class="toolbar-right">
+                    <div class="inv-view-toggle" role="group" aria-label="View mode">
+                        <button class="inv-view-btn active" data-view="grid" onclick="setInvView('grid')" title="Card view"><span class="material-symbols-outlined" style="font-size:18px;">grid_view</span></button>
+                        <button class="inv-view-btn" data-view="list" onclick="setInvView('list')" title="Table view"><span class="material-symbols-outlined" style="font-size:18px;">view_list</span></button>
+                    </div>
                     <button class="btn-primary" onclick="openAddProductModal()"><span class="material-symbols-outlined" style="font-size:16px;">add</span> Add</button>
                     <button class="btn-secondary" onclick="openCsvImportModal()"><span class="material-symbols-outlined" style="font-size:16px;">file_upload</span> Import</button>
                     <button class="btn-warning" onclick="autoReorder()"><span class="material-symbols-outlined" style="font-size:16px;">smart_toy</span> Reorder</button>
@@ -172,7 +176,8 @@
                     <button class="btn-secondary" onclick="showAllProducts()" style="margin-left:auto;padding:6px 14px;font-size:12px;">Show All Products</button>
                 </div>
             </div>
-            <div class="table-container">
+            <div id="productsGrid" class="product-grid"></div>
+            <div class="table-container" id="productsTableWrap" style="display:none;">
                 <table class="data-table">
                     <thead>
                         <tr>

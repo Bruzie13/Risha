@@ -26,6 +26,10 @@ window.addEventListener('load', async () => {
         const actionsTh = document.querySelector('.data-table thead th:last-child');
         if (actionsTh) actionsTh.textContent = '';
     }
+    // restore saved view (grid default) before products render
+    document.querySelectorAll('.inv-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === invView));
+    document.getElementById('productsGrid').style.display = invView === 'grid' ? 'grid' : 'none';
+    document.getElementById('productsTableWrap').style.display = invView === 'list' ? 'block' : 'none';
     await loadCategories();
     await loadSuppliers();
     await loadProducts();
@@ -159,7 +163,107 @@ function productIcon(p) {
     return 'inventory_2';
 }
 
+// Card grid is the distinctive default view; the table stays for dense scanning
+let invView = localStorage.getItem('invView') || 'grid';
+
+function setInvView(mode) {
+    invView = mode;
+    localStorage.setItem('invView', mode);
+    document.querySelectorAll('.inv-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === mode));
+    document.getElementById('productsGrid').style.display = mode === 'grid' ? 'grid' : 'none';
+    document.getElementById('productsTableWrap').style.display = mode === 'list' ? 'block' : 'none';
+    displayProducts(getFilteredProducts());
+}
+
+// status → color theme for a product card
+function cardTheme(status) {
+    switch (status) {
+        case 'expired': return { color: 'var(--danger)', bg: 'var(--danger-bg)', label: 'Expired' };
+        case 'out': return { color: 'var(--danger)', bg: 'var(--danger-bg)', label: 'Out of Stock' };
+        case 'expiring': return { color: 'var(--warning)', bg: 'var(--warning-bg)', label: 'Expiring' };
+        case 'low': return { color: 'var(--warning)', bg: 'var(--warning-bg)', label: 'Low Stock' };
+        default: return { color: 'var(--success)', bg: 'var(--success-bg)', label: 'Healthy' };
+    }
+}
+
+function displayProductsGrid(products) {
+    const grid = document.getElementById('productsGrid');
+    if (!grid) return;
+    const viewer = !canManage();
+
+    if (products.length === 0) {
+        const hasFilters = !!(document.getElementById('searchInput')?.value ||
+            document.getElementById('categoryFilter')?.value ||
+            document.getElementById('speciesFilter')?.value || statusFilter || reorderTab);
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;padding:56px 22px;text-align:center;">
+            <span class="material-symbols-outlined" style="font-size:46px;color:var(--border-strong,#ccc);display:block;margin-bottom:10px;">${hasFilters ? 'search_off' : 'inventory_2'}</span>
+            <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">${hasFilters ? 'No products match your filters' : 'No products yet'}</div>
+            <div style="color:var(--text-muted);">${hasFilters ? 'Try adjusting your search or filters.' : (viewer ? 'Products will appear here once added.' : 'Add your first product to get started.')}</div>
+            ${hasFilters ? '<button class="btn-secondary" onclick="showAllProducts()" style="margin-top:14px;padding:8px 18px;font-size:13px;">Clear Filters</button>' : (viewer ? '' : '<button class="btn-primary" onclick="openAddProductModal()" style="margin-top:14px;padding:8px 18px;font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;">add</span> Add Product</button>')}
+        </div>`;
+        updatePagination('inventoryPagination', products, displayCount, 'showMoreProducts');
+        return;
+    }
+
+    const C = 163.36; // circumference of the r=26 gauge ring
+    grid.innerHTML = products.slice(0, displayCount).map((p, i) => {
+        const status = productStatus(p);
+        const t = cardTheme(status);
+        const stock = Number(p.stock_quantity) || 0;
+        const reorder = p.reorder_level ?? 10;
+        const pct = Math.min(100, Math.round((stock / Math.max(reorder * 2, 1)) * 100));
+        const offset = C * (1 - pct / 100);
+        const days = daysUntilExpiry(p);
+
+        let expiry = '';
+        if (p.expiration_date && days !== null) {
+            const d = new Date(p.expiration_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const cls = days < 0 ? 'expired' : days <= 30 ? 'soon' : '';
+            const label = days < 0 ? `Expired ${Math.abs(days)}d ago` : days === 0 ? 'Expires today' : `Expires in ${days} day${days === 1 ? '' : 's'}`;
+            expiry = `<div class="pcard-expiry ${cls}"><span class="material-symbols-outlined">${days < 0 ? 'error' : 'schedule'}</span> ${d} · ${label}</div>`;
+        } else {
+            expiry = `<div class="pcard-expiry"><span class="material-symbols-outlined">event_available</span> No expiration set</div>`;
+        }
+
+        return `
+        <div class="pcard" style="--pc-color:${t.color};--pc-accent:${t.bg};--pc-line:${t.color};animation-delay:${Math.min(i * 35, 350)}ms;">
+            ${viewer ? '' : `<input type="checkbox" class="product-checkbox pcard-check" value="${p.id}">`}
+            <span class="pcard-status">${t.label}</span>
+            <div class="pcard-top">
+                <div class="pcard-avatar"><span class="material-symbols-outlined">${productIcon(p)}</span></div>
+                <div class="pcard-id">
+                    <div class="pcard-name" title="${escHtml(p.name)}">${escHtml(p.name)}</div>
+                    <div class="pcard-sub">${escHtml(p.sku)}${p.brand ? ' · ' + escHtml(p.brand) : ''}</div>
+                </div>
+            </div>
+            <div class="pcard-mid">
+                <div class="stock-gauge" title="${stock} in stock (reorder at ${reorder})">
+                    <svg width="64" height="64" viewBox="0 0 64 64">
+                        <circle class="sg-track" cx="32" cy="32" r="26" fill="none" stroke-width="6"/>
+                        <circle class="sg-fill" cx="32" cy="32" r="26" fill="none" stroke-width="6" stroke-dasharray="${C}" stroke-dashoffset="${offset}"/>
+                    </svg>
+                    <div class="sg-num">${formatNumber(stock)}<span class="sg-unit">${getUnitLabel(p.unit_type).trim() || 'in stk'}</span></div>
+                </div>
+                <div class="pcard-figs">
+                    <div class="pcard-price">${formatCurrency(p.unit_price)} <small>/ unit</small></div>
+                    <div class="pcard-cat"><span class="dot"></span> ${escHtml(p.category_name || 'Uncategorized')}${p.species ? ' · ' + escHtml(p.species) : ''}</div>
+                </div>
+            </div>
+            ${expiry}
+            <div class="pcard-actions">
+                <button onclick="viewProductDetails(${p.id})"><span class="material-symbols-outlined">visibility</span> <span class="pca-label">View</span></button>
+                ${viewer ? '' : `<button onclick="openEditProductModal(${p.id})"><span class="material-symbols-outlined">edit</span> <span class="pca-label">Edit</span></button>
+                <button onclick="openStockModal(${p.id})"><span class="material-symbols-outlined">inventory</span> <span class="pca-label">Stock</span></button>
+                <button class="pca-danger" onclick="deleteProduct(${p.id})" title="Delete"><span class="material-symbols-outlined">delete</span></button>`}
+            </div>
+        </div>`;
+    }).join('');
+
+    updatePagination('inventoryPagination', products, displayCount, 'showMoreProducts');
+}
+
 function displayProducts(products) {
+    if (invView === 'grid') { displayProductsGrid(products); return; }
     const tbody = document.getElementById('productsTableBody');
     const viewer = !canManage();
     const colSpan = viewer ? 7 : 8;
