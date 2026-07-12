@@ -102,33 +102,55 @@ function getUser() {
     } catch { return null; }
 }
 
-// Pet-shop identity: each user gets a deterministic pet mascot + gradient
-// derived from their name — distinctive and on-theme instead of a bare initial.
-const USER_PETS = ['🐶', '🐱', '🐰', '🦊', '🐹', '🐨', '🐼', '🐧', '🦉', '🐢', '🦜', '🐭'];
-function userIdentity(name) {
-    let h = 0;
-    for (const ch of String(name || 'User')) h = (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0;
-    const hue = h % 360;
-    return {
-        emoji: USER_PETS[h % USER_PETS.length],
-        gradient: `linear-gradient(135deg, hsl(${hue} 72% 60%), hsl(${(hue + 42) % 360} 74% 48%))`
-    };
+// Identity avatar: a deterministic geometric identicon generated from the
+// user's name (symmetric block pattern, like GitHub) — a unique identity
+// mark per person, not a plain initial.
+function hashName(name) {
+    let h = 2166136261;
+    for (const ch of String(name || 'User')) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+    return h;
 }
 
-// Replace every user avatar on the page (sidebar, hero, settings) with the mascot
+function identiconURI(name) {
+    const h = hashName(name);
+    const hue = h % 360;
+    const fg = `hsl(${hue} 60% 52%)`;
+    const fg2 = `hsl(${(hue + 28) % 360} 62% 46%)`;
+    const bg = `hsl(${hue} 45% 96%)`;
+    // 5x5 grid mirrored across the vertical axis; 3 left columns drive it
+    let cells = '';
+    let bit = 0;
+    for (let r = 0; r < 5; r++) {
+        for (let c = 0; c < 3; c++) {
+            const on = ((h >>> (bit++ % 31)) & 1) === 1;
+            if (on) {
+                const fill = (r + c) % 2 ? fg2 : fg;
+                cells += `<rect x='${c}' y='${r}' width='1.04' height='1.04' rx='0.12' fill='${fill}'/>`;
+                if (c < 2) cells += `<rect x='${4 - c}' y='${r}' width='1.04' height='1.04' rx='0.12' fill='${fill}'/>`;
+            }
+        }
+    }
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='-0.4 -0.4 5.8 5.8'><rect x='-0.4' y='-0.4' width='5.8' height='5.8' fill='${bg}'/>${cells}</svg>`;
+    return { uri: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`, bg };
+}
+
+// Paint every user avatar (sidebar, hero, settings) with the identicon
 function applyUserIdentity() {
     const user = getUser();
     if (!user) return;
     const name = user.full_name || user.username || user.email || 'User';
-    const id = userIdentity(name);
+    const ic = identiconURI(name);
     document.querySelectorAll('.avatar, .settings-avatar, .hero-avatar').forEach(el => {
-        el.style.background = id.gradient;
+        el.style.backgroundImage = ic.uri;
+        el.style.backgroundColor = ic.bg;
+        el.style.backgroundSize = 'cover';
+        el.style.backgroundPosition = 'center';
         el.dataset.mascot = '1';
         const glyph = el.querySelector('.avatar-initials, .settings-avatar-initials');
-        if (glyph) { glyph.textContent = id.emoji; glyph.classList.add('mascot-glyph'); }
+        if (glyph) glyph.textContent = '';
     });
     const hero = document.getElementById('heroInitials');
-    if (hero) { hero.textContent = id.emoji; hero.classList.add('mascot-glyph'); }
+    if (hero) hero.textContent = '';
 }
 
 function getUserRole() {
