@@ -121,7 +121,10 @@ class PurchaseOrder {
         }
     }
 
-    static async updateStatus(id, status) {
+    // options.expiration_date (YYYY-MM-DD, optional): the fresh batch's expiry.
+    // When receiving, it replaces each product's expiration_date — this is how
+    // an expired product becomes sellable again after a new delivery arrives.
+    static async updateStatus(id, status, options = {}) {
         const connection = await pool.getConnection();
         try {
             await connection.beginTransaction();
@@ -133,21 +136,32 @@ class PurchaseOrder {
 
             if (status === 'received') {
                 const items = await this.getPOItems(id);
+                const newExpiry = /^\d{4}-\d{2}-\d{2}$/.test(options.expiration_date || '') ? options.expiration_date : null;
                 for (const item of items) {
-                    await connection.execute(
-                        'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?',
-                        [item.quantity, item.product_id]
-                    );
+                    if (newExpiry) {
+                        // fresh batch resets stock and expiry together
+                        await connection.execute(
+                            'UPDATE products SET stock_quantity = stock_quantity + ?, expiration_date = ? WHERE id = ?',
+                            [item.quantity, newExpiry, item.product_id]
+                        );
+                    } else {
+                        await connection.execute(
+                            'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?',
+                            [item.quantity, item.product_id]
+                        );
+                    }
 
                     await connection.execute(
-                        `INSERT INTO stock_movements 
-                         (product_id, movement_type, quantity, reference_type, reference_id, notes) 
+                        `INSERT INTO stock_movements
+                         (product_id, movement_type, quantity, reference_type, reference_id, notes)
                                                    VALUES (?, 'purchase', ?, 'purchase_order', ?, ?)`,
                         [
                             item.product_id,
                             item.quantity,
                             id,
-                            `Purchase Order #${id} received`
+                            newExpiry
+                                ? `Purchase Order #${id} received (new batch, expires ${newExpiry})`
+                                : `Purchase Order #${id} received`
                         ]
                     );
                 }

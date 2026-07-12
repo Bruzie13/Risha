@@ -274,22 +274,43 @@ function poNextStep(status) {
 }
 
 function advancePO(id, nextStatus, poNumber) {
+    // Receiving prompts for the new batch's expiry so a refreshed product
+    // (even a previously expired one) gets an up-to-date expiration date.
+    if (nextStatus === 'received') {
+        const today = new Date().toISOString().slice(0, 10);
+        showPromptDialog(
+            `Receive ${poNumber}`,
+            'Stock will be added. Enter the new batch\'s expiration date (leave blank to keep the current date):',
+            (dateVal) => sendPOAdvance(id, 'received', poNumber, dateVal),
+            'Mark Received',
+            '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">inventory</span>',
+            'date', ''
+        );
+        return;
+    }
     const messages = {
         confirmed: `Mark ${poNumber} as confirmed by the supplier?`,
-        shipped: `Mark ${poNumber} as shipped?`,
-        received: `Mark ${poNumber} as received? The ordered quantities will be ADDED to stock.`
+        shipped: `Mark ${poNumber} as shipped?`
     };
-    showConfirmDialog('Update Purchase Order', messages[nextStatus] || 'Advance this order?', async () => {
+    showConfirmDialog('Update Purchase Order', messages[nextStatus] || 'Advance this order?', () => sendPOAdvance(id, nextStatus, poNumber, ''), 'Yes, Update', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">local_shipping</span>');
+}
+
+async function sendPOAdvance(id, nextStatus, poNumber, expiration_date) {
+    {
         try {
+            const body = { status: nextStatus };
+            if (expiration_date) body.expiration_date = expiration_date;
             const res = await fetch(`${API_BASE}/purchase-orders/${id}/status`, {
-                method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify({ status: nextStatus })
+                method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(body)
             });
             const data = await res.json();
             if (data.success) {
                 const notes = {
                     confirmed: `${poNumber} is confirmed — mark it Shipped when the supplier dispatches it.`,
                     shipped: `${poNumber} is on its way — mark it Received when the goods arrive.`,
-                    received: `${poNumber} received — the ordered items were added to stock and the supplier's performance record updated.`
+                    received: expiration_date
+                        ? `${poNumber} received — stock added and expiration updated to ${expiration_date}.`
+                        : `${poNumber} received — the ordered items were added to stock.`
                 };
                 showSuccessDialog('Order updated', notes[nextStatus], { icon: nextStatus === 'received' ? 'inventory' : 'local_shipping' });
                 await loadRecentPOs();
@@ -300,7 +321,7 @@ function advancePO(id, nextStatus, poNumber) {
         } catch (e) {
             showToast('Failed to update purchase order', 'error');
         }
-    }, 'Yes, Update', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">local_shipping</span>');
+    }
 }
 
 async function loadRecentPOs() {

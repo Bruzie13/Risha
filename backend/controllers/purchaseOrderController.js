@@ -139,7 +139,7 @@ exports.updatePOStatus = async (req, res) => {
             });
         }
 
-        const updatedOrder = await PurchaseOrder.updateStatus(id, status);
+        const updatedOrder = await PurchaseOrder.updateStatus(id, status, { expiration_date: req.body.expiration_date });
         const supp = await Supplier.findById(order.supplier_id);
         logAudit(req.user.id, 'update', 'purchase_orders', parseInt(id),
             { po_number: order.po_number, supplier_name: supp ? supp.name : 'Unknown', status: order.status },

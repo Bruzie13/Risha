@@ -203,23 +203,36 @@ function perfNextStep(status) {
 }
 
 function advancePOFromModal(id, nextStatus, poNumber, supplierId) {
-    var msg = nextStatus === 'received'
-        ? 'Mark ' + poNumber + ' as received? The ordered quantities will be ADDED to stock.'
-        : 'Mark ' + poNumber + ' as ' + nextStatus + '?';
-    showConfirmDialog('Update Purchase Order', msg, async function () {
-        try {
-            var res = await fetch(API_BASE + '/purchase-orders/' + id + '/status', {
-                method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify({ status: nextStatus })
-            });
-            var data = await res.json();
-            if (data.success) {
-                showSuccessDialog('Order updated', poNumber + ' is now ' + nextStatus + (nextStatus === 'received' ? ' — stock updated and performance recorded.' : '.'), { icon: 'local_shipping' });
-                showPerformance(supplierId); // refresh the modal numbers
-            } else {
-                showErrorDialog('Could not update order', data.message || 'Unknown error');
-            }
-        } catch (e) { showToast('Failed to update purchase order', 'error'); }
-    }, 'Yes, Update', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">local_shipping</span>');
+    if (nextStatus === 'received') {
+        showPromptDialog('Receive ' + poNumber,
+            'Stock will be added. Enter the new batch\'s expiration date (leave blank to keep the current date):',
+            function (dateVal) { sendModalAdvance(id, 'received', poNumber, supplierId, dateVal); },
+            'Mark Received', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">inventory</span>', 'date', '');
+        return;
+    }
+    showConfirmDialog('Update Purchase Order', 'Mark ' + poNumber + ' as ' + nextStatus + '?',
+        function () { sendModalAdvance(id, nextStatus, poNumber, supplierId, ''); },
+        'Yes, Update', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">local_shipping</span>');
+}
+
+async function sendModalAdvance(id, nextStatus, poNumber, supplierId, expiration_date) {
+    try {
+        var body = { status: nextStatus };
+        if (expiration_date) body.expiration_date = expiration_date;
+        var res = await fetch(API_BASE + '/purchase-orders/' + id + '/status', {
+            method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(body)
+        });
+        var data = await res.json();
+        if (data.success) {
+            var note = nextStatus === 'received'
+                ? (expiration_date ? poNumber + ' received — stock added, expiration set to ' + expiration_date + '.' : poNumber + ' received — stock updated and performance recorded.')
+                : poNumber + ' is now ' + nextStatus + '.';
+            showSuccessDialog('Order updated', note, { icon: nextStatus === 'received' ? 'inventory' : 'local_shipping' });
+            showPerformance(supplierId);
+        } else {
+            showErrorDialog('Could not update order', data.message || 'Unknown error');
+        }
+    } catch (e) { showToast('Failed to update purchase order', 'error'); }
 }
 
 async function showPerformance(supplierId) {
