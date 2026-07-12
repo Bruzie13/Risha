@@ -237,10 +237,24 @@ async function showPerformance(supplierId) {
         document.getElementById('perfDeliveries').textContent = rating.total_deliveries || '0';
         document.getElementById('perfOrders').textContent = rating.total_orders || '0';
 
+        // supplier acknowledgement summary (from tracked PO emails)
+        var note = document.getElementById('perfConfirmNote');
+        if (note) {
+            var parts = [];
+            if (rating.confirmation_pct != null) {
+                parts.push('<span class="material-symbols-outlined" style="font-size:15px;vertical-align:middle;color:var(--success);">verified</span> Supplier confirmed <strong>' + rating.confirmed_count + ' of ' + rating.total_orders + '</strong> order(s) (' + rating.confirmation_pct + '%)');
+            }
+            if (rating.received_unconfirmed > 0) {
+                parts.push('<span class="material-symbols-outlined" style="font-size:15px;vertical-align:middle;color:var(--warning);">warning_amber</span> <strong>' + rating.received_unconfirmed + '</strong> received without the supplier confirming the order');
+            }
+            note.innerHTML = parts.join(' &nbsp;·&nbsp; ');
+            note.style.display = parts.length ? 'block' : 'none';
+        }
+
 
         var tbody = document.getElementById('perfRecordsBody');
         if (records.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No purchase orders yet</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No purchase orders yet</td></tr>';
         } else {
             var STATUS = {
                 received: 'status-badge status-completed',
@@ -253,9 +267,20 @@ async function showPerformance(supplierId) {
                 var lead = (r.status === 'received' && r.lead_days != null && r.lead_days >= 0) ? r.lead_days + ' days' : '—';
                 var val = '\u20b1' + Number(r.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 var ordered = r.order_date ? new Date(r.order_date).toLocaleDateString() : (r.created_at ? new Date(r.created_at).toLocaleDateString() : '—');
+                // confirmation: clicked confirm = confirmed, opened only = viewed, neither = awaiting
+                var confirm = r.confirmed == 1
+                    ? '<span style="color:var(--success);font-weight:600;"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">check_circle</span> Confirmed</span>'
+                    : r.viewed == 1
+                        ? '<span style="color:var(--info);font-weight:600;"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">visibility</span> Viewed</span>'
+                        : '<span style="color:var(--text-muted);"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">schedule</span> Awaiting</span>';
+                // flag the risky case: goods received but supplier never confirmed
+                var flag = (r.status === 'received' && r.confirmed != 1)
+                    ? ' <span title="Received without supplier confirmation" style="color:var(--warning);"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">warning_amber</span></span>'
+                    : '';
                 return '<tr>'
                     + '<td>' + escHtml(r.po_number || ('#' + r.id)) + '</td>'
-                    + '<td><span class="' + cls + '">' + escHtml(r.status) + '</span></td>'
+                    + '<td><span class="' + cls + '">' + escHtml(r.status) + '</span>' + flag + '</td>'
+                    + '<td>' + confirm + '</td>'
                     + '<td style="font-variant-numeric:tabular-nums;">' + val + '</td>'
                     + '<td>' + lead + '</td>'
                     + '<td>' + ordered + '</td>'
