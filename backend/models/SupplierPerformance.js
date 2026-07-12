@@ -1,16 +1,21 @@
 const pool = require('../config/database');
 
 class SupplierPerformance {
+    // Performance history is derived from the purchase orders the system
+    // actually creates (auto-reorder → status lifecycle), not a separate table
+    // that nobody feeds. Each PO is one row of the supplier's track record.
     static async getBySupplier(supplierId) {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                `SELECT sp.id, sp.supplier_id, sp.order_id, sp.metric_type, sp.metric_value, sp.notes,
-                        UNIX_TIMESTAMP(sp.created_at) * 1000 as created_at, po.po_number 
-                 FROM supplier_performance sp 
-                 LEFT JOIN purchase_orders po ON sp.order_id = po.id 
-                 WHERE sp.supplier_id = ? 
-                 ORDER BY sp.created_at DESC`,
+                `SELECT po.id, po.po_number, po.status, po.total_amount,
+                        po.order_date, po.expected_delivery_date,
+                        UNIX_TIMESTAMP(po.created_at) * 1000 as created_at,
+                        UNIX_TIMESTAMP(po.updated_at) * 1000 as updated_at,
+                        DATEDIFF(po.updated_at, po.order_date) as lead_days
+                 FROM purchase_orders po
+                 WHERE po.supplier_id = ?
+                 ORDER BY po.created_at DESC`,
                 [supplierId]
             );
             return rows;
@@ -33,43 +38,45 @@ class SupplierPerformance {
         }
     }
 
+    // Rating computed from the supplier's purchase orders. Everything here is
+    // real data the system produced — no manual entry required.
     static async getSupplierRating(supplierId) {
         const connection = await pool.getConnection();
         try {
-            const [deliveryTime] = await connection.execute(
-                `SELECT AVG(metric_value) as avg_delivery_days 
-                 FROM supplier_performance 
-                 WHERE supplier_id = ? AND metric_type = 'delivery_time'`,
+            const [rows] = await connection.execute(
+                `SELECT
+                    COUNT(*) AS total_orders,
+                    SUM(status = 'received') AS received,
+                    SUM(status = 'pending') AS pending,
+                    SUM(status = 'shipped') AS shipped,
+                    SUM(status = 'cancelled') AS cancelled,
+                    SUM(CASE WHEN status = 'received' THEN total_amount ELSE 0 END) AS total_value,
+                    AVG(CASE WHEN status = 'received' THEN DATEDIFF(updated_at, order_date) END) AS avg_lead_days,
+                    SUM(CASE WHEN status = 'received' AND expected_delivery_date IS NOT NULL
+                             AND updated_at <= expected_delivery_date THEN 1 ELSE 0 END) AS on_time_count,
+                    SUM(CASE WHEN status = 'received' AND expected_delivery_date IS NOT NULL THEN 1 ELSE 0 END) AS datable_deliveries
+                 FROM purchase_orders WHERE supplier_id = ?`,
                 [supplierId]
             );
-
-            const [onTime] = await connection.execute(
-                `SELECT 
-                    COUNT(*) as total_deliveries,
-                    SUM(CASE WHEN metric_value = 1 THEN 1 ELSE 0 END) as on_time_count
-                 FROM supplier_performance 
-                 WHERE supplier_id = ? AND metric_type = 'on_time_delivery'`,
-                [supplierId]
-            );
-
-            const [totalOrders] = await connection.execute(
-                `SELECT COUNT(DISTINCT order_id) as total_orders 
-                 FROM supplier_performance 
-                 WHERE supplier_id = ? AND order_id IS NOT NULL`,
-                [supplierId]
-            );
-
-            const onTimePct = onTime[0].total_deliveries > 0
-                ? ((onTime[0].on_time_count / onTime[0].total_deliveries) * 100)
-                : 0;
+            const r = rows[0] || {};
+            const totalOrders = Number(r.total_orders) || 0;
+            const received = Number(r.received) || 0;
+            const active = totalOrders - (Number(r.cancelled) || 0);
+            const datable = Number(r.datable_deliveries) || 0;
 
             return {
-                avg_delivery_days: deliveryTime[0].avg_delivery_days
-                    ? parseFloat(deliveryTime[0].avg_delivery_days).toFixed(2)
-                    : null,
-                on_time_delivery_pct: parseFloat(onTimePct).toFixed(1),
-                total_deliveries: onTime[0].total_deliveries,
-                total_orders: totalOrders[0].total_orders
+                total_orders: totalOrders,
+                total_deliveries: received,
+                pending: Number(r.pending) || 0,
+                shipped: Number(r.shipped) || 0,
+                cancelled: Number(r.cancelled) || 0,
+                total_value: parseFloat(r.total_value) || 0,
+                // fulfillment: received out of non-cancelled orders
+                fulfillment_pct: active > 0 ? parseFloat(((received / active) * 100).toFixed(1)) : null,
+                avg_delivery_days: r.avg_lead_days != null ? parseFloat(Number(r.avg_lead_days).toFixed(1)) : null,
+                // on-time only measurable when an expected date was set
+                on_time_delivery_pct: datable > 0 ? parseFloat(((Number(r.on_time_count) / datable) * 100).toFixed(1)) : null,
+                has_orders: totalOrders > 0
             };
         } finally {
             connection.release();

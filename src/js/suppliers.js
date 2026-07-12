@@ -210,45 +210,55 @@ async function showPerformance(supplierId) {
         if (!data.success) { showToast('Failed to load performance data', 'error'); return; }
 
         var rating = data.data.rating || {};
-        document.getElementById('perfAvgDelivery').textContent = rating.avg_delivery_days != null ? rating.avg_delivery_days + 'd' : '—';
-        document.getElementById('perfOnTime').textContent = rating.on_time_delivery_pct != null ? rating.on_time_delivery_pct + '%' : '—';
+        var records = Array.isArray(data.data.records) ? data.data.records : [];
+
+        // honest empty state when the supplier has no purchase orders
+        var empty = document.getElementById('perfEmpty');
+        if (!rating.has_orders) {
+            if (empty) empty.style.display = 'block';
+            document.getElementById('perfAvgDelivery').textContent = '—';
+            document.getElementById('perfOnTime').textContent = '—';
+            document.getElementById('perfDeliveries').textContent = '0';
+            document.getElementById('perfOrders').textContent = '0';
+            document.getElementById('perfRecordsBody').innerHTML = '';
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+
+        // Fulfillment rate (received / non-cancelled orders)
+        var fEl = document.getElementById('perfAvgDelivery');
+        fEl.textContent = rating.fulfillment_pct != null ? rating.fulfillment_pct + '%' : '—';
+        fEl.className = 'stat-value ' + (rating.fulfillment_pct == null ? '' : rating.fulfillment_pct >= 85 ? 'success' : rating.fulfillment_pct >= 60 ? 'warning' : 'danger');
+        // Avg lead time (order → received)
+        var lEl = document.getElementById('perfOnTime');
+        lEl.textContent = rating.avg_delivery_days != null ? rating.avg_delivery_days + 'd' : '—';
+        lEl.className = 'stat-value ' + (rating.avg_delivery_days == null ? '' : rating.avg_delivery_days <= 7 ? 'success' : rating.avg_delivery_days <= 14 ? 'warning' : 'danger');
+        // Orders received / total
         document.getElementById('perfDeliveries').textContent = rating.total_deliveries || '0';
         document.getElementById('perfOrders').textContent = rating.total_orders || '0';
 
-        var perfAvgEl = document.getElementById('perfAvgDelivery');
-        if (rating.avg_delivery_days != null) {
-            perfAvgEl.className = 'mini-stat-value ' + (parseFloat(rating.avg_delivery_days) > 5 ? 'danger' : 'success');
-        } else {
-            perfAvgEl.className = 'mini-stat-value';
-        }
-        var perfOnTimeEl = document.getElementById('perfOnTime');
-        if (rating.on_time_delivery_pct != null) {
-            perfOnTimeEl.className = 'mini-stat-value ' + (parseFloat(rating.on_time_delivery_pct) < 70 ? 'danger' : (parseFloat(rating.on_time_delivery_pct) < 85 ? 'warning' : 'success'));
-        } else {
-            perfOnTimeEl.className = 'mini-stat-value';
-        }
 
-        var records = Array.isArray(data.data.records) ? data.data.records : [];
         var tbody = document.getElementById('perfRecordsBody');
         if (records.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No performance data yet</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No purchase orders yet</td></tr>';
         } else {
+            var STATUS = {
+                received: 'status-badge status-completed',
+                shipped: 'status-badge status-info',
+                pending: 'status-badge status-pending',
+                cancelled: 'status-badge status-expired'
+            };
             tbody.innerHTML = records.map(function(r) {
-                var metricLabel = r.metric_type === 'delivery_time' ? 'Delivery Time'
-                    : r.metric_type === 'on_time_delivery' ? 'On-Time'
-                    : r.metric_type;
-                var valueClass = r.metric_type === 'on_time_delivery'
-                    ? (r.metric_value == 1 ? 'status-badge status-completed' : 'status-badge status-expired')
-                    : '';
-                var valueDisplay = r.metric_type === 'on_time_delivery'
-                    ? (r.metric_value == 1 ? 'On Time' : 'Late')
-                    : r.metric_value + (r.metric_type === 'delivery_time' ? ' days' : '');
+                var cls = STATUS[r.status] || 'status-badge';
+                var lead = (r.status === 'received' && r.lead_days != null && r.lead_days >= 0) ? r.lead_days + ' days' : '—';
+                var val = '\u20b1' + Number(r.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                var ordered = r.order_date ? new Date(r.order_date).toLocaleDateString() : (r.created_at ? new Date(r.created_at).toLocaleDateString() : '—');
                 return '<tr>'
-                    + '<td>' + escHtml(r.po_number || '—') + '</td>'
-                    + '<td>' + escHtml(metricLabel) + '</td>'
-                    + '<td>' + (valueClass ? '<span class="' + valueClass + '">' + escHtml(valueDisplay) + '</span>' : escHtml(valueDisplay)) + '</td>'
-                    + '<td>' + escHtml(r.notes || '') + '</td>'
-                    + '<td>' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '') + '</td>'
+                    + '<td>' + escHtml(r.po_number || ('#' + r.id)) + '</td>'
+                    + '<td><span class="' + cls + '">' + escHtml(r.status) + '</span></td>'
+                    + '<td style="font-variant-numeric:tabular-nums;">' + val + '</td>'
+                    + '<td>' + lead + '</td>'
+                    + '<td>' + ordered + '</td>'
                     + '</tr>';
             }).join('');
         }
