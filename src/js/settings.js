@@ -51,7 +51,9 @@ function accentVars(a) {
         '--primary-light': a.light,
         '--primary-bg': hexToRgba(a.primary, 0.10),
         '--primary-glow': hexToRgba(a.primary, 0.24),
-        '--primary-gradient': 'linear-gradient(135deg, ' + a.gradA + ', ' + a.gradB + ')'
+        '--primary-gradient': 'linear-gradient(135deg, ' + a.gradA + ', ' + a.gradB + ')',
+        // subtle full-page background tint in the accent colour
+        '--accent-wash': hexToRgba(a.primary, 0.07)
     };
 }
 

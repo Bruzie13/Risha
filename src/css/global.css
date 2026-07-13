@@ -168,7 +168,10 @@ html { scroll-behavior: smooth; }
 
 body {
   font-family: var(--font-sans);
-  background: var(--bg-body);
+  /* translucent accent wash over the theme background — tints the page in the
+     chosen accent colour, works in both light and dark mode */
+  background: linear-gradient(var(--accent-wash, transparent), var(--accent-wash, transparent)), var(--bg-body);
+  background-attachment: fixed;
   color: var(--text-secondary);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
