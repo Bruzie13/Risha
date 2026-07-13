@@ -1874,8 +1874,8 @@ html.sidebar-hidden .sidebar .sidebar-nav .nav-link::after {
   left: calc(100% + 12px);
   top: 50%;
   transform: translateY(-50%);
-  background: var(--text-primary);
-  color: var(--bg-card);
+  background: var(--primary);
+  color: #fff;
   font-size: 12px;
   font-weight: 600;
   font-family: var(--font-sans);
@@ -2865,8 +2865,8 @@ html.sidebar-hidden .sidebar-user::after,
   bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
-  background: var(--text-primary);
-  color: var(--bg-card);
+  background: var(--primary);
+  color: #fff;
   font-size: 12px;
   font-weight: 600;
   font-family: var(--font-sans);
@@ -2878,7 +2878,7 @@ html.sidebar-hidden .sidebar-user::after,
   visibility: hidden;
   transition: opacity 0.15s, visibility 0.15s;
   z-index: 9999;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px var(--primary-glow);
 }
 /* header controls sit at the top — flip their tooltips below */
 .sidebar-collapse-btn::after,
