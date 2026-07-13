@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function () {
     setupSidebarToggle();
     setupNotifToggle();
     setupEmailSettings();
+    setupAppearance();
     updateDate();
 
     const nameEl = document.getElementById('userName');
@@ -17,6 +18,96 @@ document.addEventListener('DOMContentLoaded', function () {
     if (user && nameEl) nameEl.textContent = user.full_name || user.username || user.email;
     if (typeof applyUserIdentity === 'function') applyUserIdentity();
 });
+
+/* ===== Appearance: accent color + text size ===== */
+// Each preset carries the full set of "primary" values so the look stays
+// balanced. Values are stored resolved in localStorage so the early inline
+// script on every page can apply them before first paint (no colour flash).
+var ACCENTS = [
+    { key: 'coral',   name: 'Coral',   primary: '#EE6A5F', dark: '#E14C42', light: '#FFA79E', gradA: '#F88070', gradB: '#E5504A' },
+    { key: 'blue',    name: 'Blue',    primary: '#3B82F6', dark: '#2563EB', light: '#93C5FD', gradA: '#60A5FA', gradB: '#2563EB' },
+    { key: 'indigo',  name: 'Indigo',  primary: '#6366F1', dark: '#4F46E5', light: '#A5B4FC', gradA: '#818CF8', gradB: '#4F46E5' },
+    { key: 'violet',  name: 'Violet',  primary: '#8B5CF6', dark: '#7C3AED', light: '#C4B5FD', gradA: '#A78BFA', gradB: '#7C3AED' },
+    { key: 'emerald', name: 'Emerald', primary: '#10B981', dark: '#059669', light: '#6EE7B7', gradA: '#34D399', gradB: '#059669' },
+    { key: 'teal',    name: 'Teal',    primary: '#14B8A6', dark: '#0D9488', light: '#5EEAD4', gradA: '#2DD4BF', gradB: '#0D9488' },
+    { key: 'amber',   name: 'Amber',   primary: '#F59E0B', dark: '#D97706', light: '#FCD34D', gradA: '#FBBF24', gradB: '#D97706' },
+    { key: 'rose',    name: 'Rose',    primary: '#F43F5E', dark: '#E11D48', light: '#FDA4AF', gradA: '#FB7185', gradB: '#E11D48' }
+];
+var DEFAULT_ACCENT = 'coral';
+var DEFAULT_SCALE = '1';
+
+function hexToRgba(hex, alpha) {
+    var h = hex.replace('#', '');
+    var r = parseInt(h.substring(0, 2), 16);
+    var g = parseInt(h.substring(2, 4), 16);
+    var b = parseInt(h.substring(4, 6), 16);
+    return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
+}
+
+function accentVars(a) {
+    return {
+        '--primary': a.primary,
+        '--primary-dark': a.dark,
+        '--primary-light': a.light,
+        '--primary-bg': hexToRgba(a.primary, 0.10),
+        '--primary-glow': hexToRgba(a.primary, 0.24),
+        '--primary-gradient': 'linear-gradient(135deg, ' + a.gradA + ', ' + a.gradB + ')'
+    };
+}
+
+function applyAccent(key, persist) {
+    var a = ACCENTS.filter(function (x) { return x.key === key; })[0] || ACCENTS[0];
+    var vars = accentVars(a);
+    for (var k in vars) document.documentElement.style.setProperty(k, vars[k]);
+    if (persist) {
+        localStorage.setItem('accentName', a.key);
+        localStorage.setItem('accentVars', JSON.stringify(vars));
+    }
+    // reflect selection in the swatch grid
+    document.querySelectorAll('.accent-swatch').forEach(function (el) {
+        el.classList.toggle('active', el.dataset.key === a.key);
+    });
+}
+
+function applyTextScale(scale, persist) {
+    document.documentElement.style.zoom = (scale && scale !== '1') ? scale : '';
+    if (persist) localStorage.setItem('textScale', scale);
+    document.querySelectorAll('.ts-btn').forEach(function (el) {
+        el.classList.toggle('active', el.dataset.scale === scale);
+    });
+}
+
+function setupAppearance() {
+    var grid = document.getElementById('accentSwatches');
+    if (grid) {
+        grid.innerHTML = ACCENTS.map(function (a) {
+            return '<button type="button" class="accent-swatch" data-key="' + a.key + '" title="' + a.name +
+                '" style="background:linear-gradient(135deg,' + a.gradA + ',' + a.gradB + ');"></button>';
+        }).join('');
+        grid.querySelectorAll('.accent-swatch').forEach(function (el) {
+            el.addEventListener('click', function () { applyAccent(el.dataset.key, true); });
+        });
+    }
+    var seg = document.getElementById('textSizeSeg');
+    if (seg) {
+        seg.querySelectorAll('.ts-btn').forEach(function (el) {
+            el.addEventListener('click', function () { applyTextScale(el.dataset.scale, true); });
+        });
+    }
+    var reset = document.getElementById('resetAppearanceBtn');
+    if (reset) {
+        reset.addEventListener('click', function () {
+            localStorage.removeItem('accentVars');
+            localStorage.setItem('accentName', DEFAULT_ACCENT);
+            applyAccent(DEFAULT_ACCENT, false);
+            applyTextScale(DEFAULT_SCALE, true);
+            if (typeof showToast === 'function') showToast('Appearance reset to default', 'success');
+        });
+    }
+    // reflect the currently saved choices
+    applyAccent(localStorage.getItem('accentName') || DEFAULT_ACCENT, false);
+    applyTextScale(localStorage.getItem('textScale') || DEFAULT_SCALE, false);
+}
 
 function updateDate() {
     var el = document.getElementById('settingsDateDisplay');

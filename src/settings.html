@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css?v=4">
-    <link rel="stylesheet" href="css/settings.css">
+    <link rel="stylesheet" href="css/settings.css?v=2">
     <script>
         (function() {
             var saved = localStorage.getItem('theme');
@@ -18,6 +18,12 @@
             if (localStorage.getItem('sidebarHidden') === 'true') {
                 document.documentElement.classList.add('sidebar-hidden');
             }
+            try {
+                var av = JSON.parse(localStorage.getItem('accentVars') || 'null');
+                if (av) { for (var k in av) document.documentElement.style.setProperty(k, av[k]); }
+            } catch (e) {}
+            var ts = localStorage.getItem('textScale');
+            if (ts && ts !== '1') document.documentElement.style.zoom = ts;
         }());
     </script>
 </head>
@@ -234,6 +240,42 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="settings-card">
+                            <div class="settings-card-header">
+                                <h3>Appearance</h3>
+                                <p>Choose how the system looks — accent color and text size</p>
+                            </div>
+                            <div class="settings-card-body">
+                                <div class="settings-toggle-row" style="align-items:flex-start;">
+                                    <div>
+                                        <div class="settings-toggle-label">Accent Color</div>
+                                        <div class="settings-toggle-desc">The main color used across buttons, links and highlights</div>
+                                    </div>
+                                    <div class="accent-swatches" id="accentSwatches"></div>
+                                </div>
+                                <div class="settings-divider"></div>
+                                <div class="settings-toggle-row" style="align-items:flex-start;">
+                                    <div>
+                                        <div class="settings-toggle-label">Text Size</div>
+                                        <div class="settings-toggle-desc">Make everything smaller or larger for easier reading</div>
+                                    </div>
+                                    <div class="text-size-seg" id="textSizeSeg">
+                                        <button type="button" class="ts-btn" data-scale="0.9">Small</button>
+                                        <button type="button" class="ts-btn" data-scale="1">Default</button>
+                                        <button type="button" class="ts-btn" data-scale="1.1">Large</button>
+                                        <button type="button" class="ts-btn" data-scale="1.2">Larger</button>
+                                    </div>
+                                </div>
+                                <div class="settings-divider"></div>
+                                <div class="settings-toggle-row">
+                                    <div>
+                                        <div class="settings-toggle-label">Reset Appearance</div>
+                                        <div class="settings-toggle-desc">Restore the default coral theme and text size</div>
+                                    </div>
+                                    <button class="btn-secondary" type="button" id="resetAppearanceBtn">Reset</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="settings-panel" id="panel-session">
@@ -345,6 +387,6 @@
     <script src="js/auth.js?v=3"></script>
 <script src="js/motion.js"></script>
 <script src="js/assistant.js?v=4"></script>
-    <script src="js/settings.js"></script>
+    <script src="js/settings.js?v=2"></script>
 </body>
 </html>
