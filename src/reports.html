@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css?v=3">
-    <link rel="stylesheet" href="css/reports.css">
+    <link rel="stylesheet" href="css/reports.css?v=2">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>if(localStorage.getItem('theme')==='dark'||(!localStorage.getItem('theme')&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');</script>
     </head>
@@ -443,16 +443,21 @@
                         <canvas id="topProductsChart"></canvas>
                     </div>
                 </div>
-                <div class="chart-card">
-                    <h3>Payment Methods</h3>
-                    <div class="chart-wrapper">
-                        <canvas id="paymentChart"></canvas>
-                    </div>
-                </div>
-                <div class="chart-card">
-                    <h3>Sales by Category</h3>
-                    <div class="chart-wrapper">
-                        <canvas id="categoryChart"></canvas>
+                <div class="chart-card full-width">
+                    <h3>Payment Methods &amp; Sales by Category</h3>
+                    <div class="combo-charts">
+                        <div class="combo-chart">
+                            <h4>Payment Methods</h4>
+                            <div class="chart-wrapper">
+                                <canvas id="paymentChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="combo-chart">
+                            <h4>Sales by Category</h4>
+                            <div class="chart-wrapper">
+                                <canvas id="categoryChart"></canvas>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

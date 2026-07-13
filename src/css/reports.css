@@ -173,6 +173,36 @@
     max-height: 100% !important;
 }
 
+/* Two charts sharing one card (Payment Methods + Sales by Category) */
+.combo-charts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+.combo-chart {
+    min-width: 0;
+}
+
+.combo-chart h4 {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    margin: 0 0 12px;
+    text-align: center;
+}
+
+.combo-chart .chart-wrapper {
+    height: 260px;
+}
+
+@media (max-width: 720px) {
+    .combo-charts {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 1024px) {
     .summary-stats {
