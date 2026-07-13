@@ -74,12 +74,84 @@ function applyAccent(key, persist) {
 function applyTextScale(scale, persist) {
     document.documentElement.style.zoom = (scale && scale !== '1') ? scale : '';
     if (persist) localStorage.setItem('textScale', scale);
-    document.querySelectorAll('.ts-btn').forEach(function (el) {
-        el.classList.toggle('active', el.dataset.scale === scale);
+    reflectSeg('textSizeSeg', 'scale', scale);
+}
+
+/* --- custom accent from any hex --- */
+function mix(hex1, hex2, t) {
+    var a = hex1.replace('#', ''), b = hex2.replace('#', '');
+    var r = Math.round(parseInt(a.substr(0, 2), 16) * (1 - t) + parseInt(b.substr(0, 2), 16) * t);
+    var g = Math.round(parseInt(a.substr(2, 2), 16) * (1 - t) + parseInt(b.substr(2, 2), 16) * t);
+    var bl = Math.round(parseInt(a.substr(4, 2), 16) * (1 - t) + parseInt(b.substr(4, 2), 16) * t);
+    return '#' + [r, g, bl].map(function (n) { return ('0' + n.toString(16)).slice(-2); }).join('');
+}
+
+function applyCustomAccent(hex, persist) {
+    var a = {
+        key: 'custom', primary: hex,
+        dark: mix(hex, '#000000', 0.18),
+        light: mix(hex, '#ffffff', 0.42),
+        gradA: mix(hex, '#ffffff', 0.10),
+        gradB: mix(hex, '#000000', 0.10)
+    };
+    var vars = accentVars(a);
+    for (var k in vars) document.documentElement.style.setProperty(k, vars[k]);
+    if (persist) {
+        localStorage.setItem('accentName', 'custom');
+        localStorage.setItem('accentCustom', hex);
+        localStorage.setItem('accentVars', JSON.stringify(vars));
+    }
+    document.querySelectorAll('.accent-swatch').forEach(function (el) { el.classList.remove('active'); });
+    var picker = document.getElementById('accentPicker');
+    if (picker) { picker.value = hex; picker.classList.add('active'); }
+}
+
+/* --- theme mode: system / light / dark --- */
+function applyThemeMode(mode, persist) {
+    localStorage.setItem('theme', mode); // 'system' | 'light' | 'dark'
+    var dark = mode === 'dark' || (mode === 'system' &&
+        window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.classList.toggle('dark-mode', dark);
+    if (persist) { /* stored above */ }
+    reflectSeg('themeModeSeg', 'mode', mode);
+    var toggle = document.getElementById('settingsDarkModeToggle');
+    if (toggle) toggle.checked = dark;
+    var btn = document.getElementById('themeToggleBtn');
+    if (btn) btn.querySelector('.material-symbols-outlined').textContent = dark ? 'light_mode' : 'dark_mode';
+}
+
+/* --- UI font family --- */
+var FONTS = {
+    sans: { '--font-sans': "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", '--font-display': "'Plus Jakarta Sans', 'Nunito', 'Inter', sans-serif" },
+    serif: { '--font-sans': "Georgia, 'Iowan Old Style', 'Times New Roman', serif", '--font-display': "Georgia, 'Iowan Old Style', 'Times New Roman', serif" },
+    mono: { '--font-sans': "'SF Mono', 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace", '--font-display': "'SF Mono', 'JetBrains Mono', 'Fira Code', Menlo, monospace" }
+};
+function applyFont(name, persist) {
+    var f = FONTS[name] || FONTS.sans;
+    for (var k in f) document.documentElement.style.setProperty(k, f[k]);
+    if (persist) {
+        localStorage.setItem('uiFont', name);
+        localStorage.setItem('fontVars', JSON.stringify(f));
+    }
+    reflectSeg('fontSeg', 'font', name);
+}
+
+function reflectSeg(segId, attr, value) {
+    var seg = document.getElementById(segId);
+    if (!seg) return;
+    seg.querySelectorAll('.seg-btn').forEach(function (el) {
+        el.classList.toggle('active', el.dataset[attr] === value);
     });
 }
 
 function setupAppearance() {
+    // theme mode
+    var themeSeg = document.getElementById('themeModeSeg');
+    if (themeSeg) themeSeg.querySelectorAll('.seg-btn').forEach(function (el) {
+        el.addEventListener('click', function () { applyThemeMode(el.dataset.mode, true); });
+    });
+
+    // accent swatches
     var grid = document.getElementById('accentSwatches');
     if (grid) {
         grid.innerHTML = ACCENTS.map(function (a) {
@@ -90,25 +162,43 @@ function setupAppearance() {
             el.addEventListener('click', function () { applyAccent(el.dataset.key, true); });
         });
     }
+    // custom color picker
+    var picker = document.getElementById('accentPicker');
+    if (picker) picker.addEventListener('input', function () { applyCustomAccent(picker.value, true); });
+
+    // font family
+    var fontSeg = document.getElementById('fontSeg');
+    if (fontSeg) fontSeg.querySelectorAll('.seg-btn').forEach(function (el) {
+        el.addEventListener('click', function () { applyFont(el.dataset.font, true); });
+    });
+
+    // text size
     var seg = document.getElementById('textSizeSeg');
-    if (seg) {
-        seg.querySelectorAll('.ts-btn').forEach(function (el) {
-            el.addEventListener('click', function () { applyTextScale(el.dataset.scale, true); });
-        });
-    }
+    if (seg) seg.querySelectorAll('.seg-btn').forEach(function (el) {
+        el.addEventListener('click', function () { applyTextScale(el.dataset.scale, true); });
+    });
+
+    // reset
     var reset = document.getElementById('resetAppearanceBtn');
-    if (reset) {
-        reset.addEventListener('click', function () {
-            localStorage.removeItem('accentVars');
-            localStorage.setItem('accentName', DEFAULT_ACCENT);
-            applyAccent(DEFAULT_ACCENT, false);
-            applyTextScale(DEFAULT_SCALE, true);
-            if (typeof showToast === 'function') showToast('Appearance reset to default', 'success');
-        });
-    }
+    if (reset) reset.addEventListener('click', function () {
+        ['accentVars', 'accentCustom', 'fontVars', 'uiFont', 'textScale'].forEach(function (k) { localStorage.removeItem(k); });
+        localStorage.setItem('accentName', DEFAULT_ACCENT);
+        localStorage.setItem('theme', 'system');
+        document.documentElement.style.zoom = '';
+        applyAccent(DEFAULT_ACCENT, false);
+        applyFont('sans', false);
+        applyTextScale(DEFAULT_SCALE, false);
+        applyThemeMode('system', false);
+        if (typeof showToast === 'function') showToast('Appearance reset to default', 'success');
+    });
+
     // reflect the currently saved choices
-    applyAccent(localStorage.getItem('accentName') || DEFAULT_ACCENT, false);
+    var savedAccent = localStorage.getItem('accentName') || DEFAULT_ACCENT;
+    if (savedAccent === 'custom') applyCustomAccent(localStorage.getItem('accentCustom') || ACCENTS[0].primary, false);
+    else applyAccent(savedAccent, false);
+    applyFont(localStorage.getItem('uiFont') || 'sans', false);
     applyTextScale(localStorage.getItem('textScale') || DEFAULT_SCALE, false);
+    applyThemeMode(localStorage.getItem('theme') || 'system', false);
 }
 
 function updateDate() {
@@ -161,13 +251,9 @@ function setupThemeToggle() {
     if (!checkbox) return;
     checkbox.checked = document.documentElement.classList.contains('dark-mode');
     checkbox.addEventListener('change', function () {
-        var isDark = checkbox.checked;
-        document.documentElement.classList.toggle('dark-mode', isDark);
-        localStorage.setItem('theme', isDark ? 'dark' : 'light');
-        var btn = document.getElementById('themeToggleBtn');
-        if (btn) {
-            btn.innerHTML = isDark ? '<span class="material-symbols-outlined">light_mode</span>' : '<span class="material-symbols-outlined">dark_mode</span>';
-            btn.title = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+        // keep the 3-way Theme control in sync (it sets the same 'theme' key)
+        if (typeof applyThemeMode === 'function') {
+            applyThemeMode(checkbox.checked ? 'dark' : 'light', true);
         }
     });
 }

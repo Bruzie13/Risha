@@ -46,7 +46,7 @@ window.addEventListener('pageshow', function (e) {
 // Apply saved theme and sidebar state immediately (before DOMContentLoaded to avoid flash)
 (function() {
     const saved = localStorage.getItem('theme');
-    if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    if (saved === 'dark' || ((saved === 'system' || !saved) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark-mode');
     }
     if (localStorage.getItem('sidebarHidden') === 'true') {
@@ -346,11 +346,19 @@ function showErrorDialog(title, message, opts) {
 
 function applyTheme() {
     const saved = localStorage.getItem('theme');
-    if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    if (saved === 'dark' || ((saved === 'system' || !saved) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark-mode');
     } else {
         document.documentElement.classList.remove('dark-mode');
     }
+}
+
+// When following the device theme, react live to OS light/dark changes.
+if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+        var t = localStorage.getItem('theme');
+        if (t === 'system' || !t) applyTheme();
+    });
 }
 
 function togglePassword(event) {

@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css?v=6">
     <link rel="stylesheet" href="css/inventory.css">
-<script>if(localStorage.getItem('theme')==='dark'||(!localStorage.getItem('theme')&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');try{var _av=JSON.parse(localStorage.getItem('accentVars')||'null');if(_av){for(var _k in _av)document.documentElement.style.setProperty(_k,_av[_k]);}}catch(e){}var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;</script>
+<script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');try{var _av=JSON.parse(localStorage.getItem('accentVars')||'null');if(_av){for(var _k in _av)document.documentElement.style.setProperty(_k,_av[_k]);}}catch(e){}var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
     </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -452,7 +452,7 @@
     </script>
         <script src="js/utils.js"></script>
 <script src="js/format.js"></script>
-<script src="js/auth.js?v=3"></script>
+<script src="js/auth.js?v=4"></script>
 <script src="js/motion.js"></script>
 <script src="js/assistant.js?v=4"></script>
     <script src="js/inventory.js?v=2"></script>
