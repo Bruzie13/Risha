@@ -85,6 +85,9 @@ app.use('/api/predictions', predictionRoutes);
 const emailSettingsRoutes = require('./routes/emailSettings');
 app.use('/api/email-settings', emailSettingsRoutes);
 
+const assistantRoutes = require('./routes/assistant');
+app.use('/api/assistant', assistantRoutes);
+
 // Email tracking
 const pool = require('./config/database');
 const crypto = require('crypto');
