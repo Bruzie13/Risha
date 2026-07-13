@@ -123,47 +123,70 @@ function showMorePosProducts() {
     renderProducts(posFilteredProducts);
 }
 
+// Find a product by scanned/typed code (barcode or SKU, case/space tolerant)
+// and add it to the cart. Returns true if something was added.
+function scanToCart(rawCode) {
+    const code = String(rawCode || '').trim();
+    if (code.length < 2) return false;
+    const norm = code.toLowerCase();
+    let found = allProducts.find(p =>
+        (p.barcode && String(p.barcode).trim() === code) ||
+        (p.sku && String(p.sku).trim().toLowerCase() === norm));
+    if (!found) {
+        // fall back to a single unambiguous name/sku/barcode match
+        const matches = allProducts.filter(p =>
+            (p.name || '').toLowerCase().includes(norm) ||
+            (p.sku || '').toLowerCase().includes(norm) ||
+            (p.barcode || '').toLowerCase().includes(norm));
+        if (matches.length === 1) found = matches[0];
+    }
+    if (found) { addToCart(found.id); return true; }
+    showToast('No product found for "' + code + '"', 'error');
+    return false;
+}
+
 function setupBarcodeListener() {
+    // Hardware-scanner path: rapid keystrokes when no field is focused
     document.addEventListener('keydown', (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
         if (e.key === 'F2') {
             e.preventDefault();
             const input = document.getElementById('barcodeScanInput');
             if (input) { input.value = ''; input.focus(); showToast('Scanner ready', 'info'); }
             return;
         }
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
         const now = Date.now();
         if (now - lastKeyTime > 100) barcodeBuffer = '';
         lastKeyTime = now;
-        if (e.key === 'Enter' && barcodeBuffer.length > 3) {
-            const barcode = barcodeBuffer;
+        if (e.key === 'Enter' && barcodeBuffer.length > 2) {
+            const code = barcodeBuffer;
             barcodeBuffer = '';
-            const found = allProducts.find(p => p.barcode === barcode);
-            if (found) {
-                addToCart(found.id);
-                showToast('Scanned: ' + found.name, 'success');
-            } else {
-                showToast('Product not found for barcode: ' + barcode, 'error');
-            }
+            scanToCart(code);
             e.preventDefault();
             return;
         }
         if (e.key.length === 1) barcodeBuffer += e.key;
     });
+    // Dedicated scan box: Enter adds the matching product
     const scanInput = document.getElementById('barcodeScanInput');
     if (scanInput) {
         scanInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                const val = scanInput.value.trim();
-                if (val.length > 2) {
-                    const found = allProducts.find(p => p.barcode === val || p.sku === val);
-                    if (found) {
-                        addToCart(found.id);
-                        showToast('Scanned: ' + found.name, 'success');
-                        scanInput.value = '';
-                    } else {
-                        showToast('Product not found', 'error');
-                    }
+                e.preventDefault();
+                if (scanToCart(scanInput.value)) scanInput.value = '';
+            }
+        });
+    }
+    // Search box: pressing Enter (or a scanner typing here) also adds to cart
+    const searchInput = document.getElementById('posSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (scanToCart(searchInput.value)) {
+                    searchInput.value = '';
+                    filterProducts();
+                    document.getElementById('barcodeScanInput')?.focus();
                 }
             }
         });
