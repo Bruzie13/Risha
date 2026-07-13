@@ -74,17 +74,22 @@
         } catch { enabled = false; }
     }
 
-    function addMsg(who, text) {
+    function addMsg(who, text, raw) {
         const body = document.getElementById('faBody');
         const m = el('div', { className: 'fa-msg fa-' + who });
-        // light markdown: **bold**, bullet lines, newlines
-        let html = String(text)
-            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-            .replace(/^\s*[-*]\s+(.*)$/gm, '<li>$1</li>')
-            .replace(/(<li>.*<\/li>\n?)+/gs, m => '<ul>' + m.replace(/\n/g, '') + '</ul>')
-            .replace(/\n/g, '<br>');
-        m.innerHTML = html;
+        if (raw) {
+            // trusted markup (typing indicator) — insert as-is, no escaping
+            m.innerHTML = text;
+        } else {
+            // untrusted text (AI answer / user question): escape, then apply
+            // light markdown — **bold**, bullet lines, newlines
+            m.innerHTML = String(text)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/^\s*[-*]\s+(.*)$/gm, '<li>$1</li>')
+                .replace(/(<li>.*<\/li>\n?)+/gs, mm => '<ul>' + mm.replace(/\n/g, '') + '</ul>')
+                .replace(/\n/g, '<br>');
+        }
         body.appendChild(m);
         body.scrollTop = body.scrollHeight;
         return m;
@@ -98,7 +103,7 @@
         input.value = '';
         addMsg('user', q);
         asking = true;
-        const typing = addMsg('bot', '<span class="fa-typing"><i></i><i></i><i></i></span>');
+        const typing = addMsg('bot', '<span class="fa-typing"><i></i><i></i><i></i></span>', true);
         try {
             const r = await fetch(`${API_BASE}/assistant`, {
                 method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ question: q })

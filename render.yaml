@@ -31,6 +31,6 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
-        value: gemini-flash-latest
+        value: gemini-flash-lite-latest
       - key: BASE_URL
         value: https://risha-pets.onrender.com
