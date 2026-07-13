@@ -3,7 +3,7 @@
 // Scoped by a strict system instruction so it only answers about this system.
 const pool = require('../config/database');
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-flash-latest';
 const DAY = 86400000;
 
 // One tight query bundle describing the current state of the shop.

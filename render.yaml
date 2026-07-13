@@ -28,5 +28,9 @@ services:
         sync: false
       - key: BREVO_API_KEY
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-flash-latest
       - key: BASE_URL
         value: https://risha-pets.onrender.com
