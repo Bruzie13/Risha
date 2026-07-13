@@ -26,22 +26,22 @@
   --purple: #8B6FD0;
   --purple-bg: rgba(139, 111, 208, 0.11);
 
-  --bg-body: #F4F6FB;
-  --bg-card: #FFFFFF;
-  --bg-card-hover: #FAFBFE;
-  --bg-raised: #F8FAFD;
-  --bg-glass: #FFFFFF;
-  --bg-glass-hover: #FAFBFE;
-  --bg-glass-strong: #EEF1F7;
-  --bg-inset: #EEF1F7;
-  --bg-deep: #F4F6FB;
-  --bg-secondary: #F8FAFD;
-  --bg-elevated: #FFFFFF;
-  --nav-bg: #FFFFFF;
+  --bg-body: color-mix(in srgb, var(--primary) 6%, #F4F6FB);
+  --bg-card: color-mix(in srgb, var(--primary) 4%, #FFFFFF);
+  --bg-card-hover: color-mix(in srgb, var(--primary) 5%, #FAFBFE);
+  --bg-raised: color-mix(in srgb, var(--primary) 5%, #F8FAFD);
+  --bg-glass: color-mix(in srgb, var(--primary) 4%, #FFFFFF);
+  --bg-glass-hover: color-mix(in srgb, var(--primary) 5%, #FAFBFE);
+  --bg-glass-strong: color-mix(in srgb, var(--primary) 6%, #EEF1F7);
+  --bg-inset: color-mix(in srgb, var(--primary) 6%, #EEF1F7);
+  --bg-deep: color-mix(in srgb, var(--primary) 6%, #F4F6FB);
+  --bg-secondary: color-mix(in srgb, var(--primary) 5%, #F8FAFD);
+  --bg-elevated: color-mix(in srgb, var(--primary) 4%, #FFFFFF);
+  --nav-bg: color-mix(in srgb, var(--primary) 6%, #FFFFFF);
   --nav-text: #5A6478;
   --nav-text-active: var(--primary-dark);
   --nav-border: #ECEFF6;
-  --nav-glass: #FFFFFF;
+  --nav-glass: color-mix(in srgb, var(--primary) 6%, #FFFFFF);
 
   --text-primary: #1B2437;
   --text-secondary: #46536B;
@@ -168,10 +168,8 @@ html { scroll-behavior: smooth; }
 
 body {
   font-family: var(--font-sans);
-  /* translucent accent wash over the theme background — tints the page in the
-     chosen accent colour, works in both light and dark mode */
-  background: linear-gradient(var(--accent-wash, transparent), var(--accent-wash, transparent)), var(--bg-body);
-  background-attachment: fixed;
+  /* --bg-body already carries the accent tint (see surface vars) */
+  background: var(--bg-body);
   color: var(--text-secondary);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -1610,22 +1608,22 @@ input[type="datetime-local"] {
 
 /* ===== DARK MODE ===== */
 :root.dark-mode {
-  --bg-body: #0E1320;
-  --bg-card: #161D2E;
-  --bg-card-hover: #1B2337;
-  --bg-raised: #1B2337;
-  --bg-glass: #161D2E;
-  --bg-glass-hover: #1B2337;
-  --bg-glass-strong: #1F2840;
-  --bg-inset: #0E1320;
-  --bg-deep: #0E1320;
-  --bg-secondary: #161D2E;
-  --bg-elevated: #1B2337;
-  --nav-bg: #121828;
+  --bg-body: color-mix(in srgb, var(--primary) 10%, #0E1320);
+  --bg-card: color-mix(in srgb, var(--primary) 8%, #161D2E);
+  --bg-card-hover: color-mix(in srgb, var(--primary) 9%, #1B2337);
+  --bg-raised: color-mix(in srgb, var(--primary) 9%, #1B2337);
+  --bg-glass: color-mix(in srgb, var(--primary) 8%, #161D2E);
+  --bg-glass-hover: color-mix(in srgb, var(--primary) 9%, #1B2337);
+  --bg-glass-strong: color-mix(in srgb, var(--primary) 10%, #1F2840);
+  --bg-inset: color-mix(in srgb, var(--primary) 10%, #0E1320);
+  --bg-deep: color-mix(in srgb, var(--primary) 10%, #0E1320);
+  --bg-secondary: color-mix(in srgb, var(--primary) 8%, #161D2E);
+  --bg-elevated: color-mix(in srgb, var(--primary) 8%, #1B2337);
+  --nav-bg: color-mix(in srgb, var(--primary) 10%, #121828);
   --nav-text: #8A94A8;
   --nav-text-active: var(--primary);
   --nav-border: #1F2840;
-  --nav-glass: #121828;
+  --nav-glass: color-mix(in srgb, var(--primary) 10%, #121828);
 
   --text-primary: #ECF0F8;
   --text-secondary: #AEB8CC;

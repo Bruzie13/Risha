@@ -278,7 +278,7 @@
     border: 1px solid var(--border-glass-strong);
     border-radius: var(--radius-md, 12px);
     padding: 16px 18px;
-    background: linear-gradient(var(--accent-wash, transparent), var(--accent-wash, transparent)), var(--bg-card);
+    background: var(--bg-card);
 }
 .ap-preview-title {
     font-family: var(--font-display);
