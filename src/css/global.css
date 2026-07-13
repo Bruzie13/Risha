@@ -3291,3 +3291,32 @@ html.sidebar-hidden .sidebar-footer .sidebar-btn::after {
   .fa-panel { right: 12px; bottom: 84px; width: calc(100vw - 24px); height: calc(100vh - 110px); }
   .fa-fab { bottom: 16px; right: 16px; }
 }
+
+/* ===== 3D CARD TILT (tilt3d.js) ===== */
+@media (hover: hover) and (pointer: fine) {
+  .tilt-3d {
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s ease;
+    will-change: transform;
+  }
+  .tilt-3d.is-tilting {
+    transition: transform 0.06s linear;
+    z-index: 5;
+    box-shadow: 0 20px 44px rgba(17, 24, 39, 0.16);
+  }
+  :root.dark-mode .tilt-3d.is-tilting { box-shadow: 0 22px 50px rgba(0, 0, 0, 0.55); }
+  .tilt-glare {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    background: radial-gradient(circle at var(--tx, 50%) var(--ty, 50%),
+                rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 45%);
+    mix-blend-mode: soft-light;
+    z-index: 4;
+  }
+  .tilt-3d.is-tilting .tilt-glare { opacity: 1; }
+}

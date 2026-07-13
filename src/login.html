@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=8">
+    <link rel="stylesheet" href="css/global.css?v=9">
     <style>
         body {
             margin: 0;
@@ -240,6 +240,68 @@
             border: 1px solid var(--danger-bg);
         }
         .login-error.show { display: block; }
+
+        /* ===== Animated 3D scene ===== */
+        .login-3d {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            z-index: 0;
+            pointer-events: none;
+            perspective: 1000px;
+            transition: transform 0.4s ease-out;
+        }
+        .login-page { z-index: 1; }
+        .l3d-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(4px);
+            will-change: transform;
+        }
+        .l3d-orb.o1 { width: 260px; height: 260px; left: 6%; top: 16%;
+            background: radial-gradient(circle at 32% 28%, var(--primary-light), var(--primary));
+            opacity: 0.5; animation: floatA 9s ease-in-out infinite; }
+        .l3d-orb.o2 { width: 170px; height: 170px; right: 10%; top: 20%;
+            background: radial-gradient(circle at 32% 28%, #a9dbf3, var(--secondary, #4FA8DE));
+            opacity: 0.45; animation: floatB 11s ease-in-out infinite; }
+        .l3d-orb.o3 { width: 340px; height: 340px; right: 4%; bottom: 6%;
+            background: radial-gradient(circle at 32% 28%, #ffdca6, var(--accent, #E8930C));
+            opacity: 0.38; animation: floatA 14s ease-in-out infinite reverse; }
+        .l3d-orb.o4 { width: 120px; height: 120px; left: 16%; bottom: 14%;
+            background: radial-gradient(circle at 32% 28%, var(--primary-light), var(--primary-dark));
+            opacity: 0.5; animation: floatB 8s ease-in-out infinite; }
+        .l3d-ring {
+            position: absolute; width: 240px; height: 240px; left: 40%; top: 36%;
+            border-radius: 50%; border: 2px solid rgba(255,255,255,0.4);
+            box-shadow: 0 0 70px var(--primary-glow) inset, 0 0 40px var(--primary-glow);
+            animation: spinRing 20s linear infinite;
+        }
+        :root.dark-mode .l3d-orb { filter: blur(6px); }
+        @keyframes floatA {
+            0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+            50% { transform: translate3d(0, -30px, 40px) rotate(8deg); }
+        }
+        @keyframes floatB {
+            0%, 100% { transform: translate3d(0, 0, 0); }
+            50% { transform: translate3d(22px, 26px, -30px); }
+        }
+        @keyframes spinRing {
+            0% { transform: rotateX(62deg) rotateZ(0deg); }
+            100% { transform: rotateX(62deg) rotateZ(360deg); }
+        }
+        /* gentle 3D tilt on the logo */
+        .login-brand .brand-icon {
+            transform-style: preserve-3d;
+            animation: logoTilt 6s ease-in-out infinite;
+        }
+        @keyframes logoTilt {
+            0%, 100% { transform: perspective(600px) rotateY(-13deg) rotateX(6deg); }
+            50% { transform: perspective(600px) rotateY(13deg) rotateX(-4deg); }
+        }
+        .login-container { transition: transform 0.4s ease-out; transform-style: preserve-3d; }
+        @media (prefers-reduced-motion: reduce) {
+            .l3d-orb, .l3d-ring, .login-brand .brand-icon { animation: none; }
+        }
         @media (max-width: 768px) {
             .login-container { flex-direction: column; max-width: 420px; }
             .login-brand { padding: 32px 28px; min-height: 200px; }
@@ -251,6 +313,13 @@
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');if(!localStorage.getItem('authToken'))document.cookie='token=;path=/;max-age=0';try{var _av=JSON.parse(localStorage.getItem('accentVars')||'null');if(_av){for(var _k in _av)document.documentElement.style.setProperty(_k,_av[_k]);}}catch(e){}var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
     </head>
 <body>
+    <div class="login-3d" id="login3d" aria-hidden="true">
+        <span class="l3d-orb o1"></span>
+        <span class="l3d-orb o2"></span>
+        <span class="l3d-ring"></span>
+        <span class="l3d-orb o3"></span>
+        <span class="l3d-orb o4"></span>
+    </div>
     <div class="login-page">
         <div class="login-container">
             <div class="login-brand">
@@ -332,6 +401,22 @@
             initSkeletonReveal(700);
         });
 
+        // Mouse parallax: the orb layer drifts and the card tilts subtly in 3D.
+        (function () {
+            if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            if (!window.matchMedia || !window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+            var scene = document.getElementById('login3d');
+            var card = document.querySelector('.login-container');
+            var cardReady = false;
+            setTimeout(function () { cardReady = true; }, 700); // let the slide-up finish
+            window.addEventListener('mousemove', function (e) {
+                var cx = (e.clientX / window.innerWidth) - 0.5;
+                var cy = (e.clientY / window.innerHeight) - 0.5;
+                if (scene) scene.style.transform = 'translate3d(' + (cx * -26).toFixed(1) + 'px,' + (cy * -26).toFixed(1) + 'px,0)';
+                if (card && cardReady) card.style.transform = 'perspective(1300px) rotateY(' + (cx * 4).toFixed(2) + 'deg) rotateX(' + (cy * -4).toFixed(2) + 'deg)';
+            });
+        })();
+
         document.getElementById('togglePassword').addEventListener('click', function() {
             var pw = document.getElementById('password');
             if (pw.type === 'password') {
@@ -347,6 +432,7 @@
 <script src="js/utils.js"></script>
 <script src="js/auth.js?v=4"></script>
 <script src="js/motion.js"></script>
+<script src="js/tilt3d.js?v=1"></script>
 <script src="js/assistant.js?v=4"></script>
 </body>
 </html>
