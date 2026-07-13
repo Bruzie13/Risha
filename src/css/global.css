@@ -3262,6 +3262,16 @@ html.sidebar-hidden .sidebar-footer .sidebar-btn::after {
 .fa-typing i:nth-child(3) { animation-delay: 0.4s; }
 @keyframes faBlink { 0%,60%,100% { opacity: 0.3; } 30% { opacity: 1; } }
 
+/* Full help guide rendered inside the assistant chat */
+.fa-msg:has(.fa-guide) { max-width: 100%; }
+.fa-guide .help-section { margin: 0 0 12px; }
+.fa-guide h3 { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; margin: 0 0 4px; color: var(--primary); }
+.fa-guide h3 .material-symbols-outlined { font-size: 16px !important; }
+.fa-guide p { margin: 0 0 4px; font-size: 12.5px; line-height: 1.5; }
+.fa-guide ul { margin: 4px 0 2px; padding-left: 16px; }
+.fa-guide li { margin: 2px 0; font-size: 12.5px; line-height: 1.45; }
+.fa-guide .shortcut { display: inline-block; padding: 1px 6px; border-radius: 5px; border: 1px solid var(--border-glass); background: var(--bg-card); font-size: 11px; font-weight: 600; }
+
 @media (max-width: 600px) {
   .fa-panel { right: 12px; bottom: 84px; width: calc(100vw - 24px); height: calc(100vh - 110px); }
   .fa-fab { bottom: 16px; right: 16px; }

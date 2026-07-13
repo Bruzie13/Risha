@@ -37,7 +37,7 @@
                         <button class="fa-chip" data-q="How do I void a sale and do the end-of-day cash count?">Void &amp; end-of-day?</button>
                         <button class="fa-chip" data-q="What can each user role do?">Roles &amp; permissions</button>
                         <button class="fa-chip" data-q="What are the keyboard shortcuts?">Keyboard shortcuts</button>
-                        <button class="fa-chip" data-action="guide">📖 Open full help guide</button>
+                        <button class="fa-chip" data-action="guide">📖 Show the full help guide</button>
                     </div>
                 </div>
             </div>
@@ -56,12 +56,19 @@
         input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
         panel.querySelectorAll('.fa-chip').forEach(c =>
             c.addEventListener('click', () => {
-                if (c.dataset.action === 'guide') {
-                    if (typeof window.openHelpGuide === 'function') window.openHelpGuide();
-                    return;
-                }
+                if (c.dataset.action === 'guide') { showGuide(); return; }
                 input.value = c.dataset.q; send();
             }));
+    }
+
+    // Render the full formatted help guide as a message inside the chat,
+    // reusing the existing guide content already on the page (no duplication).
+    function showGuide() {
+        const src = document.querySelector('#helpGuideModal .help-guide-content');
+        const html = src
+            ? '<div class="fa-guide">' + src.innerHTML + '</div>'
+            : 'The full guide isn\'t available on this page — try asking me a specific "how do I…" question instead.';
+        addMsg('bot', html, true);
     }
 
     // Let the rest of the app open the assistant (it's the unified helper now).
