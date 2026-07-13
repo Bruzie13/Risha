@@ -1473,7 +1473,11 @@ function renderImageManagerList() {
                 '<div style="font-weight:600;font-size:13px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(p.name || '') + '</div>' +
                 '<div style="font-size:11px;color:var(--text-muted);">' + escHtml(p.sku || '') + '</div>' +
             '</div>' +
-            '<input type="text" class="form-input img-input" placeholder="Paste image URL…" value="' + escHtml(p.image_url || '') + '" style="width:230px;flex-shrink:0;">' +
+            '<input type="text" class="form-input img-input" placeholder="Paste URL…" value="' + escHtml(p.image_url || '') + '" style="width:180px;flex-shrink:0;">' +
+            '<label class="btn-secondary" title="Upload from this device" style="cursor:pointer;padding:6px 9px;flex-shrink:0;margin:0;">' +
+                '<span class="material-symbols-outlined" style="font-size:15px;">upload</span>' +
+                '<input type="file" accept="image/*" data-id="' + p.id + '" style="display:none;" onchange="handleManagerImageFile(this)">' +
+            '</label>' +
             '<span class="bc-status" style="width:20px;flex-shrink:0;text-align:center;"></span>' +
         '</div>'
     ).join('');
@@ -1522,4 +1526,66 @@ async function saveRowImage(id, value, row) {
         status.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:var(--danger);">error</span>';
         showToast('Failed to save image', 'error');
     }
+}
+
+/* ===== Image upload (client-side resize -> data URL, stored in image_url) ===== */
+// Render/free hosting has an ephemeral disk, so we downscale the picture in the
+// browser and store it as a compact data URL right in the product record.
+function resizeImageFile(file, maxSize, quality) {
+    return new Promise((resolve, reject) => {
+        if (!file || !/^image\//.test(file.type)) { reject(new Error('Please choose an image file')); return; }
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Could not read the file'));
+        reader.onload = function () {
+            const img = new Image();
+            img.onerror = () => reject(new Error('That image could not be loaded'));
+            img.onload = function () {
+                let w = img.width, h = img.height;
+                if (w > h && w > maxSize) { h = Math.round(h * maxSize / w); w = maxSize; }
+                else if (h > maxSize) { w = Math.round(w * maxSize / h); h = maxSize; }
+                const canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, w, h);
+                ctx.drawImage(img, 0, 0, w, h);
+                resolve(canvas.toDataURL('image/jpeg', quality || 0.72));
+            };
+            img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+// Upload handler for the Add/Edit product form.
+function handleFormImageFile(inputEl) {
+    const file = inputEl.files && inputEl.files[0];
+    if (!file) return;
+    resizeImageFile(file, 600, 0.72).then(dataUrl => {
+        document.getElementById('image_url').value = dataUrl;
+        updateImagePreview();
+        showToast('Image ready — save the product to keep it', 'success');
+    }).catch(err => showToast(err.message || 'Could not process image', 'error'));
+    inputEl.value = '';
+}
+
+// Upload handler for a row in the bulk Product Images manager.
+function handleManagerImageFile(inputEl) {
+    const file = inputEl.files && inputEl.files[0];
+    const id = parseInt(inputEl.dataset.id);
+    inputEl.value = '';
+    if (!file) return;
+    const row = document.querySelector('#imageManagerList .img-row[data-id="' + id + '"]');
+    if (!row) return;
+    const status = row.querySelector('.bc-status');
+    if (status) status.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;color:var(--text-muted);">hourglass_empty</span>';
+    resizeImageFile(file, 600, 0.72).then(dataUrl => {
+        const textInput = row.querySelector('.img-input');
+        if (textInput) textInput.value = dataUrl;
+        const thumb = row.querySelector('.img-thumb');
+        const ph = row.querySelector('.img-thumb-ph');
+        if (thumb) { thumb.src = dataUrl; thumb.style.display = 'block'; }
+        if (ph) ph.style.display = 'none';
+        saveRowImage(id, dataUrl, row);
+    }).catch(err => showToast(err.message || 'Could not process image', 'error'));
 }

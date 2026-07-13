@@ -239,10 +239,12 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label">Image URL</label>
+                            <label class="form-label">Image</label>
                             <div style="display:flex;gap:10px;align-items:center;">
                                 <img id="imagePreview" alt="" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:1px solid var(--border-glass-strong);display:none;flex-shrink:0;">
-                                <input type="text" class="form-input" id="image_url" placeholder="https://…/product.jpg" style="flex:1;" oninput="updateImagePreview()">
+                                <input type="text" class="form-input" id="image_url" placeholder="Paste image URL, or upload →" style="flex:1;" oninput="updateImagePreview()">
+                                <input type="file" id="imageFile" accept="image/*" style="display:none;" onchange="handleFormImageFile(this)">
+                                <button type="button" class="btn-secondary" onclick="document.getElementById('imageFile').click()" title="Upload a picture from this device" style="white-space:nowrap;"><span class="material-symbols-outlined" style="font-size:16px;">upload</span> Upload</button>
                             </div>
                         </div>
                     </div>
@@ -478,7 +480,7 @@
             </div>
             <div class="modal-body">
                 <p style="font-size:13px;color:var(--text-secondary);margin:0 0 6px;">
-                    Paste an <strong>image URL</strong> for each product and press <strong>Enter</strong> to save. Tip: open the product's page (or Google Images), right-click the picture → <em>Copy Image Address</em>, and paste it here.
+                    <strong>Upload</strong> a picture from this device, or paste an <strong>image URL</strong> and press <strong>Enter</strong> to save. Uploaded photos are resized and stored automatically.
                 </p>
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
                     <input type="text" class="form-input" id="imageManagerSearch" placeholder="Filter products…" oninput="renderImageManagerList()" style="flex:1;">
@@ -520,7 +522,7 @@
 <script src="js/motion.js"></script>
 <script src="js/tilt3d.js?v=1"></script>
 <script src="js/assistant.js?v=4"></script>
-    <script src="js/inventory.js?v=4"></script>
+    <script src="js/inventory.js?v=5"></script>
 </body>
 </html>
 
