@@ -109,7 +109,7 @@ function renderProducts(products) {
             : cat.includes('groom') ? 'soap'
             : 'inventory_2';
         return `<div class="pos-product-card" onclick="addToCart(${p.id})" title="${escHtml(p.name)}">
-            <div class="p-img"><span class="material-symbols-outlined" style="font-size:22px;">${icon}</span></div>
+            <div class="p-img">${p.image_url ? `<img class="p-img-photo" src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.remove()">` : ''}<span class="material-symbols-outlined" style="font-size:22px;">${icon}</span></div>
             <div class="p-name">${escHtml(p.name)}</div>
             <div class="p-price">₱${parseFloat(p.unit_price || 0).toFixed(2)}</div>
             <div class="p-stock ${stockClass}">${stockText}</div>

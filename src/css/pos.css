@@ -648,3 +648,7 @@
   .pos-cart-customer { flex-direction: column; gap: 6px; }
   .pos-toolbar { flex-direction: column; align-items: stretch; }
 }
+
+/* Product tile image */
+.pos-product-card .p-img { position: relative; overflow: hidden; }
+.pos-product-card .p-img-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }

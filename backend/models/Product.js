@@ -85,8 +85,8 @@ class Product {
                  (sku, name, description, brand, species, breed_size, age_group, health_category,
                   category_id, unit_price, cost_price, 
                    stock_quantity, reorder_level, max_stock_level, unit_type, batch_number, expiration_date, 
-                   barcode, supplier_id) 
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                   barcode, image_url, supplier_id)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     productData.sku,
                     productData.name,
@@ -106,6 +106,7 @@ class Product {
                     productData.batch_number || null,
                     productData.expiration_date || null,
                     productData.barcode || null,
+                    productData.image_url || null,
                     productData.supplier_id || null
                 ]
             );
@@ -125,7 +126,7 @@ class Product {
                 'age_group', 'health_category', 'category_id',
                 'unit_price', 'cost_price', 'stock_quantity', 'reorder_level',
                 'max_stock_level', 'unit_type', 'batch_number', 'expiration_date', 'barcode',
-                'supplier_id', 'is_active'
+                'image_url', 'supplier_id', 'is_active'
             ];
 
             for (const field of allowedFields) {

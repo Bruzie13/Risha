@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css?v=9">
-    <link rel="stylesheet" href="css/inventory.css?v=2">
+    <link rel="stylesheet" href="css/inventory.css?v=3">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');try{var _av=JSON.parse(localStorage.getItem('accentVars')||'null');if(_av){for(var _k in _av)document.documentElement.style.setProperty(_k,_av[_k]);}}catch(e){}var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
     </head>
 <body>
@@ -108,6 +108,7 @@
                     <button class="btn-secondary" onclick="openCsvImportModal()"><span class="material-symbols-outlined" style="font-size:16px;">file_upload</span> Import</button>
                     <button class="btn-warning" onclick="autoReorder()"><span class="material-symbols-outlined" style="font-size:16px;">smart_toy</span> Reorder</button>
                     <button class="btn-secondary" onclick="openBarcodeManager()"><span class="material-symbols-outlined" style="font-size:16px;">barcode_scanner</span> Barcodes</button>
+                    <button class="btn-secondary" onclick="openImageManager()"><span class="material-symbols-outlined" style="font-size:16px;">image</span> Images</button>
                 </div>
             </div>
 
@@ -233,6 +234,15 @@
                             <div style="display:flex;gap:8px;">
                                 <input type="text" class="form-input" id="barcode" placeholder="Scan or enter barcode" style="flex:1;">
                                 <button type="button" class="btn-secondary" onclick="generateBarcodeField()" title="Generate an in-store barcode" style="white-space:nowrap;"><span class="material-symbols-outlined" style="font-size:16px;">auto_fix_high</span> Generate</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Image URL</label>
+                            <div style="display:flex;gap:10px;align-items:center;">
+                                <img id="imagePreview" alt="" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:1px solid var(--border-glass-strong);display:none;flex-shrink:0;">
+                                <input type="text" class="form-input" id="image_url" placeholder="https://…/product.jpg" style="flex:1;" oninput="updateImagePreview()">
                             </div>
                         </div>
                     </div>
@@ -460,6 +470,31 @@
         </div>
     </div>
 
+    <div id="imageManagerModal" class="modal">
+        <div class="modal-content" style="max-width:660px;">
+            <div class="modal-header">
+                <h2><span class="material-symbols-outlined" style="font-size:20px;vertical-align:middle;">image</span> Product Images</h2>
+                <button class="close-btn" title="Close" onclick="closeImageManager()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:13px;color:var(--text-secondary);margin:0 0 6px;">
+                    Paste an <strong>image URL</strong> for each product and press <strong>Enter</strong> to save. Tip: open the product's page (or Google Images), right-click the picture → <em>Copy Image Address</em>, and paste it here.
+                </p>
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                    <input type="text" class="form-input" id="imageManagerSearch" placeholder="Filter products…" oninput="renderImageManagerList()" style="flex:1;">
+                    <label style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;white-space:nowrap;">
+                        <input type="checkbox" id="imageShowAll" onchange="renderImageManagerList()"> Show all
+                    </label>
+                </div>
+                <div id="imageManagerCount" style="font-size:12px;color:var(--text-muted);margin-bottom:8px;"></div>
+                <div id="imageManagerList" style="max-height:52vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeImageManager()">Done</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         function toggleSidebar() {
             if (document.documentElement.classList.contains('sidebar-hidden')) {
@@ -485,7 +520,7 @@
 <script src="js/motion.js"></script>
 <script src="js/tilt3d.js?v=1"></script>
 <script src="js/assistant.js?v=4"></script>
-    <script src="js/inventory.js?v=3"></script>
+    <script src="js/inventory.js?v=4"></script>
 </body>
 </html>
 

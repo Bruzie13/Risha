@@ -230,7 +230,7 @@ function displayProductsGrid(products) {
             ${viewer ? '' : `<input type="checkbox" class="product-checkbox pcard-check" value="${p.id}">`}
             <span class="pcard-status">${t.label}</span>
             <div class="pcard-top">
-                <div class="pcard-avatar"><span class="material-symbols-outlined">${productIcon(p)}</span></div>
+                <div class="pcard-avatar">${p.image_url ? `<img class="pcard-img" src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.remove()">` : ''}<span class="material-symbols-outlined">${productIcon(p)}</span></div>
                 <div class="pcard-id">
                     <div class="pcard-name" title="${escHtml(p.name)}">${escHtml(p.name)}</div>
                     <div class="pcard-sub">${escHtml(p.sku)}${p.brand ? ' · ' + escHtml(p.brand) : ''}</div>
@@ -578,6 +578,7 @@ function openAddProductModal() {
     editingProductId = null;
     document.getElementById('modalTitle').textContent = 'Add New Product';
     document.getElementById('productForm').reset();
+    updateImagePreview();
     document.getElementById('productModal').classList.add('active');
 }
 
@@ -601,6 +602,8 @@ async function openEditProductModal(id) {
             document.getElementById('age_group').value = product.age_group || '';
             document.getElementById('health_category').value = product.health_category || '';
             document.getElementById('barcode').value = product.barcode || '';
+            document.getElementById('image_url').value = product.image_url || '';
+            updateImagePreview();
             document.getElementById('category_id').value = product.category_id;
             document.getElementById('unit_price').value = product.unit_price;
             document.getElementById('cost_price').value = product.cost_price || '';
@@ -631,6 +634,7 @@ async function viewProductDetails(id) {
             const product = data.data;
             editingProductId = id;
             const detailsHTML = `
+                ${product.image_url ? `<div class="details-image"><img src="${escHtml(product.image_url)}" alt="${escHtml(product.name)}" onerror="this.parentNode.remove()"></div>` : ''}
                 <div class="details-row">
                     <span class="details-label">SKU</span>
                     <span class="details-value">${escHtml(product.sku)}</span>
@@ -773,6 +777,7 @@ async function handleProductSubmit(event) {
         name: document.getElementById('name').value,
         brand: document.getElementById('brand').value || null,
         barcode: document.getElementById('barcode').value || null,
+        image_url: document.getElementById('image_url').value.trim() || null,
         species: document.getElementById('species').value || null,
         breed_size: document.getElementById('breed_size').value || null,
         age_group: document.getElementById('age_group').value || null,
@@ -1403,5 +1408,118 @@ async function saveRowBarcode(id, value, row) {
     } catch (e) {
         status.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:var(--danger);">error</span>';
         showToast('Failed to save barcode', 'error');
+    }
+}
+
+/* ===== Product images ===== */
+// Live preview on the Add/Edit product form.
+function updateImagePreview() {
+    const input = document.getElementById('image_url');
+    const img = document.getElementById('imagePreview');
+    if (!input || !img) return;
+    const url = input.value.trim();
+    if (url) {
+        img.src = url;
+        img.style.display = 'block';
+        img.onerror = function () { img.style.display = 'none'; };
+    } else {
+        img.style.display = 'none';
+    }
+}
+
+function openImageManager() {
+    if (!canManage()) { showToast("Your role can't edit products.", 'error'); return; }
+    const search = document.getElementById('imageManagerSearch');
+    const showAll = document.getElementById('imageShowAll');
+    if (search) search.value = '';
+    if (showAll) showAll.checked = false;
+    document.getElementById('imageManagerModal').classList.add('active');
+    renderImageManagerList();
+    setTimeout(() => search && search.focus(), 100);
+}
+
+function closeImageManager() {
+    document.getElementById('imageManagerModal').classList.remove('active');
+    loadProducts();
+}
+
+function renderImageManagerList() {
+    const list = document.getElementById('imageManagerList');
+    const countEl = document.getElementById('imageManagerCount');
+    if (!list) return;
+    const q = (document.getElementById('imageManagerSearch')?.value || '').toLowerCase().trim();
+    const showAll = document.getElementById('imageShowAll')?.checked;
+    const missing = allProducts.filter(p => !p.image_url || String(p.image_url).trim() === '').length;
+    let items = allProducts.slice();
+    if (!showAll) items = items.filter(p => !p.image_url || String(p.image_url).trim() === '');
+    if (q) items = items.filter(p =>
+        (p.name || '').toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q));
+    items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    if (countEl) countEl.textContent = missing + ' product' + (missing === 1 ? '' : 's') + ' without an image' +
+        (showAll ? ' · showing all' : '');
+
+    if (items.length === 0) {
+        list.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:24px;font-size:13px;">' +
+            (missing === 0 ? 'All products have images. 🎉' : 'No products match your filter.') + '</div>';
+        return;
+    }
+    list.innerHTML = items.map(p =>
+        '<div class="bc-row img-row" data-id="' + p.id + '">' +
+            '<img class="img-thumb" src="' + escHtml(p.image_url || '') + '" alt="" ' +
+                (p.image_url ? '' : 'style="display:none;"') + ' onerror="this.style.display=\'none\'">' +
+            '<span class="img-thumb-ph" ' + (p.image_url ? 'style="display:none;"' : '') + '><span class="material-symbols-outlined">image</span></span>' +
+            '<div style="flex:1;min-width:0;">' +
+                '<div style="font-weight:600;font-size:13px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(p.name || '') + '</div>' +
+                '<div style="font-size:11px;color:var(--text-muted);">' + escHtml(p.sku || '') + '</div>' +
+            '</div>' +
+            '<input type="text" class="form-input img-input" placeholder="Paste image URL…" value="' + escHtml(p.image_url || '') + '" style="width:230px;flex-shrink:0;">' +
+            '<span class="bc-status" style="width:20px;flex-shrink:0;text-align:center;"></span>' +
+        '</div>'
+    ).join('');
+
+    list.querySelectorAll('.img-row').forEach(row => {
+        const id = parseInt(row.dataset.id);
+        const input = row.querySelector('.img-input');
+        const thumb = row.querySelector('.img-thumb');
+        const ph = row.querySelector('.img-thumb-ph');
+        // live thumbnail as they paste
+        input.addEventListener('input', () => {
+            const url = input.value.trim();
+            if (url) { thumb.src = url; thumb.style.display = 'block'; ph.style.display = 'none'; thumb.onerror = () => { thumb.style.display = 'none'; ph.style.display = 'flex'; }; }
+            else { thumb.style.display = 'none'; ph.style.display = 'flex'; }
+        });
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); saveRowImage(id, input.value, row); }
+        });
+    });
+}
+
+async function saveRowImage(id, value, row) {
+    const url = String(value || '').trim();
+    const status = row.querySelector('.bc-status');
+    status.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;color:var(--text-muted);">hourglass_empty</span>';
+    try {
+        const res = await fetch(`${API_URL}/products/${id}`, {
+            method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify({ image_url: url || null })
+        });
+        const data = await res.json();
+        if (res.ok && data.success !== false) {
+            status.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:var(--success);">check_circle</span>';
+            const prod = allProducts.find(p => p.id === id);
+            if (prod) prod.image_url = url || null;
+            const rows = Array.from(document.querySelectorAll('#imageManagerList .img-row'));
+            const idx = rows.indexOf(row);
+            for (let i = idx + 1; i < rows.length; i++) {
+                const nextInput = rows[i].querySelector('.img-input');
+                if (nextInput && !nextInput.value.trim()) { nextInput.focus(); break; }
+            }
+        } else {
+            status.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:var(--danger);">error</span>';
+            showToast(data.message || 'Could not save image', 'error');
+        }
+    } catch (e) {
+        status.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:var(--danger);">error</span>';
+        showToast('Failed to save image', 'error');
     }
 }
