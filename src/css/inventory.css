@@ -98,3 +98,15 @@
   .data-table th, .data-table td { padding: 9px 8px; font-size: 11px; }
   .inv-search-wrap { max-width: none; }
 }
+
+/* Barcode assignment manager */
+.bc-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-glass-strong);
+    border-radius: 10px;
+    background: var(--bg-card);
+}
+.bc-row .bc-input { padding: 6px 10px; font-size: 13px; }

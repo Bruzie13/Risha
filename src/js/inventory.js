@@ -1296,3 +1296,112 @@ function downloadCsvTemplate() {
     a.click();
     URL.revokeObjectURL(url);
 }
+/* ===== Barcode assignment ===== */
+// Deterministic in-store barcode (UPC-A length) derived from the product id.
+function makeInStoreBarcode(id) {
+    return '250' + String(id).padStart(9, '0');
+}
+
+// "Generate" button on the Add/Edit product form.
+function generateBarcodeField() {
+    const input = document.getElementById('barcode');
+    if (!input) return;
+    input.value = editingProductId
+        ? makeInStoreBarcode(editingProductId)
+        : '2' + String(Date.now()).slice(-11);
+    input.focus();
+}
+
+function openBarcodeManager() {
+    if (!canManage()) { showToast("Your role can't edit products.", 'error'); return; }
+    const modal = document.getElementById('barcodeManagerModal');
+    const search = document.getElementById('barcodeManagerSearch');
+    const showAll = document.getElementById('barcodeShowAll');
+    if (search) search.value = '';
+    if (showAll) showAll.checked = false;
+    modal.classList.add('active');
+    renderBarcodeManagerList();
+    setTimeout(() => search && search.focus(), 100);
+}
+
+function closeBarcodeManager() {
+    document.getElementById('barcodeManagerModal').classList.remove('active');
+    loadProducts();
+}
+
+function renderBarcodeManagerList() {
+    const list = document.getElementById('barcodeManagerList');
+    const countEl = document.getElementById('barcodeManagerCount');
+    if (!list) return;
+    const q = (document.getElementById('barcodeManagerSearch')?.value || '').toLowerCase().trim();
+    const showAll = document.getElementById('barcodeShowAll')?.checked;
+    const missing = allProducts.filter(p => !p.barcode || String(p.barcode).trim() === '').length;
+    let items = allProducts.slice();
+    if (!showAll) items = items.filter(p => !p.barcode || String(p.barcode).trim() === '');
+    if (q) items = items.filter(p =>
+        (p.name || '').toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q));
+    items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    if (countEl) countEl.textContent = missing + ' product' + (missing === 1 ? '' : 's') + ' without a barcode' +
+        (showAll ? ' · showing all' : '');
+
+    if (items.length === 0) {
+        list.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:24px;font-size:13px;">' +
+            (missing === 0 ? 'All products have barcodes. 🎉' : 'No products match your filter.') + '</div>';
+        return;
+    }
+    list.innerHTML = items.map(p =>
+        '<div class="bc-row" data-id="' + p.id + '">' +
+            '<div style="flex:1;min-width:0;">' +
+                '<div style="font-weight:600;font-size:13px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(p.name || '') + '</div>' +
+                '<div style="font-size:11px;color:var(--text-muted);">' + escHtml(p.sku || '') + '</div>' +
+            '</div>' +
+            '<input type="text" class="form-input bc-input" placeholder="Scan or type…" value="' + escHtml(p.barcode || '') + '" style="width:190px;flex-shrink:0;">' +
+            '<button type="button" class="btn-secondary bc-gen" title="Generate" style="padding:6px 10px;flex-shrink:0;"><span class="material-symbols-outlined" style="font-size:15px;">auto_fix_high</span></button>' +
+            '<span class="bc-status" style="width:20px;flex-shrink:0;text-align:center;"></span>' +
+        '</div>'
+    ).join('');
+
+    list.querySelectorAll('.bc-row').forEach(row => {
+        const id = parseInt(row.dataset.id);
+        const input = row.querySelector('.bc-input');
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); saveRowBarcode(id, input.value, row); }
+        });
+        row.querySelector('.bc-gen').addEventListener('click', () => {
+            input.value = makeInStoreBarcode(id);
+            saveRowBarcode(id, input.value, row);
+        });
+    });
+}
+
+async function saveRowBarcode(id, value, row) {
+    const code = String(value || '').trim();
+    const status = row.querySelector('.bc-status');
+    if (code.length < 2) { showToast('Enter a barcode first', 'warning'); return; }
+    status.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;color:var(--text-muted);">hourglass_empty</span>';
+    try {
+        const res = await fetch(`${API_URL}/products/${id}`, {
+            method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify({ barcode: code })
+        });
+        const data = await res.json();
+        if (res.ok && data.success !== false) {
+            status.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:var(--success);">check_circle</span>';
+            const prod = allProducts.find(p => p.id === id);
+            if (prod) prod.barcode = code;
+            // jump to the next row that still needs a barcode
+            const rows = Array.from(document.querySelectorAll('#barcodeManagerList .bc-row'));
+            const idx = rows.indexOf(row);
+            for (let i = idx + 1; i < rows.length; i++) {
+                const nextInput = rows[i].querySelector('.bc-input');
+                if (nextInput && !nextInput.value.trim()) { nextInput.focus(); break; }
+            }
+        } else {
+            status.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:var(--danger);">error</span>';
+            showToast(data.message || 'Could not save (barcode may already be used)', 'error');
+        }
+    } catch (e) {
+        status.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:var(--danger);">error</span>';
+        showToast('Failed to save barcode', 'error');
+    }
+}
