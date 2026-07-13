@@ -146,51 +146,70 @@ function scanToCart(rawCode) {
 }
 
 function setupBarcodeListener() {
-    // Hardware-scanner path: rapid keystrokes when no field is focused
+    const scanInput = document.getElementById('barcodeScanInput');
+    const searchInput = document.getElementById('posSearchInput');
+
+    // Timing-based hardware-scanner capture. Runs in the capture phase so it
+    // sees keys before the focused field. A scanner types a whole code in a
+    // fast burst (~10-40ms/char); a human types much slower. We detect the
+    // burst and add to the cart whether or not the scanner sends an Enter.
+    let buf = '', tStart = 0, tPrev = 0, idleTimer = null;
+
+    function clearActiveField() {
+        const el = document.activeElement;
+        if (el && el.tagName === 'INPUT') {
+            el.value = '';
+            if (el.id === 'posSearchInput') filterProducts();
+        }
+    }
+    function tryBurst(hadEnter) {
+        const code = buf.trim();
+        const dur = (performance.now() - tStart) || 1;
+        const isScan = code.length >= 3 && dur < code.length * 55; // fast => scanner
+        buf = '';
+        if (isScan && (hadEnter || code.length >= 4)) {
+            if (scanToCart(code)) clearActiveField();
+            return true;
+        }
+        return false;
+    }
+
     document.addEventListener('keydown', (e) => {
         if (e.key === 'F2') {
             e.preventDefault();
-            const input = document.getElementById('barcodeScanInput');
-            if (input) { input.value = ''; input.focus(); showToast('Scanner ready', 'info'); }
+            if (scanInput) { scanInput.value = ''; scanInput.focus(); showToast('Scanner ready', 'info'); }
             return;
         }
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-        const now = Date.now();
-        if (now - lastKeyTime > 100) barcodeBuffer = '';
-        lastKeyTime = now;
-        if (e.key === 'Enter' && barcodeBuffer.length > 2) {
-            const code = barcodeBuffer;
-            barcodeBuffer = '';
-            scanToCart(code);
-            e.preventDefault();
+        const now = performance.now();
+        if (now - tPrev > 60) { buf = ''; tStart = now; } // long gap => new sequence
+        tPrev = now;
+        clearTimeout(idleTimer);
+
+        if (e.key === 'Enter') {
+            if (tryBurst(true)) { e.preventDefault(); e.stopImmediatePropagation(); }
             return;
         }
-        if (e.key.length === 1) barcodeBuffer += e.key;
-    });
-    // Dedicated scan box: Enter adds the matching product
-    const scanInput = document.getElementById('barcodeScanInput');
-    if (scanInput) {
-        scanInput.addEventListener('keydown', (e) => {
+        if (e.key.length === 1) {
+            if (buf === '') tStart = now;
+            buf += e.key;
+            // scanners with no Enter suffix: submit shortly after the burst ends
+            idleTimer = setTimeout(() => { tryBurst(false); }, 130);
+        }
+    }, true);
+
+    // Manual entry: type a barcode/SKU and press Enter to add (slow typing that
+    // the burst detector intentionally ignores).
+    function manualEnter(el) {
+        if (!el) return;
+        el.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                if (scanToCart(scanInput.value)) scanInput.value = '';
+                if (scanToCart(el.value)) { el.value = ''; if (el.id === 'posSearchInput') filterProducts(); }
             }
         });
     }
-    // Search box: pressing Enter (or a scanner typing here) also adds to cart
-    const searchInput = document.getElementById('posSearchInput');
-    if (searchInput) {
-        searchInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                if (scanToCart(searchInput.value)) {
-                    searchInput.value = '';
-                    filterProducts();
-                    document.getElementById('barcodeScanInput')?.focus();
-                }
-            }
-        });
-    }
+    manualEnter(scanInput);
+    manualEnter(searchInput);
 }
 
 function addToCart(productId) {
