@@ -108,11 +108,10 @@ function applyCustomAccent(hex, persist) {
 
 /* --- theme mode: system / light / dark --- */
 function applyThemeMode(mode, persist) {
-    localStorage.setItem('theme', mode); // 'system' | 'light' | 'dark'
+    if (persist) localStorage.setItem('theme', mode); // 'system' | 'light' | 'dark'
     var dark = mode === 'dark' || (mode === 'system' &&
         window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.classList.toggle('dark-mode', dark);
-    if (persist) { /* stored above */ }
     reflectSeg('themeModeSeg', 'mode', mode);
     var toggle = document.getElementById('settingsDarkModeToggle');
     if (toggle) toggle.checked = dark;
@@ -144,11 +143,55 @@ function reflectSeg(segId, attr, value) {
     });
 }
 
+/* --- preview-then-save state --- */
+var pendingAppearance = null;
+var appearanceDirty = false;
+
+function loadSavedAppearance() {
+    return {
+        accentName: localStorage.getItem('accentName') || DEFAULT_ACCENT,
+        accentCustom: localStorage.getItem('accentCustom') || null,
+        uiFont: localStorage.getItem('uiFont') || 'sans',
+        textScale: localStorage.getItem('textScale') || DEFAULT_SCALE,
+        theme: localStorage.getItem('theme') || 'system'
+    };
+}
+// Apply a whole appearance state live; persist=true writes it to localStorage.
+function applyAppearanceState(s, persist) {
+    if (s.accentName === 'custom' && s.accentCustom) applyCustomAccent(s.accentCustom, persist);
+    else applyAccent(s.accentName, persist);
+    applyFont(s.uiFont, persist);
+    applyTextScale(s.textScale, persist);
+    applyThemeMode(s.theme, persist);
+}
+function markAppearanceDirty(on) {
+    appearanceDirty = on;
+    var bar = document.getElementById('appearanceSaveBar');
+    if (bar) bar.classList.toggle('active', on);
+}
+function saveAppearance() {
+    applyAppearanceState(pendingAppearance, true);
+    markAppearanceDirty(false);
+    if (typeof showToast === 'function') showToast('Appearance saved', 'success');
+}
+function discardAppearance() {
+    pendingAppearance = loadSavedAppearance();
+    applyAppearanceState(pendingAppearance, false);
+    markAppearanceDirty(false);
+    if (typeof showToast === 'function') showToast('Changes discarded', 'info');
+}
+
 function setupAppearance() {
-    // theme mode
+    pendingAppearance = loadSavedAppearance();
+
+    // theme mode (live preview only; committed on Save)
     var themeSeg = document.getElementById('themeModeSeg');
     if (themeSeg) themeSeg.querySelectorAll('.seg-btn').forEach(function (el) {
-        el.addEventListener('click', function () { applyThemeMode(el.dataset.mode, true); });
+        el.addEventListener('click', function () {
+            pendingAppearance.theme = el.dataset.mode;
+            applyThemeMode(el.dataset.mode, false);
+            markAppearanceDirty(true);
+        });
     });
 
     // accent swatches
@@ -159,46 +202,61 @@ function setupAppearance() {
                 '" style="background:linear-gradient(135deg,' + a.gradA + ',' + a.gradB + ');"></button>';
         }).join('');
         grid.querySelectorAll('.accent-swatch').forEach(function (el) {
-            el.addEventListener('click', function () { applyAccent(el.dataset.key, true); });
+            el.addEventListener('click', function () {
+                pendingAppearance.accentName = el.dataset.key;
+                pendingAppearance.accentCustom = null;
+                applyAccent(el.dataset.key, false);
+                markAppearanceDirty(true);
+            });
         });
     }
     // custom color picker
     var picker = document.getElementById('accentPicker');
-    if (picker) picker.addEventListener('input', function () { applyCustomAccent(picker.value, true); });
+    if (picker) picker.addEventListener('input', function () {
+        pendingAppearance.accentName = 'custom';
+        pendingAppearance.accentCustom = picker.value;
+        applyCustomAccent(picker.value, false);
+        markAppearanceDirty(true);
+    });
 
     // font family
     var fontSeg = document.getElementById('fontSeg');
     if (fontSeg) fontSeg.querySelectorAll('.seg-btn').forEach(function (el) {
-        el.addEventListener('click', function () { applyFont(el.dataset.font, true); });
+        el.addEventListener('click', function () {
+            pendingAppearance.uiFont = el.dataset.font;
+            applyFont(el.dataset.font, false);
+            markAppearanceDirty(true);
+        });
     });
 
     // text size
     var seg = document.getElementById('textSizeSeg');
     if (seg) seg.querySelectorAll('.seg-btn').forEach(function (el) {
-        el.addEventListener('click', function () { applyTextScale(el.dataset.scale, true); });
+        el.addEventListener('click', function () {
+            pendingAppearance.textScale = el.dataset.scale;
+            applyTextScale(el.dataset.scale, false);
+            markAppearanceDirty(true);
+        });
     });
 
-    // reset
+    // reset — previews defaults; user still confirms with Save
     var reset = document.getElementById('resetAppearanceBtn');
     if (reset) reset.addEventListener('click', function () {
-        ['accentVars', 'accentCustom', 'fontVars', 'uiFont', 'textScale'].forEach(function (k) { localStorage.removeItem(k); });
-        localStorage.setItem('accentName', DEFAULT_ACCENT);
-        localStorage.setItem('theme', 'system');
-        document.documentElement.style.zoom = '';
-        applyAccent(DEFAULT_ACCENT, false);
-        applyFont('sans', false);
-        applyTextScale(DEFAULT_SCALE, false);
-        applyThemeMode('system', false);
-        if (typeof showToast === 'function') showToast('Appearance reset to default', 'success');
+        localStorage.removeItem('accentCustom');
+        pendingAppearance = { accentName: DEFAULT_ACCENT, accentCustom: null, uiFont: 'sans', textScale: DEFAULT_SCALE, theme: 'system' };
+        applyAppearanceState(pendingAppearance, false);
+        markAppearanceDirty(true);
     });
 
-    // reflect the currently saved choices
-    var savedAccent = localStorage.getItem('accentName') || DEFAULT_ACCENT;
-    if (savedAccent === 'custom') applyCustomAccent(localStorage.getItem('accentCustom') || ACCENTS[0].primary, false);
-    else applyAccent(savedAccent, false);
-    applyFont(localStorage.getItem('uiFont') || 'sans', false);
-    applyTextScale(localStorage.getItem('textScale') || DEFAULT_SCALE, false);
-    applyThemeMode(localStorage.getItem('theme') || 'system', false);
+    // save / discard bar
+    var saveBtn = document.getElementById('appearanceSaveBtn');
+    if (saveBtn) saveBtn.addEventListener('click', saveAppearance);
+    var discardBtn = document.getElementById('appearanceDiscardBtn');
+    if (discardBtn) discardBtn.addEventListener('click', discardAppearance);
+
+    // reflect the currently saved choices (no dirty state on load)
+    applyAppearanceState(pendingAppearance, false);
+    markAppearanceDirty(false);
 }
 
 function updateDate() {

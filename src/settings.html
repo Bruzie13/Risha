@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css?v=9">
-    <link rel="stylesheet" href="css/settings.css?v=4">
+    <link rel="stylesheet" href="css/settings.css?v=5">
     <script>
         (function() {
             var saved = localStorage.getItem('theme');
@@ -212,17 +212,6 @@
                             <div class="settings-card-body">
                                 <div class="settings-toggle-row">
                                     <div>
-                                        <div class="settings-toggle-label">Dark Mode</div>
-                                        <div class="settings-toggle-desc">Switch between light and dark theme</div>
-                                    </div>
-                                    <label class="settings-toggle">
-                                        <input type="checkbox" id="settingsDarkModeToggle">
-                                        <span class="settings-toggle-slider"></span>
-                                    </label>
-                                </div>
-                                <div class="settings-divider"></div>
-                                <div class="settings-toggle-row">
-                                    <div>
                                         <div class="settings-toggle-label">Notifications</div>
                                         <div class="settings-toggle-desc">Receive alerts for low stock and expirations</div>
                                     </div>
@@ -320,6 +309,13 @@
                                         <div class="settings-toggle-desc">Restore the default theme, color, font and size</div>
                                     </div>
                                     <button class="btn-secondary" type="button" id="resetAppearanceBtn">Reset</button>
+                                </div>
+                                <div class="appearance-save-bar" id="appearanceSaveBar">
+                                    <span class="asb-msg"><span class="material-symbols-outlined" style="font-size:17px;">edit</span> You have unsaved appearance changes</span>
+                                    <div class="asb-actions">
+                                        <button class="btn-secondary" type="button" id="appearanceDiscardBtn">Discard</button>
+                                        <button class="btn-primary" type="button" id="appearanceSaveBtn"><span class="material-symbols-outlined" style="font-size:16px;">save</span> Save Changes</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -435,6 +431,6 @@
 <script src="js/motion.js"></script>
 <script src="js/tilt3d.js?v=1"></script>
 <script src="js/assistant.js?v=4"></script>
-    <script src="js/settings.js?v=4"></script>
+    <script src="js/settings.js?v=5"></script>
 </body>
 </html>

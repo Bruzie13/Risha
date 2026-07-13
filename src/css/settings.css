@@ -364,3 +364,27 @@
         width: auto;
     }
 }
+/* Appearance: unsaved-changes save bar */
+.appearance-save-bar {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: var(--primary-bg);
+    border: 1px solid color-mix(in srgb, var(--primary) 32%, transparent);
+    animation: fetchIn 0.2s ease both;
+}
+.appearance-save-bar.active { display: flex; }
+.appearance-save-bar .asb-msg {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 13px; font-weight: 600; color: var(--primary);
+}
+.appearance-save-bar .asb-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.appearance-save-bar .btn-primary { display: inline-flex; align-items: center; gap: 5px; }
+@media (max-width: 560px) {
+    .appearance-save-bar { flex-direction: column; align-items: stretch; }
+    .appearance-save-bar .asb-actions { justify-content: flex-end; }
+}
