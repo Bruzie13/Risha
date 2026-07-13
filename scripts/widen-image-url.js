@@ -1,8 +1,10 @@
 // One-time migration: widen products.image_url so it can hold uploaded images
 // (data URLs) and long URLs. Safe/non-destructive — only enlarges the column.
 // Run from the repo root:  node scripts/widen-image-url.js
-require('dotenv').config({ path: __dirname + '/../backend/.env' });
-const pool = require('../backend/config/database');
+const path = require('path');
+const backend = path.join(__dirname, '..', 'backend');
+require(path.join(backend, 'node_modules', 'dotenv')).config({ path: path.join(backend, '.env') });
+const pool = require(path.join(backend, 'config', 'database'));
 
 (async () => {
     try {
