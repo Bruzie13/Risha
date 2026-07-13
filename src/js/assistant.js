@@ -15,32 +15,37 @@
     }
 
     function build() {
-        const fab = el('button', { className: 'fa-fab', id: 'faFab', title: 'Ask FETCH Assistant' },
+        const fab = el('button', { className: 'fa-fab', id: 'faFab', title: 'FETCH Assistant & Help' },
             '<span class="material-symbols-outlined">smart_toy</span>');
         fab.addEventListener('click', toggle);
 
         const panel = el('div', { className: 'fa-panel', id: 'faPanel' });
         panel.innerHTML = `
             <div class="fa-head">
-                <div class="fa-head-title"><span class="material-symbols-outlined">smart_toy</span> FETCH Assistant</div>
+                <div class="fa-head-title"><span class="material-symbols-outlined">smart_toy</span> FETCH Assistant &amp; Help</div>
                 <button class="fa-close" id="faClose" title="Close"><span class="material-symbols-outlined">close</span></button>
             </div>
             <div class="fa-body" id="faBody">
                 <div class="fa-msg fa-bot">
-                    Hi! I'm your inventory assistant. Ask me things like:
+                    Hi! I'm your assistant and built-in help guide. Ask about your live shop data or how to use any feature:
                     <div class="fa-suggests">
                         <button class="fa-chip" data-q="What should I reorder today?">What should I reorder?</button>
                         <button class="fa-chip" data-q="Which products are expiring soon?">What's expiring soon?</button>
                         <button class="fa-chip" data-q="How were sales today?">Sales today?</button>
-                        <button class="fa-chip" data-q="How do I void a sale?">How do I void a sale?</button>
+                        <button class="fa-chip" data-q="How do I use the POS to make a sale?">How do I use the POS?</button>
+                        <button class="fa-chip" data-q="How do I reorder stock from a supplier?">How do I reorder stock?</button>
+                        <button class="fa-chip" data-q="How do I void a sale and do the end-of-day cash count?">Void &amp; end-of-day?</button>
+                        <button class="fa-chip" data-q="What can each user role do?">Roles &amp; permissions</button>
+                        <button class="fa-chip" data-q="What are the keyboard shortcuts?">Keyboard shortcuts</button>
+                        <button class="fa-chip" data-action="guide">📖 Open full help guide</button>
                     </div>
                 </div>
             </div>
             <div class="fa-input-row">
-                <input type="text" id="faInput" placeholder="Ask about your shop…" autocomplete="off" maxlength="600">
+                <input type="text" id="faInput" placeholder="Ask a question or how to do something…" autocomplete="off" maxlength="600">
                 <button id="faSend" title="Send"><span class="material-symbols-outlined">send</span></button>
             </div>
-            <div class="fa-foot">Answers use your live shop data · scoped to FETCH</div>`;
+            <div class="fa-foot">Live shop data + full help guide · scoped to FETCH</div>`;
 
         document.body.appendChild(fab);
         document.body.appendChild(panel);
@@ -50,8 +55,20 @@
         const input = panel.querySelector('#faInput');
         input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
         panel.querySelectorAll('.fa-chip').forEach(c =>
-            c.addEventListener('click', () => { input.value = c.dataset.q; send(); }));
+            c.addEventListener('click', () => {
+                if (c.dataset.action === 'guide') {
+                    if (typeof window.openHelpGuide === 'function') window.openHelpGuide();
+                    return;
+                }
+                input.value = c.dataset.q; send();
+            }));
     }
+
+    // Let the rest of the app open the assistant (it's the unified helper now).
+    window.openFetchAssistant = function () {
+        if (!document.getElementById('faPanel')) build();
+        if (!open) toggle();
+    };
 
     function toggle() {
         open = !open;

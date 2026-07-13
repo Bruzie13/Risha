@@ -102,36 +102,56 @@ function getUser() {
     } catch { return null; }
 }
 
-// Identity avatar: a deterministic geometric identicon generated from the
-// user's name (symmetric block pattern, like GitHub) — a unique identity
-// mark per person, not a plain initial.
+// Identity avatar: an initials monogram on a deterministic gradient — the
+// avatar style used by Google Workspace, Notion, Linear and Slack. Clean,
+// professional, and unique per person by name-derived colour.
 function hashName(name) {
     let h = 2166136261;
     for (const ch of String(name || 'User')) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
     return h;
 }
 
+// Curated, evenly-bright gradient pairs (top-left → bottom-right).
+const AVATAR_GRADIENTS = [
+    ['#6366f1', '#8b5cf6'], // indigo → violet
+    ['#0ea5e9', '#2563eb'], // sky → blue
+    ['#10b981', '#059669'], // emerald
+    ['#f59e0b', '#ea580c'], // amber → orange
+    ['#ec4899', '#db2777'], // pink
+    ['#14b8a6', '#0891b2'], // teal → cyan
+    ['#f43f5e', '#e11d48'], // rose
+    ['#8b5cf6', '#6d28d9'], // violet → purple
+    ['#22c55e', '#16a34a'], // green
+    ['#3b82f6', '#1d4ed8'], // blue
+    ['#a855f7', '#7c3aed'], // purple
+    ['#0d9488', '#0f766e']  // deep teal
+];
+
+// First letters of the first and last name; falls back to the first two
+// characters of a single-word name / username.
+function initialsOf(name) {
+    const parts = String(name || 'User').trim().split(/\s+/).filter(Boolean);
+    let ini = parts.length >= 2
+        ? parts[0][0] + parts[parts.length - 1][0]
+        : (parts[0] || 'U').slice(0, 2);
+    return ini.toUpperCase().replace(/[<>&]/g, '');
+}
+
 function identiconURI(name) {
     const h = hashName(name);
-    const hue = h % 360;
-    const fg = `hsl(${hue} 60% 52%)`;
-    const fg2 = `hsl(${(hue + 28) % 360} 62% 46%)`;
-    const bg = `hsl(${hue} 45% 96%)`;
-    // 5x5 grid mirrored across the vertical axis; 3 left columns drive it
-    let cells = '';
-    let bit = 0;
-    for (let r = 0; r < 5; r++) {
-        for (let c = 0; c < 3; c++) {
-            const on = ((h >>> (bit++ % 31)) & 1) === 1;
-            if (on) {
-                const fill = (r + c) % 2 ? fg2 : fg;
-                cells += `<rect x='${c}' y='${r}' width='1.04' height='1.04' rx='0.12' fill='${fill}'/>`;
-                if (c < 2) cells += `<rect x='${4 - c}' y='${r}' width='1.04' height='1.04' rx='0.12' fill='${fill}'/>`;
-            }
-        }
-    }
-    const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='-0.4 -0.4 5.8 5.8'><rect x='-0.4' y='-0.4' width='5.8' height='5.8' fill='${bg}'/>${cells}</svg>`;
-    return { uri: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`, bg };
+    const [c1, c2] = AVATAR_GRADIENTS[h % AVATAR_GRADIENTS.length];
+    const ini = initialsOf(name);
+    const gid = 'ag' + (h % 99999);
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>` +
+        `<defs><linearGradient id='${gid}' x1='0' y1='0' x2='1' y2='1'>` +
+        `<stop offset='0' stop-color='${c1}'/><stop offset='1' stop-color='${c2}'/>` +
+        `</linearGradient></defs>` +
+        `<rect width='100' height='100' fill='url(#${gid})'/>` +
+        `<text x='50' y='50' dy='0.35em' text-anchor='middle' ` +
+        `font-family='Inter, Segoe UI, system-ui, -apple-system, sans-serif' ` +
+        `font-size='42' font-weight='600' letter-spacing='0.5' fill='#ffffff'>${ini}</text>` +
+        `</svg>`;
+    return { uri: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`, bg: c1 };
 }
 
 // Paint every user avatar (sidebar, hero, settings) with the identicon
@@ -754,23 +774,11 @@ document.addEventListener('DOMContentLoaded', () => {
         requestNotifPermission();
     }
 
-    var helpFloatBtn = document.getElementById('helpFloatBtn');
-    if (!helpFloatBtn && !window.location.pathname.includes('login.html')) {
-        helpFloatBtn = document.createElement('button');
-        helpFloatBtn.id = 'helpFloatBtn';
-        helpFloatBtn.className = 'help-float-btn';
-        helpFloatBtn.innerHTML = '<span class="material-symbols-outlined">help</span>';
-        helpFloatBtn.title = 'Help Guide';
-        helpFloatBtn.onclick = function() {
-            const modal = document.getElementById('helpGuideModal');
-            if (modal && modal.classList.contains('active')) {
-                closeHelpGuide();
-            } else {
-                openHelpGuide();
-            }
-        };
-        document.body.appendChild(helpFloatBtn);
-    }
+    // Help is now merged into the FETCH Assistant (single floating helper).
+    // The old standalone "?" button is retired; the assistant answers help
+    // questions and can still open the full formatted guide on request.
+    var oldHelpBtn = document.getElementById('helpFloatBtn');
+    if (oldHelpBtn) oldHelpBtn.remove();
 });
 
 function openHelpGuide() {

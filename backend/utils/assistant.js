@@ -10,6 +10,10 @@ const DAY = 86400000;
 async function buildContext() {
     const conn = await pool.getConnection();
     try {
+        // Risha is a Philippine shop; run this connection in PH time so that
+        // "today", expiry windows and CURDATE()/NOW() all reflect UTC+8 rather
+        // than the server's UTC. created_at is a TIMESTAMP, so it converts too.
+        await conn.query("SET time_zone = '+08:00'");
         const [[stats]] = await conn.query(`
             SELECT
                 COUNT(*) AS total,
@@ -53,7 +57,8 @@ async function buildContext() {
         const fmtDate = d => d ? new Date(d).toISOString().slice(0, 10) : 'none';
         const peso = n => '₱' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        return `LIVE SHOP DATA (as of ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC):
+        const phNow = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 16).replace('T', ' ');
+        return `LIVE SHOP DATA (as of ${phNow} Philippine time, UTC+8):
 
 INVENTORY OVERVIEW
 - Active products: ${stats.active}
@@ -79,19 +84,35 @@ ${topSellers.length ? topSellers.map(p => `- ${p.name}: ${Number(p.sold)} units`
 ACTIVE SUPPLIERS:
 ${suppliers.length ? suppliers.map(s => `- ${s.name} <${s.email}>`).join('\n') : '- none'}`;
     } finally {
+        // Restore the shared connection's timezone before returning it to the pool.
+        try { await conn.query("SET time_zone = 'SYSTEM'"); } catch { /* ignore */ }
         conn.release();
     }
 }
 
-const CAPABILITIES = `FETCH is an Inventory Management System with Predictive Analytics for Risha Pet Supplies. What it can do and how:
-- DASHBOARD: KPIs, today's day brief, Sales Trend chart, Expiry Radar, Supply Chain status.
-- INVENTORY: card grid or table view; filter with status chips (Low Stock, Out of Stock, Expiring Soon, Expired, Healthy); sort columns; Add/Edit/Stock/Delete products (admin/manager only); CSV import; Reorder button that creates purchase orders and emails suppliers (with a final confirmation).
-- POS: cash-only checkout; scan barcodes or search; quick-cash buttons (Exact/+20/+50/+100); Charge completes the sale, updates stock, prints a 58mm receipt.
-- SALES HISTORY: search/filter; View a sale for a printable receipt; Void a sale (admin/manager, reason required — restores stock, keeps a Voided record); End of Day cash reconciliation (expected drawer cash vs counted, over/short).
-- SUPPLIERS: contacts, payment terms; Performance modal derived from real purchase orders (fulfillment rate, avg lead time, orders received) plus supplier email confirmation status (Confirmed/Viewed/Awaiting); email read receipts (✓ delivered, ✓✓ opened/clicked). Purchase orders advance Confirm → Shipped → Receive; receiving adds stock and can set the new batch's expiration date (this is how an expired product becomes fresh again).
-- REPORTS & ANALYTICS: daily/weekly/monthly sales reports; Analytics tab with 30-day demand forecast, projected revenue, backtested model accuracy, and Fast/Slow/At-risk/Steady product segments. Forecasting uses a Random Forest + Gradient Boosting ensemble blended with a statistical model.
-- USERS & ROLES: Admin (everything), Manager (inventory/suppliers/reorders/voids), Staff/Cashier (POS selling + view). Passwords need 6+ chars with uppercase, number, special character. 5 failed logins locks the account briefly.
-- BACKUPS: a full database backup is emailed daily; admins can download one from Settings → Preferences.`;
+// This doubles as the built-in HELP GUIDE — the standalone guide is merged in
+// here so the assistant can walk a user through any feature step by step.
+const CAPABILITIES = `FETCH is an Inventory Management System with Predictive Analytics for Risha Pet Supplies. This is also the built-in help guide — when a user asks "how do I…", give clear numbered steps. What each part does and how to use it:
+
+- DASHBOARD: the daily command center — sales KPIs, the live day brief (today's sales and items needing attention), Sales Trend chart, Expiry Radar, and Supply Chain status. The "Live" chip turns red if the connection drops.
+
+- POINT OF SALE (POS): cash-only checkout built for speed. Left panel: search or browse products and click to add to the cart (out-of-stock and expired items can't be sold). Right panel: adjust quantities, set a discount, enter cash received using the quick-cash buttons (Exact / +20 / +50 / +100) and the change is computed automatically. Scan barcodes anytime, or press F2 to focus the scan field. "Charge" completes the sale, updates stock instantly, and shows a printable 58mm receipt.
+
+- INVENTORY: card grid or table view. Filter with the status chips (Low Stock, Out of Stock, Expiring Soon, Expired, Healthy) and sort any column by clicking its header. "Reorder" lets you pick low-stock products; after a final confirmation it creates purchase orders and emails the suppliers. Expired items can be reordered — the received batch replaces the old one. "Import" does bulk CSV product uploads; checkboxes enable bulk reorder/adjust/delete. Staff see inventory read-only; only admins and managers can add, edit, or delete.
+
+- SALES HISTORY: search and filter past sales by date; click "View" for item details and a printable receipt. "Void" (admins/managers) cancels a sale with a required reason — items return to stock and the sale stays in history marked Voided, excluded from all totals. "End of Day" records the drawer count: the system shows the expected cash from today's sales, you enter what was actually counted, and any over/short is saved with notes.
+
+- SUPPLIERS: contacts, payment terms, and delivery performance per supplier. The Performance modal is derived from real purchase orders (fulfillment rate, average lead time, orders received) plus email confirmation status (Confirmed/Viewed/Awaiting). Click a supplier's email address or the "Emails" button to see every message sent with read receipts: ✓ delivered, ✓✓ the supplier actually opened or clicked it (automated scanners are filtered out). Purchase orders advance Confirm → Shipped → Receive; receiving adds stock and can set the new batch's expiration date (this is how an expired product becomes fresh again).
+
+- REPORTS & ANALYTICS: Daily/Weekly/Monthly tabs give printable sales summaries with category and payment breakdowns. The Analytics tab is the forecasting hub: 30-day demand and revenue projections, and a Model Accuracy score that is backtested (the system hides recent sales from itself, forecasts them, and grades the result). Click the Fast Movers / Slow Movers / At Risk / Steady cards to list products in each segment with stock, daily rate, and days of cover; pick any product for its forecast chart with confidence range and reorder advice. Forecasting uses a Random Forest + Gradient Boosting ensemble blended with a statistical model. Audit Logs (admins) show who did what, when, and from which address.
+
+- USERS & ROLES: Admin — everything, including users, audit logs, email settings, and backups. Manager — inventory, suppliers, reorders, voids; no user management. Staff — sell on the POS, record the end-of-day count, and view everything else read-only. Passwords need at least 6 characters with an uppercase letter, a number, and a special character. Five failed logins locks the account for a few minutes.
+
+- NOTIFICATIONS: alerts for low stock, stockouts, and expiring products, opened from the bell in the sidebar or the Notifications page. Suppliers with low-stock products are emailed automatically at most once per day.
+
+- BACKUPS & SAFETY: a full database backup is emailed automatically once a day; admins can also download one anytime from Settings → Preferences → Data Backup (do this before big changes). Every confirmed action (reorders, voids, deletes) asks first and shows a popup when done.
+
+- KEYBOARD SHORTCUTS: F2 focuses the barcode scanner (POS). ⌘K / Ctrl+K opens global search. Esc closes any open modal or popup. Enter confirms the open popup.`;
 
 const SYSTEM_INSTRUCTION = `You are FETCH Assistant, the built-in helper for the FETCH inventory management system used by Risha Pet Supplies (a pet supply shop in the Philippines).
 
@@ -99,7 +120,7 @@ RULES:
 - Only answer questions about running THIS shop and using THIS system: inventory, stock, expiration, reordering, suppliers, sales, POS, reports/forecasts, end-of-day cash, users/roles, and how to use features.
 - Use the LIVE SHOP DATA provided to give specific, current answers (real product names, numbers, dates). When asked "what should I reorder" or "what's expiring", name the actual products from the data.
 - If asked something unrelated to this shop or system (general trivia, coding, world events, personal advice), politely decline in one sentence and steer back: "I can only help with your FETCH inventory system — try asking about stock, reorders, or sales."
-- Currency is Philippine Peso (₱). Be concise and practical — a shopkeeper is asking, not a developer. Prefer short paragraphs or tight bullet lists. Never invent data that isn't in the snapshot; if you don't have it, say so and suggest where in the system to look.`;
+- Currency is Philippine Peso (₱). All dates and times are Philippine time (UTC+8) — never mention UTC. Be concise and practical — a shopkeeper is asking, not a developer. Prefer short paragraphs or tight bullet lists. Never invent data that isn't in the snapshot; if you don't have it, say so and suggest where in the system to look.`;
 
 async function askAssistant(question) {
     const key = process.env.GEMINI_API_KEY;
