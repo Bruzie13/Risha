@@ -990,13 +990,13 @@ async function autoReorder() {
             if (selected.size === 0) { showToast('Select at least one product to reorder', 'warning'); return; }
             const ids = Array.from(selected);
             overlay.remove();
-            // Second confirmation before anything is ordered or emailed
+            // Second confirmation before the purchase orders are created
             showConfirmDialog(
                 'Final check',
-                `This will generate purchase orders for ${ids.length} product${ids.length === 1 ? '' : 's'} and email the suppliers. Proceed?`,
+                `This will create purchase orders for ${ids.length} product${ids.length === 1 ? '' : 's'}. Suppliers are not emailed automatically — you'll send each order from the supplier's Performance panel. Proceed?`,
                 () => doReorder(ids),
-                'Yes, Send Orders',
-                '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">outgoing_mail</span>'
+                'Yes, Create Orders',
+                '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">receipt_long</span>'
             );
         }
     });
@@ -1012,7 +1012,7 @@ async function doReorder(productIds) {
         if (data.success) {
             const count = data.count || (Array.isArray(data.data) ? data.data.length : 0);
             if (count > 0) {
-                showSuccessDialog('Reorder placed', `${count} purchase order${count === 1 ? '' : 's'} generated — suppliers have been emailed.`, { icon: 'local_shipping' });
+                showSuccessDialog('Purchase orders created', `${count} purchase order${count === 1 ? '' : 's'} created. Open the supplier's Performance panel to email each order when you're ready.`, { icon: 'receipt_long' });
             } else {
                 showSuccessDialog('No orders generated', data.message || 'Nothing needed reordering — see the notes for details.', { tone: 'info' });
             }
@@ -1067,8 +1067,8 @@ async function bulkReorder() {
     const ids = getSelectedIds();
     if (ids.length === 0) return;
     showConfirmDialog('Bulk Reorder', `Generate purchase orders for ${ids.length} selected product(s)?`, () => {
-        // Second confirmation before anything is ordered or emailed
-        showConfirmDialog('Final check', `This will create the purchase orders and email the suppliers. Proceed?`, async () => {
+        // Second confirmation before the purchase orders are created
+        showConfirmDialog('Final check', `This will create the purchase orders. Suppliers are not emailed automatically — send each order from the supplier's Performance panel. Proceed?`, async () => {
         try {
             const response = await fetch(`${API_URL}/purchase-orders/auto-generate`, {
                 method: 'POST', headers: getAuthHeaders(),
@@ -1077,7 +1077,7 @@ async function bulkReorder() {
             const data = await response.json();
             const count = data.count || (Array.isArray(data.data) ? data.data.length : 0);
             if (count > 0) {
-                showSuccessDialog('Reorder placed', `${count} purchase order${count === 1 ? '' : 's'} generated — suppliers have been emailed.`, { icon: 'local_shipping' });
+                showSuccessDialog('Purchase orders created', `${count} purchase order${count === 1 ? '' : 's'} created. Open the supplier's Performance panel to email each order when you're ready.`, { icon: 'receipt_long' });
             } else {
                 showSuccessDialog('No orders generated', data.message || 'Nothing needed reordering — see the notes for details.', { tone: 'info' });
             }

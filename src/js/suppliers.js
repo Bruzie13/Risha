@@ -235,6 +235,27 @@ async function sendModalAdvance(id, nextStatus, poNumber, supplierId, expiration
     } catch (e) { showToast('Failed to update purchase order', 'error'); }
 }
 
+function emailPOFromModal(id, poNumber, supplierId) {
+    showConfirmDialog('Email Purchase Order', 'Send ' + poNumber + ' to the supplier now?',
+        function () { sendPOEmailNow(id, poNumber, supplierId); },
+        'Yes, Send Email', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">mail</span>');
+}
+
+async function sendPOEmailNow(id, poNumber, supplierId) {
+    try {
+        var res = await fetch(API_BASE + '/purchase-orders/' + id + '/send-email', {
+            method: 'POST', headers: getAuthHeaders()
+        });
+        var data = await res.json();
+        if (data.success) {
+            showSuccessDialog('Email sent', data.message || (poNumber + ' was emailed to the supplier.'), { icon: 'mail' });
+            showPerformance(supplierId);
+        } else {
+            showErrorDialog('Could not send email', data.message || 'Unknown error');
+        }
+    } catch (e) { showToast('Failed to send email', 'error'); }
+}
+
 async function showPerformance(supplierId) {
     var supplier = allSuppliers.find(function(s) { return s.id === supplierId; });
     if (!supplier) return;
@@ -323,9 +344,13 @@ async function showPerformance(supplierId) {
                 var advance = (next && canManage())
                     ? ' <button class="po-advance-btn" onclick="advancePOFromModal(' + r.id + ', \'' + next.status + '\', \'' + escHtml(r.po_number || ('#' + r.id)) + '\', ' + supplierId + ')">' + next.label + '</button>'
                     : '';
+                // manual supplier email (reorders no longer send it automatically)
+                var email = canManage()
+                    ? ' <button class="po-email-btn" onclick="emailPOFromModal(' + r.id + ', \'' + escHtml(r.po_number || ('#' + r.id)) + '\', ' + supplierId + ')" title="Email this purchase order to the supplier"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;">mail</span> Email</button>'
+                    : '';
                 return '<tr>'
                     + '<td>' + escHtml(r.po_number || ('#' + r.id)) + '</td>'
-                    + '<td><span class="' + cls + '">' + escHtml(r.status) + '</span>' + flag + advance + '</td>'
+                    + '<td><span class="' + cls + '">' + escHtml(r.status) + '</span>' + flag + advance + email + '</td>'
                     + '<td>' + confirm + '</td>'
                     + '<td style="font-variant-numeric:tabular-nums;">' + val + '</td>'
                     + '<td>' + lead + '</td>'

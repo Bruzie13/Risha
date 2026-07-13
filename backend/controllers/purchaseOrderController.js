@@ -272,7 +272,6 @@ exports.autoGeneratePO = async (req, res) => {
         }
 
         const createdOrders = [];
-        const emailResults = [];
         for (const [supplierId, items] of Object.entries(supplierGroups)) {
             const total_amount = items.reduce((sum, item) => sum + item.total_price, 0);
             const orderData = {
@@ -292,25 +291,9 @@ exports.autoGeneratePO = async (req, res) => {
                 items_count: items.length,
                 status: order.status
             }, req.ip);
-            if (supplier && supplier.email) {
-                const poItems = await PurchaseOrder.getPOItems(order.id);
-                const sent = await sendPOEmail(
-                    supplier.id,
-                    supplier.email,
-                    supplier.name,
-                    order.po_number,
-                    poItems.map(i => ({
-                        product_name: i.product_name,
-                        quantity: i.quantity,
-                        unit_price: i.unit_price,
-                        total_price: i.subtotal
-                    })),
-                    total_amount
-                );
-                emailResults.push({ supplier: supplier.name, email: supplier.email, sent });
-            } else {
-                emailResults.push({ supplier_id: supplierId, email: supplier ? 'no email on file' : 'supplier not found', sent: false });
-            }
+            // Emails are no longer sent automatically. The purchase order is
+            // created here; staff send it to the supplier manually from the
+            // supplier's Performance panel when they're ready.
         }
 
         if (createdOrders.length > 0) {
@@ -324,11 +307,11 @@ exports.autoGeneratePO = async (req, res) => {
         res.status(201).json({
             success: true,
             message: createdOrders.length > 0
-                ? `Auto-generated ${createdOrders.length} purchase order(s)`
+                ? `Created ${createdOrders.length} purchase order(s). Send them to suppliers from the Performance panel when ready.`
                 : 'No purchase orders generated. Check warnings for details.',
             data: createdOrders,
             count: createdOrders.length,
-            emails: emailResults,
+            emails: [],
             warnings
         });
     } catch (error) {
@@ -337,5 +320,50 @@ exports.autoGeneratePO = async (req, res) => {
             success: false,
             message: 'Error auto-generating purchase orders'
         });
+    }
+};
+
+// Manually email an existing purchase order to its supplier. Reorders no
+// longer send email automatically — staff trigger the send from the UI.
+exports.emailPO = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const order = await PurchaseOrder.findById(id);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Purchase order not found' });
+        }
+        const supplier = await Supplier.findById(order.supplier_id);
+        if (!supplier) {
+            return res.status(404).json({ success: false, message: 'Supplier not found for this order' });
+        }
+        if (!supplier.email) {
+            return res.status(400).json({ success: false, message: 'This supplier has no email address on file' });
+        }
+        const poItems = await PurchaseOrder.getPOItems(order.id);
+        const sent = await sendPOEmail(
+            supplier.id,
+            supplier.email,
+            supplier.name,
+            order.po_number,
+            poItems.map(i => ({
+                product_name: i.product_name,
+                quantity: i.quantity,
+                unit_price: i.unit_price,
+                total_price: i.subtotal
+            })),
+            order.total_amount
+        );
+        if (!sent) {
+            return res.status(502).json({ success: false, message: 'The email could not be sent. Please try again.' });
+        }
+        logAudit(req.user.id, 'email', 'purchase_orders', order.id, null, {
+            po_number: order.po_number,
+            supplier_name: supplier.name,
+            email: supplier.email
+        }, req.ip);
+        res.json({ success: true, message: `Purchase order ${order.po_number} emailed to ${supplier.name}` });
+    } catch (error) {
+        console.error('Send PO email error:', error);
+        res.status(500).json({ success: false, message: 'Error sending purchase order email' });
     }
 };

@@ -3194,6 +3194,20 @@ html.sidebar-hidden .sidebar-footer .sidebar-btn::after {
 }
 .po-advance-btn:hover { background: var(--primary); color: #fff; }
 
+.po-email-btn {
+  display: inline-flex; align-items: center; gap: 3px;
+  margin-left: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border-glass-strong);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 10.5px; font-weight: 700;
+  cursor: pointer; font-family: inherit;
+  transition: all 0.15s ease;
+}
+.po-email-btn:hover { background: var(--text-primary); color: var(--bg-card); border-color: var(--text-primary); }
+
 /* ===== FETCH AI ASSISTANT WIDGET ===== */
 .fa-fab {
   position: fixed; bottom: 22px; right: 22px; z-index: 9997;

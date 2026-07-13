@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=3">
+    <link rel="stylesheet" href="css/global.css?v=4">
 <script>if(localStorage.getItem('theme')==='dark'||(!localStorage.getItem('theme')&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');</script>
 <script>window.location.replace('reports.html?tab=audit');</script>
     </head>
@@ -172,7 +172,7 @@
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">inventory_2</span> Inventory</h3>
                 <ul>
                     <li>Filter with the status chips (Low Stock, Out of Stock, Expiring Soon, Expired, Healthy) and sort any column by clicking its header.</li>
-                    <li><strong>Reorder</strong> lets you pick low-stock products; after a final confirmation it creates purchase orders and emails the suppliers. Expired items can be reordered — the new batch replaces the old one.</li>
+                    <li><strong>Reorder</strong> lets you pick low-stock products; after a final confirmation it creates purchase orders. Suppliers are not emailed automatically — send each order from the supplier's Performance panel. Expired items can be reordered — the new batch replaces the old one.</li>
                     <li>Use <strong>Import</strong> for bulk CSV product uploads, and the checkboxes for bulk reorder/adjust/delete.</li>
                     <li>Staff accounts see inventory read-only; only admins and managers can add, edit, or delete.</li>
                 </ul>
