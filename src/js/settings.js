@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const user = getUser();
     if (user && nameEl) nameEl.textContent = user.full_name || user.username || user.email;
     if (typeof applyUserIdentity === 'function') applyUserIdentity();
+    updateAvatarControls();
 });
 
 /* ===== Appearance: accent color + text size ===== */
@@ -575,5 +576,72 @@ async function changePassword() {
         }
     } catch (e) {
         showFieldError('errorCurrentPw', 'Failed to change password');
+    }
+}
+/* ===== Profile picture ===== */
+function settingsResizeImage(file, maxSize, quality) {
+    return new Promise(function (resolve, reject) {
+        if (!file || !/^image\//.test(file.type)) { reject(new Error('Please choose an image file')); return; }
+        var reader = new FileReader();
+        reader.onerror = function () { reject(new Error('Could not read the file')); };
+        reader.onload = function () {
+            var img = new Image();
+            img.onerror = function () { reject(new Error('That image could not be loaded')); };
+            img.onload = function () {
+                var w = img.width, h = img.height;
+                if (w > h && w > maxSize) { h = Math.round(h * maxSize / w); w = maxSize; }
+                else if (h > maxSize) { w = Math.round(w * maxSize / h); h = maxSize; }
+                var canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                var ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+                ctx.drawImage(img, 0, 0, w, h);
+                resolve(canvas.toDataURL('image/jpeg', quality || 0.8));
+            };
+            img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function updateAvatarControls() {
+    var user = getUser();
+    var removeBtn = document.getElementById('avatarRemoveBtn');
+    if (removeBtn) removeBtn.style.display = (user && user.avatar) ? '' : 'none';
+}
+
+function handleAvatarFile(input) {
+    var file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    settingsResizeImage(file, 256, 0.8)
+        .then(function (dataUrl) { saveAvatar(dataUrl); })
+        .catch(function (e) { showToast(e.message || 'Could not process image', 'error'); });
+}
+
+function removeAvatar() { saveAvatar(null); }
+
+async function saveAvatar(dataUrl) {
+    var user = getUser();
+    if (!user) return;
+    var nameEl = document.getElementById('settingsFullName');
+    var name = ((nameEl && nameEl.value) || user.full_name || '').trim();
+    try {
+        var res = await fetch(API_BASE + '/auth/profile', {
+            method: 'PUT', headers: getAuthHeaders(),
+            body: JSON.stringify({ full_name: name || user.full_name, avatar: dataUrl })
+        });
+        var data = await res.json();
+        if (data.success) {
+            user.avatar = dataUrl;
+            localStorage.setItem('user', JSON.stringify(user));
+            if (typeof applyUserIdentity === 'function') applyUserIdentity();
+            updateAvatarControls();
+            showToast(dataUrl ? 'Profile photo updated' : 'Profile photo removed', 'success');
+        } else {
+            showToast(data.message || 'Could not save photo', 'error');
+        }
+    } catch (e) {
+        showToast('Error saving photo', 'error');
     }
 }

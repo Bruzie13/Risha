@@ -123,7 +123,8 @@ exports.login = async (req, res) => {
                 username: user.username,
                 email: user.email,
                 full_name: user.full_name,
-                role: user.role
+                role: user.role,
+                avatar: user.avatar || null
             }
         });
 
@@ -399,7 +400,7 @@ exports.toggleUserStatus = async (req, res) => {
 exports.updateProfile = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { full_name } = req.body;
+        const { full_name, avatar } = req.body;
 
         if (!full_name || !full_name.trim()) {
             return res.status(400).json({
@@ -408,7 +409,10 @@ exports.updateProfile = async (req, res) => {
             });
         }
 
-        const user = await User.update(userId, { full_name: full_name.trim() });
+        const fields = { full_name: full_name.trim() };
+        // avatar: a resized data URL (or null to clear); ignore if undefined
+        if (avatar !== undefined) fields.avatar = avatar || null;
+        const user = await User.update(userId, fields);
 
         if (!user) {
             return res.status(404).json({

@@ -159,10 +159,16 @@ function applyUserIdentity() {
     const user = getUser();
     if (!user) return;
     const name = user.full_name || user.username || user.email || 'User';
+    const photo = user.avatar;
     const ic = identiconURI(name);
     document.querySelectorAll('.avatar, .settings-avatar, .hero-avatar').forEach(el => {
-        el.style.backgroundImage = ic.uri;
-        el.style.backgroundColor = ic.bg;
+        if (photo) {
+            el.style.backgroundImage = 'url("' + photo + '")';
+            el.style.backgroundColor = '';
+        } else {
+            el.style.backgroundImage = ic.uri;
+            el.style.backgroundColor = ic.bg;
+        }
         el.style.backgroundSize = 'cover';
         el.style.backgroundPosition = 'center';
         el.dataset.mascot = '1';

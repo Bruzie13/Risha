@@ -32,7 +32,7 @@ class User {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                'SELECT id, username, email, full_name, role, phone, address, is_active, UNIX_TIMESTAMP(created_at) * 1000 as created_at FROM users WHERE id = ?',
+                'SELECT id, username, email, full_name, avatar, role, phone, address, is_active, UNIX_TIMESTAMP(created_at) * 1000 as created_at FROM users WHERE id = ?',
                 [id]
             );
             return rows[0] || null;
@@ -116,7 +116,7 @@ class User {
             const fields = [];
             const params = [];
             const allowedFields = [
-                'email', 'full_name', 'role', 'phone', 'address', 'is_active'
+                'email', 'full_name', 'role', 'phone', 'address', 'is_active', 'avatar'
             ];
 
             for (const field of allowedFields) {
