@@ -456,8 +456,8 @@ async function printReceipt(saleId, tendered, change) {
         receiptWindow.document.write(`
             <html><head><title>Receipt #${sale.id}</title>
             <style>
-                @page{margin:0;size:auto;}
-                body{font-family:'Courier New',monospace;font-size:11px;width:auto;max-width:80mm;padding:6px 8px;margin:0 auto;text-align:center;word-break:break-word;}
+                @page{margin:0;size:58mm auto;}
+                body{font-family:'Courier New',monospace;font-size:10px;width:58mm;max-width:58mm;padding:4px 4px;margin:0 auto;text-align:center;word-break:break-word;}
                 h2{margin:5px 0 2px;font-size:16px;letter-spacing:1px;text-transform:uppercase;}
                 .info{font-size:10px;color:#555;margin:2px 0;line-height:1.4;}
                 table{width:100%;border-collapse:collapse;margin:8px 0;text-align:left;font-size:10px;table-layout:auto;}
@@ -502,6 +502,16 @@ async function printReceipt(saleId, tendered, change) {
             </body></html>
         `);
         receiptWindow.document.close();
+        // Actually open the print dialog (previously the window just showed the
+        // receipt and never printed). Small delay lets the content render first.
+        receiptWindow.focus();
+        setTimeout(function () {
+            try {
+                receiptWindow.print();
+                // close the receipt window shortly after the dialog is handled
+                setTimeout(function () { try { receiptWindow.close(); } catch (e) {} }, 500);
+            } catch (e) { /* user can print manually from the window */ }
+        }, 350);
     } catch (error) {
         console.error('Error printing receipt:', error);
         showToast('Failed to print receipt', 'error');
