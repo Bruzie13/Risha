@@ -1,39 +1,97 @@
 const pool = require('../config/database');
 
 class Notification {
+    // Builds the shared "which rows can this user see + which filters" WHERE
+    // clause used by getAll and countAll so the page and its total agree.
+    static _scopeWhere(filters, params) {
+        const conditions = [];
+        if (filters.user_id) {
+            conditions.push('(n.user_id = ? OR n.user_id IS NULL)');
+            params.push(filters.user_id);
+        }
+        if (filters.type) {
+            conditions.push('n.type = ?');
+            params.push(filters.type);
+        }
+        if (filters.status === 'unread' || filters.unread) {
+            conditions.push('n.is_read = FALSE');
+        } else if (filters.status === 'read') {
+            conditions.push('n.is_read = TRUE');
+        }
+        return conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
+    }
+
     static async getAll(filters = {}) {
         const connection = await pool.getConnection();
         try {
+            const params = [];
             let sql = `SELECT n.id, n.type, n.title, n.message, n.product_id, n.user_id, n.related_id, n.related_type, n.is_read,
                        UNIX_TIMESTAMP(n.created_at) * 1000 as created_at, p.name as product_name
                        FROM notifications n LEFT JOIN products p ON n.product_id = p.id`;
-            const params = [];
-            const conditions = [];
-
-            if (filters.user_id) {
-                conditions.push('(n.user_id = ? OR n.user_id IS NULL)');
-                params.push(filters.user_id);
-            }
-            if (filters.type) {
-                conditions.push('n.type = ?');
-                params.push(filters.type);
-            }
-            if (filters.unread) {
-                conditions.push('n.is_read = FALSE');
-            }
-
-            if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
+            sql += Notification._scopeWhere(filters, params);
             sql += ' ORDER BY n.created_at DESC';
 
-            if (filters.limit) {
-                const limitVal = parseInt(filters.limit);
-                if (!isNaN(limitVal) && limitVal > 0) {
-                    sql += ' LIMIT ' + limitVal;
-                }
+            // LIMIT/OFFSET are inlined (parseInt-sanitized) — mysql2 execute()
+            // rejects placeholders there.
+            const lim = parseInt(filters.limit);
+            if (Number.isInteger(lim) && lim > 0) {
+                sql += ' LIMIT ' + lim;
+                const off = parseInt(filters.offset);
+                if (Number.isInteger(off) && off > 0) sql += ' OFFSET ' + off;
             }
 
             const [rows] = await connection.execute(sql, params);
             return rows;
+        } finally {
+            connection.release();
+        }
+    }
+
+    static async countAll(filters = {}) {
+        const connection = await pool.getConnection();
+        try {
+            const params = [];
+            let sql = 'SELECT COUNT(*) as total FROM notifications n';
+            sql += Notification._scopeWhere(filters, params);
+            const [rows] = await connection.execute(sql, params);
+            return rows[0].total;
+        } finally {
+            connection.release();
+        }
+    }
+
+    // Counts per type + total + unread, for the notifications-page summary,
+    // so it never needs to load every row just to show the tallies.
+    static async getSummary(userId = null) {
+        const connection = await pool.getConnection();
+        try {
+            const params = [];
+            let where = '';
+            if (userId) { where = ' WHERE (user_id = ? OR user_id IS NULL)'; params.push(userId); }
+            const [rows] = await connection.execute(
+                `SELECT COUNT(*) AS total,
+                        COALESCE(SUM(is_read = FALSE), 0) AS unread,
+                        COALESCE(SUM(type = 'low_stock'), 0) AS low_stock,
+                        COALESCE(SUM(type = 'stockout'), 0) AS stockout,
+                        COALESCE(SUM(type = 'expiration'), 0) AS expiration,
+                        COALESCE(SUM(type = 'info'), 0) AS info
+                 FROM notifications n${where}`, params);
+            return rows[0];
+        } finally {
+            connection.release();
+        }
+    }
+
+    // Clear read notifications in the user's scope (their own + global). Used
+    // by the "Clear read" button so the pile can actually shrink.
+    static async deleteRead(userId = null) {
+        const connection = await pool.getConnection();
+        try {
+            let sql = 'DELETE FROM notifications WHERE is_read = TRUE';
+            const params = [];
+            if (userId) { sql += ' AND (user_id = ? OR user_id IS NULL)'; params.push(userId); }
+            const [result] = await connection.execute(sql, params);
+            return result.affectedRows;
         } finally {
             connection.release();
         }

@@ -1,11 +1,13 @@
 const PAGE_SIZE = 10;
 let displayCount = PAGE_SIZE;
+let loadedNotifs = [];   // pages fetched so far for the current filter
+let notifTotal = 0;      // total matching the current filter (from the server)
 
 window.addEventListener('load', async () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
     await triggerAlertChecks();
-    await loadUserInfo();
-    await loadNotifications();
+    loadUserInfo();
+    await Promise.all([loadSummary(), loadNotifications()]);
 });
 
 async function triggerAlertChecks() {
@@ -18,93 +20,75 @@ function loadUserInfo() {
     const user = getUser();
     if (!user) return;
     const nameEl = document.getElementById('userName');
-
     if (nameEl) nameEl.textContent = user.full_name || user.username || user.email;
     if (typeof applyUserIdentity === 'function') applyUserIdentity();
 }
 
-// Summary counts come from the same fetch as the list — no extra request.
-function renderSummary(notifs) {
+// Tallies come from one aggregate request, so they stay correct even though
+// only a page of notifications is loaded.
+async function loadSummary() {
     try {
-        const counts = { low_stock: 0, stockout: 0, expiration: 0, info: 0 };
-        notifs.forEach(n => {
-            if (counts[n.type] !== undefined) counts[n.type]++;
-            else counts.info++;
-        });
-
-        document.getElementById('notifSummary').innerHTML = `
-            <div class="notif-summary-card low_stock">
-                <div class="sum-num">${counts.low_stock}</div>
-                <div class="sum-label"><span class="material-symbols-outlined" style="font-size:16px;">inventory_2</span> Low Stock</div>
-            </div>
-            <div class="notif-summary-card stockout">
-                <div class="sum-num">${counts.stockout}</div>
-                <div class="sum-label"><span class="material-symbols-outlined" style="font-size:16px;">block</span> Out of Stock</div>
-            </div>
-            <div class="notif-summary-card expiration">
-                <div class="sum-num">${counts.expiration}</div>
-                <div class="sum-label"><span class="material-symbols-outlined" style="font-size:16px;">schedule</span> Expiring</div>
-            </div>
-            <div class="notif-summary-card info">
-                <div class="sum-num">${notifs.length}</div>
-                <div class="sum-label"><span class="material-symbols-outlined" style="font-size:16px;">assignment</span> Total</div>
-            </div>
-        `;
+        const res = await fetch(`${API_BASE}/notifications/summary`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success || !data.data) return;
+        const s = data.data;
+        const card = (cls, num, icon, label) => `
+            <div class="notif-summary-card ${cls}">
+                <div class="sum-num">${Number(num) || 0}</div>
+                <div class="sum-label"><span class="material-symbols-outlined" style="font-size:16px;">${icon}</span> ${label}</div>
+            </div>`;
+        document.getElementById('notifSummary').innerHTML =
+            card('low_stock', s.low_stock, 'inventory_2', 'Low Stock') +
+            card('stockout', s.stockout, 'block', 'Out of Stock') +
+            card('expiration', s.expiration, 'schedule', 'Expiring') +
+            card('info', s.total, 'assignment', 'Total');
     } catch (e) {
-        console.error('Error rendering summary:', e);
+        console.error('Error loading summary:', e);
     }
 }
 
-let allNotifs = [];
-let cachedNotifs = [];
+function notifQuery() {
+    const params = new URLSearchParams();
+    const type = document.getElementById('notifTypeFilter').value;
+    const status = document.getElementById('notifStatusFilter').value;
+    if (type) params.set('type', type);
+    if (status) params.set('status', status);
+    return params;
+}
 
-async function loadNotifications() {
+// reset=true refetches page 1 for the current filters; reset=false appends the
+// next page (Show more). Newest first.
+async function loadNotifications(reset = true) {
     try {
-        const res = await fetch(`${API_BASE}/notifications`, { headers: getAuthHeaders() });
+        if (reset) displayCount = PAGE_SIZE;
+        const params = notifQuery();
+        params.set('limit', Math.max(displayCount - (reset ? 0 : loadedNotifs.length), PAGE_SIZE));
+        params.set('offset', reset ? 0 : loadedNotifs.length);
+        const res = await fetch(`${API_BASE}/notifications?${params}`, { headers: getAuthHeaders() });
         const data = await res.json();
-        allNotifs = data.data || [];
-        renderSummary(allNotifs);
-        applyNotifFilters();
+        if (!data.success) return;
+        loadedNotifs = reset ? (data.data || []) : loadedNotifs.concat(data.data || []);
+        notifTotal = data.total ?? loadedNotifs.length;
+        renderNotifications();
     } catch (e) {
         console.error('Error loading notifications:', e);
         document.getElementById('notifList').innerHTML = '<div class="empty-state">Failed to load notifications</div>';
     }
 }
 
-// Filter changes re-filter the already-loaded list; no refetch needed.
+// Filter changes refetch page 1 from the server.
 function applyNotifFilters() {
-    displayCount = PAGE_SIZE;
-    const typeFilter = document.getElementById('notifTypeFilter').value;
-    const statusFilter = document.getElementById('notifStatusFilter').value;
-
-    let notifs = allNotifs.slice();
-    if (typeFilter) {
-        notifs = notifs.filter(n => n.type === typeFilter);
-    }
-    if (statusFilter === 'unread') {
-        notifs = notifs.filter(n => !n.is_read);
-    } else if (statusFilter === 'read') {
-        notifs = notifs.filter(n => n.is_read);
-    }
-
-    // FIFO: oldest notifications first so they get handled in arrival order
-    notifs.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-
-    cachedNotifs = notifs;
-    renderNotifications();
+    loadNotifications();
 }
 
 function renderNotifications() {
     const list = document.getElementById('notifList');
-    const shown = cachedNotifs.slice(0, displayCount);
-
-    if (shown.length === 0) {
+    if (loadedNotifs.length === 0) {
         list.innerHTML = '<div class="empty-state">No notifications found</div>';
-        updatePagination('notifPagination', cachedNotifs, displayCount, 'showMoreNotifications', 'showLessNotifications', PAGE_SIZE);
+        updatePagination('notifPagination', { length: notifTotal }, displayCount, 'showMoreNotifications', 'showLessNotifications', PAGE_SIZE);
         return;
     }
-
-    list.innerHTML = shown.map(n => `
+    list.innerHTML = loadedNotifs.map(n => `
         <div class="notif-list-item ${n.is_read ? '' : 'unread'}">
             <div class="notif-icon ${n.type}">${getNotifIcon(n.type)}</div>
             <div class="notif-info">
@@ -117,12 +101,16 @@ function renderNotifications() {
             </div>
         </div>
     `).join('');
-    updatePagination('notifPagination', cachedNotifs, displayCount, 'showMoreNotifications', 'showLessNotifications', PAGE_SIZE);
+    updatePagination('notifPagination', { length: notifTotal }, displayCount, 'showMoreNotifications', 'showLessNotifications', PAGE_SIZE);
 }
 
-function showMoreNotifications() {
+async function showMoreNotifications() {
     displayCount += PAGE_SIZE;
-    renderNotifications();
+    if (loadedNotifs.length < Math.min(displayCount, notifTotal)) {
+        await loadNotifications(false);
+    } else {
+        renderNotifications();
+    }
 }
 
 function showLessNotifications() {
@@ -149,6 +137,19 @@ async function markAllRead() {
     }
 }
 
+// Permanently delete every read notification, so the pile actually shrinks.
+async function clearRead() {
+    if (!confirm('Delete all read notifications? This cannot be undone.')) return;
+    try {
+        const res = await fetch(`${API_BASE}/notifications/read`, { method: 'DELETE', headers: getAuthHeaders() });
+        const data = await res.json();
+        refreshList();
+        showToast(data.message || 'Cleared read notifications', 'success');
+    } catch (e) {
+        showToast('Failed to clear notifications', 'error');
+    }
+}
+
 function refreshList() {
-    loadNotifications();
+    return Promise.all([loadSummary(), loadNotifications()]);
 }
