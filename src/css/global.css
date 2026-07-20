@@ -443,14 +443,16 @@ body {
   gap: 10px;
   padding: 9px 12px;
   border-radius: var(--radius-lg);
-  background: var(--gray-50);
+  /* Accent-derived so it re-tints with the accent color like the rest of the
+     sidebar (was a fixed gray that ignored accent changes). */
+  background: var(--primary-bg);
   margin-bottom: 8px;
   cursor: pointer;
   transition: all 0.25s ease;
   position: relative;
 }
 .sidebar-user:hover {
-  background: var(--primary-bg);
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
 .sidebar-user .avatar {
@@ -476,7 +478,7 @@ body {
   height: 10px;
   border-radius: 50%;
   background: #4CAF50;
-  border: 2px solid var(--gray-50);
+  border: 2px solid var(--nav-bg);
   box-shadow: 0 1px 3px rgba(0,0,0,0.15);
 }
 
@@ -1691,8 +1693,7 @@ input[type="datetime-local"] {
 :root.dark-mode .sidebar-hamburger { background: var(--bg-card); border-color: var(--border-glass); }
 :root.dark-mode .modal-footer { background: var(--bg-raised); }
 :root.dark-mode .data-table thead { background: var(--bg-raised); }
-:root.dark-mode .sidebar-user { background: var(--gray-50); }
-:root.dark-mode .sidebar-user .avatar .avatar-status { border-color: var(--gray-50); }
+:root.dark-mode .sidebar-user .avatar .avatar-status { border-color: var(--nav-bg); }
 :root.dark-mode .sidebar-user .user-settings-btn:hover { background: var(--gray-100); }
 
 /* ===== TOOLBAR ===== */
