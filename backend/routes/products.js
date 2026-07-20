@@ -4,6 +4,7 @@ const productController = require('../controllers/productController');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 router.get('/', authenticateToken, productController.getAllProducts);
+router.get('/stock-levels', authenticateToken, productController.getStockLevels);
 router.get('/low-stock', authenticateToken, productController.getLowStockProducts);
 router.get('/expiring', authenticateToken, productController.getExpiringProducts);
 router.get('/overstock', authenticateToken, productController.getOverstockProducts);

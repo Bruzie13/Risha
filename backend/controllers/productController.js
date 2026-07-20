@@ -4,14 +4,25 @@ const { notifyStockAdjusted, notifyProductCreated } = require('../services/notif
 
 exports.getAllProducts = async (req, res) => {
     try {
-        const { category, species } = req.query;
+        const { category, species, limit, offset } = req.query;
         const filters = {};
         if (category) filters.category_id = category;
         if (species) filters.species = species;
+        // Optional pagination: without limit/offset the full list is returned
+        // (dashboard, reports, etc. rely on that).
+        const paginated = limit !== undefined || offset !== undefined;
+        if (paginated) {
+            const lim = parseInt(limit);
+            if (Number.isInteger(lim) && lim > 0) filters.limit = lim;
+            const off = parseInt(offset);
+            if (Number.isInteger(off) && off > 0) filters.offset = off;
+        }
         const products = await Product.getAll(filters);
+        const total = paginated ? await Product.countAll(filters) : products.length;
         res.status(200).json({
             success: true,
-            data: products
+            data: products,
+            total
         });
     } catch (error) {
         console.error('Get products error:', error);
@@ -19,6 +30,17 @@ exports.getAllProducts = async (req, res) => {
             success: false,
             message: 'Error retrieving products'
         });
+    }
+};
+
+// Lightweight id→stock snapshot for live polling (no images, tiny payload)
+exports.getStockLevels = async (req, res) => {
+    try {
+        const levels = await Product.getStockLevels();
+        res.status(200).json({ success: true, data: levels });
+    } catch (error) {
+        console.error('Get stock levels error:', error);
+        res.status(500).json({ success: false, message: 'Error retrieving stock levels' });
     }
 };
 

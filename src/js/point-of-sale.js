@@ -32,6 +32,8 @@ window.addEventListener('load', async () => {
     await Promise.all([loadProducts(), loadSales()]);
     setupBarcodeListener();
     setupAutocomplete();
+    // Live refresh: sales made on other terminals appear without a reload
+    setInterval(refreshSalesLive, 10000);
 });
 
 async function loadProducts() {
@@ -213,14 +215,48 @@ async function loadSales(dateFrom, dateTo) {
     }
 }
 
-function showMoreSales() {
-    displayCount += PAGE_SIZE;
+function getFilteredSales() {
     const term = document.getElementById('searchInput')?.value?.toLowerCase() || '';
-    const filtered = allSales.filter(s =>
+    return allSales.filter(s =>
         s.id.toString().includes(term) ||
         (s.staff_name && s.staff_name.toLowerCase().includes(term))
     );
-    displaySales(filtered);
+}
+
+function showMoreSales() {
+    displayCount += PAGE_SIZE;
+    displaySales(getFilteredSales());
+}
+
+// Poll for new/voided sales; re-render only when the list actually changed,
+// preserving the current search and how many rows are shown.
+async function refreshSalesLive() {
+    if (document.hidden) return;
+    try {
+        let url = `${API_BASE}/sales`;
+        const params = [];
+        const from = document.getElementById('dateFrom')?.value;
+        const to = document.getElementById('dateTo')?.value;
+        if (from) params.push(`date_from=${encodeURIComponent(from)}`);
+        if (to) params.push(`date_to=${encodeURIComponent(to)}`);
+        if (params.length) url += '?' + params.join('&');
+        const response = await fetch(url, { headers: getAuthHeaders() });
+        const data = await response.json();
+        if (!data.success || !Array.isArray(data.data)) return;
+        const fresh = data.data;
+        const fingerprint = list => list.map(s => `${s.id}:${s.payment_status}`).join(',');
+        if (fingerprint(fresh) === fingerprint(allSales)) return;
+        allSales = fresh;
+        displaySales(getFilteredSales());
+        updateStats();
+    } catch (e) {
+        // Network hiccup — next poll retries.
+    }
+}
+
+function showLessSales() {
+    displayCount = 0;
+    showMoreSales();
 }
 
 function displaySales(sales) {
@@ -229,7 +265,7 @@ function displaySales(sales) {
     const viewer = !canManage(); // delete is admin/manager-only
     if (sales.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" class="text-center">No sales found</td></tr>';
-        updatePagination('salesPagination', sales, displayCount, 'showMoreSales');
+        updatePagination('salesPagination', sales, displayCount, 'showMoreSales', 'showLessSales', PAGE_SIZE);
     if (window.fetchMotion && !fetchMotion.reduced) { tbody.classList.remove('rows-in'); void tbody.offsetWidth; tbody.classList.add('rows-in'); }
         return;
     }
@@ -254,7 +290,7 @@ function displaySales(sales) {
             </td>
         </tr>
     `).join('');
-    updatePagination('salesPagination', sales, displayCount, 'showMoreSales');
+    updatePagination('salesPagination', sales, displayCount, 'showMoreSales', 'showLessSales', PAGE_SIZE);
 }
 
 // Void: restores stock, keeps the record with a Voided badge (audit-friendly)

@@ -19,8 +19,48 @@ class Product {
                 params.push(filters.species);
             }
             sql += ' ORDER BY p.created_at DESC';
+            // Pagination: values are parseInt-sanitized in the controller.
+            // mysql2 execute() rejects placeholders in LIMIT, so inline them
+            // (same pattern as AuditLog).
+            if (filters.limit !== undefined || filters.offset !== undefined) {
+                const lim = Number.isInteger(filters.limit) && filters.limit > 0 ? filters.limit : 100000;
+                const off = Number.isInteger(filters.offset) && filters.offset > 0 ? filters.offset : 0;
+                sql += ` LIMIT ${lim} OFFSET ${off}`;
+            }
             const [rows] = await connection.execute(sql, params);
             return rows;
+        } finally {
+            connection.release();
+        }
+    }
+
+    static async getStockLevels() {
+        const connection = await pool.getConnection();
+        try {
+            const [rows] = await connection.execute(
+                'SELECT id, stock_quantity FROM products WHERE is_active = TRUE'
+            );
+            return rows;
+        } finally {
+            connection.release();
+        }
+    }
+
+    static async countAll(filters = {}) {
+        const connection = await pool.getConnection();
+        try {
+            let sql = 'SELECT COUNT(*) as total FROM products p WHERE p.is_active = TRUE';
+            const params = [];
+            if (filters.category_id) {
+                sql += ' AND p.category_id = ?';
+                params.push(filters.category_id);
+            }
+            if (filters.species) {
+                sql += ' AND p.species = ?';
+                params.push(filters.species);
+            }
+            const [rows] = await connection.execute(sql, params);
+            return rows[0].total;
         } finally {
             connection.release();
         }

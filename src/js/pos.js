@@ -19,7 +19,7 @@ let barcodeBuffer = '';
 let lastKeyTime = 0;
 // This POS is cash-only: every sale is recorded with payment_method 'cash'.
 const PAYMENT_METHOD = 'cash';
-const POS_PAGE_SIZE = 20;
+const POS_PAGE_SIZE = 10;
 let posDisplayCount = POS_PAGE_SIZE;
 let posFilteredProducts = [];
 
@@ -31,20 +31,78 @@ window.addEventListener('load', async () => {
     await loadProducts();
     setupBarcodeListener();
     document.getElementById('posSearchInput')?.addEventListener('keyup', filterProducts);
+    // Live stock: another terminal's sale shows here without a refresh
+    setInterval(refreshStockLevels, 10000);
 });
 
 async function loadProducts() {
     try {
-        const response = await fetch(`${API_BASE}/products`, { headers: getAuthHeaders() });
+        // Fast first paint: fetch only one page (product photos make the full
+        // list heavy), then stream in the rest so search/barcode/category
+        // filters still cover the whole catalog.
+        const response = await fetch(`${API_BASE}/products?limit=${POS_PAGE_SIZE}`, { headers: getAuthHeaders() });
         const data = await response.json();
         if (data.success) {
             allProducts = Array.isArray(data.data) ? data.data : [];
             posDisplayCount = POS_PAGE_SIZE;
             renderProducts(allProducts);
             renderCategoryFilters();
+            if ((data.total || 0) > allProducts.length) {
+                await loadRemainingProducts();
+            }
         }
     } catch (error) {
         console.error('Error loading products:', error);
+    }
+}
+
+async function loadRemainingProducts() {
+    try {
+        const response = await fetch(`${API_BASE}/products?offset=${POS_PAGE_SIZE}`, { headers: getAuthHeaders() });
+        const data = await response.json();
+        if (data.success && Array.isArray(data.data) && data.data.length) {
+            const seen = new Set(allProducts.map(p => p.id));
+            allProducts = allProducts.concat(data.data.filter(p => !seen.has(p.id)));
+            renderCategoryFilters();
+            applyPosFilter();
+        }
+    } catch (error) {
+        console.error('Error loading remaining products:', error);
+    }
+}
+
+// Poll the lightweight stock endpoint and re-render only when something changed.
+async function refreshStockLevels() {
+    if (document.hidden || !allProducts.length) return;
+    try {
+        const response = await fetch(`${API_BASE}/products/stock-levels`, { headers: getAuthHeaders() });
+        const data = await response.json();
+        if (!data.success || !Array.isArray(data.data)) return;
+        const levels = new Map(data.data.map(r => [r.id, parseFloat(r.stock_quantity)]));
+        let changed = false;
+        allProducts.forEach(p => {
+            const s = levels.get(p.id);
+            if (s !== undefined && parseFloat(p.stock_quantity) !== s) {
+                p.stock_quantity = s;
+                changed = true;
+            }
+        });
+        // Products added/removed elsewhere → full resync
+        const known = new Set(allProducts.map(p => p.id));
+        const structural = data.data.length !== allProducts.length || data.data.some(r => !known.has(r.id));
+        if (structural) {
+            const full = await fetch(`${API_BASE}/products`, { headers: getAuthHeaders() });
+            const fullData = await full.json();
+            if (fullData.success && Array.isArray(fullData.data)) {
+                allProducts = fullData.data;
+                renderCategoryFilters();
+                applyPosFilter();
+            }
+        } else if (changed) {
+            applyPosFilter();
+        }
+    } catch (e) {
+        // Network hiccup — keep showing what we have; next poll retries.
     }
 }
 
@@ -76,6 +134,12 @@ function filterByCategory(btn, cat) {
 
 function filterProducts() {
     posDisplayCount = POS_PAGE_SIZE;
+    applyPosFilter();
+}
+
+// Re-render with the active search/category without resetting how many
+// items are shown (used when background-loaded products arrive).
+function applyPosFilter() {
     const q = (document.getElementById('posSearchInput')?.value || '').toLowerCase();
     const filtered = allProducts.filter(p => {
         const matchSearch = !q || (p.name || '').toLowerCase().includes(q) || (p.barcode || '').toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q);
@@ -115,12 +179,17 @@ function renderProducts(products) {
             <div class="p-stock ${stockClass}">${stockText}</div>
         </div>`;
     }).join('');
-    updatePagination('posPagination', products, posDisplayCount, 'showMorePosProducts');
+    updatePagination('posPagination', products, posDisplayCount, 'showMorePosProducts', 'showLessPosProducts', POS_PAGE_SIZE);
 }
 
 function showMorePosProducts() {
     posDisplayCount += POS_PAGE_SIZE;
     renderProducts(posFilteredProducts);
+}
+
+function showLessPosProducts() {
+    posDisplayCount = 0;
+    showMorePosProducts();
 }
 
 // Find a product by scanned/typed code (barcode or SKU, case/space tolerant)

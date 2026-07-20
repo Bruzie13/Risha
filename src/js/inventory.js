@@ -39,6 +39,8 @@ window.addEventListener('load', async () => {
         const chip = document.querySelector(`#statusChips .chip[data-status="${wanted}"]`);
         if (chip) chip.click(); else setStatusFilter(wanted);
     }
+    // Live stock: sales on the POS show here without a refresh
+    setInterval(refreshStockLevels, 10000);
 });
 
 // Load categories for the dropdown and filter
@@ -86,20 +88,69 @@ async function loadSuppliers() {
     }
 }
 
-// Load all products
+// Load products in two stages: first page for a fast paint (product photos
+// make the full list heavy), then the rest so filters/stats/CSV-dupe checks
+// still see the whole catalog.
 async function loadProducts() {
     try {
-        const response = await fetch(`${API_URL}/products`, { headers: getAuthHeaders() });
+        const response = await fetch(`${API_URL}/products?limit=${PAGE_SIZE}`, { headers: getAuthHeaders() });
         const data = await response.json();
 
         if (data.success) {
             allProducts = data.data;
-            displayProducts(allProducts);
+            displayProducts(getFilteredProducts());
             updateStats();
+            if ((data.total || 0) > allProducts.length) {
+                await loadRemainingProducts();
+            }
         }
     } catch (error) {
         console.error('Error loading products:', error);
         showToast('Failed to load products', 'error');
+    }
+}
+
+async function loadRemainingProducts() {
+    try {
+        const response = await fetch(`${API_URL}/products?offset=${PAGE_SIZE}`, { headers: getAuthHeaders() });
+        const data = await response.json();
+        if (data.success && Array.isArray(data.data) && data.data.length) {
+            const seen = new Set(allProducts.map(p => p.id));
+            allProducts = allProducts.concat(data.data.filter(p => !seen.has(p.id)));
+            displayProducts(getFilteredProducts());
+            updateStats();
+        }
+    } catch (error) {
+        console.error('Error loading remaining products:', error);
+    }
+}
+
+// Poll the lightweight stock endpoint; re-render/stats only on real change.
+async function refreshStockLevels() {
+    if (document.hidden || !allProducts.length) return;
+    try {
+        const response = await fetch(`${API_URL}/products/stock-levels`, { headers: getAuthHeaders() });
+        const data = await response.json();
+        if (!data.success || !Array.isArray(data.data)) return;
+        const levels = new Map(data.data.map(r => [r.id, parseFloat(r.stock_quantity)]));
+        let changed = false;
+        allProducts.forEach(p => {
+            const s = levels.get(p.id);
+            if (s !== undefined && parseFloat(p.stock_quantity) !== s) {
+                p.stock_quantity = s;
+                changed = true;
+            }
+        });
+        const known = new Set(allProducts.map(p => p.id));
+        const structural = data.data.length !== allProducts.length || data.data.some(r => !known.has(r.id));
+        if (structural) {
+            await loadProducts();
+        } else if (changed) {
+            displayProducts(getFilteredProducts());
+            updateStats();
+        }
+    } catch (e) {
+        // Network hiccup — next poll retries.
     }
 }
 
@@ -201,7 +252,7 @@ function displayProductsGrid(products) {
             <div style="color:var(--text-muted);">${hasFilters ? 'Try adjusting your search or filters.' : (viewer ? 'Products will appear here once added.' : 'Add your first product to get started.')}</div>
             ${hasFilters ? '<button class="btn-secondary" onclick="showAllProducts()" style="margin-top:14px;padding:8px 18px;font-size:13px;">Clear Filters</button>' : (viewer ? '' : '<button class="btn-primary" onclick="openAddProductModal()" style="margin-top:14px;padding:8px 18px;font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;">add</span> Add Product</button>')}
         </div>`;
-        updatePagination('inventoryPagination', products, displayCount, 'showMoreProducts');
+        updatePagination('inventoryPagination', products, displayCount, 'showMoreProducts', 'showLessProducts', reorderTab ? LOW_STOCK_PAGE_SIZE : PAGE_SIZE);
         return;
     }
 
@@ -259,7 +310,7 @@ function displayProductsGrid(products) {
         </div>`;
     }).join('');
 
-    updatePagination('inventoryPagination', products, displayCount, 'showMoreProducts');
+    updatePagination('inventoryPagination', products, displayCount, 'showMoreProducts', 'showLessProducts', reorderTab ? LOW_STOCK_PAGE_SIZE : PAGE_SIZE);
 }
 
 function displayProducts(products) {
@@ -288,7 +339,7 @@ function displayProducts(products) {
                 ${action}
             </div>
         </td></tr>`;
-        updatePagination('inventoryPagination', products, displayCount, 'showMoreProducts');
+        updatePagination('inventoryPagination', products, displayCount, 'showMoreProducts', 'showLessProducts', reorderTab ? LOW_STOCK_PAGE_SIZE : PAGE_SIZE);
     if (window.fetchMotion && !fetchMotion.reduced) { tbody.classList.remove('rows-in'); void tbody.offsetWidth; tbody.classList.add('rows-in'); }
         return;
     }
@@ -358,12 +409,17 @@ function displayProducts(products) {
             </tr>
         `;
     }).join('');
-    updatePagination('inventoryPagination', products, displayCount, 'showMoreProducts');
+    updatePagination('inventoryPagination', products, displayCount, 'showMoreProducts', 'showLessProducts', reorderTab ? LOW_STOCK_PAGE_SIZE : PAGE_SIZE);
 }
 
 function showMoreProducts() {
     displayCount += reorderTab ? LOW_STOCK_PAGE_SIZE : PAGE_SIZE;
     displayProducts(getFilteredProducts());
+}
+
+function showLessProducts() {
+    displayCount = 0;
+    showMoreProducts();
 }
 
 
@@ -927,8 +983,15 @@ async function autoReorder() {
         }).join('');
 
         const remaining = lowStock.length - displayed;
-        const loadMoreHtml = remaining > 0
-            ? `<button id="reorderLoadMore" style="display:block;width:calc(100% - 32px);margin:12px 16px;padding:10px;border:2px solid var(--border-color,#e0e0e0);border-radius:8px;background:var(--bg-card,#fff);color:var(--text-secondary,#555);font-weight:600;font-size:13px;cursor:pointer;font-family:inherit;text-align:center;">Show ${Math.min(remaining, REORDER_PAGE_SIZE)} more (${remaining} remaining)</button>`
+        const pagerBtnStyle = 'flex:1;padding:10px;border:2px solid var(--border-color,#e0e0e0);border-radius:8px;background:var(--bg-card,#fff);color:var(--text-secondary,#555);font-weight:600;font-size:13px;cursor:pointer;font-family:inherit;text-align:center;';
+        const moreBtn = remaining > 0
+            ? `<button id="reorderLoadMore" style="${pagerBtnStyle}">Show ${Math.min(remaining, REORDER_PAGE_SIZE)} more (${remaining} remaining)</button>`
+            : '';
+        const lessBtn = displayed > REORDER_PAGE_SIZE
+            ? `<button id="reorderShowLess" style="${pagerBtnStyle}">Show less</button>`
+            : '';
+        const loadMoreHtml = (moreBtn || lessBtn)
+            ? `<div style="display:flex;gap:8px;margin:12px 16px;flex-shrink:0;">${moreBtn}${lessBtn}</div>`
             : '';
 
         dialog.innerHTML = `
@@ -980,8 +1043,8 @@ async function autoReorder() {
         if (e.target.id === 'reorderClose' || e.target.id === 'reorderCancelBtn') {
             overlay.remove();
         }
-        if (e.target.id === 'reorderLoadMore') {
-            displayed += REORDER_PAGE_SIZE;
+        if (e.target.id === 'reorderLoadMore' || e.target.id === 'reorderShowLess') {
+            displayed = e.target.id === 'reorderLoadMore' ? displayed + REORDER_PAGE_SIZE : REORDER_PAGE_SIZE;
             render();
             // Re-check selected items after re-render
             selected.forEach(id => {
