@@ -5,7 +5,6 @@ window.addEventListener('load', async () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
     await triggerAlertChecks();
     await loadUserInfo();
-    await loadSummary();
     await loadNotifications();
 });
 
@@ -24,12 +23,9 @@ function loadUserInfo() {
     if (typeof applyUserIdentity === 'function') applyUserIdentity();
 }
 
-async function loadSummary() {
+// Summary counts come from the same fetch as the list — no extra request.
+function renderSummary(notifs) {
     try {
-        const res = await fetch(`${API_BASE}/notifications`, { headers: getAuthHeaders() });
-        const data = await res.json();
-        const notifs = data.data || [];
-
         const counts = { low_stock: 0, stockout: 0, expiration: 0, info: 0 };
         notifs.forEach(n => {
             if (counts[n.type] !== undefined) counts[n.type]++;
@@ -55,38 +51,47 @@ async function loadSummary() {
             </div>
         `;
     } catch (e) {
-        console.error('Error loading summary:', e);
+        console.error('Error rendering summary:', e);
     }
 }
 
+let allNotifs = [];
 let cachedNotifs = [];
 
 async function loadNotifications() {
-    displayCount = PAGE_SIZE;
-    const typeFilter = document.getElementById('notifTypeFilter').value;
-    const statusFilter = document.getElementById('notifStatusFilter').value;
-
     try {
-        let url = `${API_BASE}/notifications?limit=200`;
-        const res = await fetch(url, { headers: getAuthHeaders() });
+        const res = await fetch(`${API_BASE}/notifications`, { headers: getAuthHeaders() });
         const data = await res.json();
-        let notifs = data.data || [];
-
-        if (typeFilter) {
-            notifs = notifs.filter(n => n.type === typeFilter);
-        }
-        if (statusFilter === 'unread') {
-            notifs = notifs.filter(n => !n.is_read);
-        } else if (statusFilter === 'read') {
-            notifs = notifs.filter(n => n.is_read);
-        }
-
-        cachedNotifs = notifs;
-        renderNotifications();
+        allNotifs = data.data || [];
+        renderSummary(allNotifs);
+        applyNotifFilters();
     } catch (e) {
         console.error('Error loading notifications:', e);
         document.getElementById('notifList').innerHTML = '<div class="empty-state">Failed to load notifications</div>';
     }
+}
+
+// Filter changes re-filter the already-loaded list; no refetch needed.
+function applyNotifFilters() {
+    displayCount = PAGE_SIZE;
+    const typeFilter = document.getElementById('notifTypeFilter').value;
+    const statusFilter = document.getElementById('notifStatusFilter').value;
+
+    let notifs = allNotifs.slice();
+    if (typeFilter) {
+        notifs = notifs.filter(n => n.type === typeFilter);
+    }
+    if (statusFilter === 'unread') {
+        notifs = notifs.filter(n => !n.is_read);
+    } else if (statusFilter === 'read') {
+        notifs = notifs.filter(n => n.is_read);
+    }
+
+    // FIFO: oldest notifications first so they get handled in arrival order
+    notifs.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+    cachedNotifs = notifs;
+    renderNotifications();
 }
 
 function renderNotifications() {
@@ -95,7 +100,7 @@ function renderNotifications() {
 
     if (shown.length === 0) {
         list.innerHTML = '<div class="empty-state">No notifications found</div>';
-        updatePagination('notifPagination', cachedNotifs, displayCount, 'showMoreNotifications');
+        updatePagination('notifPagination', cachedNotifs, displayCount, 'showMoreNotifications', 'showLessNotifications', PAGE_SIZE);
         return;
     }
 
@@ -112,12 +117,17 @@ function renderNotifications() {
             </div>
         </div>
     `).join('');
-    updatePagination('notifPagination', cachedNotifs, displayCount, 'showMoreNotifications');
+    updatePagination('notifPagination', cachedNotifs, displayCount, 'showMoreNotifications', 'showLessNotifications', PAGE_SIZE);
 }
 
 function showMoreNotifications() {
     displayCount += PAGE_SIZE;
     renderNotifications();
+}
+
+function showLessNotifications() {
+    displayCount = 0;
+    showMoreNotifications();
 }
 
 async function markAsRead(id) {
@@ -140,7 +150,5 @@ async function markAllRead() {
 }
 
 function refreshList() {
-    displayCount = PAGE_SIZE;
-    loadSummary();
     loadNotifications();
 }

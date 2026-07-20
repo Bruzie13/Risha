@@ -76,7 +76,7 @@
             <div id="notifSummary"></div>
             <div class="notif-center-header">
                 <div class="notif-filter">
-                    <select id="notifTypeFilter" onchange="loadNotifications()">
+                    <select id="notifTypeFilter" onchange="applyNotifFilters()">
                         <option value="">All Types</option>
                         <option value="low_stock">Low Stock</option>
                         <option value="stockout">Stock Out</option>
@@ -85,7 +85,7 @@
                         <option value="reorder">Reorder</option>
                         <option value="info">Information</option>
                     </select>
-                    <select id="notifStatusFilter" onchange="loadNotifications()">
+                    <select id="notifStatusFilter" onchange="applyNotifFilters()">
                         <option value="">All Status</option>
                         <option value="unread">Unread</option>
                         <option value="read">Read</option>
