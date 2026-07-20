@@ -23,28 +23,7 @@ const pool = mysql.createPool({
     ssl: process.env.DB_SSL === 'true' || process.env.MYSQLSSL === 'true' ? { rejectUnauthorized: false } : undefined
 });
 
-// A dropped/idle-killed connection surfaces as one of these; the operation
-// hasn't run yet (acquire) or is a read, so retrying is safe.
-const TRANSIENT = new Set([
-    'ETIMEDOUT', 'ECONNRESET', 'EPIPE', 'PROTOCOL_CONNECTION_LOST',
-    'ER_CON_COUNT_ERROR', 'PROTOCOL_SEQUENCE_TIMEOUT'
-]);
-const isTransient = err => err && (TRANSIENT.has(err.code) || err.fatal);
-
-async function withRetry(fn, attempts = 3) {
-    let lastErr;
-    for (let i = 0; i < attempts; i++) {
-        try {
-            return await fn();
-        } catch (err) {
-            lastErr = err;
-            if (!isTransient(err) || i === attempts - 1) throw err;
-            // brief backoff: 150ms, 300ms — lets a dropped connection recycle
-            await new Promise(r => setTimeout(r, 150 * (i + 1)));
-        }
-    }
-    throw lastErr;
-}
+const { withRetry } = require('../utils/dbRetry');
 
 // Retry connection acquisition (side-effect free) transparently.
 const rawGetConnection = pool.getConnection.bind(pool);
