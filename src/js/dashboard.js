@@ -238,7 +238,7 @@ async function loadRecentSales() {
                 </div>
             </div>`;
         }).join('');
-        updatePagination('recentSalesPagination', items, dashSalesDisplayCount, 'showMoreDashSales');
+        updatePagination('recentSalesPagination', items, dashSalesDisplayCount, 'showMoreDashSales', 'showLessDashSales', 5);
         if (newCount > 0) {
             const status = document.getElementById('recentSalesLiveStatus');
             if (status) status.textContent = `${newCount} new`;
@@ -261,6 +261,11 @@ async function loadRecentSales() {
 function showMoreDashSales() {
     dashSalesDisplayCount += 5;
     loadRecentSales();
+}
+
+function showLessDashSales() {
+    dashSalesDisplayCount = 0;
+    showMoreDashSales();
 }
 
 // PO lifecycle: pending -> confirmed -> shipped -> received (server-enforced)

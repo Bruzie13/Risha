@@ -507,12 +507,17 @@ function mergeAndRenderTable() {
         `;
     }).join('');
 
-    updatePagination('predictionsPagination', rows, predDisplayCount, 'showMorePredictions');
+    updatePagination('predictionsPagination', rows, predDisplayCount, 'showMorePredictions', 'showLessPredictions', PRED_PAGE_SIZE);
 }
 
 function showMorePredictions() {
     predDisplayCount += PRED_PAGE_SIZE;
     mergeAndRenderTable();
+}
+
+function showLessPredictions() {
+    predDisplayCount = 0;
+    showMorePredictions();
 }
 
 function renderSeasonalChart(seasonalTrends) {

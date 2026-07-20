@@ -38,13 +38,18 @@ function showMoreSuppliers() {
     displaySuppliers(filtered);
 }
 
+function showLessSuppliers() {
+    displayCount = 0;
+    showMoreSuppliers();
+}
+
 function displaySuppliers(suppliers) {
     const tbody = document.getElementById('suppliersTableBody');
     if (!tbody) return;
     const viewer = !canManage();
     if (suppliers.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" class="text-center">No suppliers found</td></tr>';
-        updatePagination('supplierPagination', suppliers, displayCount, 'showMoreSuppliers');
+        updatePagination('supplierPagination', suppliers, displayCount, 'showMoreSuppliers', 'showLessSuppliers', PAGE_SIZE);
     if (window.fetchMotion && !fetchMotion.reduced) { tbody.classList.remove('rows-in'); void tbody.offsetWidth; tbody.classList.add('rows-in'); }
         return;
     }
@@ -87,7 +92,7 @@ function displaySuppliers(suppliers) {
         </tr>
     `;
     }).join('');
-    updatePagination('supplierPagination', suppliers, displayCount, 'showMoreSuppliers');
+    updatePagination('supplierPagination', suppliers, displayCount, 'showMoreSuppliers', 'showLessSuppliers', PAGE_SIZE);
 }
 
 // Search

@@ -42,12 +42,17 @@ function showMoreUsers() {
     displayUsers(filtered);
 }
 
+function showLessUsers() {
+    displayCount = 0;
+    showMoreUsers();
+}
+
 function displayUsers(users) {
     const tbody = document.getElementById('usersTableBody');
     if (!tbody) return;
     if (users.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center">No users found</td></tr>';
-        updatePagination('usersPagination', users, displayCount, 'showMoreUsers');
+        updatePagination('usersPagination', users, displayCount, 'showMoreUsers', 'showLessUsers', PAGE_SIZE);
         return;
     }
     const shown = users.slice(0, displayCount);
@@ -68,7 +73,7 @@ function displayUsers(users) {
             </td>
         </tr>
     `).join('');
-    updatePagination('usersPagination', users, displayCount, 'showMoreUsers');
+    updatePagination('usersPagination', users, displayCount, 'showMoreUsers', 'showLessUsers', PAGE_SIZE);
 }
 
 document.getElementById('searchInput')?.addEventListener('keyup', (e) => {

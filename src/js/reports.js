@@ -186,13 +186,18 @@ function renderReportTable(period, data) {
         `).join('');
     }
 
-    updatePagination(paginationId, rows, displayCount, 'showMoreReport');
+    updatePagination(paginationId, rows, displayCount, 'showMoreReport', 'showLessReport', PAGE_SIZE);
 }
 
 function showMoreReport() {
     displayCount += PAGE_SIZE;
     const data = currentReportData;
     if (data) renderReportTable(currentPeriod, data);
+}
+
+function showLessReport() {
+    displayCount = 0;
+    showMoreReport();
 }
 
 function renderReportCharts(data) {
