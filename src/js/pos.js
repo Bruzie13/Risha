@@ -516,8 +516,7 @@ async function printReceipt(saleId, tendered, change) {
         const disc = parseFloat(sale.discount_percent || 0).toFixed(2);
         const subtotal = parseFloat(sale.total_amount || 0).toFixed(2);
         const date = new Date(sale.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-        const receiptWindow = window.open('', 'Receipt', 'width=400,height=600');
-        receiptWindow.document.write(`
+        const receiptHTML = `
             <html><head><title>Receipt #${sale.id}</title>
             <style>
                 @page{margin:0;size:58mm auto;}
@@ -564,18 +563,35 @@ async function printReceipt(saleId, tendered, change) {
                     <div style="font-size:8px;color:#aaa;margin-top:4px;">This serves as your official receipt</div>
                 </div>
             </body></html>
-        `);
-        receiptWindow.document.close();
-        // Actually open the print dialog (previously the window just showed the
-        // receipt and never printed). Small delay lets the content render first.
-        receiptWindow.focus();
-        setTimeout(function () {
+        `;
+        // Print via a hidden iframe instead of opening a separate receipt
+        // window/tab: the print dialog fires over the POS page and the frame is
+        // removed afterward, so nothing navigates away.
+        const old = document.getElementById('receiptPrintFrame');
+        if (old) old.remove();
+        const frame = document.createElement('iframe');
+        frame.id = 'receiptPrintFrame';
+        frame.setAttribute('aria-hidden', 'true');
+        frame.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0;visibility:hidden;';
+        document.body.appendChild(frame);
+        const fdoc = frame.contentWindow.document;
+        fdoc.open();
+        fdoc.write(receiptHTML);
+        fdoc.close();
+        // Receipt has only inline content, so a short delay is enough to lay it
+        // out before printing. Guard so we print exactly once.
+        let printed = false;
+        const doPrint = () => {
+            if (printed) return;
+            printed = true;
             try {
-                receiptWindow.print();
-                // close the receipt window shortly after the dialog is handled
-                setTimeout(function () { try { receiptWindow.close(); } catch (e) {} }, 500);
-            } catch (e) { /* user can print manually from the window */ }
-        }, 350);
+                frame.contentWindow.focus();
+                frame.contentWindow.print();
+            } catch (e) { console.error('Print failed:', e); }
+            setTimeout(() => frame.remove(), 1000);
+        };
+        frame.contentWindow.onload = doPrint;
+        setTimeout(doPrint, 350); // fallback if onload doesn't fire for a written doc
     } catch (error) {
         console.error('Error printing receipt:', error);
         showToast('Failed to print receipt', 'error');
