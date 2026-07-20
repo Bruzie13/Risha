@@ -34,3 +34,8 @@ services:
         value: gemini-flash-lite-latest
       - key: BASE_URL
         value: https://risha-pets.onrender.com
+      # Product images: paste your Cloudinary "API Environment variable"
+      # (cloudinary://<key>:<secret>@<cloud>). If unset, images fall back to
+      # base64-in-DB so nothing breaks.
+      - key: CLOUDINARY_URL
+        sync: false

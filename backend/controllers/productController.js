@@ -1,6 +1,7 @@
 const Product = require('../models/Product');
 const logAudit = require('../services/audit');
 const { notifyStockAdjusted, notifyProductCreated } = require('../services/notifier');
+const { storeImage } = require('../services/imageStore');
 
 exports.getAllProducts = async (req, res) => {
     try {
@@ -121,7 +122,7 @@ exports.getProductByBarcode = async (req, res) => {
 
 exports.createProduct = async (req, res) => {
     try {
-        const { sku, name, description, brand, species, category_id, unit_price, cost_price, stock_quantity, reorder_level, unit_type, supplier_id, barcode, expiration_date, batch_number } = req.body;
+        const { sku, name, description, brand, species, category_id, unit_price, cost_price, stock_quantity, reorder_level, unit_type, supplier_id, barcode, expiration_date, batch_number, image_url } = req.body;
 
         if (!sku || !name || !category_id || !unit_price) {
             return res.status(400).json({
@@ -153,7 +154,9 @@ exports.createProduct = async (req, res) => {
             supplier_id,
             barcode,
             expiration_date,
-            batch_number
+            batch_number,
+            // base64 → hosted URL when Cloudinary is configured (else unchanged)
+            image_url: await storeImage(image_url)
         });
 
         logAudit(req.user.id, 'create', 'products', product.id, null, product, req.ip);
@@ -178,6 +181,12 @@ exports.updateProduct = async (req, res) => {
     try {
         const { id } = req.params;
         const updateData = req.body;
+
+        // A newly pasted/uploaded image comes in as a base64 data URL — push it
+        // to Cloudinary (when configured) and store the URL instead.
+        if (updateData.image_url) {
+            updateData.image_url = await storeImage(updateData.image_url);
+        }
 
         const oldProduct = await Product.findById(id);
         const product = await Product.update(id, updateData);
