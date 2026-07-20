@@ -123,7 +123,7 @@ async function loadDashboardStats() {
 
 async function loadAdvancedMetrics() {
     try {
-        const prodRes = await fetch(`${API_BASE}/products`, { headers: getAuthHeaders() }).then(r => r.json());
+        const prodRes = await fetch(`${API_BASE}/products?fields=light`, { headers: getAuthHeaders() }).then(r => r.json());
         const products = prodRes.data || [];
         let totalRetail = 0;
         products.forEach(p => {

@@ -434,15 +434,15 @@ async function performSearch(query) {
     }
 
     try {
+        // Products are searched on the server (paged, no images); suppliers
+        // are a small table so client-side filtering is fine.
         const [prodRes, suppRes] = await Promise.all([
-            fetch(`${API_BASE}/products`, { headers: getAuthHeaders() }).then(r => r.json()),
+            fetch(`${API_BASE}/products?search=${encodeURIComponent(query)}&limit=5&fields=light`, { headers: getAuthHeaders() }).then(r => r.json()),
             fetch(`${API_BASE}/suppliers`, { headers: getAuthHeaders() }).then(r => r.json())
         ]);
 
         const q = query.toLowerCase();
-        const products = (prodRes.data || []).filter(p =>
-            p.name?.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q) || p.brand?.toLowerCase().includes(q)
-        ).slice(0, 5);
+        const products = prodRes.data || [];
         const suppliers = (suppRes.data || []).filter(s =>
             s.name?.toLowerCase().includes(q) || s.contact_person?.toLowerCase().includes(q)
         ).slice(0, 5);

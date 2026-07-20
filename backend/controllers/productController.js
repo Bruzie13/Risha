@@ -4,10 +4,16 @@ const { notifyStockAdjusted, notifyProductCreated } = require('../services/notif
 
 exports.getAllProducts = async (req, res) => {
     try {
-        const { category, species, limit, offset } = req.query;
+        const { category, species, limit, offset, search, status, sort, dir, fields } = req.query;
         const filters = {};
         if (category) filters.category_id = category;
         if (species) filters.species = species;
+        if (search && String(search).trim()) filters.search = String(search).trim();
+        if (status) filters.status = String(status); // whitelisted in the model
+        if (sort) filters.sort = String(sort);       // whitelisted in the model
+        if (dir === 'desc') filters.dir = 'desc';
+        // light = every column except the heavy base64 image_url (+ has_image flag)
+        if (fields === 'light') filters.light = true;
         // Optional pagination: without limit/offset the full list is returned
         // (dashboard, reports, etc. rely on that).
         const paginated = limit !== undefined || offset !== undefined;
@@ -30,6 +36,17 @@ exports.getAllProducts = async (req, res) => {
             success: false,
             message: 'Error retrieving products'
         });
+    }
+};
+
+// Aggregate counts/value for the inventory stat cards and status chips
+exports.getProductStats = async (req, res) => {
+    try {
+        const stats = await Product.getStats();
+        res.status(200).json({ success: true, data: stats });
+    } catch (error) {
+        console.error('Get product stats error:', error);
+        res.status(500).json({ success: false, message: 'Error retrieving product stats' });
     }
 };
 
@@ -226,7 +243,11 @@ exports.getCategories = async (req, res) => {
 
 exports.getLowStockProducts = async (req, res) => {
     try {
-        const products = await Product.getLowStock();
+        let products = await Product.getLowStock();
+        // The reorder dialog only needs names/levels — drop the heavy images
+        if (req.query.fields === 'light') {
+            products = products.map(({ image_url, ...rest }) => rest);
+        }
         res.status(200).json({
             success: true,
             data: products

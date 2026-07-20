@@ -38,7 +38,9 @@ window.addEventListener('load', async () => {
 
 async function loadProducts() {
     try {
-        const response = await fetch(`${API_BASE}/products`, { headers: getAuthHeaders() });
+        // light = whole catalog without the heavy images (dropdown/barcode need
+        // every product, but never the pictures)
+        const response = await fetch(`${API_BASE}/products?fields=light`, { headers: getAuthHeaders() });
         const data = await response.json();
         if (data.success) {
             allProducts = Array.isArray(data.data) ? data.data : [];

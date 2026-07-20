@@ -2,7 +2,11 @@ const API_URL = '/api';
 const PAGE_SIZE = 10;
 const LOW_STOCK_PAGE_SIZE = 5;
 let displayCount = PAGE_SIZE;
-let allProducts = [];
+let allProducts = [];      // only the pages loaded so far for the current query
+let serverTotal = 0;       // total rows matching the current query (from the server)
+let productStats = null;   // aggregate numbers for stat cards / chips
+let catalogSize = null;    // last known catalog size from the stock poll
+let searchDebounce = null;
 let editingProductId = null;
 let lowStockOnly = false;
 let reorderTab = false;
@@ -88,21 +92,44 @@ async function loadSuppliers() {
     }
 }
 
-// Load products in two stages: first page for a fast paint (product photos
-// make the full list heavy), then the rest so filters/stats/CSV-dupe checks
-// still see the whole catalog.
-async function loadProducts() {
-    try {
-        const response = await fetch(`${API_URL}/products?limit=${PAGE_SIZE}`, { headers: getAuthHeaders() });
-        const data = await response.json();
+// The server does the filtering, sorting and paging: we only ever hold the
+// pages fetched so far, and "Show more" asks the backend for the next page.
+function invPageSize() {
+    return reorderTab ? LOW_STOCK_PAGE_SIZE : PAGE_SIZE;
+}
 
+function currentProductQuery() {
+    const params = new URLSearchParams();
+    const search = document.getElementById('searchInput')?.value?.trim() || '';
+    const category = document.getElementById('categoryFilter')?.value || '';
+    const species = document.getElementById('speciesFilter')?.value || '';
+    if (search) params.set('search', search);
+    if (category) params.set('category', category);
+    if (species) params.set('species', species);
+    if (statusFilter) params.set('status', statusFilter);
+    else if (reorderTab) params.set('status', 'reorder');
+    if (sortKey) {
+        params.set('sort', sortKey);
+        if (sortDir === -1) params.set('dir', 'desc');
+    }
+    return params;
+}
+
+// reset=true refetches page 1 for the current filters; reset=false appends
+// the next page (Show more).
+async function loadProducts(reset = true) {
+    try {
+        const params = currentProductQuery();
+        if (reset) displayCount = invPageSize();
+        params.set('limit', Math.max(displayCount - (reset ? 0 : allProducts.length), invPageSize()));
+        params.set('offset', reset ? 0 : allProducts.length);
+        const response = await fetch(`${API_URL}/products?${params}`, { headers: getAuthHeaders() });
+        const data = await response.json();
         if (data.success) {
-            allProducts = data.data;
-            displayProducts(getFilteredProducts());
+            allProducts = reset ? data.data : allProducts.concat(data.data);
+            serverTotal = data.total ?? allProducts.length;
+            displayProducts(allProducts);
             updateStats();
-            if ((data.total || 0) > allProducts.length) {
-                await loadRemainingProducts();
-            }
         }
     } catch (error) {
         console.error('Error loading products:', error);
@@ -110,22 +137,8 @@ async function loadProducts() {
     }
 }
 
-async function loadRemainingProducts() {
-    try {
-        const response = await fetch(`${API_URL}/products?offset=${PAGE_SIZE}`, { headers: getAuthHeaders() });
-        const data = await response.json();
-        if (data.success && Array.isArray(data.data) && data.data.length) {
-            const seen = new Set(allProducts.map(p => p.id));
-            allProducts = allProducts.concat(data.data.filter(p => !seen.has(p.id)));
-            displayProducts(getFilteredProducts());
-            updateStats();
-        }
-    } catch (error) {
-        console.error('Error loading remaining products:', error);
-    }
-}
-
-// Poll the lightweight stock endpoint; re-render/stats only on real change.
+// Poll the tiny id→stock endpoint; refetch the visible page(s) on real change
+// so server-side filters/sort stay correct.
 async function refreshStockLevels() {
     if (document.hidden || !allProducts.length) return;
     try {
@@ -133,26 +146,43 @@ async function refreshStockLevels() {
         const data = await response.json();
         if (!data.success || !Array.isArray(data.data)) return;
         const levels = new Map(data.data.map(r => [r.id, parseFloat(r.stock_quantity)]));
-        let changed = false;
-        allProducts.forEach(p => {
-            const s = levels.get(p.id);
-            if (s !== undefined && parseFloat(p.stock_quantity) !== s) {
-                p.stock_quantity = s;
-                changed = true;
-            }
-        });
-        const known = new Set(allProducts.map(p => p.id));
-        const structural = data.data.length !== allProducts.length || data.data.some(r => !known.has(r.id));
-        if (structural) {
-            await loadProducts();
-        } else if (changed) {
-            displayProducts(getFilteredProducts());
-            updateStats();
-        }
+        const changed = allProducts.some(p => levels.has(p.id) && parseFloat(p.stock_quantity) !== levels.get(p.id));
+        const removed = allProducts.some(p => !levels.has(p.id));
+        const grewOrShrank = catalogSize !== null && data.data.length !== catalogSize;
+        catalogSize = data.data.length;
+        if (changed || removed || grewOrShrank) await reloadCurrentPages();
     } catch (e) {
         // Network hiccup — next poll retries.
     }
 }
+
+// Refetch everything currently on screen (same query, one request).
+async function reloadCurrentPages() {
+    const params = currentProductQuery();
+    params.set('limit', Math.max(allProducts.length, invPageSize()));
+    params.set('offset', 0);
+    try {
+        const response = await fetch(`${API_URL}/products?${params}`, { headers: getAuthHeaders() });
+        const data = await response.json();
+        if (data.success) {
+            allProducts = data.data;
+            serverTotal = data.total ?? allProducts.length;
+            displayProducts(allProducts);
+            updateStats();
+        }
+    } catch (e) { /* next poll retries */ }
+}
+
+// Whole-catalog admin tools (barcode/image managers) fetch a light list —
+// every product, but without the heavy base64 images.
+async function loadToolCatalog(withImages) {
+    const res = await fetch(`${API_URL}/products${withImages ? '' : '?fields=light'}`, { headers: getAuthHeaders() });
+    const data = await res.json();
+    toolCatalog = (data.success && Array.isArray(data.data)) ? data.data : [];
+    return toolCatalog;
+}
+let toolCatalog = [];
+let toolCatalogHasImages = false;
 
 /* ── Status helpers ── */
 // Priority: expired > expiring > out > low > in (matches badge logic)
@@ -181,25 +211,6 @@ function daysUntilExpiry(p) {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     return Math.round((expiry - today) / 86400000);
 }
-
-// Chip filters match plain facts (a product can be both low-stock AND expiring);
-// productStatus() above is only for the single badge shown in the table.
-function statusMatches(p, filter) {
-    if (!filter) return true;
-    const stock = Number(p.stock_quantity) || 0;
-    const days = daysUntilExpiry(p);
-    switch (filter) {
-        case 'low': return stock > 0 && stock <= (p.reorder_level ?? 10);
-        case 'out': return stock === 0;
-        case 'reorder': return stock <= (p.reorder_level ?? 10);
-        case 'expiring': return days !== null && days >= 0 && days <= 30;
-        case 'expired': return days !== null && days < 0;
-        case 'in': return productStatus(p) === 'in';
-        default: return true;
-    }
-}
-
-const STATUS_RANK = { expired: 0, out: 1, expiring: 2, low: 3, in: 4 };
 
 const AVATAR_ICONS = {
     food: 'pet_supplies', treat: 'pet_supplies', toy: 'toys', medicine: 'medication',
@@ -252,7 +263,7 @@ function displayProductsGrid(products) {
             <div style="color:var(--text-muted);">${hasFilters ? 'Try adjusting your search or filters.' : (viewer ? 'Products will appear here once added.' : 'Add your first product to get started.')}</div>
             ${hasFilters ? '<button class="btn-secondary" onclick="showAllProducts()" style="margin-top:14px;padding:8px 18px;font-size:13px;">Clear Filters</button>' : (viewer ? '' : '<button class="btn-primary" onclick="openAddProductModal()" style="margin-top:14px;padding:8px 18px;font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;">add</span> Add Product</button>')}
         </div>`;
-        updatePagination('inventoryPagination', products, displayCount, 'showMoreProducts', 'showLessProducts', reorderTab ? LOW_STOCK_PAGE_SIZE : PAGE_SIZE);
+        updatePagination('inventoryPagination', { length: serverTotal }, displayCount, 'showMoreProducts', 'showLessProducts', invPageSize());
         return;
     }
 
@@ -310,7 +321,7 @@ function displayProductsGrid(products) {
         </div>`;
     }).join('');
 
-    updatePagination('inventoryPagination', products, displayCount, 'showMoreProducts', 'showLessProducts', reorderTab ? LOW_STOCK_PAGE_SIZE : PAGE_SIZE);
+    updatePagination('inventoryPagination', { length: serverTotal }, displayCount, 'showMoreProducts', 'showLessProducts', invPageSize());
 }
 
 function displayProducts(products) {
@@ -339,7 +350,7 @@ function displayProducts(products) {
                 ${action}
             </div>
         </td></tr>`;
-        updatePagination('inventoryPagination', products, displayCount, 'showMoreProducts', 'showLessProducts', reorderTab ? LOW_STOCK_PAGE_SIZE : PAGE_SIZE);
+        updatePagination('inventoryPagination', { length: serverTotal }, displayCount, 'showMoreProducts', 'showLessProducts', invPageSize());
     if (window.fetchMotion && !fetchMotion.reduced) { tbody.classList.remove('rows-in'); void tbody.offsetWidth; tbody.classList.add('rows-in'); }
         return;
     }
@@ -409,12 +420,16 @@ function displayProducts(products) {
             </tr>
         `;
     }).join('');
-    updatePagination('inventoryPagination', products, displayCount, 'showMoreProducts', 'showLessProducts', reorderTab ? LOW_STOCK_PAGE_SIZE : PAGE_SIZE);
+    updatePagination('inventoryPagination', { length: serverTotal }, displayCount, 'showMoreProducts', 'showLessProducts', invPageSize());
 }
 
-function showMoreProducts() {
-    displayCount += reorderTab ? LOW_STOCK_PAGE_SIZE : PAGE_SIZE;
-    displayProducts(getFilteredProducts());
+async function showMoreProducts() {
+    displayCount += invPageSize();
+    if (allProducts.length < Math.min(displayCount, serverTotal)) {
+        await loadProducts(false); // fetch the next page from the backend
+    } else {
+        displayProducts(allProducts);
+    }
 }
 
 function showLessProducts() {
@@ -448,56 +463,11 @@ function getStatusBadge(stock, reorder, expirationDate) {
     }
 }
 
-/* ── Filtering + sorting pipeline ── */
+/* ── Filtering + sorting ── */
+// Search/category/species/status/sort all run on the server (currentProductQuery);
+// what we hold locally is already the filtered, sorted result.
 function getFilteredProducts() {
-    const searchTerm = document.getElementById('searchInput')?.value?.toLowerCase() || '';
-    const categoryId = document.getElementById('categoryFilter')?.value || '';
-    const species = document.getElementById('speciesFilter')?.value || '';
-
-    let filtered = allProducts.filter(p => {
-        const matchesSearch = !searchTerm ||
-            (p.name || '').toLowerCase().includes(searchTerm) ||
-            (p.sku || '').toLowerCase().includes(searchTerm) ||
-            (p.brand || '').toLowerCase().includes(searchTerm) ||
-            (p.barcode || '').toLowerCase().includes(searchTerm);
-        const matchesCategory = !categoryId || p.category_id == categoryId;
-        const matchesSpecies = !species || (p.species || '').toLowerCase() === species.toLowerCase();
-        const matchesStatus = statusMatches(p, statusFilter);
-        return matchesSearch && matchesCategory && matchesSpecies && matchesStatus;
-    });
-
-    if (sortKey) filtered = sortProducts(filtered);
-    return filtered;
-}
-
-function sortProducts(list) {
-    const sorted = [...list];
-    const dir = sortDir;
-    sorted.sort((a, b) => {
-        switch (sortKey) {
-            case 'name':
-                return dir * (a.name || '').localeCompare(b.name || '');
-            case 'category':
-                return dir * (a.category_name || '').localeCompare(b.category_name || '');
-            case 'price':
-                return dir * ((parseFloat(a.unit_price) || 0) - (parseFloat(b.unit_price) || 0));
-            case 'stock':
-                return dir * ((Number(a.stock_quantity) || 0) - (Number(b.stock_quantity) || 0));
-            case 'expiry': {
-                // Products without an expiry date always sink to the bottom
-                const da = daysUntilExpiry(a), db = daysUntilExpiry(b);
-                if (da === null && db === null) return 0;
-                if (da === null) return 1;
-                if (db === null) return -1;
-                return dir * (da - db);
-            }
-            case 'status':
-                return dir * (STATUS_RANK[productStatus(a)] - STATUS_RANK[productStatus(b)]);
-            default:
-                return 0;
-        }
-    });
-    return sorted;
+    return allProducts;
 }
 
 function sortBy(key) {
@@ -513,8 +483,7 @@ function sortBy(key) {
         select.value = [...select.options].some(o => o.value === mapped) ? mapped : '';
     }
     updateSortArrows();
-    displayCount = PAGE_SIZE;
-    displayProducts(getFilteredProducts());
+    loadProducts();
 }
 
 function applySortSelect(value) {
@@ -530,8 +499,7 @@ function applySortSelect(value) {
         sortDir = dir === 'desc' ? -1 : 1;
     }
     updateSortArrows();
-    displayCount = PAGE_SIZE;
-    displayProducts(getFilteredProducts());
+    loadProducts();
 }
 
 function updateSortArrows() {
@@ -552,25 +520,22 @@ function setStatusFilter(status, chipEl) {
     else document.querySelector(`#statusChips .chip[data-status="${status}"]`)?.classList.add('active');
     const banner = document.getElementById('reorderBanner');
     if (banner) banner.style.display = 'none';
-    displayCount = PAGE_SIZE;
-    displayProducts(getFilteredProducts());
+    loadProducts();
 }
 
 function filterLowStock() {
     // Stat-card click: show everything at/below reorder level (low + out of stock)
     setStatusFilter('reorder');
-    const lowStock = allProducts.filter(p => p.stock_quantity <= p.reorder_level);
     const banner = document.getElementById('reorderBanner');
     if (banner) banner.style.display = 'flex';
     const ct = document.getElementById('reorderCount');
-    if (ct) ct.textContent = `${lowStock.length} product(s) need reordering`;
+    if (ct) ct.textContent = `${formatNumber(Number(productStats?.reorder_count) || 0)} product(s) need reordering`;
 }
 
 function showAllProducts() {
     lowStockOnly = false;
     reorderTab = false;
     statusFilter = '';
-    displayCount = PAGE_SIZE;
     const banner = document.getElementById('reorderBanner');
     if (banner) { banner.style.display = 'none'; }
     document.getElementById('searchInput').value = '';
@@ -578,38 +543,40 @@ function showAllProducts() {
     document.getElementById('speciesFilter').value = '';
     document.querySelectorAll('#statusChips .chip').forEach(c => c.classList.remove('active'));
     document.querySelector('#statusChips .chip[data-status=""]')?.classList.add('active');
-    displayProducts(getFilteredProducts());
+    loadProducts();
 }
 
-// Update statistics + chip counts
-function updateStats() {
-    const totalProducts = allProducts.length;
-    const count = f => allProducts.filter(p => statusMatches(p, f)).length;
+// Stat cards + chip counts come from one aggregate endpoint, so they always
+// reflect the whole catalog even though only a page of products is loaded.
+async function updateStats() {
+    try {
+        const res = await fetch(`${API_URL}/products/stats`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success || !data.data) return;
+        const s = productStats = data.data;
+        const n = v => formatNumber(Number(v) || 0);
+        document.getElementById('totalProductsCount').textContent = n(s.total);
+        document.getElementById('lowStockCount').textContent = n(s.reorder_count);
+        document.getElementById('expiringCount').textContent = n(s.expiring_count);
+        const valueEl = document.getElementById('totalValue');
+        valueEl.textContent = formatCompactCurrency(Number(s.total_value) || 0);
+        valueEl.title = formatCurrency(Number(s.total_value) || 0);
+        document.getElementById('overstockCount').textContent = n(s.overstock_count);
 
-    const lowStockProducts = allProducts.filter(p => p.stock_quantity <= p.reorder_level).length;
-    const totalValue = allProducts.reduce((sum, p) => sum + (p.unit_price * p.stock_quantity), 0);
-    const overstockProducts = allProducts.filter(p => p.max_stock_level && p.stock_quantity > p.max_stock_level * 1.5).length;
-
-    document.getElementById('totalProductsCount').textContent = formatNumber(totalProducts);
-    document.getElementById('lowStockCount').textContent = formatNumber(lowStockProducts);
-    document.getElementById('expiringCount').textContent = formatNumber(count('expiring'));
-    const valueEl = document.getElementById('totalValue');
-    valueEl.textContent = formatCompactCurrency(totalValue);
-    valueEl.title = formatCurrency(totalValue);
-    document.getElementById('overstockCount').textContent = formatNumber(overstockProducts);
-
-    const chipCounts = {
-        chipCountAll: totalProducts,
-        chipCountLow: count('low'),
-        chipCountOut: count('out'),
-        chipCountExpiring: count('expiring'),
-        chipCountExpired: count('expired'),
-        chipCountIn: count('in')
-    };
-    for (const id in chipCounts) {
-        const el = document.getElementById(id);
-        if (el) el.textContent = formatNumber(chipCounts[id]);
-    }
+        const chipCounts = {
+            chipCountAll: s.total, chipCountLow: s.low_count, chipCountOut: s.out_count,
+            chipCountExpiring: s.expiring_count, chipCountExpired: s.expired_count, chipCountIn: s.in_count
+        };
+        for (const id in chipCounts) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = n(chipCounts[id]);
+        }
+        const ct = document.getElementById('reorderCount');
+        const banner = document.getElementById('reorderBanner');
+        if (ct && banner && banner.style.display !== 'none') {
+            ct.textContent = `${n(s.reorder_count)} product(s) need reordering`;
+        }
+    } catch (e) { /* stats are cosmetic; next refresh retries */ }
 }
 
 // Search products
@@ -624,8 +591,9 @@ function filterProducts() {
         const banner = document.getElementById('reorderBanner');
         if (banner) { banner.style.display = 'none'; }
     }
-    displayCount = PAGE_SIZE;
-    displayProducts(getFilteredProducts());
+    // Debounced: each keystroke would otherwise fire a server query
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => loadProducts(), 250);
 }
 
 // Open add product modal
@@ -945,8 +913,17 @@ const REORDER_PAGE_SIZE = 5;
 
 async function autoReorder() {
     if (!canManage()) { showToast("Your role can't reorder.", 'error'); return; }
-    if (!allProducts.length) await loadProducts();
-    const lowStock = allProducts.filter(p => p.stock_quantity <= p.reorder_level);
+    // Only a page of products is loaded, so ask the backend for the full
+    // low-stock list (light = no image payloads).
+    let lowStock = [];
+    try {
+        const res = await fetch(`${API_URL}/products/low-stock?fields=light`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) lowStock = data.data;
+    } catch (e) {
+        showToast('Failed to load low-stock products', 'error');
+        return;
+    }
     if (!lowStock.length) { showToast('No products need reordering', 'info'); return; }
 
     let displayed = REORDER_PAGE_SIZE;
@@ -1388,7 +1365,10 @@ function openBarcodeManager() {
     if (search) search.value = '';
     if (showAll) showAll.checked = false;
     modal.classList.add('active');
+    toolCatalog = [];
+    toolCatalogHasImages = false;
     renderBarcodeManagerList();
+    loadToolCatalog(false).then(renderBarcodeManagerList);
     setTimeout(() => search && search.focus(), 100);
 }
 
@@ -1403,8 +1383,8 @@ function renderBarcodeManagerList() {
     if (!list) return;
     const q = (document.getElementById('barcodeManagerSearch')?.value || '').toLowerCase().trim();
     const showAll = document.getElementById('barcodeShowAll')?.checked;
-    const missing = allProducts.filter(p => !p.barcode || String(p.barcode).trim() === '').length;
-    let items = allProducts.slice();
+    const missing = toolCatalog.filter(p => !p.barcode || String(p.barcode).trim() === '').length;
+    let items = toolCatalog.slice();
     if (!showAll) items = items.filter(p => !p.barcode || String(p.barcode).trim() === '');
     if (q) items = items.filter(p =>
         (p.name || '').toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q));
@@ -1455,8 +1435,9 @@ async function saveRowBarcode(id, value, row) {
         const data = await res.json();
         if (res.ok && data.success !== false) {
             status.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:var(--success);">check_circle</span>';
-            const prod = allProducts.find(p => p.id === id);
-            if (prod) prod.barcode = code;
+            for (const prod of [toolCatalog.find(p => p.id === id), allProducts.find(p => p.id === id)]) {
+                if (prod) prod.barcode = code;
+            }
             // jump to the next row that still needs a barcode
             const rows = Array.from(document.querySelectorAll('#barcodeManagerList .bc-row'));
             const idx = rows.indexOf(row);
@@ -1497,7 +1478,10 @@ function openImageManager() {
     if (search) search.value = '';
     if (showAll) showAll.checked = false;
     document.getElementById('imageManagerModal').classList.add('active');
+    toolCatalog = [];
+    toolCatalogHasImages = false;
     renderImageManagerList();
+    loadToolCatalog(false).then(renderImageManagerList);
     setTimeout(() => search && search.focus(), 100);
 }
 
@@ -1512,9 +1496,17 @@ function renderImageManagerList() {
     if (!list) return;
     const q = (document.getElementById('imageManagerSearch')?.value || '').toLowerCase().trim();
     const showAll = document.getElementById('imageShowAll')?.checked;
-    const missing = allProducts.filter(p => !p.image_url || String(p.image_url).trim() === '').length;
-    let items = allProducts.slice();
-    if (!showAll) items = items.filter(p => !p.image_url || String(p.image_url).trim() === '');
+    // The default (missing-only) view works from the light list; "show all"
+    // needs the actual image data, fetched once on demand.
+    if (showAll && !toolCatalogHasImages) {
+        list.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:24px;font-size:13px;">Loading images…</div>';
+        loadToolCatalog(true).then(() => { toolCatalogHasImages = true; renderImageManagerList(); });
+        return;
+    }
+    const hasImg = p => p.image_url ? true : !!p.has_image;
+    const missing = toolCatalog.filter(p => !hasImg(p)).length;
+    let items = toolCatalog.slice();
+    if (!showAll) items = items.filter(p => !hasImg(p));
     if (q) items = items.filter(p =>
         (p.name || '').toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q));
     items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -1573,8 +1565,9 @@ async function saveRowImage(id, value, row) {
         const data = await res.json();
         if (res.ok && data.success !== false) {
             status.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:var(--success);">check_circle</span>';
-            const prod = allProducts.find(p => p.id === id);
-            if (prod) prod.image_url = url || null;
+            for (const prod of [toolCatalog.find(p => p.id === id), allProducts.find(p => p.id === id)]) {
+                if (prod) { prod.image_url = url || null; prod.has_image = !!url; }
+            }
             const rows = Array.from(document.querySelectorAll('#imageManagerList .img-row'));
             const idx = rows.indexOf(row);
             for (let i = idx + 1; i < rows.length; i++) {

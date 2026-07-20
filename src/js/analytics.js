@@ -13,7 +13,8 @@ let predDisplayCount = PRED_PAGE_SIZE;
 
 async function loadProductList() {
     try {
-        const response = await fetch(`${API_BASE}/products`, { headers: getAuthHeaders() });
+        // light = no image payloads; the selector only needs ids and names
+        const response = await fetch(`${API_BASE}/products?fields=light`, { headers: getAuthHeaders() });
         const data = await response.json();
         if (data.success) {
             allProducts = Array.isArray(data.data) ? data.data : [];

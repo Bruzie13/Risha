@@ -21,57 +21,55 @@ let lastKeyTime = 0;
 const PAYMENT_METHOD = 'cash';
 const POS_PAGE_SIZE = 10;
 let posDisplayCount = POS_PAGE_SIZE;
-let posFilteredProducts = [];
 
 window.addEventListener('load', async () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
     if (isViewer()) {
         document.querySelector('.pos-cart-actions .btn-primary')?.remove();
     }
-    await loadProducts();
+    await Promise.all([loadProducts(), renderCategoryFilters()]);
     setupBarcodeListener();
     document.getElementById('posSearchInput')?.addEventListener('keyup', filterProducts);
     // Live stock: another terminal's sale shows here without a refresh
     setInterval(refreshStockLevels, 10000);
 });
 
-async function loadProducts() {
+// The backend does search/category filtering and serves one page at a time;
+// allProducts only ever holds the pages fetched so far.
+let posTotal = 0;
+let posCatalogSize = null;
+let posSearchDebounce = null;
+
+function posQuery() {
+    const params = new URLSearchParams();
+    const q = (document.getElementById('posSearchInput')?.value || '').trim();
+    if (q) params.set('search', q);
+    if (activeCategory) params.set('category', activeCategory);
+    return params;
+}
+
+// reset=true refetches page 1 for the current search/category;
+// reset=false appends the next page (Show more).
+async function loadProducts(reset = true) {
     try {
-        // Fast first paint: fetch only one page (product photos make the full
-        // list heavy), then stream in the rest so search/barcode/category
-        // filters still cover the whole catalog.
-        const response = await fetch(`${API_BASE}/products?limit=${POS_PAGE_SIZE}`, { headers: getAuthHeaders() });
+        if (reset) posDisplayCount = POS_PAGE_SIZE;
+        const params = posQuery();
+        params.set('limit', Math.max(posDisplayCount - (reset ? 0 : allProducts.length), POS_PAGE_SIZE));
+        params.set('offset', reset ? 0 : allProducts.length);
+        const response = await fetch(`${API_BASE}/products?${params}`, { headers: getAuthHeaders() });
         const data = await response.json();
-        if (data.success) {
-            allProducts = Array.isArray(data.data) ? data.data : [];
-            posDisplayCount = POS_PAGE_SIZE;
+        if (data.success && Array.isArray(data.data)) {
+            allProducts = reset ? data.data : allProducts.concat(data.data);
+            posTotal = data.total ?? allProducts.length;
             renderProducts(allProducts);
-            renderCategoryFilters();
-            if ((data.total || 0) > allProducts.length) {
-                await loadRemainingProducts();
-            }
         }
     } catch (error) {
         console.error('Error loading products:', error);
     }
 }
 
-async function loadRemainingProducts() {
-    try {
-        const response = await fetch(`${API_BASE}/products?offset=${POS_PAGE_SIZE}`, { headers: getAuthHeaders() });
-        const data = await response.json();
-        if (data.success && Array.isArray(data.data) && data.data.length) {
-            const seen = new Set(allProducts.map(p => p.id));
-            allProducts = allProducts.concat(data.data.filter(p => !seen.has(p.id)));
-            renderCategoryFilters();
-            applyPosFilter();
-        }
-    } catch (error) {
-        console.error('Error loading remaining products:', error);
-    }
-}
-
-// Poll the lightweight stock endpoint and re-render only when something changed.
+// Poll the tiny id→stock endpoint; when something changed, refetch just the
+// visible page(s) of the current query so stocks stay live.
 async function refreshStockLevels() {
     if (document.hidden || !allProducts.length) return;
     try {
@@ -79,27 +77,20 @@ async function refreshStockLevels() {
         const data = await response.json();
         if (!data.success || !Array.isArray(data.data)) return;
         const levels = new Map(data.data.map(r => [r.id, parseFloat(r.stock_quantity)]));
-        let changed = false;
-        allProducts.forEach(p => {
-            const s = levels.get(p.id);
-            if (s !== undefined && parseFloat(p.stock_quantity) !== s) {
-                p.stock_quantity = s;
-                changed = true;
-            }
-        });
-        // Products added/removed elsewhere → full resync
-        const known = new Set(allProducts.map(p => p.id));
-        const structural = data.data.length !== allProducts.length || data.data.some(r => !known.has(r.id));
-        if (structural) {
-            const full = await fetch(`${API_BASE}/products`, { headers: getAuthHeaders() });
-            const fullData = await full.json();
-            if (fullData.success && Array.isArray(fullData.data)) {
-                allProducts = fullData.data;
-                renderCategoryFilters();
-                applyPosFilter();
-            }
-        } else if (changed) {
-            applyPosFilter();
+        const changed = allProducts.some(p => levels.has(p.id) && parseFloat(p.stock_quantity) !== levels.get(p.id));
+        const removed = allProducts.some(p => !levels.has(p.id));
+        const grewOrShrank = posCatalogSize !== null && data.data.length !== posCatalogSize;
+        posCatalogSize = data.data.length;
+        if (!changed && !removed && !grewOrShrank) return;
+        const params = posQuery();
+        params.set('limit', Math.max(allProducts.length, POS_PAGE_SIZE));
+        params.set('offset', 0);
+        const full = await fetch(`${API_BASE}/products?${params}`, { headers: getAuthHeaders() });
+        const fullData = await full.json();
+        if (fullData.success && Array.isArray(fullData.data)) {
+            allProducts = fullData.data;
+            posTotal = fullData.total ?? allProducts.length;
+            renderProducts(allProducts);
         }
     } catch (e) {
         // Network hiccup — keep showing what we have; next poll retries.
@@ -110,49 +101,42 @@ function productCategory(p) {
     return p.category_name || p.category || '';
 }
 
-function renderCategoryFilters() {
-    const cats = new Set();
-    allProducts.forEach(p => { const c = productCategory(p); if (c) cats.add(c); });
+// Category buttons come from the categories table (the loaded products no
+// longer cover the whole catalog); filtering happens on the server by id.
+async function renderCategoryFilters() {
     const container = document.getElementById('categoryFilters');
     if (!container) return;
+    let cats = [];
+    try {
+        const res = await fetch(`${API_BASE}/products/categories`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) cats = data.data;
+    } catch (e) { /* keep just the All button */ }
     let html = '<button class="pos-category-filter active" data-cat="" onclick="filterByCategory(this,\'\')">All</button>';
     cats.forEach(c => {
-        html += `<button class="pos-category-filter" data-cat="${escHtml(c)}" onclick="filterByCategory(this,'${escHtml(c)}')">${escHtml(c)}</button>`;
+        html += `<button class="pos-category-filter" data-cat="${c.id}" onclick="filterByCategory(this,'${c.id}')">${escHtml(c.name)}</button>`;
     });
     container.innerHTML = html;
 }
 
-let activeCategory = '';
+let activeCategory = ''; // category id, '' = all
 
 function filterByCategory(btn, cat) {
     activeCategory = cat;
-    posDisplayCount = POS_PAGE_SIZE;
     document.querySelectorAll('.pos-category-filter').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    filterProducts();
+    loadProducts();
 }
 
+// Debounced: each keystroke would otherwise fire a server query
 function filterProducts() {
-    posDisplayCount = POS_PAGE_SIZE;
-    applyPosFilter();
-}
-
-// Re-render with the active search/category without resetting how many
-// items are shown (used when background-loaded products arrive).
-function applyPosFilter() {
-    const q = (document.getElementById('posSearchInput')?.value || '').toLowerCase();
-    const filtered = allProducts.filter(p => {
-        const matchSearch = !q || (p.name || '').toLowerCase().includes(q) || (p.barcode || '').toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q);
-        const matchCat = !activeCategory || productCategory(p) === activeCategory;
-        return matchSearch && matchCat;
-    });
-    renderProducts(filtered);
+    clearTimeout(posSearchDebounce);
+    posSearchDebounce = setTimeout(() => loadProducts(), 250);
 }
 
 function renderProducts(products) {
     const grid = document.getElementById('productGrid');
     if (!grid) return;
-    posFilteredProducts = products;
     if (products.length === 0) {
         grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);"><span class="material-symbols-outlined" style="font-size:40px;">search_off</span><br>No products found</div>';
         document.getElementById('posPagination').innerHTML = '';
@@ -179,12 +163,16 @@ function renderProducts(products) {
             <div class="p-stock ${stockClass}">${stockText}</div>
         </div>`;
     }).join('');
-    updatePagination('posPagination', products, posDisplayCount, 'showMorePosProducts', 'showLessPosProducts', POS_PAGE_SIZE);
+    updatePagination('posPagination', { length: posTotal }, posDisplayCount, 'showMorePosProducts', 'showLessPosProducts', POS_PAGE_SIZE);
 }
 
-function showMorePosProducts() {
+async function showMorePosProducts() {
     posDisplayCount += POS_PAGE_SIZE;
-    renderProducts(posFilteredProducts);
+    if (allProducts.length < Math.min(posDisplayCount, posTotal)) {
+        await loadProducts(false); // fetch the next page from the backend
+    } else {
+        renderProducts(allProducts);
+    }
 }
 
 function showLessPosProducts() {
@@ -193,21 +181,26 @@ function showLessPosProducts() {
 }
 
 // Find a product by scanned/typed code (barcode or SKU, case/space tolerant)
-// and add it to the cart. Returns true if something was added.
-function scanToCart(rawCode) {
+// and add it to the cart. Falls back to a server search since only a page of
+// products is loaded. Resolves true if something was added.
+async function scanToCart(rawCode) {
     const code = String(rawCode || '').trim();
     if (code.length < 2) return false;
     const norm = code.toLowerCase();
-    let found = allProducts.find(p =>
+    const exact = list => list.find(p =>
         (p.barcode && String(p.barcode).trim() === code) ||
         (p.sku && String(p.sku).trim().toLowerCase() === norm));
+    let found = exact(allProducts);
     if (!found) {
-        // fall back to a single unambiguous name/sku/barcode match
-        const matches = allProducts.filter(p =>
-            (p.name || '').toLowerCase().includes(norm) ||
-            (p.sku || '').toLowerCase().includes(norm) ||
-            (p.barcode || '').toLowerCase().includes(norm));
-        if (matches.length === 1) found = matches[0];
+        try {
+            const res = await fetch(`${API_BASE}/products?search=${encodeURIComponent(code)}&limit=5`, { headers: getAuthHeaders() });
+            const data = await res.json();
+            const rows = (data.success && Array.isArray(data.data)) ? data.data : [];
+            // exact barcode/SKU hit, or a single unambiguous match
+            found = exact(rows) || (rows.length === 1 ? rows[0] : null);
+            // keep it in memory so addToCart/cart stock checks can find it
+            if (found && !allProducts.some(p => p.id === found.id)) allProducts.push(found);
+        } catch (e) { /* treated as not found */ }
     }
     if (found) { addToCart(found.id); return true; }
     showToast('No product found for "' + code + '"', 'error');
@@ -237,7 +230,7 @@ function setupBarcodeListener() {
         const isScan = code.length >= 3 && dur < code.length * 55; // fast => scanner
         buf = '';
         if (isScan && (hadEnter || code.length >= 4)) {
-            if (scanToCart(code)) clearActiveField();
+            scanToCart(code).then(ok => { if (ok) clearActiveField(); });
             return true;
         }
         return false;
@@ -273,7 +266,9 @@ function setupBarcodeListener() {
         el.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                if (scanToCart(el.value)) { el.value = ''; if (el.id === 'posSearchInput') filterProducts(); }
+                scanToCart(el.value).then(ok => {
+                    if (ok) { el.value = ''; if (el.id === 'posSearchInput') filterProducts(); }
+                });
             }
         });
     }
