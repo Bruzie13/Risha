@@ -147,7 +147,7 @@ function renderProducts(products) {
         const unitLabel = getUnitLabel(p.unit_type);
         const stock = parseFloat(p.stock_quantity) || 0;
         let stockClass = '';
-        let stockText = stock + unitLabel;
+        let stockText = formatQty(stock) + unitLabel;
         if (stock <= 0) { stockClass = 'out'; stockText = 'Out of stock'; }
         else if (stock <= 10) stockClass = 'low';
         const cat = productCategory(p).toLowerCase();
@@ -347,7 +347,7 @@ function setCartQty(idx, value) {
     newQty = parseFloat(newQty.toFixed(2));
     const maxStock = parseFloat(allProducts.find(p => p.id === item.product_id)?.stock_quantity || 999);
     if (newQty > maxStock) {
-        showToast('Only ' + maxStock + ' in stock', 'error');
+        showToast('Only ' + formatQty(maxStock) + ' in stock', 'error');
         newQty = maxStock;
     }
     item.quantity = newQty;

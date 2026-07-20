@@ -59,7 +59,7 @@ function populateProductSelect(products) {
         const opt = document.createElement('option');
         opt.value = p.id;
         const unitLabel = getUnitLabel(p.unit_type);
-        opt.textContent = `${p.name} (${p.stock_quantity}${unitLabel})`;
+        opt.textContent = `${p.name} (${formatQty(p.stock_quantity)}${unitLabel})`;
         opt.dataset.price = p.unit_price;
         opt.dataset.stock = p.stock_quantity;
         opt.dataset.unitType = p.unit_type || 'piece';
@@ -72,7 +72,7 @@ function populateProductSelect(products) {
             document.getElementById('unit_price').value = parseFloat(selected.dataset.price).toFixed(2);
             const unitType = selected.dataset.unitType || 'piece';
             const stock = parseFloat(selected.dataset.stock);
-            document.getElementById('maxStock').textContent = stock + getUnitLabel(unitType);
+            document.getElementById('maxStock').textContent = formatQty(stock) + getUnitLabel(unitType);
             const qtyInput = document.getElementById('quantity');
             qtyInput.step = getQtyStep(unitType);
             qtyInput.value = getQtyStep(unitType);
@@ -105,7 +105,7 @@ function setupAutocomplete() {
             list.innerHTML = matches.map(p => {
                 const unitLabel = getUnitLabel(p.unit_type);
                 return `<div class="ac-item" onclick="selectAutocomplete(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${p.unit_price}, ${p.stock_quantity}, '${(p.expiration_date || '').replace(/'/g, "\\'")}', '${p.unit_type || 'piece'}')">
-                    ${p.name} <small>Stock: ${p.stock_quantity}${unitLabel} | ₱${parseFloat(p.unit_price).toFixed(2)}${unitLabel ? '/' + unitLabel.trim() : ''}</small>
+                    ${p.name} <small>Stock: ${formatQty(p.stock_quantity)}${unitLabel} | ₱${parseFloat(p.unit_price).toFixed(2)}${unitLabel ? '/' + unitLabel.trim() : ''}</small>
                 </div>`;
             }).join('');
             list.style.display = 'block';
@@ -135,7 +135,7 @@ function selectAutocomplete(id, name, price, stock, expiration, unitType) {
     const sel = document.getElementById('product_select');
     if (sel) sel.value = id;
     document.getElementById('unit_price').value = parseFloat(price).toFixed(2);
-    document.getElementById('maxStock').textContent = stock + getUnitLabel(unitType);
+    document.getElementById('maxStock').textContent = formatQty(stock) + getUnitLabel(unitType);
     // Set qty step based on unit type, auto-add with base qty
     const qtyInput = document.getElementById('quantity');
     if (qtyInput) {
@@ -504,7 +504,7 @@ function addItemToSale() {
     }
 
     if (qty > stock) {
-        showToast(`Insufficient stock. Available: ${stock}${getUnitLabel(unitType)}`, 'error');
+        showToast(`Insufficient stock. Available: ${formatQty(stock)}${getUnitLabel(unitType)}`, 'error');
         return;
     }
 
@@ -513,7 +513,7 @@ function addItemToSale() {
     if (existing) {
         const newQty = existing.quantity + qty;
         if (newQty > stock) {
-            showToast(`Total would exceed stock. Available: ${stock}${getUnitLabel(unitType)}, in cart: ${existing.quantity}${getUnitLabel(unitType)}`, 'error');
+            showToast(`Total would exceed stock. Available: ${formatQty(stock)}${getUnitLabel(unitType)}, in cart: ${formatQty(existing.quantity)}${getUnitLabel(unitType)}`, 'error');
             return;
         }
         existing.quantity = newQty;
