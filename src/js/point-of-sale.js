@@ -196,17 +196,35 @@ function updateItemTotal() {
     }
 }
 
-async function loadSales(dateFrom, dateTo) {
+// Search + date range are applied on the server; allSales only holds the pages
+// fetched so far for the current query.
+let salesTotal = 0;
+let salesSearchDebounce = null;
+
+function salesQuery() {
+    const params = new URLSearchParams();
+    const search = document.getElementById('searchInput')?.value?.trim();
+    const from = document.getElementById('dateFrom')?.value;
+    const to = document.getElementById('dateTo')?.value;
+    if (search) params.set('search', search);
+    if (from) params.set('date_from', from);
+    if (to) params.set('date_to', to);
+    return params;
+}
+
+// reset=true refetches page 1 for the current query; reset=false appends the
+// next page (Show more).
+async function loadSales(reset = true) {
     try {
-        let url = `${API_BASE}/sales`;
-        const params = [];
-        if (dateFrom) params.push(`date_from=${encodeURIComponent(dateFrom)}`);
-        if (dateTo) params.push(`date_to=${encodeURIComponent(dateTo)}`);
-        if (params.length) url += '?' + params.join('&');
-        const response = await fetch(url, { headers: getAuthHeaders() });
+        if (reset) displayCount = PAGE_SIZE;
+        const params = salesQuery();
+        params.set('limit', Math.max(displayCount - (reset ? 0 : allSales.length), PAGE_SIZE));
+        params.set('offset', reset ? 0 : allSales.length);
+        const response = await fetch(`${API_BASE}/sales?${params}`, { headers: getAuthHeaders() });
         const data = await response.json();
         if (data.success) {
-            allSales = Array.isArray(data.data) ? data.data : [];
+            allSales = reset ? (data.data || []) : allSales.concat(data.data || []);
+            salesTotal = data.total ?? allSales.length;
             displaySales(allSales);
             updateStats();
         }
@@ -217,42 +235,12 @@ async function loadSales(dateFrom, dateTo) {
     }
 }
 
-function getFilteredSales() {
-    const term = document.getElementById('searchInput')?.value?.toLowerCase() || '';
-    return allSales.filter(s =>
-        s.id.toString().includes(term) ||
-        (s.staff_name && s.staff_name.toLowerCase().includes(term))
-    );
-}
-
-function showMoreSales() {
+async function showMoreSales() {
     displayCount += PAGE_SIZE;
-    displaySales(getFilteredSales());
-}
-
-// Poll for new/voided sales; re-render only when the list actually changed,
-// preserving the current search and how many rows are shown.
-async function refreshSalesLive() {
-    if (document.hidden) return;
-    try {
-        let url = `${API_BASE}/sales`;
-        const params = [];
-        const from = document.getElementById('dateFrom')?.value;
-        const to = document.getElementById('dateTo')?.value;
-        if (from) params.push(`date_from=${encodeURIComponent(from)}`);
-        if (to) params.push(`date_to=${encodeURIComponent(to)}`);
-        if (params.length) url += '?' + params.join('&');
-        const response = await fetch(url, { headers: getAuthHeaders() });
-        const data = await response.json();
-        if (!data.success || !Array.isArray(data.data)) return;
-        const fresh = data.data;
-        const fingerprint = list => list.map(s => `${s.id}:${s.payment_status}`).join(',');
-        if (fingerprint(fresh) === fingerprint(allSales)) return;
-        allSales = fresh;
-        displaySales(getFilteredSales());
-        updateStats();
-    } catch (e) {
-        // Network hiccup — next poll retries.
+    if (allSales.length < Math.min(displayCount, salesTotal)) {
+        await loadSales(false);
+    } else {
+        displaySales(allSales);
     }
 }
 
@@ -261,13 +249,36 @@ function showLessSales() {
     showMoreSales();
 }
 
+// Poll for new/voided sales; refetch the visible page(s) of the current query
+// only when the list actually changed, preserving search and rows shown.
+async function refreshSalesLive() {
+    if (document.hidden) return;
+    try {
+        const params = salesQuery();
+        params.set('limit', Math.max(allSales.length, PAGE_SIZE));
+        params.set('offset', 0);
+        const response = await fetch(`${API_BASE}/sales?${params}`, { headers: getAuthHeaders() });
+        const data = await response.json();
+        if (!data.success || !Array.isArray(data.data)) return;
+        const fresh = data.data;
+        const fingerprint = list => list.map(s => `${s.id}:${s.payment_status}`).join(',');
+        if (fingerprint(fresh) === fingerprint(allSales)) return;
+        allSales = fresh;
+        salesTotal = data.total ?? allSales.length;
+        displaySales(allSales);
+        updateStats();
+    } catch (e) {
+        // Network hiccup — next poll retries.
+    }
+}
+
 function displaySales(sales) {
     const tbody = document.getElementById('salesTableBody');
     if (!tbody) return;
     const viewer = !canManage(); // delete is admin/manager-only
     if (sales.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" class="text-center">No sales found</td></tr>';
-        updatePagination('salesPagination', sales, displayCount, 'showMoreSales', 'showLessSales', PAGE_SIZE);
+        updatePagination('salesPagination', { length: salesTotal }, displayCount, 'showMoreSales', 'showLessSales', PAGE_SIZE);
     if (window.fetchMotion && !fetchMotion.reduced) { tbody.classList.remove('rows-in'); void tbody.offsetWidth; tbody.classList.add('rows-in'); }
         return;
     }
@@ -292,7 +303,7 @@ function displaySales(sales) {
             </td>
         </tr>
     `).join('');
-    updatePagination('salesPagination', sales, displayCount, 'showMoreSales', 'showLessSales', PAGE_SIZE);
+    updatePagination('salesPagination', { length: salesTotal }, displayCount, 'showMoreSales', 'showLessSales', PAGE_SIZE);
 }
 
 // Void: restores stock, keeps the record with a Voided badge (audit-friendly)
@@ -422,36 +433,30 @@ async function loadEodHistory() {
     } catch (e) { console.error(e); }
 }
 
+// Stat cards come from one aggregate that respects the active date/search
+// filter, so they stay correct even though only a page of sales is loaded.
 async function updateStats() {
     try {
-        const totalRes = await fetch(`${API_BASE}/sales/total-sales`, { headers: getAuthHeaders() });
-        const totalData = await totalRes.json();
-        if (totalData.success) {
-            const totalAmount = parseFloat(totalData.data.total_sales) || 0;
-            setText('totalSalesAmount', formatCompactCurrency(totalAmount));
-            const el = document.getElementById('totalSalesAmount');
-            if (el) el.title = formatCurrency(totalAmount);
-        }
-        setText('totalTransactions', allSales.length);
-        const today = new Date().toDateString();
-        const todaySales = allSales
-            .filter(s => new Date(s.created_at).toDateString() === today)
-            .reduce((sum, s) => sum + parseFloat(s.total_amount), 0);
-        setText('todaysSales', '₱' + todaySales.toFixed(2));
+        const params = salesQuery();
+        const res = await fetch(`${API_BASE}/sales/stats?${params}`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success || !data.data) return;
+        const s = data.data;
+        const revenue = parseFloat(s.revenue) || 0;
+        setText('totalSalesAmount', formatCompactCurrency(revenue));
+        const el = document.getElementById('totalSalesAmount');
+        if (el) el.title = formatCurrency(revenue);
+        setText('totalTransactions', Number(s.transactions) || 0);
+        setText('todaysSales', '₱' + (parseFloat(s.today_revenue) || 0).toFixed(2));
     } catch (error) {
         console.error('Error updating stats:', error);
     }
 }
 
-// Search
-document.getElementById('searchInput')?.addEventListener('keyup', (e) => {
-    displayCount = PAGE_SIZE;
-    const term = e.target.value.toLowerCase();
-    const filtered = allSales.filter(s =>
-        s.id.toString().includes(term) ||
-        (s.staff_name && s.staff_name.toLowerCase().includes(term))
-    );
-    displaySales(filtered);
+// Search runs on the server (debounced so each keystroke isn't a query)
+document.getElementById('searchInput')?.addEventListener('keyup', () => {
+    clearTimeout(salesSearchDebounce);
+    salesSearchDebounce = setTimeout(() => loadSales(), 250);
 });
 
 function openNewSaleModal() {
@@ -827,10 +832,21 @@ document.addEventListener('click', (e) => {
     if (e.target === document.getElementById('viewSaleModal')) closeViewSaleModal();
 });
 
-function exportSalesCsv() {
-    if (!allSales.length) { showToast('No sales to export', 'error'); return; }
+async function exportSalesCsv() {
+    // Only a page is loaded, so pull the whole matching set (current date/search
+    // filter, no limit) for the export.
+    let sales = [];
+    try {
+        const res = await fetch(`${API_BASE}/sales?${salesQuery()}`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        sales = (data.success && Array.isArray(data.data)) ? data.data : [];
+    } catch (e) {
+        showToast('Failed to export sales', 'error');
+        return;
+    }
+    if (!sales.length) { showToast('No sales to export', 'error'); return; }
     const headers = ['Sale #', 'Date', 'Customer', 'Items', 'Total Amount', 'Payment', 'Status'];
-    const rows = allSales.map(s => [
+    const rows = sales.map(s => [
         s.receipt_number || s.id,
         s.transaction_date || s.created_at || '',
         s.customer_name || 'Walk-in',
@@ -856,7 +872,7 @@ function filterSalesByDate() {
     const from = document.getElementById('dateFrom')?.value;
     const to = document.getElementById('dateTo')?.value;
     if (!from && !to) { showToast('Select a date range', 'error'); return; }
-    loadSales(from || undefined, to || undefined);
+    loadSales();
 }
 
 function clearDateFilter() {

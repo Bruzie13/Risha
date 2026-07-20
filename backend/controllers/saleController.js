@@ -3,23 +3,45 @@ const Product = require('../models/Product');
 const logAudit = require('../services/audit');
 const { notifySaleCreated, notifyLowStock, notifyStockout } = require('../services/notifier');
 
+function saleFilters(query) {
+    const filters = {};
+    // accept both param spellings (the frontend used date_from/date_to)
+    const from = query.startDate || query.date_from;
+    const to = query.endDate || query.date_to;
+    if (from) filters.date_from = from;
+    if (to) filters.date_to = to;
+    if (query.search && String(query.search).trim()) filters.search = String(query.search).trim();
+    return filters;
+}
+
 exports.getAllSales = async (req, res) => {
     try {
-        const { startDate, endDate } = req.query;
-        const filters = {};
-        if (startDate) filters.startDate = startDate;
-        if (endDate) filters.endDate = endDate;
+        const filters = saleFilters(req.query);
+        const { limit, offset } = req.query;
+        const paginated = limit !== undefined;
+        if (paginated) {
+            filters.limit = parseInt(limit);
+            if (offset !== undefined) filters.offset = parseInt(offset);
+        }
         const sales = await Sale.getAll(filters);
-        res.status(200).json({
-            success: true,
-            data: sales
-        });
+        const total = paginated ? await Sale.countAll(filters) : sales.length;
+        res.status(200).json({ success: true, data: sales, total });
     } catch (error) {
         console.error('Get sales error:', error);
         res.status(500).json({
             success: false,
             message: 'Error retrieving sales'
         });
+    }
+};
+
+exports.getSalesStats = async (req, res) => {
+    try {
+        const stats = await Sale.getStats(saleFilters(req.query));
+        res.status(200).json({ success: true, data: stats });
+    } catch (error) {
+        console.error('Get sales stats error:', error);
+        res.status(500).json({ success: false, message: 'Error retrieving sales stats' });
     }
 };
 

@@ -4,6 +4,7 @@ const saleController = require('../controllers/saleController');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 router.get('/', authenticateToken, saleController.getAllSales);
+router.get('/stats', authenticateToken, saleController.getSalesStats);
 router.get('/daily-sales', authenticateToken, saleController.getDailySales);
 router.get('/weekly-sales', authenticateToken, saleController.getWeeklySales);
 router.get('/monthly-sales', authenticateToken, saleController.getMonthlySales);

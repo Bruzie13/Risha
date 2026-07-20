@@ -1,44 +1,79 @@
 const pool = require('../config/database');
 
 class Sale {
+    // Shared date/search WHERE, used by getAll, countAll and getStats so the
+    // page, its total and its stat cards all cover the same rows.
+    static _filterWhere(filters, params) {
+        const conditions = [];
+        const from = filters.startDate || filters.date_from;
+        const to = filters.endDate || filters.date_to;
+        if (from) { conditions.push('DATE(s.created_at) >= ?'); params.push(from); }
+        if (to) { conditions.push('DATE(s.created_at) <= ?'); params.push(to); }
+        if (filters.search) {
+            conditions.push('(CAST(s.id AS CHAR) LIKE ? OR s.sale_number LIKE ? OR u.full_name LIKE ?)');
+            const like = `%${filters.search}%`;
+            params.push(like, like, like);
+        }
+        return conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
+    }
+
     static async getAll(filters = {}) {
         const connection = await pool.getConnection();
         try {
+            const params = [];
             let sql = `SELECT s.id, s.sale_number, s.customer_name, s.customer_phone, s.total_amount, s.discount,
                         s.final_amount, s.payment_method, s.payment_status, s.notes, s.created_by,
                         UNIX_TIMESTAMP(s.created_at) * 1000 as created_at,
                         UNIX_TIMESTAMP(s.updated_at) * 1000 as updated_at,
                         u.full_name as staff_name,
                  (SELECT COUNT(*) FROM sale_items si WHERE si.sale_id = s.id) as item_count
-                 FROM sales s 
+                 FROM sales s
                  LEFT JOIN users u ON s.created_by = u.id`;
-            const params = [];
-            const conditions = [];
-
-            if (filters.startDate) {
-                conditions.push('DATE(s.created_at) >= ?');
-                params.push(filters.startDate);
-            }
-            if (filters.endDate) {
-                conditions.push('DATE(s.created_at) <= ?');
-                params.push(filters.endDate);
-            }
-            if (filters.limit) {
-                conditions.push('1=1');
-            }
-
-            if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
+            sql += Sale._filterWhere(filters, params);
             sql += ' ORDER BY s.created_at DESC';
 
-            if (filters.limit) {
-                const limitVal = parseInt(filters.limit);
-                if (!isNaN(limitVal) && limitVal > 0) {
-                    sql += ' LIMIT ' + limitVal;
-                }
+            // LIMIT/OFFSET inlined (parseInt-sanitized) — mysql2 rejects them as
+            // placeholders.
+            const lim = parseInt(filters.limit);
+            if (Number.isInteger(lim) && lim > 0) {
+                sql += ' LIMIT ' + lim;
+                const off = parseInt(filters.offset);
+                if (Number.isInteger(off) && off > 0) sql += ' OFFSET ' + off;
             }
 
             const [rows] = await connection.execute(sql, params);
             return rows;
+        } finally {
+            connection.release();
+        }
+    }
+
+    static async countAll(filters = {}) {
+        const connection = await pool.getConnection();
+        try {
+            const params = [];
+            let sql = 'SELECT COUNT(*) as total FROM sales s LEFT JOIN users u ON s.created_by = u.id';
+            sql += Sale._filterWhere(filters, params);
+            const [rows] = await connection.execute(sql, params);
+            return rows[0].total;
+        } finally {
+            connection.release();
+        }
+    }
+
+    // Count + revenue for the filtered range (non-voided), plus today's revenue,
+    // so the sales-history stat cards never need the whole table.
+    static async getStats(filters = {}) {
+        const connection = await pool.getConnection();
+        try {
+            const params = [];
+            let sql = `SELECT COUNT(*) AS transactions,
+                        COALESCE(SUM(CASE WHEN s.payment_status <> 'voided' THEN s.total_amount ELSE 0 END), 0) AS revenue,
+                        COALESCE(SUM(CASE WHEN s.payment_status <> 'voided' AND DATE(s.created_at) = CURDATE() THEN s.total_amount ELSE 0 END), 0) AS today_revenue
+                       FROM sales s LEFT JOIN users u ON s.created_by = u.id`;
+            sql += Sale._filterWhere(filters, params);
+            const [rows] = await connection.execute(sql, params);
+            return rows[0];
         } finally {
             connection.release();
         }
