@@ -913,7 +913,11 @@ body {
   letter-spacing: -0.6px;
   font-variant-numeric: tabular-nums;
   margin-top: 6px;
-  white-space: nowrap;
+  /* Long amounts (or a larger text-size setting) wrap to a second line
+     instead of running under the icon or getting clipped */
+  overflow-wrap: anywhere;
+  line-height: 1.15;
+  min-width: 0;
 }
 
 .stat-value.warning { color: var(--warning); }
@@ -2654,7 +2658,9 @@ body.help-guide-open::after {
   letter-spacing: -0.7px;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  /* wrap long amounts rather than overflowing the card */
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .kpi-card .kpi-foot {

@@ -501,7 +501,7 @@ function showToast(message, type) {
     setTimeout(() => {
         toast.style.animation = 'toastOut 0.3s ease forwards';
         setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    }, 4500);
 }
 
 function escHtml(str) {

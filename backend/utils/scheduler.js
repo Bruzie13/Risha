@@ -72,9 +72,13 @@ async function checkLowStock() {
         if (products.length === 0) return;
 
         for (const p of products) {
+            // Don't repeat the same alert every sweep/page-visit: at most one
+            // notification per product per REALERT_HOURS.
             if (p.stock_quantity <= 0) {
-                await notifier.notifyStockout(p).catch(() => {});
-            } else {
+                if (!(await notificationExistsForProduct(p.id, '%Out of Stock%'))) {
+                    await notifier.notifyStockout(p).catch(() => {});
+                }
+            } else if (!(await notificationExistsForProduct(p.id, 'Low Stock%'))) {
                 await notifier.notifyLowStock(p).catch(() => {});
             }
         }
@@ -130,7 +134,9 @@ async function checkExpiringProducts() {
         for (const p of products) {
             const daysLeft = Math.ceil((new Date(p.expiration_date) - new Date()) / (1000 * 60 * 60 * 24));
             const type = daysLeft <= 7 ? 'expiration' : 'info';
-            const exists = await notificationExistsForProduct(p.id, `Expir%`);
+            // '%Expir%' — the title is 'Product Expiring Soon', so a prefix
+            // pattern never matched and these re-alerted on every sweep
+            const exists = await notificationExistsForProduct(p.id, '%Expir%');
             if (!exists) {
                 await notifier.notifyExpiringSoon(p, daysLeft).catch(() => {});
             }
@@ -174,6 +180,10 @@ async function cleanOldNotifications() {
     }
 }
 
+// How long before the same product alert may repeat (low stock / stockout /
+// expiring / overstock). Raise to re-alert less often.
+const REALERT_HOURS = 48;
+
 async function notificationExistsForProduct(productId, titlePattern) {
     try {
         const conn = await pool.getConnection();
@@ -181,7 +191,7 @@ async function notificationExistsForProduct(productId, titlePattern) {
             `SELECT id FROM notifications
              WHERE product_id = ?
              AND title LIKE ?
-             AND created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)`,
+             AND created_at > DATE_SUB(NOW(), INTERVAL ${REALERT_HOURS} HOUR)`,
             [productId, titlePattern]
         );
         conn.release();
