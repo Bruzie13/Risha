@@ -1,7 +1,7 @@
 /* FETCH Assistant — floating chat widget injected on every page.
    Talks to /api/assistant, which answers questions about this shop only. */
 (function () {
-    if (window.location.pathname.includes('login.html')) return;
+    if (window.location.pathname.includes('login.html') || window.location.pathname === '/' || window.location.pathname.endsWith('/')) return;
 
     let open = false;
     let enabled = null; // unknown until /status
