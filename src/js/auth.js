@@ -351,6 +351,11 @@ function showErrorDialog(title, message, opts) {
 }
 
 function applyTheme() {
+    // The login page is always light-themed
+    if (window.location.pathname.includes('login.html') || window.location.pathname === '/' || window.location.pathname.endsWith('/')) {
+        document.documentElement.classList.remove('dark-mode');
+        return;
+    }
     const saved = localStorage.getItem('theme');
     if (saved === 'dark' || ((saved === 'system' || !saved) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark-mode');
