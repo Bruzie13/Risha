@@ -65,6 +65,29 @@
             background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
             pointer-events: none;
         }
+        .login-brand::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            opacity: 0.14;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90' viewBox='0 0 90 90'><g fill='%23FFFFFF'><ellipse cx='45' cy='52' rx='12' ry='9'/><ellipse cx='31' cy='38' rx='5.2' ry='6.6'/><ellipse cx='45' cy='30' rx='5.6' ry='7'/><ellipse cx='59' cy='38' rx='5.2' ry='6.6'/><ellipse cx='38' cy='34' rx='4.6' ry='6' transform='rotate(-18 38 34)'/></g></svg>");
+            background-size: 90px 90px;
+            background-position: 0 0;
+        }
+        .pet-illustration {
+            position: absolute;
+            right: -6px;
+            bottom: -8px;
+            width: 128px;
+            height: auto;
+            filter: drop-shadow(0 10px 18px rgba(0,0,0,0.15));
+            opacity: 0.97;
+            pointer-events: none;
+        }
+        @media (min-height: 720px) {
+            .pet-illustration { width: 168px; bottom: -10px; }
+        }
         .login-brand .brand-icon {
             width: 64px;
             height: 64px;
@@ -261,22 +284,34 @@
         .l3d-orb.o1 { width: 260px; height: 260px; left: 6%; top: 16%;
             background: radial-gradient(circle at 32% 28%, var(--primary-light), var(--primary));
             opacity: 0.5; animation: floatA 9s ease-in-out infinite; }
-        .l3d-orb.o2 { width: 170px; height: 170px; right: 10%; top: 20%;
-            background: radial-gradient(circle at 32% 28%, #a9dbf3, var(--secondary, #4FA8DE));
-            opacity: 0.45; animation: floatB 11s ease-in-out infinite; }
         .l3d-orb.o3 { width: 340px; height: 340px; right: 4%; bottom: 6%;
             background: radial-gradient(circle at 32% 28%, #ffdca6, var(--accent, #E8930C));
             opacity: 0.38; animation: floatA 14s ease-in-out infinite reverse; }
-        .l3d-orb.o4 { width: 120px; height: 120px; left: 16%; bottom: 14%;
-            background: radial-gradient(circle at 32% 28%, var(--primary-light), var(--primary-dark));
-            opacity: 0.5; animation: floatB 8s ease-in-out infinite; }
-        .l3d-ring {
-            position: absolute; width: 240px; height: 240px; left: 40%; top: 36%;
-            border-radius: 50%; border: 2px solid rgba(255,255,255,0.4);
-            box-shadow: 0 0 70px var(--primary-glow) inset, 0 0 40px var(--primary-glow);
-            animation: spinRing 20s linear infinite;
-        }
         :root.dark-mode .l3d-orb { filter: blur(6px); }
+        .l3d-paw {
+            position: absolute;
+            font-size: 46px;
+            color: var(--primary);
+            opacity: 0.22;
+            will-change: transform;
+        }
+        .l3d-paw.p1 { left: 9%; top: 22%; color: var(--primary); animation: floatB 10s ease-in-out infinite; }
+        .l3d-paw.p2 { right: 14%; top: 14%; font-size: 32px; color: var(--secondary, #4FA8DE); opacity: 0.2; animation: floatA 12s ease-in-out infinite; }
+        .l3d-paw.p3 { right: 8%; bottom: 18%; font-size: 60px; color: var(--accent, #E8930C); opacity: 0.18; animation: floatB 13s ease-in-out infinite reverse; }
+        .l3d-paw.p4 { left: 18%; bottom: 12%; font-size: 30px; animation: floatA 8s ease-in-out infinite; }
+        .l3d-paw.p5 { left: 42%; top: 8%; font-size: 24px; opacity: 0.16; animation: floatB 9.5s ease-in-out infinite reverse; }
+        :root.dark-mode .l3d-paw { opacity: 0.16; }
+        .l3d-shape {
+            position: absolute;
+            opacity: 0.2;
+            will-change: transform;
+        }
+        .l3d-shape svg { display: block; }
+        .l3d-shape.bone1 { left: 26%; top: 12%; width: 54px; transform: rotate(-18deg); animation: floatA 11s ease-in-out infinite; }
+        .l3d-shape.bone2 { right: 22%; bottom: 10%; width: 40px; transform: rotate(24deg); animation: floatB 12.5s ease-in-out infinite reverse; }
+        .l3d-shape.fish1 { left: 7%; bottom: 30%; width: 52px; transform: rotate(12deg); animation: floatB 10.5s ease-in-out infinite; }
+        .l3d-shape.fish2 { right: 6%; top: 34%; width: 44px; transform: rotate(-10deg); animation: floatA 13s ease-in-out infinite reverse; }
+        :root.dark-mode .l3d-shape { opacity: 0.14; }
         @keyframes floatA {
             0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
             50% { transform: translate3d(0, -30px, 40px) rotate(8deg); }
@@ -308,6 +343,7 @@
             .login-brand .brand-features { display: none; }
             .login-form-wrap { padding: 32px 28px; }
             .login-brand h1 { font-size: 26px; }
+            .pet-illustration { width: 72px; top: 14px; right: 14px; bottom: auto; left: auto; opacity: 0.85; }
         }
     </style>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');if(!localStorage.getItem('authToken'))document.cookie='token=;path=/;max-age=0';try{var _av=JSON.parse(localStorage.getItem('accentVars')||'null');if(_av){for(var _k in _av)document.documentElement.style.setProperty(_k,_av[_k]);}}catch(e){}var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
@@ -315,16 +351,91 @@
 <body>
     <div class="login-3d" id="login3d" aria-hidden="true">
         <span class="l3d-orb o1"></span>
-        <span class="l3d-orb o2"></span>
-        <span class="l3d-ring"></span>
         <span class="l3d-orb o3"></span>
-        <span class="l3d-orb o4"></span>
+        <span class="material-symbols-outlined l3d-paw p1">pets</span>
+        <span class="material-symbols-outlined l3d-paw p2">pets</span>
+        <span class="material-symbols-outlined l3d-paw p3">pets</span>
+        <span class="material-symbols-outlined l3d-paw p4">pets</span>
+        <span class="material-symbols-outlined l3d-paw p5">pets</span>
+        <span class="l3d-shape bone1"><svg viewBox="0 0 64 28" xmlns="http://www.w3.org/2000/svg"><path d="M13 6 a6.5 6.5 0 1 0 4 11.6 L47 17.6 a6.5 6.5 0 1 0 11.6 -4 a6.5 6.5 0 1 0 -11.6 -4 L17 10 a6.5 6.5 0 0 0 -4 -4 Z" fill="var(--primary)"/></svg></span>
+        <span class="l3d-shape bone2"><svg viewBox="0 0 64 28" xmlns="http://www.w3.org/2000/svg"><path d="M13 6 a6.5 6.5 0 1 0 4 11.6 L47 17.6 a6.5 6.5 0 1 0 11.6 -4 a6.5 6.5 0 1 0 -11.6 -4 L17 10 a6.5 6.5 0 0 0 -4 -4 Z" fill="var(--accent, #E8930C)"/></svg></span>
+        <span class="l3d-shape fish1"><svg viewBox="0 0 64 36" xmlns="http://www.w3.org/2000/svg"><path d="M6 18 Q22 2 40 10 Q52 15 54 18 Q52 21 40 26 Q22 34 6 18 Z" fill="var(--secondary, #4FA8DE)"/><path d="M50 18 L62 8 L58 18 L62 28 Z" fill="var(--secondary, #4FA8DE)"/><circle cx="18" cy="15" r="2.4" fill="#fff" opacity="0.8"/></svg></span>
+        <span class="l3d-shape fish2"><svg viewBox="0 0 64 36" xmlns="http://www.w3.org/2000/svg"><path d="M6 18 Q22 2 40 10 Q52 15 54 18 Q52 21 40 26 Q22 34 6 18 Z" fill="var(--primary)"/><path d="M50 18 L62 8 L58 18 L62 28 Z" fill="var(--primary)"/><circle cx="18" cy="15" r="2.4" fill="#fff" opacity="0.8"/></svg></span>
     </div>
     <div class="login-page">
         <div class="login-container">
             <div class="login-brand">
                 <div class="brand-icon" title="FETCH — Inventory Management for Risha Pet Supplies"><img src="images/logo.jpeg" alt="RISHA" title="FETCH — Inventory Management for Risha Pet Supplies"></div>
                 <h1><span class="skel-reveal skel-reveal-inline">FETCH <span>for Risha Pet Supplies</span></span></h1>
+                <p><span class="skel-reveal skel-reveal-inline">Where every tail wags and every purr matters.</span></p>
+                <div class="brand-features">
+                    <div class="feature"><span class="f-icon"><span class="material-symbols-outlined" style="font-size:16px;">inventory_2</span></span> Real-time inventory tracking</div>
+                    <div class="feature"><span class="f-icon"><span class="material-symbols-outlined" style="font-size:16px;">receipt_long</span></span> Fast, cash-only POS checkout</div>
+                    <div class="feature"><span class="f-icon"><span class="material-symbols-outlined" style="font-size:16px;">pets</span></span> Built for pet shops, by pet lovers</div>
+                </div>
+                <svg class="pet-illustration" viewBox="0 0 340 230" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <!-- grass mound -->
+                    <ellipse cx="175" cy="228" rx="165" ry="26" fill="rgba(255,255,255,0.14)"/>
+                    <ellipse cx="175" cy="234" rx="140" ry="20" fill="rgba(255,255,255,0.10)"/>
+                    <!-- cat (striped, tail curled) -->
+                    <g>
+                        <path d="M262 205 Q302 200 296 158" stroke="#E8EBEE" stroke-width="15" fill="none" stroke-linecap="round"/>
+                        <path d="M296 166 L296 158" stroke="#C9CFD6" stroke-width="15" stroke-linecap="round"/>
+                        <ellipse cx="222" cy="168" rx="46" ry="44" fill="#E8EBEE"/>
+                        <path d="M186 160 Q222 148 258 160 L258 176 Q222 164 186 176 Z" fill="#C9CFD6" opacity="0.55"/>
+                        <circle cx="230" cy="106" r="33" fill="#E8EBEE"/>
+                        <path d="M206 86 L196 56 L221 76 Z" fill="#E8EBEE"/>
+                        <path d="M254 86 L266 56 L240 76 Z" fill="#E8EBEE"/>
+                        <path d="M206 84 L199 63 L218 78 Z" fill="#F5B9AF"/>
+                        <path d="M254 84 L261 63 L242 78 Z" fill="#F5B9AF"/>
+                        <path d="M212 80 Q230 70 248 80" stroke="#C9CFD6" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.6"/>
+                        <line x1="203" y1="108" x2="182" y2="103" stroke="#B9C0C8" stroke-width="1.6" stroke-linecap="round"/>
+                        <line x1="203" y1="114" x2="182" y2="117" stroke="#B9C0C8" stroke-width="1.6" stroke-linecap="round"/>
+                        <line x1="257" y1="108" x2="278" y2="103" stroke="#B9C0C8" stroke-width="1.6" stroke-linecap="round"/>
+                        <line x1="257" y1="114" x2="278" y2="117" stroke="#B9C0C8" stroke-width="1.6" stroke-linecap="round"/>
+                        <ellipse cx="218" cy="104" rx="3.6" ry="4.6" fill="#37424E"/>
+                        <ellipse cx="242" cy="104" rx="3.6" ry="4.6" fill="#37424E"/>
+                        <circle cx="219.2" cy="102.4" r="1.2" fill="#FFFFFF"/>
+                        <circle cx="243.2" cy="102.4" r="1.2" fill="#FFFFFF"/>
+                        <path d="M226 113 L234 113 L230 118.5 Z" fill="#F5A79B"/>
+                        <path d="M230 118.5 Q230 124 221 122.5" stroke="#8B97A3" stroke-width="1.7" fill="none" stroke-linecap="round"/>
+                        <path d="M230 118.5 Q230 124 239 122.5" stroke="#8B97A3" stroke-width="1.7" fill="none" stroke-linecap="round"/>
+                        <ellipse cx="200" cy="204" rx="13" ry="8" fill="#E8EBEE"/>
+                        <ellipse cx="244" cy="204" rx="13" ry="8" fill="#E8EBEE"/>
+                    </g>
+                    <!-- dog (floppy ears, collar + tag) -->
+                    <g>
+                        <path d="M60 208 Q34 204 40 182" stroke="#F4D9AD" stroke-width="13" fill="none" stroke-linecap="round"/>
+                        <ellipse cx="108" cy="164" rx="55" ry="52" fill="#F4D9AD"/>
+                        <ellipse cx="108" cy="184" rx="34" ry="30" fill="#FBF0DC"/>
+                        <circle cx="96" cy="96" r="40" fill="#F4D9AD"/>
+                        <path d="M62 78 Q42 84 46 116 Q48 132 62 128 Q70 112 66 88 Z" fill="#D9A968"/>
+                        <path d="M130 78 Q150 84 146 116 Q144 132 130 128 Q122 112 126 88 Z" fill="#D9A968"/>
+                        <ellipse cx="96" cy="112" rx="19" ry="14" fill="#FBF0DC"/>
+                        <circle cx="82" cy="90" r="4.6" fill="#37424E"/>
+                        <circle cx="110" cy="90" r="4.6" fill="#37424E"/>
+                        <circle cx="83.5" cy="88.4" r="1.4" fill="#FFFFFF"/>
+                        <circle cx="111.5" cy="88.4" r="1.4" fill="#FFFFFF"/>
+                        <ellipse cx="96" cy="108" rx="6" ry="5" fill="#5C4433"/>
+                        <path d="M96 113 Q96 119 88 119" stroke="#5C4433" stroke-width="2" fill="none" stroke-linecap="round"/>
+                        <path d="M96 113 Q96 119 104 119" stroke="#5C4433" stroke-width="2" fill="none" stroke-linecap="round"/>
+                        <path d="M86 122 Q96 128 106 122" stroke="#5C4433" stroke-width="2" fill="none" stroke-linecap="round"/>
+                        <!-- collar -->
+                        <path d="M66 138 Q96 152 126 138 L126 148 Q96 162 66 148 Z" fill="#E0655B"/>
+                        <circle cx="96" cy="156" r="7" fill="#F7C948"/>
+                        <circle cx="96" cy="156" r="3" fill="#E8A917" opacity="0.6"/>
+                        <ellipse cx="82" cy="212" rx="14" ry="8" fill="#F4D9AD"/>
+                        <ellipse cx="134" cy="212" rx="14" ry="8" fill="#F4D9AD"/>
+                    </g>
+                    <!-- little bird perched between them -->
+                    <g>
+                        <ellipse cx="171" cy="196" rx="13" ry="11" fill="#9BD4E4"/>
+                        <circle cx="180" cy="186" r="8" fill="#9BD4E4"/>
+                        <path d="M186 186 L194 184 L187 190 Z" fill="#F7C948"/>
+                        <circle cx="181.5" cy="184" r="1.8" fill="#37424E"/>
+                        <path d="M162 194 Q154 198 160 203" stroke="#7BC2D6" stroke-width="4" fill="none" stroke-linecap="round"/>
+                    </g>
+                </svg>
             </div>
             <div class="login-form-wrap">
                 <div class="welcome-text">
