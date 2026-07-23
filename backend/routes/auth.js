@@ -25,6 +25,8 @@ function rateLimitLogin(req, res, next) {
 }
 
 router.post('/login', rateLimitLogin, authController.login);
+router.post('/forgot-password', rateLimitLogin, authController.forgotPassword);
+router.post('/reset-password', rateLimitLogin, authController.resetPassword);
 router.post('/logout', authController.logout);
 router.post('/register', authenticateToken, authorizeRole('admin'), authController.register);
 router.get('/verify', authenticateToken, authController.verifyToken);

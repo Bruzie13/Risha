@@ -277,6 +277,77 @@
             border: 1px solid var(--danger-bg);
         }
         .login-error.show { display: block; }
+        .forgot-row { text-align: center; margin-top: 14px; }
+        .forgot-link {
+            background: none;
+            border: none;
+            color: var(--primary-dark, #E14C42);
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+        .forgot-link:hover { text-decoration: underline; }
+
+        /* Forgot-password modal */
+        .fp-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(74, 36, 32, 0.35);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+        .fp-overlay.show { display: flex; }
+        .fp-modal {
+            width: 90%;
+            max-width: 400px;
+            background: #FFFDF9;
+            border-radius: var(--radius-xl);
+            padding: 28px;
+            box-shadow: 0 24px 80px rgba(224, 101, 91, 0.25);
+            animation: slideUp 0.3s ease;
+        }
+        .fp-modal h3 {
+            font-family: 'Nunito', sans-serif;
+            font-size: 19px;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin: 0 0 6px;
+        }
+        .fp-modal .fp-sub {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin: 0 0 18px;
+            line-height: 1.5;
+        }
+        .fp-modal .fp-msg {
+            display: none;
+            padding: 10px 14px;
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 14px;
+        }
+        .fp-modal .fp-msg.ok { display: block; background: #E7F6EC; color: #1E7A3C; }
+        .fp-modal .fp-msg.err { display: block; background: var(--danger-bg); color: var(--danger); }
+        .fp-actions { display: flex; gap: 10px; margin-top: 16px; }
+        .fp-actions .login-btn { margin-top: 0; flex: 1; }
+        .fp-cancel {
+            flex: 0 0 auto;
+            padding: 12px 18px;
+            background: none;
+            border: 1.5px solid var(--border-glass-strong);
+            border-radius: var(--radius-md);
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+        .fp-cancel:hover { background: var(--gray-50); }
 
         /* ===== Animated 3D scene ===== */
         .login-3d {
@@ -466,8 +537,30 @@
                         </div>
                     </div>
                     <button type="submit" class="login-btn" id="loginBtn">Sign In</button>
+                    <div class="forgot-row">
+                        <button type="button" class="forgot-link" id="forgotLink">Forgot password?</button>
+                    </div>
                 </form>
             </div>
+        </div>
+    </div>
+    <div class="fp-overlay" id="fpOverlay">
+        <div class="fp-modal" role="dialog" aria-modal="true" aria-labelledby="fpTitle">
+            <h3 id="fpTitle">Reset your password</h3>
+            <p class="fp-sub">Enter your username or email and we'll send a reset link to the email on your account.</p>
+            <div class="fp-msg" id="fpMsg"></div>
+            <form id="fpForm" class="login-form">
+                <div class="form-group">
+                    <div class="input-icon-wrap">
+                        <span class="input-icon"><span class="material-symbols-outlined" style="font-size:18px;">alternate_email</span></span>
+                        <input type="text" class="form-input" id="fpUsername" placeholder="Username or email" required autocomplete="username">
+                    </div>
+                </div>
+                <div class="fp-actions">
+                    <button type="button" class="fp-cancel" id="fpCancel">Cancel</button>
+                    <button type="submit" class="login-btn" id="fpSubmit">Send Reset Link</button>
+                </div>
+            </form>
         </div>
     </div>
     <script>
@@ -524,6 +617,48 @@
                 var cy = (e.clientY / window.innerHeight) - 0.5;
                 if (scene) scene.style.transform = 'translate3d(' + (cx * -26).toFixed(1) + 'px,' + (cy * -26).toFixed(1) + 'px,0)';
                 if (card && cardReady) card.style.transform = 'perspective(1300px) rotateY(' + (cx * 4).toFixed(2) + 'deg) rotateX(' + (cy * -4).toFixed(2) + 'deg)';
+            });
+        })();
+
+        // Forgot-password modal
+        (function () {
+            var overlay = document.getElementById('fpOverlay');
+            var msg = document.getElementById('fpMsg');
+            var input = document.getElementById('fpUsername');
+            var submit = document.getElementById('fpSubmit');
+
+            document.getElementById('forgotLink').addEventListener('click', function () {
+                msg.className = 'fp-msg';
+                input.value = document.getElementById('username').value;
+                overlay.classList.add('show');
+                input.focus();
+            });
+            function closeModal() { overlay.classList.remove('show'); }
+            document.getElementById('fpCancel').addEventListener('click', closeModal);
+            overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+
+            document.getElementById('fpForm').addEventListener('submit', async function (e) {
+                e.preventDefault();
+                msg.className = 'fp-msg';
+                submit.disabled = true;
+                submit.textContent = 'Sending...';
+                try {
+                    var res = await fetch(API_BASE + '/auth/forgot-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: input.value.trim() })
+                    });
+                    var data = await res.json();
+                    msg.textContent = data.message || 'If that account exists, a reset link has been sent.';
+                    msg.className = 'fp-msg ' + (data.success ? 'ok' : 'err');
+                } catch (err) {
+                    msg.textContent = 'Connection error. Please try again.';
+                    msg.className = 'fp-msg err';
+                } finally {
+                    submit.disabled = false;
+                    submit.textContent = 'Send Reset Link';
+                }
             });
         })();
 

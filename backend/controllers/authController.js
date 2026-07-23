@@ -1,8 +1,11 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const pool = require('../config/database');
 const logAudit = require('../services/audit');
 const { notifyUserLogin } = require('../services/notifier');
 const { validatePassword } = require('../utils/passwordPolicy');
+const { sendPasswordResetEmail, isValidEmail } = require('../utils/mailer');
 
 // Brute-force protection: after 5 failed logins per IP+username within
 // 10 minutes, further attempts are rejected until the window expires.
@@ -134,6 +137,103 @@ exports.login = async (req, res) => {
             success: false,
             message: 'Server error during login'
         });
+    }
+};
+
+const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
+
+// Always answers with the same generic message so the endpoint can't be
+// used to probe which usernames/emails exist.
+exports.forgotPassword = async (req, res) => {
+    const genericResponse = {
+        success: true,
+        message: 'If that account exists, a reset link has been sent to its email address.'
+    };
+    try {
+        const { username } = req.body;
+        if (!username || !String(username).trim()) {
+            return res.status(400).json({ success: false, message: 'Username or email is required' });
+        }
+
+        const input = String(username).trim();
+        let user = await User.findByUsername(input);
+        if (!user && isValidEmail(input)) user = await User.findByEmail(input);
+
+        if (!user || !user.is_active || !isValidEmail(user.email)) {
+            return res.status(200).json(genericResponse);
+        }
+
+        const token = crypto.randomBytes(32).toString('hex');
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+        const expires = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+
+        const conn = await pool.getConnection();
+        try {
+            await conn.execute(
+                'UPDATE users SET reset_token_hash = ?, reset_token_expires = ? WHERE id = ?',
+                [tokenHash, expires, user.id]
+            );
+        } finally {
+            conn.release();
+        }
+
+        await sendPasswordResetEmail(user.email, user.full_name, token);
+        logAudit(user.id, 'password_reset_requested', 'users', user.id, null, null, req.ip);
+
+        res.status(200).json(genericResponse);
+    } catch (error) {
+        console.error('Forgot password error:', error.message);
+        // Same generic answer on send failure — details go to the server log only
+        res.status(200).json(genericResponse);
+    }
+};
+
+exports.resetPassword = async (req, res) => {
+    try {
+        const { token, newPassword } = req.body;
+        if (!token || !newPassword) {
+            return res.status(400).json({ success: false, message: 'Token and new password are required' });
+        }
+
+        const pwError = validatePassword(newPassword);
+        if (pwError) {
+            return res.status(400).json({ success: false, message: pwError });
+        }
+
+        const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
+        const conn = await pool.getConnection();
+        let rows;
+        try {
+            [rows] = await conn.execute(
+                'SELECT id FROM users WHERE reset_token_hash = ? AND reset_token_expires > NOW() AND is_active = 1',
+                [tokenHash]
+            );
+        } finally {
+            conn.release();
+        }
+
+        if (!rows.length) {
+            return res.status(400).json({ success: false, message: 'This reset link is invalid or has expired. Please request a new one.' });
+        }
+
+        const userId = rows[0].id;
+        await User.update(userId, { password: newPassword });
+
+        const conn2 = await pool.getConnection();
+        try {
+            await conn2.execute(
+                'UPDATE users SET reset_token_hash = NULL, reset_token_expires = NULL WHERE id = ?',
+                [userId]
+            );
+        } finally {
+            conn2.release();
+        }
+
+        logAudit(userId, 'password_reset', 'users', userId, null, null, req.ip);
+        res.status(200).json({ success: true, message: 'Password has been reset. You can now sign in.' });
+    } catch (error) {
+        console.error('Reset password error:', error);
+        res.status(500).json({ success: false, message: 'Server error resetting password' });
     }
 };
 
