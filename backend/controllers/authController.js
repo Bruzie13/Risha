@@ -500,7 +500,7 @@ exports.toggleUserStatus = async (req, res) => {
 exports.updateProfile = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { full_name, avatar } = req.body;
+        const { full_name, avatar, email } = req.body;
 
         if (!full_name || !full_name.trim()) {
             return res.status(400).json({
@@ -510,9 +510,33 @@ exports.updateProfile = async (req, res) => {
         }
 
         const fields = { full_name: full_name.trim() };
+
+        // Email is now editable from Profile; validate and keep it unique so a
+        // password reset always reaches the right inbox.
+        if (email !== undefined) {
+            const trimmed = String(email).trim();
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+                return res.status(400).json({ success: false, message: 'Please enter a valid email address' });
+            }
+            const existing = await User.findByEmail(trimmed);
+            if (existing && existing.id !== userId) {
+                return res.status(400).json({ success: false, message: 'That email is already used by another account' });
+            }
+            fields.email = trimmed;
+        }
+
         // avatar: a resized data URL (or null to clear); ignore if undefined
         if (avatar !== undefined) fields.avatar = avatar || null;
-        const user = await User.update(userId, fields);
+
+        let user;
+        try {
+            user = await User.update(userId, fields);
+        } catch (e) {
+            if (e && e.code === 'ER_DUP_ENTRY') {
+                return res.status(400).json({ success: false, message: 'That email is already used by another account' });
+            }
+            throw e;
+        }
 
         if (!user) {
             return res.status(404).json({

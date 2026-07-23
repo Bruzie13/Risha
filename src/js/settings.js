@@ -342,9 +342,15 @@ function setupNotifToggle() {
 
 async function saveProfile() {
     var nameInput = document.getElementById('settingsFullName');
+    var emailInput = document.getElementById('settingsEmail');
     var name = nameInput ? nameInput.value.trim() : '';
+    var email = emailInput ? emailInput.value.trim() : '';
     if (!name) {
         showToast('Please enter your full name', 'error');
+        return;
+    }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showToast('Please enter a valid email address', 'error');
         return;
     }
 
@@ -355,11 +361,12 @@ async function saveProfile() {
         var res = await fetch(API_BASE + '/auth/profile', {
             method: 'PUT',
             headers: getAuthHeaders(),
-            body: JSON.stringify({ full_name: name })
+            body: JSON.stringify({ full_name: name, email: email })
         });
         var data = await res.json();
         if (data.success) {
             user.full_name = name;
+            user.email = (data.data && data.data.email) || email;
             localStorage.setItem('user', JSON.stringify(user));
             loadSettings();
             var nameEl = document.getElementById('userName');
