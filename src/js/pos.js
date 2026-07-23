@@ -32,7 +32,56 @@ window.addEventListener('load', async () => {
     document.getElementById('posSearchInput')?.addEventListener('keyup', filterProducts);
     // Live stock: another terminal's sale shows here without a refresh
     setInterval(refreshStockLevels, 10000);
+    initThermalPrinter();
 });
+
+// Show the "Connect Printer" control only where WebUSB direct printing can work
+// (Chrome/Edge over HTTPS). Silently reconnect a printer authorised earlier.
+async function initThermalPrinter() {
+    const btn = document.getElementById('connectPrinterBtn');
+    if (!btn || !window.escposPrint || !escposPrint.available()) return;
+    btn.style.display = 'inline-flex';
+    try {
+        if (await escposPrint.tryReconnect()) reflectPrinterState();
+    } catch (e) { /* needs an explicit connect */ }
+}
+
+function reflectPrinterState() {
+    const btn = document.getElementById('connectPrinterBtn');
+    const label = document.getElementById('connectPrinterLabel');
+    if (!btn || !label) return;
+    const on = window.escposPrint && escposPrint.isConnected();
+    label.textContent = on ? 'Printer Connected' : 'Connect Printer';
+    btn.title = on
+        ? 'Thermal printer connected — receipts print directly, no dialog. Click to disconnect.'
+        : 'Connect a USB thermal printer for one-tap receipts (no print dialog)';
+    btn.style.opacity = on ? '1' : '';
+    btn.querySelector('.material-symbols-outlined').textContent = on ? 'print_connect' : 'print';
+}
+
+async function connectThermalPrinter() {
+    if (!window.escposPrint) return;
+    try {
+        if (escposPrint.isConnected()) {
+            await escposPrint.disconnect();
+            showToast('Thermal printer disconnected', 'info');
+        } else {
+            await escposPrint.connect();
+            showToast('Thermal printer connected — receipts now print directly', 'success');
+        }
+    } catch (e) {
+        // User dismissing the chooser throws too; only surface real errors
+        if (e && e.name !== 'NotFoundError') {
+            console.error('Printer connect error:', e);
+            const busy = /busy|access|claim/i.test(e.message || '');
+            showErrorDialog('Could not connect printer',
+                busy
+                    ? 'macOS is holding the printer through its own driver. Open System Settings → Printers, remove "YICHIP_POS58_Printer", then click Connect Printer again.'
+                    : (e.message || 'Unknown error') + '. Use Chrome or Edge, and make sure the printer is plugged in.');
+        }
+    }
+    reflectPrinterState();
+}
 
 // The backend does search/category filtering and serves one page at a time;
 // allProducts only ever holds the pages fetched so far.
@@ -508,6 +557,21 @@ async function printReceipt(saleId, tendered, change) {
         const data = await res.json();
         if (!data.success) { showToast('Could not load receipt data', 'error'); return; }
         const sale = data.data;
+
+        // Preferred path: send raw ESC/POS straight to the thermal printer over
+        // WebUSB (like Loyverse). Only when the printer is already connected —
+        // otherwise fall through to the browser print dialog below.
+        if (window.escposPrint && escposPrint.isConnected()) {
+            try {
+                await escposPrint.printReceipt(sale, tendered, change);
+                showToast('Receipt printed', 'success');
+                return;
+            } catch (e) {
+                console.error('Direct print failed, using browser dialog:', e);
+                showToast('Direct printer error — using print dialog', 'info');
+            }
+        }
+
         const itemsHTML = (sale.items || []).map(item => {
             const ul = getUnitLabel(item.unit_type);
             return `<tr><td style="padding:3px 4px;border-bottom:1px dashed #ccc;">${item.product_name}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:center;">${parseFloat(item.quantity)}${ul}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.unit_price).toFixed(2)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.subtotal || item.quantity * item.unit_price).toFixed(2)}</td></tr>`;
