@@ -309,6 +309,44 @@ async function sendLowStockAlert(supplierId, supplierEmail, supplierName, items)
 }
 
 /**
+ * Password reset email: link is valid for 30 minutes. No tracking pixel —
+ * this is an account-security email, not a supplier communication.
+ */
+async function sendPasswordResetEmail(toEmail, fullName, resetToken) {
+    const config = await getEmailConfig();
+    if (!process.env.BREVO_API_KEY && !buildTransporter(config)) {
+        throw new Error('Email credentials not configured');
+    }
+    const resetUrl = `${BASE_URL}/reset-password.html?token=${resetToken}`;
+    const mailOptions = {
+        from: `"${config.fromName}" <${config.user}>`,
+        to: toEmail,
+        subject: 'Reset your RISHA password',
+        html: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
+                <div style="background:#E14C42;padding:22px 24px;border-radius:14px 14px 0 0;">
+                    <h1 style="color:white;margin:0;font-size:21px;">RISHA Pet Supplies</h1>
+                    <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:13px;">Password Reset Request</p>
+                </div>
+                <div style="padding:25px;border:1px solid #e6eaf2;border-top:0;border-radius:0 0 14px 14px;background:#ffffff;">
+                    <p style="font-size:16px;color:#1B2437;">Hi <strong>${fullName || 'there'}</strong>,</p>
+                    <p style="color:#5A6478;">We received a request to reset the password for your FETCH account. Click the button below to choose a new password. This link expires in <strong>30 minutes</strong>.</p>
+                    <div style="text-align:center;margin:24px 0 8px;">
+                        <a href="${resetUrl}"
+                           style="display:inline-block;background:#E14C42;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 32px;border-radius:10px;">
+                            Reset My Password
+                        </a>
+                    </div>
+                    <p style="color:#8A94A8;font-size:12px;margin-top:20px;">If the button doesn't work, copy this link into your browser:<br><a href="${resetUrl}" style="color:#E14C42;word-break:break-all;">${resetUrl}</a></p>
+                    <p style="color:#8A94A8;font-size:12px;">If you didn't request this, you can safely ignore this email — your password will not change.</p>
+                </div>
+            </div>
+        `
+    };
+    await sendMessage(config, mailOptions);
+}
+
+/**
  * Send a test email so admins can verify their configuration from Settings.
  */
 async function sendTestEmail(toEmail) {
@@ -396,6 +434,7 @@ async function sendBackupEmail(gzBuffer, meta) {
 
 module.exports = {
     sendPOEmail,
+    sendPasswordResetEmail,
     sendBackupEmail,
     sendLowStockAlert,
     sendTestEmail,

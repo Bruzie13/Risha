@@ -53,7 +53,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 function authPageGuard(req, res, next) {
-    const publicPages = ['/login.html', '/', ''];
+    const publicPages = ['/login.html', '/reset-password.html', '/', ''];
     if (publicPages.includes(req.path)) return next();
     if (!req.path.endsWith('.html')) return next();
 
@@ -154,6 +154,19 @@ async function ensureOpsTables() {
     }
 }
 ensureOpsTables();
+
+async function ensurePasswordResetColumns() {
+    try {
+        const conn = await pool.getConnection();
+        try { await conn.execute('ALTER TABLE users ADD COLUMN reset_token_hash VARCHAR(64) NULL'); } catch (e) { /* column exists */ }
+        try { await conn.execute('ALTER TABLE users ADD COLUMN reset_token_expires DATETIME NULL'); } catch (e) { /* column exists */ }
+        conn.release();
+        console.log('[DB] password reset columns ready');
+    } catch (e) {
+        console.error('[DB] password reset migration error:', e.message);
+    }
+}
+ensurePasswordResetColumns();
 
 async function ensureEmailLogsTable() {
     try {
