@@ -85,6 +85,10 @@
                             <span class="material-symbols-outlined search-icon">search</span>
                             <input type="text" class="pos-search" id="posSearchInput" placeholder="Search products..." oninput="filterProducts()">
                         </div>
+                        <button type="button" id="connectPrinterBtn" class="btn-secondary" style="display:none;white-space:nowrap;gap:6px;align-items:center;" title="Connect a USB thermal printer for one-tap receipts (no print dialog)" onclick="connectThermalPrinter()">
+                            <span class="material-symbols-outlined" style="font-size:18px;">print</span>
+                            <span id="connectPrinterLabel">Connect Printer</span>
+                        </button>
                     </div>
                     <div class="pos-cats-bar" id="categoryFilters"></div>
                     <div class="pos-grid" id="productGrid">
@@ -185,7 +189,8 @@
 <script src="js/motion.js"></script>
 <script src="js/tilt3d.js?v=1"></script>
 <script src="js/assistant.js?v=4"></script>
-    <script src="js/pos.js?v=5"></script>
+    <script src="js/escpos-print.js?v=1"></script>
+    <script src="js/pos.js?v=6"></script>
 </body>
 </html>
 
