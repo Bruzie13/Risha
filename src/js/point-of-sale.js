@@ -716,8 +716,8 @@ async function printReceipt(saleId) {
     receiptWindow.document.write(`
         <html><head><title>Receipt #${sale.id}</title>
         <style>
-            @page{margin:0;size:auto;}
-            body{font-family:'Courier New',monospace;font-size:11px;width:auto;max-width:80mm;padding:6px 8px;margin:0 auto;text-align:center;word-break:break-word;}
+            @page{margin:0;size:58mm auto;}
+            body{font-family:'Courier New',monospace;font-size:10px;width:58mm;max-width:58mm;padding:4px 4px;margin:0 auto;text-align:center;word-break:break-word;}
             h2{margin:5px 0 2px;font-size:16px;letter-spacing:1px;text-transform:uppercase;}
             .info{font-size:10px;color:#555;margin:2px 0;line-height:1.4;}
             table{width:100%;border-collapse:collapse;margin:8px 0;text-align:left;font-size:10px;table-layout:auto;}
@@ -781,8 +781,8 @@ function printCurrentReceipt() {
     receiptWindow.document.write(`
         <html><head><title>Receipt - Preview</title>
         <style>
-            @page{margin:0;size:auto;}
-            body{font-family:'Courier New',monospace;font-size:11px;width:auto;max-width:80mm;padding:6px 8px;margin:0 auto;text-align:center;word-break:break-word;}
+            @page{margin:0;size:58mm auto;}
+            body{font-family:'Courier New',monospace;font-size:10px;width:58mm;max-width:58mm;padding:4px 4px;margin:0 auto;text-align:center;word-break:break-word;}
             h2{margin:5px 0 2px;font-size:16px;letter-spacing:1px;text-transform:uppercase;}
             .info{font-size:10px;color:#555;margin:2px 0;line-height:1.4;}
             table{width:100%;border-collapse:collapse;margin:8px 0;text-align:left;font-size:10px;table-layout:auto;}
