@@ -74,10 +74,20 @@ async function connectThermalPrinter() {
         if (e && e.name !== 'NotFoundError') {
             console.error('Printer connect error:', e);
             const busy = /busy|access|claim/i.test(e.message || '');
-            showErrorDialog('Could not connect printer',
-                busy
-                    ? 'macOS is holding the printer through its own driver. Open System Settings → Printers, remove "YICHIP_POS58_Printer", then click Connect Printer again.'
-                    : (e.message || 'Unknown error') + '. Use Chrome or Edge, and make sure the printer is plugged in.');
+            const plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+            const isWin = /win/i.test(plat);
+            const isMac = /mac/i.test(plat);
+            let msg;
+            if (busy && isWin) {
+                msg = 'Windows is using its own driver for this printer, which blocks direct access. On Windows you don\'t need this button — install the printer\'s driver (the bundled CD, or "XP-58" from the maker\'s site), set it as the default printer, then just complete the sale to print normally at 58mm.';
+            } else if (busy && isMac) {
+                msg = 'macOS is holding the printer through its own driver. Open System Settings → Printers, remove "YICHIP_POS58_Printer", then click Connect Printer again.';
+            } else if (busy) {
+                msg = 'The system is holding this printer through its own driver. Remove/disable it in your OS printer settings, then click Connect Printer again — or just complete the sale to print through the normal driver.';
+            } else {
+                msg = (e.message || 'Unknown error') + '. Use Chrome or Edge, and make sure the printer is plugged in.';
+            }
+            showErrorDialog('Could not connect printer', msg);
         }
     }
     reflectPrinterState();
