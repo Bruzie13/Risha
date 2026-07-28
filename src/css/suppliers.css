@@ -857,3 +857,16 @@
   .live-note { display: none; }
   .live-foot { gap: 18px; }
 }
+
+/* the vehicle points where it is travelling */
+.fetch-pin.driver .material-symbols-outlined {
+  display: block;
+  transform: rotate(var(--rot, 0deg));
+  transition: transform 0.6s ease-out;
+}
+.ls-value.arriving { color: var(--success); }
+.live-banner.ok {
+  border-color: color-mix(in srgb, var(--success) 45%, transparent);
+  background: color-mix(in srgb, var(--success) 10%, var(--bg-card));
+}
+.live-banner.ok .material-symbols-outlined { color: var(--success); }
