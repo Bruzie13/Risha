@@ -732,7 +732,7 @@ async function printReceipt(saleId) {
         </style></head>
         <body>
             <h2>RISHA Pet Supplies</h2>
-            <div class="info">123 Main St, Caloocan City</div>
+            <div class="info">7 Bagumbong Road, Brgy. 171, North Caloocan</div>
             <div class="info">Tel: (02) 8123-4567 | TIN: 123-456-789-000</div>
             <hr>
             <div style="text-align:left;font-size:11px;line-height:1.6;">
@@ -796,7 +796,7 @@ function printCurrentReceipt() {
         </style></head>
         <body>
             <h2>RISHA Pet Supplies</h2>
-            <div class="info">123 Main St, Caloocan City</div>
+            <div class="info">7 Bagumbong Road, Brgy. 171, North Caloocan</div>
             <div class="info">Tel: (02) 8123-4567</div>
             <hr>
             <div style="text-align:left;font-size:11px;line-height:1.6;">

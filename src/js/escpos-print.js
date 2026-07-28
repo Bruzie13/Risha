@@ -138,7 +138,7 @@
         const money = v => 'P' + Number(v || 0).toFixed(2);
         const r = new Receipt();
         r.align('center').size(1, 1).bold(true).line('RISHA PET SUPPLIES').bold(false).size(0, 0);
-        r.line('123 Main St, Caloocan City');
+        r.line('7 Bagumbong Road, Brgy. 171, North Caloocan');
         r.line('Tel: (02) 8123-4567');
         r.rule();
         r.align('left');
