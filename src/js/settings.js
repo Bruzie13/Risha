@@ -154,8 +154,18 @@ function loadSavedAppearance() {
         accentCustom: localStorage.getItem('accentCustom') || null,
         uiFont: localStorage.getItem('uiFont') || 'sans',
         textScale: localStorage.getItem('textScale') || DEFAULT_SCALE,
-        theme: localStorage.getItem('theme') || 'system'
+        theme: localStorage.getItem('theme') || 'system',
+        backdrop: localStorage.getItem('ambientBackdrop') === 'off' ? 'off' : 'on'
     };
+}
+
+// The WebGL ambient backdrop. Persisting is deferred to Save, like the rest
+// of this panel, so previewing it costs nothing.
+function applyBackdrop(mode, persist) {
+    var on = mode !== 'off';
+    if (typeof setAmbientBackdrop === 'function') setAmbientBackdrop(on, !!persist);
+    else if (persist) localStorage.setItem('ambientBackdrop', on ? 'on' : 'off');
+    reflectSeg('backdropSeg', 'backdrop', on ? 'on' : 'off');
 }
 // Apply a whole appearance state live; persist=true writes it to localStorage.
 function applyAppearanceState(s, persist) {
@@ -164,6 +174,7 @@ function applyAppearanceState(s, persist) {
     applyFont(s.uiFont, persist);
     applyTextScale(s.textScale, persist);
     applyThemeMode(s.theme, persist);
+    applyBackdrop(s.backdrop, persist);
 }
 function markAppearanceDirty(on) {
     appearanceDirty = on;
@@ -240,11 +251,21 @@ function setupAppearance() {
         });
     });
 
+    // animated backdrop
+    var bdSeg = document.getElementById('backdropSeg');
+    if (bdSeg) bdSeg.querySelectorAll('.seg-btn').forEach(function (el) {
+        el.addEventListener('click', function () {
+            pendingAppearance.backdrop = el.dataset.backdrop;
+            applyBackdrop(el.dataset.backdrop, false);
+            markAppearanceDirty(true);
+        });
+    });
+
     // reset — previews defaults; user still confirms with Save
     var reset = document.getElementById('resetAppearanceBtn');
     if (reset) reset.addEventListener('click', function () {
         localStorage.removeItem('accentCustom');
-        pendingAppearance = { accentName: DEFAULT_ACCENT, accentCustom: null, uiFont: 'sans', textScale: DEFAULT_SCALE, theme: 'system' };
+        pendingAppearance = { accentName: DEFAULT_ACCENT, accentCustom: null, uiFont: 'sans', textScale: DEFAULT_SCALE, theme: 'system', backdrop: 'on' };
         applyAppearanceState(pendingAppearance, false);
         markAppearanceDirty(true);
     });

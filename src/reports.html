@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=9">
+    <link rel="stylesheet" href="css/global.css?v=10">
     <link rel="stylesheet" href="css/reports.css?v=3">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');try{var _av=JSON.parse(localStorage.getItem('accentVars')||'null');if(_av){for(var _k in _av)document.documentElement.style.setProperty(_k,_av[_k]);}}catch(e){}var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
@@ -488,6 +488,8 @@
 <script src="js/auth.js?v=5"></script>
 <script src="js/motion.js"></script>
 <script src="js/tilt3d.js?v=1"></script>
+<script src="js/webgl-bg.js?v=1"></script>
+<script src="js/jump.js?v=1"></script>
 <script src="js/assistant.js?v=4"></script>
     <script src="js/reports.js"></script>
     <script src="js/analytics.js"></script>
@@ -536,6 +538,7 @@
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">local_shipping</span> Suppliers</h3>
                 <p>Contacts, payment terms, and delivery performance per supplier. Click a supplier's <strong>email address</strong> or the <strong>Emails</strong> button to see every message sent to them with read receipts: <strong>✓</strong> delivered, <strong>✓✓</strong> the supplier actually opened or clicked it (automated mail scanners are filtered out).</p>
+                <p>Switch to the <strong>Map</strong> view (the map icon beside the search box) to see where every supplier is, sorted by how far they are from the shop. When you add or edit a supplier, use <strong>Find from address</strong> to drop a pin automatically, then drag it until it is exactly right. Admins can set the shop's own position with <strong>Set shop location</strong>. Distances are straight-line, not driving distance.</p>
             </div>
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">assessment</span> Reports &amp; Analytics</h3>
@@ -568,7 +571,9 @@
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">keyboard</span> Keyboard Shortcuts</h3>
                 <ul>
                     <li><span class="shortcut">F2</span> — Focus barcode scanner input (POS page)</li>
-                    <li><span class="shortcut">⌘K</span> — Open global search</li>
+                    <li><span class="shortcut">⌘J</span> / <span class="shortcut">Ctrl J</span> — Open <strong>Jump to…</strong>: search every page, every section of the page you are on, quick actions, and your products and suppliers</li>
+                    <li><span class="shortcut">⌘K</span> — Same palette (search shortcut)</li>
+                    <li><span class="shortcut">↑</span> <span class="shortcut">↓</span> <span class="shortcut">↵</span> — Move through jump results and open one</li>
                     <li><span class="shortcut">Esc</span> — Close any open modal or popup</li>
                     <li><span class="shortcut">Enter</span> — Confirm the open popup</li>
                 </ul>

@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=9">
+    <link rel="stylesheet" href="css/global.css?v=10">
     <link rel="stylesheet" href="css/settings.css?v=5">
     <script>
         (function() {
@@ -297,6 +297,17 @@
                                     </div>
                                 </div>
                                 <div class="settings-divider"></div>
+                                <div class="settings-toggle-row" style="align-items:flex-start;">
+                                    <div>
+                                        <div class="settings-toggle-label">Animated Backdrop</div>
+                                        <div class="settings-toggle-desc">The soft moving colour behind the pages. Switch it off on older computers.</div>
+                                    </div>
+                                    <div class="seg" id="backdropSeg">
+                                        <button type="button" class="seg-btn" data-backdrop="on"><span class="material-symbols-outlined">blur_on</span> On</button>
+                                        <button type="button" class="seg-btn" data-backdrop="off"><span class="material-symbols-outlined">block</span> Off</button>
+                                    </div>
+                                </div>
+                                <div class="settings-divider"></div>
                                 <div class="appearance-preview">
                                     <div class="ap-preview-label">Preview</div>
                                     <div class="ap-preview-card">
@@ -436,6 +447,8 @@
     <script src="js/auth.js?v=5"></script>
 <script src="js/motion.js"></script>
 <script src="js/tilt3d.js?v=1"></script>
+<script src="js/webgl-bg.js?v=1"></script>
+<script src="js/jump.js?v=1"></script>
 <script src="js/assistant.js?v=4"></script>
     <script src="js/settings.js?v=7"></script>
 </body>
