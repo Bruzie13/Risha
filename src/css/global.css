@@ -2759,6 +2759,7 @@ body.help-guide-open::after {
 }
 .email-log-item .el-icon.po { background: var(--info-bg); color: var(--info); }
 .email-log-item .el-icon.low_stock { background: var(--warning-bg); color: var(--warning); }
+.email-log-item .el-icon.tracking { background: var(--success-bg); color: var(--success); }
 .email-log-item .el-icon.generic { background: var(--gray-100); color: var(--text-muted); }
 
 .email-log-item .el-main { flex: 1; min-width: 0; }

@@ -188,15 +188,22 @@
         }
         if (v.linkUsable) {
             return '<div class="dt-live-box">' +
-                '<span class="dt-live-note pending"><span class="material-symbols-outlined">link</span> Link sent — waiting for the driver to open it' +
+                '<span class="dt-live-note pending"><span class="material-symbols-outlined">link</span> Link active — waiting for the driver to open it' +
                 (v.liveAt ? ' · last seen ' + esc(ago(v.liveAt)) : '') + '</span>' +
+                '<button class="btn-secondary dt-btn" onclick="emailDeliveryLink(' + id + ')" title="Email this link to the supplier again">' +
+                    '<span class="material-symbols-outlined" style="font-size:15px;">mail</span> Email again' +
+                '</button>' +
                 '<button class="btn-secondary dt-btn" onclick="copyDeliveryLink(' + id + ')">Copy link</button>' +
                 '<button class="btn-secondary dt-btn" onclick="stopDeliveryTracking(' + id + ')">Cancel</button>' +
             '</div>';
         }
+        // Emailing is the primary action — a link nobody receives does nothing.
         return '<div class="dt-live-box">' +
-            '<button class="btn-secondary dt-btn" onclick="createDeliveryLink(' + id + ')" title="Creates a private link you send to the supplier. They choose whether to share their location.">' +
-                '<span class="material-symbols-outlined" style="font-size:15px;">share_location</span> Get live tracking link' +
+            '<button class="btn-secondary dt-btn" onclick="emailDeliveryLink(' + id + ')" title="Creates a private link and emails it to the supplier. Their driver chooses whether to share their location.">' +
+                '<span class="material-symbols-outlined" style="font-size:15px;">share_location</span> Ask supplier to share location' +
+            '</button>' +
+            '<button class="btn-secondary dt-btn" onclick="createDeliveryLink(' + id + ')" title="Just create the link and copy it — send it yourself by message">' +
+                '<span class="material-symbols-outlined" style="font-size:15px;">link</span> Copy link instead' +
             '</button>' +
         '</div>';
     }
@@ -337,6 +344,35 @@
                 }
             },
             'Create link',
+            '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">share_location</span>'
+        );
+    };
+
+    window.emailDeliveryLink = function (poId) {
+        var d = deliveries.filter(function (x) { return x.id === poId; })[0] || {};
+        showConfirmDialog(
+            'Email the tracking link',
+            'This sends ' + (d.supplier_name || 'the supplier') + ' a private link for ' + (d.po_number || 'this order') +
+            '. Their driver decides whether to open it and share their location — you will see the delivery move only if they agree. ' +
+            'The link stops working after 3 days.',
+            async function () {
+                try {
+                    var r = await fetch(API_BASE + '/purchase-orders/' + poId + '/tracking-link/email', {
+                        method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ hours: 72 })
+                    });
+                    var res = await r.json();
+                    if (!res.success) {
+                        showErrorDialog('The email did not go out', res.message || 'Unknown error');
+                        refresh(false);
+                        return;
+                    }
+                    showSuccessDialog('Link emailed', res.message, { icon: 'mark_email_read' });
+                    refresh(false);
+                } catch (e) {
+                    showToast('Could not email the tracking link', 'error');
+                }
+            },
+            'Send email',
             '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">share_location</span>'
         );
     };

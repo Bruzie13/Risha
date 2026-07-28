@@ -260,6 +260,75 @@ async function sendPOEmail(supplierId, supplierEmail, supplierName, poNumber, it
     return deliver(trackingId, supplierEmail, mailOptions, `PO ${poNumber}`);
 }
 
+/**
+ * Send a supplier the live-tracking link for one delivery.
+ *
+ * The primary button goes straight to the driver page rather than through the
+ * click-tracker, because the point is to get the driver sharing quickly, not
+ * to record that they read this. Opens are still detected by the pixel.
+ *
+ * The copy is deliberately plain about consent: the driver is being asked,
+ * not told, and the email says so.
+ */
+async function sendTrackingLinkEmail(supplierId, supplierEmail, supplierName, poNumber, trackingUrl, expiresAt) {
+    const trackingId = await logEmail(supplierId, supplierEmail, `Delivery tracking for ${poNumber}`, 'tracking');
+
+    const expiryText = expiresAt
+        ? new Date(expiresAt).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })
+        : 'in a few days';
+
+    const mailOptions = {
+        to: supplierEmail,
+        subject: `Share delivery location for ${poNumber} — RISHA Pet Supplies`,
+        html: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
+                <div style="background:#E14C42;padding:22px 24px;border-radius:14px 14px 0 0;">
+                    <h1 style="color:white;margin:0;font-size:21px;">RISHA Pet Supplies</h1>
+                    <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:13px;">Delivery tracking request</p>
+                </div>
+                <div style="padding:25px;border:1px solid #e6eaf2;border-top:0;border-radius:0 0 14px 14px;background:#ffffff;">
+                    <p style="font-size:16px;color:#1B2437;">Dear <strong>${supplierName}</strong>,</p>
+                    <p style="color:#5A6478;line-height:1.6;">
+                        We would like to follow the delivery of <strong>${poNumber}</strong> on a map so we know when to expect
+                        your driver and can have someone ready to receive the stock.
+                    </p>
+                    <p style="color:#5A6478;line-height:1.6;">
+                        Please forward the button below to whoever is driving. Opening it on a phone and tapping
+                        <em>Start sharing my location</em> is all it takes — and it is entirely their choice.
+                    </p>
+
+                    <div style="text-align:center;margin:26px 0 10px;">
+                        <a href="${trackingUrl}"
+                           style="display:inline-block;background:#E14C42;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 34px;border-radius:10px;">
+                            Share delivery location
+                        </a>
+                    </div>
+                    <p style="text-align:center;font-size:11px;color:#8A94A8;margin:0 0 22px;word-break:break-all;">
+                        Or open this link: ${trackingUrl}
+                    </p>
+
+                    <div style="background:#F7F9FC;border:1px solid #e6eaf2;border-radius:12px;padding:16px 18px;">
+                        <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#1B2437;">What this does</p>
+                        <ul style="margin:0;padding-left:18px;color:#5A6478;font-size:12.5px;line-height:1.8;">
+                            <li>Shares the driver's position <strong>only while the page is open</strong></li>
+                            <li>Can be stopped at any time with one tap</li>
+                            <li>Stops working by itself on <strong>${expiryText}</strong></li>
+                            <li>Collects no name, phone number or any other detail</li>
+                        </ul>
+                    </div>
+
+                    <p style="color:#8A94A8;font-size:12px;margin-top:20px;">
+                        If you would rather not share a location, you can ignore this email — it will not affect the order.
+                    </p>
+                </div>
+            </div>
+            ${trackingPixel(trackingId)}
+        `
+    };
+
+    return deliver(trackingId, supplierEmail, mailOptions, `Tracking link ${poNumber}`);
+}
+
 async function sendLowStockAlert(supplierId, supplierEmail, supplierName, items) {
     const trackingId = await logEmail(supplierId, supplierEmail, `Low Stock Alert - ${items.length} products`, 'low_stock');
 
@@ -434,6 +503,7 @@ async function sendBackupEmail(gzBuffer, meta) {
 
 module.exports = {
     sendPOEmail,
+    sendTrackingLinkEmail,
     sendPasswordResetEmail,
     sendBackupEmail,
     sendLowStockAlert,

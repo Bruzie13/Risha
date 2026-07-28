@@ -3,7 +3,7 @@ const PurchaseOrder = require('../models/PurchaseOrder');
 const Product = require('../models/Product');
 const Supplier = require('../models/Supplier');
 const Notification = require('../models/Notification');
-const { sendPOEmail } = require('../utils/mailer');
+const { sendPOEmail, sendTrackingLinkEmail } = require('../utils/mailer');
 const logAudit = require('../services/audit');
 const { notifyPOStatusChanged, notifyPOGenerated } = require('../services/notifier');
 
@@ -417,6 +417,73 @@ exports.createTrackingLink = async (req, res) => {
     } catch (error) {
         console.error('Create tracking link error:', error);
         res.status(500).json({ success: false, message: 'Error creating the tracking link' });
+    }
+};
+
+/* Create a link (or reuse the live one) and email it to the supplier.
+
+   A link nobody receives is useless, so this is the path that matters: one
+   click issues it, mails it, and logs it alongside every other supplier
+   email with the same read tracking. */
+exports.emailTrackingLink = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const po = await PurchaseOrder.findById(id);
+        if (!po) return res.status(404).json({ success: false, message: 'Purchase order not found' });
+        if (po.status === 'received' || po.status === 'cancelled') {
+            return res.status(400).json({
+                success: false,
+                message: `This order is already ${po.status} — there is nothing left to track.`
+            });
+        }
+
+        const supplier = await Supplier.findById(po.supplier_id);
+        if (!supplier) return res.status(404).json({ success: false, message: 'Supplier not found' });
+        if (!supplier.email) {
+            return res.status(400).json({
+                success: false,
+                message: `${supplier.name} has no email address saved. Add one on the Suppliers page first.`
+            });
+        }
+
+        // Reuse a link that is still good rather than invalidating one the
+        // driver may already have open.
+        let existing = await DeliveryTracking.getStatusForPO(id);
+        let token, expiresAt;
+        if (existing && !existing.revoked && !existing.expired) {
+            token = existing.token;
+            expiresAt = existing.expires_at;
+        } else {
+            const hours = Math.min(Math.max(parseInt(req.body.hours, 10) || DeliveryTracking.DEFAULT_TTL_HOURS, 1), 168);
+            const link = await DeliveryTracking.createForPO(id, req.user.id, hours);
+            token = link.token;
+            expiresAt = new Date(Date.now() + hours * 3600000);
+            logAudit(req.user.id, 'create', 'delivery_tracking', link.id, null, { po_id: Number(id), hours }, req.ip);
+        }
+
+        const base = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+        const url = `${base}/track/delivery/${token}`;
+
+        const sent = await sendTrackingLinkEmail(
+            supplier.id, supplier.email, supplier.name, po.po_number, url, expiresAt
+        );
+
+        if (!sent) {
+            return res.status(502).json({
+                success: false,
+                message: `The link was created but the email to ${supplier.email} did not go out. Check Settings → Email, then use Copy link to send it yourself.`,
+                data: { url }
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Tracking link emailed to ${supplier.name} at ${supplier.email}.`,
+            data: { url, emailed_to: supplier.email }
+        });
+    } catch (error) {
+        console.error('Email tracking link error:', error);
+        res.status(500).json({ success: false, message: 'Error emailing the tracking link' });
     }
 };
 

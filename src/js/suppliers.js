@@ -428,7 +428,8 @@ async function showEmailLogs(supplierId, supplierName) {
 
         const typeMeta = {
             po: { icon: 'receipt_long', cls: 'po', label: 'Purchase Order' },
-            low_stock: { icon: 'inventory_2', cls: 'low_stock', label: 'Low Stock Alert' }
+            low_stock: { icon: 'inventory_2', cls: 'low_stock', label: 'Low Stock Alert' },
+            tracking: { icon: 'share_location', cls: 'tracking', label: 'Delivery Tracking Link' }
         };
 
         body.innerHTML = summary + '<div class="email-log-list">' + logs.map(l => {
