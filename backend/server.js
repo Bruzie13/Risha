@@ -53,7 +53,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 function authPageGuard(req, res, next) {
-    const publicPages = ['/login.html', '/reset-password.html', '/', ''];
+    // track-delivery.html is opened by a supplier's driver, who has no account;
+    // its unguessable, expiring token is the credential.
+    const publicPages = ['/login.html', '/reset-password.html', '/track-delivery.html', '/', ''];
     if (publicPages.includes(req.path)) return next();
     if (!req.path.endsWith('.html')) return next();
 
@@ -153,7 +155,6 @@ async function ensureOpsTables() {
         console.error('[DB] ops table migration error:', e.message);
     }
 }
-ensureOpsTables();
 
 async function ensurePasswordResetColumns() {
     try {
@@ -166,7 +167,6 @@ async function ensurePasswordResetColumns() {
         console.error('[DB] password reset migration error:', e.message);
     }
 }
-ensurePasswordResetColumns();
 
 async function ensureEmailLogsTable() {
     try {
@@ -188,6 +188,54 @@ async function ensureEmailLogsTable() {
         try { await conn.execute("ALTER TABLE email_logs ADD COLUMN status VARCHAR(20) DEFAULT 'pending'"); } catch (e) { /* column exists */ }
         try { await conn.execute('ALTER TABLE email_logs ADD COLUMN error_message VARCHAR(500) NULL'); } catch (e) { /* column exists */ }
         try { await conn.execute('ALTER TABLE email_logs ADD COLUMN clicked_at DATETIME NULL'); } catch (e) { /* column exists */ }
+        // Supplier map pins (added 2026-07). Older installs get the columns here.
+        try { await conn.execute('ALTER TABLE suppliers ADD COLUMN latitude DECIMAL(10, 7) NULL'); } catch (e) { /* column exists */ }
+        try { await conn.execute('ALTER TABLE suppliers ADD COLUMN longitude DECIMAL(10, 7) NULL'); } catch (e) { /* column exists */ }
+
+        // Delivery tracking. Stage timestamps answer "how long has this order
+        // been sitting at this step?" — updated_at alone can't, since any edit
+        // moves it.
+        try { await conn.execute('ALTER TABLE purchase_orders ADD COLUMN confirmed_at DATETIME NULL'); } catch (e) { /* column exists */ }
+        try { await conn.execute('ALTER TABLE purchase_orders ADD COLUMN shipped_at DATETIME NULL'); } catch (e) { /* column exists */ }
+        try { await conn.execute('ALTER TABLE purchase_orders ADD COLUMN received_at DATETIME NULL'); } catch (e) { /* column exists */ }
+        // Best-effort backfill for orders received before this feature existed:
+        // updated_at is when the row last changed, which for a received order is
+        // almost always the moment it was marked received. Approximate, and only
+        // ever applied where we have nothing better.
+        try {
+            await conn.execute(
+                "UPDATE purchase_orders SET received_at = updated_at WHERE status = 'received' AND received_at IS NULL"
+            );
+        } catch (e) { /* nothing to backfill */ }
+
+        // A live-location link the supplier's driver may choose to open. One
+        // row per issued link; positions land in delivery_positions.
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS delivery_tracking (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                po_id INT NOT NULL,
+                token VARCHAR(64) UNIQUE NOT NULL,
+                created_by INT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                expires_at DATETIME NOT NULL,
+                revoked TINYINT(1) DEFAULT 0,
+                first_shared_at DATETIME NULL,
+                last_seen_at DATETIME NULL,
+                INDEX idx_dt_po (po_id),
+                INDEX idx_dt_token (token)
+            )
+        `);
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS delivery_positions (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                tracking_id INT NOT NULL,
+                latitude DECIMAL(10, 7) NOT NULL,
+                longitude DECIMAL(10, 7) NOT NULL,
+                accuracy_m INT NULL,
+                recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_dp_tracking (tracking_id, recorded_at)
+            )
+        `);
         await conn.execute(`
             CREATE TABLE IF NOT EXISTS app_settings (
                 setting_key VARCHAR(100) PRIMARY KEY,
@@ -251,6 +299,32 @@ setInterval(() => {
     const now = Date.now();
     for (const [ip, rec] of trackHits) {
         if (now - rec.windowStart > 60000) trackHits.delete(ip);
+    }
+}, 5 * 60000).unref();
+
+/* Rate limit for the delivery-tracking routes. A driver sharing their position
+   posts roughly every 15s, so the ceiling is higher than the pixel's — but it
+   still caps how much a leaked token could write. Replies in JSON, unlike the
+   pixel limiter above. */
+const posHits = new Map();
+function rateLimitPositions(req, res, next) {
+    const ip = req.ip || req.connection.remoteAddress;
+    const now = Date.now();
+    const rec = posHits.get(ip);
+    if (!rec || now - rec.windowStart > 60000) {
+        posHits.set(ip, { count: 1, windowStart: now });
+        return next();
+    }
+    if (rec.count >= 120) {
+        return res.status(429).json({ success: false, message: 'Too many updates — slow down.' });
+    }
+    rec.count++;
+    next();
+}
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, rec] of posHits) {
+        if (now - rec.windowStart > 60000) posHits.delete(ip);
     }
 }, 5 * 60000).unref();
 
@@ -340,6 +414,71 @@ app.get('/track/click/:trackingId', rateLimitTracking, async (req, res) => {
 </html>`);
 });
 
+/* ── Public delivery-tracking endpoints ───────────────────────────────────
+   These are the only routes a supplier's driver touches. They are reachable
+   without a login because the driver has no account — the unguessable token
+   in the URL is the credential, and it expires on its own.
+
+   Nothing here reads a location. The driver's browser pushes a position only
+   after they tap "Allow", and only while they keep the page open.          */
+const DeliveryTrackingModel = require('./models/DeliveryTracking');
+
+// Serve the driver page for any live token. The page itself asks for consent.
+app.get('/track/delivery/:token', rateLimitPositions, (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'src', 'track-delivery.html'));
+});
+
+// What is this delivery? Shown to the driver so they know what they're sharing for.
+app.get('/api/public/delivery/:token', rateLimitPositions, async (req, res) => {
+    try {
+        const t = await DeliveryTrackingModel.findLiveByToken(req.params.token);
+        if (!t) return res.status(404).json({ success: false, message: 'This tracking link is no longer active.' });
+        res.json({
+            success: true,
+            data: {
+                po_number: t.po_number,
+                supplier_name: t.supplier_name,
+                expected_delivery_date: t.expected_delivery_date,
+                expires_at: t.expires_at,
+                already_sharing: !!t.first_shared_at
+            }
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, message: 'Could not load this delivery.' });
+    }
+});
+
+app.post('/api/public/delivery/:token/position', rateLimitPositions, async (req, res) => {
+    try {
+        const t = await DeliveryTrackingModel.findLiveByToken(req.params.token);
+        if (!t) return res.status(404).json({ success: false, message: 'This tracking link is no longer active.' });
+
+        const lat = Number(req.body.latitude);
+        const lng = Number(req.body.longitude);
+        if (!Number.isFinite(lat) || Math.abs(lat) > 90 || !Number.isFinite(lng) || Math.abs(lng) > 180) {
+            return res.status(400).json({ success: false, message: 'Invalid position' });
+        }
+        const acc = Number(req.body.accuracy);
+
+        await DeliveryTrackingModel.addPosition(t.id, lat, lng, Number.isFinite(acc) ? acc : null);
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Position update error:', e.message);
+        res.status(500).json({ success: false, message: 'Could not record the position.' });
+    }
+});
+
+// The driver can stop sharing from their own phone, not just the shop.
+app.post('/api/public/delivery/:token/stop', rateLimitPositions, async (req, res) => {
+    try {
+        const t = await DeliveryTrackingModel.findLiveByToken(req.params.token);
+        if (t) await DeliveryTrackingModel.revokeForPO(t.po_id);
+        res.json({ success: true });
+    } catch (e) {
+        res.json({ success: true });   // stopping should never fail loudly
+    }
+});
+
 // Get email logs for a supplier
 const { authenticateToken } = require('./middleware/auth');
 app.get('/api/email-logs/:supplierId', authenticateToken, async (req, res) => {
@@ -373,8 +512,6 @@ app.get('/api/email-logs', authenticateToken, async (req, res) => {
     }
 });
 
-ensureEmailLogsTable();
-ensureIndexes();
 
 app.get('/api/health', (req, res) => {
     res.status(200).json({ success: true, message: 'Server is running', timestamp: new Date().toISOString() });
@@ -391,6 +528,22 @@ app.post('/api/notifications/check-alerts', authenticateToken, async (req, res) 
         res.json({ success: false, message: e.message });
     }
 });
+
+/* Schema migrations run one after another, never concurrently.
+
+   They used to be fired off in parallel at module load, which raced two
+   connections issuing DDL against the same tables — MySQL resolved that by
+   deadlocking one of them, and whichever lost simply logged an error and left
+   its migration unapplied. Sequential is slower by milliseconds and correct
+   every time. */
+async function runMigrations() {
+    await ensureOpsTables();
+    await ensurePasswordResetColumns();
+    await ensureEmailLogsTable();
+    await ensureIndexes();
+    console.log('[DB] migrations complete');
+}
+runMigrations();
 
 app.use(express.static(path.join(__dirname, '..', 'src'), {
     etag: false,

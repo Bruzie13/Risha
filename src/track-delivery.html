@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Share delivery location · RISHA Pet Supplies</title>
+<style>
+    :root {
+        --coral: #EE6A5F; --coral-dark: #E14C42;
+        --ink: #1B2437; --muted: #5A6478; --faint: #8A94A8;
+        --line: #E9EDF4; --bg: #F4F6FB; --ok: #2FA36B; --warn: #E8930C;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+        background: var(--bg); color: var(--muted);
+        min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        padding: 18px; line-height: 1.55;
+    }
+    .card {
+        background: #fff; border: 1px solid var(--line); border-radius: 22px;
+        box-shadow: 0 18px 50px rgba(16,24,40,.10);
+        width: 100%; max-width: 440px; overflow: hidden;
+    }
+    .head {
+        background: linear-gradient(135deg, #F88070, #E5504A);
+        color: #fff; padding: 26px 24px 22px; text-align: center;
+    }
+    .head .brand { font-size: 11px; font-weight: 800; letter-spacing: 1.4px; opacity: .9; }
+    .head h1 { font-size: 20px; font-weight: 800; margin-top: 6px; }
+    .head p { font-size: 13px; opacity: .92; margin-top: 4px; }
+
+    .body { padding: 22px 24px 26px; }
+
+    .order {
+        background: var(--bg); border: 1px solid var(--line); border-radius: 14px;
+        padding: 14px 16px; margin-bottom: 20px;
+    }
+    .order-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+    .order-row + .order-row { margin-top: 7px; }
+    .order-row span:first-child { color: var(--faint); }
+    .order-row span:last-child { color: var(--ink); font-weight: 650; text-align: right; }
+
+    .explain { font-size: 13px; margin-bottom: 8px; color: var(--muted); }
+    .points { list-style: none; margin: 12px 0 20px; }
+    .points li {
+        position: relative; padding-left: 26px; font-size: 12.8px; margin-bottom: 9px; color: var(--muted);
+    }
+    .points li::before {
+        content: '✓'; position: absolute; left: 0; top: -1px;
+        width: 18px; height: 18px; border-radius: 50%;
+        background: rgba(47,163,107,.12); color: var(--ok);
+        display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;
+    }
+    .points li.no::before { content: '✕'; background: rgba(229,72,77,.10); color: #E5484D; }
+
+    button {
+        width: 100%; border: none; border-radius: 999px; cursor: pointer;
+        font-family: inherit; font-size: 15px; font-weight: 700; padding: 15px 20px;
+        transition: transform .12s ease, box-shadow .2s ease, background .2s ease;
+    }
+    button:active { transform: scale(.98); }
+    .btn-go { background: linear-gradient(135deg, #F88070, #E5504A); color: #fff; box-shadow: 0 8px 22px rgba(238,106,95,.38); }
+    .btn-stop { background: #fff; color: #E5484D; border: 1.5px solid #E5484D; margin-top: 10px; }
+    .btn-go:disabled { opacity: .55; box-shadow: none; }
+
+    .live {
+        display: none; text-align: center; padding: 4px 0 2px;
+    }
+    .live.on { display: block; }
+    .pulse-wrap { display: flex; align-items: center; justify-content: center; gap: 9px; margin-bottom: 10px; }
+    .pulse {
+        width: 11px; height: 11px; border-radius: 50%; background: var(--ok);
+        box-shadow: 0 0 0 0 rgba(47,163,107,.55); animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(47,163,107,.55); }
+        70% { box-shadow: 0 0 0 12px rgba(47,163,107,0); }
+        100% { box-shadow: 0 0 0 0 rgba(47,163,107,0); }
+    }
+    .live-title { font-size: 15px; font-weight: 800; color: var(--ok); }
+    .live-sub { font-size: 12.5px; color: var(--faint); margin-bottom: 4px; }
+    .live-stat { font-size: 12px; color: var(--faint); margin-top: 10px; font-variant-numeric: tabular-nums; }
+
+    .msg { padding: 14px 16px; border-radius: 12px; font-size: 13px; margin-bottom: 16px; display: none; }
+    .msg.show { display: block; }
+    .msg.err { background: rgba(229,72,77,.09); color: #C2373C; border: 1px solid rgba(229,72,77,.22); }
+    .msg.warn { background: rgba(232,147,12,.10); color: #9A6206; border: 1px solid rgba(232,147,12,.24); }
+
+    .foot { text-align: center; font-size: 11.5px; color: var(--faint); margin-top: 18px; }
+    .foot b { color: var(--coral-dark); }
+
+    .gone { text-align: center; padding: 46px 26px; }
+    .gone .icon { font-size: 42px; margin-bottom: 12px; }
+    .gone h2 { font-size: 18px; color: var(--ink); margin-bottom: 6px; }
+    .gone p { font-size: 13.5px; }
+
+    @media (prefers-color-scheme: dark) {
+        :root { --bg: #10131C; --ink: #ECF0F8; --muted: #AEB8CC; --faint: #6E7A92; --line: #232B3D; }
+        body { background: var(--bg); }
+        .card { background: #171C28; border-color: var(--line); }
+        .order { background: #10131C; }
+        .btn-stop { background: transparent; }
+    }
+</style>
+</head>
+<body>
+<div class="card" id="card">
+    <div class="head">
+        <div class="brand">RISHA PET SUPPLIES</div>
+        <h1 id="headTitle">Delivery location</h1>
+        <p id="headSub">Loading this delivery…</p>
+    </div>
+    <div class="body" id="body">
+        <div class="msg" id="msg"></div>
+
+        <div id="setup" style="display:none;">
+            <div class="order">
+                <div class="order-row"><span>Order</span><span id="poNumber">—</span></div>
+                <div class="order-row"><span>Supplier</span><span id="supplierName">—</span></div>
+                <div class="order-row"><span>Expected</span><span id="expected">—</span></div>
+            </div>
+
+            <p class="explain">
+                Risha Pet Supplies is asking to follow this delivery on a map so they know
+                when to expect you. Sharing is entirely your choice.
+            </p>
+
+            <ul class="points">
+                <li>Your position is shared <b>only while this page is open</b></li>
+                <li>You can stop at any time — one tap, and it ends</li>
+                <li>The link expires by itself <span id="expiryNote"></span></li>
+                <li class="no">Nothing is shared when this page is closed</li>
+                <li class="no">No name, phone number or anything else is collected</li>
+            </ul>
+
+            <button class="btn-go" id="startBtn">Start sharing my location</button>
+        </div>
+
+        <div class="live" id="liveBox">
+            <div class="pulse-wrap"><span class="pulse"></span><span class="live-title">Sharing your location</span></div>
+            <div class="live-sub">Risha Pet Supplies can see this delivery moving.</div>
+            <div class="order" style="margin-top:16px;text-align:left;">
+                <div class="order-row"><span>Order</span><span id="livePo">—</span></div>
+                <div class="order-row"><span>Last sent</span><span id="lastSent">just now</span></div>
+                <div class="order-row"><span>Updates sent</span><span id="sentCount">0</span></div>
+            </div>
+            <div class="live-stat" id="accuracy"></div>
+            <button class="btn-stop" id="stopBtn">Stop sharing</button>
+        </div>
+
+        <div class="foot">Keep this page open while you drive · <b>RISHA</b> Pet Supplies</div>
+    </div>
+</div>
+
+<script>
+/* Driver-side location sharing.
+
+   Consent first: nothing is requested until the button is tapped, the browser
+   then asks its own permission question, and a single tap stops everything.
+   Positions go only to this shop's server, tied to one delivery, over a link
+   that expires on its own. */
+(function () {
+    'use strict';
+
+    var token = (location.pathname.match(/\/track\/delivery\/([^/?#]+)/) || [])[1] || '';
+    var watchId = null;
+    var sending = false;
+    var sentCount = 0;
+    var lastSentAt = null;
+    var lastPost = 0;
+    var MIN_GAP_MS = 12000;   // don't flood the server; a delivery isn't a race
+
+    var el = function (id) { return document.getElementById(id); };
+
+    function showMsg(text, kind) {
+        var m = el('msg');
+        m.textContent = text;
+        m.className = 'msg show ' + (kind || 'err');
+    }
+    function hideMsg() { el('msg').className = 'msg'; }
+
+    function dead(title, text) {
+        el('body').innerHTML = '<div class="gone"><div class="icon">🔒</div><h2>' + title +
+            '</h2><p>' + text + '</p></div>';
+        el('headSub').textContent = 'Link not active';
+    }
+
+    // ── Load what this delivery is ─────────────────────────────────────────
+    fetch('/api/public/delivery/' + encodeURIComponent(token))
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (!d.success) {
+                dead('This link is no longer active',
+                     'It may have expired or been switched off by the shop. If you still need to share your location, ask Risha Pet Supplies for a new link.');
+                return;
+            }
+            var x = d.data;
+            el('headSub').textContent = 'Order ' + (x.po_number || '');
+            el('poNumber').textContent = x.po_number || '—';
+            el('livePo').textContent = x.po_number || '—';
+            el('supplierName').textContent = x.supplier_name || '—';
+            el('expected').textContent = x.expected_delivery_date
+                ? new Date(x.expected_delivery_date).toLocaleDateString()
+                : 'Not set';
+            if (x.expires_at) {
+                el('expiryNote').textContent = 'on ' + new Date(x.expires_at).toLocaleDateString();
+            }
+            el('setup').style.display = 'block';
+        })
+        .catch(function () {
+            dead('Could not load this delivery', 'Please check your connection and open the link again.');
+        });
+
+    // ── Sharing ────────────────────────────────────────────────────────────
+    function post(pos) {
+        var now = Date.now();
+        if (now - lastPost < MIN_GAP_MS) return;
+        lastPost = now;
+
+        fetch('/api/public/delivery/' + encodeURIComponent(token) + '/position', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+                accuracy: pos.coords.accuracy
+            })
+        }).then(function (r) { return r.json(); })
+          .then(function (d) {
+              if (!d.success) {
+                  stop(true);
+                  dead('Sharing has ended', d.message || 'The shop switched this link off.');
+                  return;
+              }
+              sentCount++;
+              lastSentAt = Date.now();
+              el('sentCount').textContent = sentCount;
+              el('lastSent').textContent = 'just now';
+              hideMsg();
+          })
+          .catch(function () {
+              showMsg('No connection right now — sharing will resume automatically.', 'warn');
+          });
+    }
+
+    function start() {
+        if (!navigator.geolocation) {
+            showMsg('This phone or browser cannot share a location.');
+            return;
+        }
+        el('startBtn').disabled = true;
+        el('startBtn').textContent = 'Waiting for permission…';
+
+        watchId = navigator.geolocation.watchPosition(
+            function (pos) {
+                if (!sending) {
+                    sending = true;
+                    el('setup').style.display = 'none';
+                    el('liveBox').classList.add('on');
+                    lastPost = 0;   // send the first fix immediately
+                }
+                el('accuracy').textContent = pos.coords.accuracy
+                    ? 'Accurate to about ' + Math.round(pos.coords.accuracy) + ' m'
+                    : '';
+                post(pos);
+            },
+            function (err) {
+                el('startBtn').disabled = false;
+                el('startBtn').textContent = 'Start sharing my location';
+                if (err.code === 1) {
+                    showMsg('Location permission was declined. Nothing is being shared. You can allow it in your browser settings and try again.');
+                } else if (err.code === 3) {
+                    showMsg('Timed out looking for your position. Move somewhere with a clearer signal and try again.', 'warn');
+                } else {
+                    showMsg('Your position is not available right now. Please try again.', 'warn');
+                }
+            },
+            { enableHighAccuracy: true, maximumAge: 10000, timeout: 25000 }
+        );
+    }
+
+    function stop(silent) {
+        if (watchId != null) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+        }
+        sending = false;
+        if (silent) return;
+
+        fetch('/api/public/delivery/' + encodeURIComponent(token) + '/stop', { method: 'POST' })
+            .catch(function () {})
+            .finally(function () {
+                el('body').innerHTML = '<div class="gone"><div class="icon">✅</div>' +
+                    '<h2>Sharing stopped</h2>' +
+                    '<p>Your location is no longer being shared. Thank you — you can close this page.</p></div>';
+            });
+    }
+
+    document.addEventListener('click', function (e) {
+        if (e.target.id === 'startBtn') start();
+        if (e.target.id === 'stopBtn') stop(false);
+    });
+
+    // Keep the "last sent" line honest rather than frozen on "just now".
+    setInterval(function () {
+        if (!sending || !lastSentAt) return;
+        var secs = Math.round((Date.now() - lastSentAt) / 1000);
+        el('lastSent').textContent = secs < 15 ? 'just now'
+            : secs < 90 ? secs + ' seconds ago'
+            : Math.round(secs / 60) + ' minutes ago';
+    }, 5000);
+
+    // Closing the tab ends sharing on its own — say so rather than surprising them.
+    window.addEventListener('pagehide', function () {
+        if (watchId != null) navigator.geolocation.clearWatch(watchId);
+    });
+})();
+</script>
+</body>
+</html>

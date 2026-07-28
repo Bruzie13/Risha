@@ -30,14 +30,17 @@ class Supplier {
         const connection = await pool.getConnection();
         try {
             const [result] = await connection.execute(
-                `INSERT INTO suppliers (name, email, phone, address, city, contact_person, payment_terms) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO suppliers (name, email, phone, address, city, latitude, longitude, contact_person, payment_terms)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     data.name,
                     data.email || null,
                     data.phone || null,
                     data.address || null,
                     data.city || null,
+                    // a supplier with no pin stays off the map rather than at (0,0)
+                    data.latitude == null || data.latitude === '' ? null : data.latitude,
+                    data.longitude == null || data.longitude === '' ? null : data.longitude,
                     data.contact_person || null,
                     data.payment_terms || null
                 ]
@@ -55,6 +58,7 @@ class Supplier {
             const params = [];
             const allowedFields = [
                 'name', 'email', 'phone', 'address', 'city',
+                'latitude', 'longitude',
                 'contact_person', 'payment_terms', 'is_active'
             ];
 

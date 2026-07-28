@@ -367,3 +367,80 @@ exports.emailPO = async (req, res) => {
         res.status(500).json({ success: false, message: 'Error sending purchase order email' });
     }
 };
+
+/* ── Live delivery tracking ───────────────────────────────────────────────
+   The shop issues a link; the supplier's driver decides whether to open it
+   and share their position. Nothing here can read a location on its own.   */
+const DeliveryTracking = require('../models/DeliveryTracking');
+
+// The whole deliveries board: every order not yet received or cancelled.
+exports.getActiveDeliveries = async (req, res) => {
+    try {
+        const rows = await DeliveryTracking.getActiveDeliveries();
+        res.status(200).json({ success: true, data: rows });
+    } catch (error) {
+        console.error('Get active deliveries error:', error);
+        res.status(500).json({ success: false, message: 'Error loading deliveries' });
+    }
+};
+
+exports.createTrackingLink = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const po = await PurchaseOrder.findById(id);
+        if (!po) return res.status(404).json({ success: false, message: 'Purchase order not found' });
+        if (po.status === 'received' || po.status === 'cancelled') {
+            return res.status(400).json({
+                success: false,
+                message: `This order is already ${po.status} — there is nothing left to track.`
+            });
+        }
+
+        const hours = Math.min(Math.max(parseInt(req.body.hours, 10) || DeliveryTracking.DEFAULT_TTL_HOURS, 1), 168);
+        const link = await DeliveryTracking.createForPO(id, req.user.id, hours);
+
+        logAudit(req.user.id, 'create', 'delivery_tracking', link.id, null, { po_id: Number(id), hours }, req.ip);
+
+        // BASE_URL is the deployment's public address (already set on Render and
+        // used for email tracking links). Falling back to the request host would
+        // hand out a localhost URL nobody else can open.
+        const base = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+        res.status(201).json({
+            success: true,
+            message: 'Tracking link created',
+            data: {
+                url: `${base}/track/delivery/${link.token}`,
+                expires_in_hours: hours,
+                po_number: po.po_number
+            }
+        });
+    } catch (error) {
+        console.error('Create tracking link error:', error);
+        res.status(500).json({ success: false, message: 'Error creating the tracking link' });
+    }
+};
+
+exports.revokeTrackingLink = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const count = await DeliveryTracking.revokeForPO(id);
+        logAudit(req.user.id, 'update', 'delivery_tracking', null, null, { po_id: Number(id), revoked: count }, req.ip);
+        res.status(200).json({
+            success: true,
+            message: count ? 'Tracking link switched off' : 'There was no active link to switch off'
+        });
+    } catch (error) {
+        console.error('Revoke tracking link error:', error);
+        res.status(500).json({ success: false, message: 'Error switching off the tracking link' });
+    }
+};
+
+exports.getTracking = async (req, res) => {
+    try {
+        const status = await DeliveryTracking.getStatusForPO(req.params.id);
+        res.status(200).json({ success: true, data: status });
+    } catch (error) {
+        console.error('Get tracking error:', error);
+        res.status(500).json({ success: false, message: 'Error loading tracking data' });
+    }
+};

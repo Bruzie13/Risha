@@ -8,6 +8,9 @@ class PurchaseOrder {
                         po.total_amount, po.status, po.notes, po.created_by,
                         UNIX_TIMESTAMP(po.created_at) * 1000 as created_at,
                         UNIX_TIMESTAMP(po.updated_at) * 1000 as updated_at,
+                        UNIX_TIMESTAMP(po.confirmed_at) * 1000 as confirmed_at,
+                        UNIX_TIMESTAMP(po.shipped_at) * 1000 as shipped_at,
+                        UNIX_TIMESTAMP(po.received_at) * 1000 as received_at,
                         s.name as supplier_name, u.full_name as created_by_name,
                  (SELECT COUNT(*) FROM po_items poi WHERE poi.po_id = po.id) as item_count
                  FROM purchase_orders po
@@ -39,6 +42,9 @@ class PurchaseOrder {
                         po.total_amount, po.status, po.notes, po.created_by,
                         UNIX_TIMESTAMP(po.created_at) * 1000 as created_at,
                         UNIX_TIMESTAMP(po.updated_at) * 1000 as updated_at,
+                        UNIX_TIMESTAMP(po.confirmed_at) * 1000 as confirmed_at,
+                        UNIX_TIMESTAMP(po.shipped_at) * 1000 as shipped_at,
+                        UNIX_TIMESTAMP(po.received_at) * 1000 as received_at,
                         s.name as supplier_name, u.full_name as created_by_name
                  FROM purchase_orders po
                  LEFT JOIN suppliers s ON po.supplier_id = s.id
@@ -129,10 +135,24 @@ class PurchaseOrder {
         try {
             await connection.beginTransaction();
 
+            // Stamp the stage the first time it is reached, so "3 days in
+            // transit" stays true even if the row is edited again later.
+            const STAGE_COLUMN = { confirmed: 'confirmed_at', shipped: 'shipped_at', received: 'received_at' };
+            const stampCol = STAGE_COLUMN[status];
             await connection.execute(
-                'UPDATE purchase_orders SET status = ? WHERE id = ?',
+                stampCol
+                    ? `UPDATE purchase_orders SET status = ?, ${stampCol} = COALESCE(${stampCol}, NOW()) WHERE id = ?`
+                    : 'UPDATE purchase_orders SET status = ? WHERE id = ?',
                 [status, id]
             );
+
+            // A delivered or cancelled order should stop broadcasting.
+            if (status === 'received' || status === 'cancelled') {
+                await connection.execute(
+                    'UPDATE delivery_tracking SET revoked = 1 WHERE po_id = ? AND revoked = 0',
+                    [id]
+                );
+            }
 
             if (status === 'received') {
                 const items = await this.getPOItems(id);
