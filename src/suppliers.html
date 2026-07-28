@@ -78,7 +78,6 @@
                     <input type="text" id="searchInput" class="search-box" placeholder="Search suppliers..." style="width:200px;">
                     <div class="inv-view-toggle" id="supplierViewToggle" role="tablist" aria-label="Supplier view">
                         <button class="inv-view-btn active" data-view="list" role="tab" aria-selected="true" title="List view"><span class="material-symbols-outlined">list</span></button>
-                        <button class="inv-view-btn" data-view="map" role="tab" aria-selected="false" title="Map view — where your suppliers are"><span class="material-symbols-outlined">map</span></button>
                         <button class="inv-view-btn" data-view="deliveries" role="tab" aria-selected="false" title="Deliveries — what's on the way right now">
                             <span class="material-symbols-outlined">local_shipping</span>
                             <span class="view-btn-badge" id="deliveriesBadge" style="display:none;">0</span>
@@ -108,35 +107,6 @@
                         <span class="stat-value" id="activeSuppliers">
 <span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
 </span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Map view — where every supplier sits, and how far from the shop -->
-            <div class="panel-card supplier-map-panel" id="supplierMapPanel" data-jump-title="Supplier map" style="display:none;">
-                <div class="panel-head">
-                    <h3><span class="icon-chip amber"><span class="material-symbols-outlined" style="font-size:16px;">pin_drop</span></span> Supplier Map</h3>
-                    <div class="map-head-actions">
-                        <span class="map-hint" id="mapPinnedCount"></span>
-                        <button class="btn-secondary" id="setShopLocationBtn" onclick="startShopLocationPick()" title="Mark where the shop is, so distances can be measured">
-                            <span class="material-symbols-outlined" style="font-size:15px;">storefront</span> Set shop location
-                        </button>
-                    </div>
-                </div>
-                <div class="supplier-map-body">
-                    <div class="supplier-map-list" id="supplierMapList"></div>
-                    <div class="supplier-map-canvas">
-                        <div id="supplierMap" role="application" aria-label="Map of supplier locations"></div>
-                        <div class="map-offline" id="supplierMapOffline" style="display:none;">
-                            <span class="material-symbols-outlined">wifi_off</span>
-                            <p>The map couldn't load</p>
-                            <small>Map tiles come from the internet. Check the connection, then reload the page.</small>
-                        </div>
-                        <div class="map-pick-banner" id="mapPickBanner" style="display:none;">
-                            <span class="material-symbols-outlined">touch_app</span>
-                            <span id="mapPickText">Click the map to place the shop</span>
-                            <button class="btn-secondary" onclick="cancelShopLocationPick()">Cancel</button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -317,29 +287,8 @@
                         </div>
                     </div>
 
-                    <div class="form-group loc-group">
-                        <label class="form-label">
-                            Location on the map
-                            <span class="loc-optional">optional</span>
-                        </label>
-                        <div class="loc-controls">
-                            <button type="button" class="btn-secondary" id="locateBtn" onclick="locateFromAddress()">
-                                <span class="material-symbols-outlined" style="font-size:15px;">travel_explore</span> Find from address
-                            </button>
-                            <span class="loc-readout" id="locReadout">No pin yet — drag the marker or use “Find from address”.</span>
-                            <button type="button" class="btn-action loc-clear" id="locClearBtn" onclick="clearSupplierPin()" style="display:none;" title="Remove this supplier's pin">Clear</button>
-                        </div>
-                        <div class="loc-suggestions" id="locSuggestions" style="display:none;"></div>
-                        <div class="loc-map-wrap">
-                            <div id="supplierPickMap" role="application" aria-label="Pick the supplier's location"></div>
-                            <div class="map-offline small" id="pickMapOffline" style="display:none;">
-                                <span class="material-symbols-outlined">wifi_off</span>
-                                <small>Map unavailable — you can still save the supplier without a pin.</small>
-                            </div>
-                        </div>
-                        <input type="hidden" id="latitude">
-                        <input type="hidden" id="longitude">
-                    </div>
+                    <input type="hidden" id="latitude">
+                    <input type="hidden" id="longitude">
                 </div>
 
                 <div class="modal-actions">
@@ -397,8 +346,8 @@
 <script src="js/jump.js?v=1"></script>
 <script src="js/assistant.js?v=4"></script>
     <script src="js/suppliers.js?v=3"></script>
-    <script src="js/supplier-map.js?v=2"></script>
-    <script src="js/delivery-tracker.js?v=1"></script>
+    <script src="js/delivery-tracker.js?v=2"></script>
+    <script src="js/delivery-live.js?v=1"></script>
 </body>
 </html>
 
@@ -443,7 +392,7 @@
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">local_shipping</span> Suppliers</h3>
                 <p>Contacts, payment terms, and delivery performance per supplier. Click a supplier's <strong>email address</strong> or the <strong>Emails</strong> button to see every message sent to them with read receipts: <strong>✓</strong> delivered, <strong>✓✓</strong> the supplier actually opened or clicked it (automated mail scanners are filtered out).</p>
-                <p>Switch to the <strong>Map</strong> view (the map icon beside the search box) to see where every supplier is, sorted by how far they are from the shop. When you add or edit a supplier, use <strong>Find from address</strong> to drop a pin automatically, then drag it until it is exactly right. Admins can set the shop's own position with <strong>Set shop location</strong>. Distances are straight-line, not driving distance.</p>
+                <p>Switch to the <strong>Deliveries</strong> view (the truck icon beside the search box) to see every order on its way: <strong>Ordered → Confirmed → Shipped → Received</strong>, how long it has sat at its current step, and whether it is running late. Use <strong>Ask supplier to share location</strong> to email the supplier a private tracking link; if their driver opens it and allows location sharing, <strong>Track live</strong> opens a full map following them to the shop, with distance and an estimated arrival. Nothing is tracked unless the driver agrees, and sharing stops the moment they close the page.</p>
             </div>
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">assessment</span> Reports &amp; Analytics</h3>

@@ -183,6 +183,11 @@
         if (v.moving) {
             return '<div class="dt-live-box">' +
                 '<span class="dt-live-note live"><span class="dt-live-dot"></span> Driver sharing · last fix ' + esc(ago(v.liveAt)) + '</span>' +
+                '<button class="btn-primary dt-btn dt-btn-live" onclick="openLiveTracking(' + id + ', \'' +
+                    esc(v.raw.po_number || '').replace(/'/g, "\\'") + '\', \'' +
+                    esc(v.raw.supplier_name || '').replace(/'/g, "\\'") + '\')">' +
+                    '<span class="material-symbols-outlined" style="font-size:15px;">travel_explore</span> Track live' +
+                '</button>' +
                 '<button class="btn-secondary dt-btn" onclick="stopDeliveryTracking(' + id + ')">Stop tracking</button>' +
             '</div>';
         }
@@ -274,10 +279,6 @@
             wrap.innerHTML = views.map(cardHtml).join('');
         }
 
-        // hand the map its overlay data
-        if (typeof window.drawDeliveryOverlays === 'function') {
-            window.drawDeliveryOverlays(views);
-        }
     }
 
     // ── Data ───────────────────────────────────────────────────────────────
@@ -427,8 +428,48 @@
         ta.remove();
     }
 
-    // Deliveries also matter on the map view, so keep the data fresh there too.
+    // ── View toggle ────────────────────────────────────────────────────────
+    // List vs Deliveries. (This used to live in supplier-map.js, which went
+    // when the supplier map was removed.)
+    var VIEW_KEY = 'supplierView';
+
+    function setView(view) {
+        var panel = document.getElementById('deliveriesPanel');
+        var table = document.getElementById('supplierTableWrap');
+        var pager = document.getElementById('supplierPagination');
+        if (!panel || !table) return;
+
+        var isDeliveries = view === 'deliveries';
+        panel.style.display = isDeliveries ? '' : 'none';
+        table.style.display = isDeliveries ? 'none' : '';
+        if (pager) pager.style.display = isDeliveries ? 'none' : '';
+
+        document.querySelectorAll('#supplierViewToggle .inv-view-btn').forEach(function (b) {
+            var on = b.dataset.view === view;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        try { localStorage.setItem(VIEW_KEY, view); } catch (e) {}
+
+        visible = isDeliveries;
+        if (isDeliveries) { refresh(false); startPolling(); }
+        else stopPolling();
+    }
+
     window.addEventListener('load', function () {
+        var toggle = document.getElementById('supplierViewToggle');
+        if (toggle) {
+            toggle.querySelectorAll('.inv-view-btn').forEach(function (b) {
+                b.addEventListener('click', function () { setView(b.dataset.view); });
+            });
+        }
+        var saved = 'list';
+        try { saved = localStorage.getItem(VIEW_KEY) || 'list'; } catch (e) {}
+        // the map view no longer exists — anyone who left it selected lands on the list
+        if (saved !== 'deliveries') saved = 'list';
+        setView(saved);
+
+        // one early fetch so the badge count is right even from the list view
         setTimeout(function () { refresh(false); }, 700);
     });
 })();
