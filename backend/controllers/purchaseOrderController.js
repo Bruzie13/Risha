@@ -265,6 +265,11 @@ exports.autoGeneratePO = async (req, res) => {
             }
             supplierGroups[product.supplier_id].push({
                 product_id: product.id,
+                // product_name/sku are ignored by the po_items insert but are
+                // what the supplier's email lists — without them every line
+                // reads "Product".
+                product_name: product.name,
+                sku: product.sku,
                 quantity: reorderQuantity,
                 unit_price: product.cost_price || product.unit_price || 0,
                 total_price: (product.cost_price || product.unit_price || 0) * reorderQuantity
@@ -272,6 +277,7 @@ exports.autoGeneratePO = async (req, res) => {
         }
 
         const createdOrders = [];
+        const emailResults = [];
         for (const [supplierId, items] of Object.entries(supplierGroups)) {
             const total_amount = items.reduce((sum, item) => sum + item.total_price, 0);
             const orderData = {
@@ -291,9 +297,34 @@ exports.autoGeneratePO = async (req, res) => {
                 items_count: items.length,
                 status: order.status
             }, req.ip);
-            // Emails are no longer sent automatically. The purchase order is
-            // created here; staff send it to the supplier manually from the
-            // supplier's Performance panel when they're ready.
+
+            // Send each order to the supplier it belongs to. A failure here is
+            // reported per order rather than thrown — one supplier missing an
+            // email address must not lose the other orders that did go out.
+            const emailResult = { po_number: order.po_number, supplier_name: supplier ? supplier.name : 'Unknown' };
+            if (!supplier || !supplier.email) {
+                emailResult.sent = false;
+                emailResult.reason = 'no email address on file';
+                warnings.push(`${order.po_number} for ${emailResult.supplier_name} was created but not emailed — no email address on file`);
+            } else {
+                try {
+                    const ok = await sendPOEmail(
+                        supplier.id, supplier.email, supplier.name,
+                        order.po_number, items, order.total_amount
+                    );
+                    emailResult.sent = !!ok;
+                    emailResult.email = supplier.email;
+                    if (!ok) {
+                        emailResult.reason = 'the mail server rejected it';
+                        warnings.push(`${order.po_number} for ${supplier.name} was created but the email did not send — resend it from the supplier's Performance panel`);
+                    }
+                } catch (e) {
+                    emailResult.sent = false;
+                    emailResult.reason = e.message;
+                    warnings.push(`${order.po_number} for ${supplier.name} was created but the email failed — resend it from the supplier's Performance panel`);
+                }
+            }
+            emailResults.push(emailResult);
         }
 
         if (createdOrders.length > 0) {
@@ -304,14 +335,28 @@ exports.autoGeneratePO = async (req, res) => {
             });
         }
 
+        const sentCount = emailResults.filter(e => e.sent).length;
+        const failedCount = emailResults.length - sentCount;
+
+        let message;
+        if (createdOrders.length === 0) {
+            message = 'No purchase orders generated. Check warnings for details.';
+        } else if (failedCount === 0) {
+            message = `Created ${createdOrders.length} purchase order(s) and emailed ${sentCount === 1 ? 'the supplier' : `all ${sentCount} suppliers`}.`;
+        } else if (sentCount === 0) {
+            message = `Created ${createdOrders.length} purchase order(s), but none could be emailed. Send them from the supplier's Performance panel.`;
+        } else {
+            message = `Created ${createdOrders.length} purchase order(s). ${sentCount} emailed, ${failedCount} could not be sent — see the details below.`;
+        }
+
         res.status(201).json({
             success: true,
-            message: createdOrders.length > 0
-                ? `Created ${createdOrders.length} purchase order(s). Send them to suppliers from the Performance panel when ready.`
-                : 'No purchase orders generated. Check warnings for details.',
+            message,
             data: createdOrders,
             count: createdOrders.length,
-            emails: [],
+            emails: emailResults,
+            emailed: sentCount,
+            email_failed: failedCount,
             warnings
         });
     } catch (error) {
@@ -323,8 +368,9 @@ exports.autoGeneratePO = async (req, res) => {
     }
 };
 
-// Manually email an existing purchase order to its supplier. Reorders no
-// longer send email automatically — staff trigger the send from the UI.
+// Manually (re)send an existing purchase order to its supplier. Reorders email
+// on creation, so this is for resending — after a bounce, or once a supplier
+// who had no address on file has one.
 exports.emailPO = async (req, res) => {
     try {
         const { id } = req.params;

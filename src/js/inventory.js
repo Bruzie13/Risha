@@ -1038,13 +1038,32 @@ async function autoReorder() {
             // Second confirmation before the purchase orders are created
             showConfirmDialog(
                 'Final check',
-                `This will create purchase orders for ${ids.length} product${ids.length === 1 ? '' : 's'}. Suppliers are not emailed automatically — you'll send each order from the supplier's Performance panel. Proceed?`,
+                `This will create purchase orders for ${ids.length} product${ids.length === 1 ? '' : 's'} and <strong>email each order to its assigned supplier straight away</strong>. Proceed?`,
                 () => doReorder(ids),
                 'Yes, Create Orders',
                 '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">receipt_long</span>'
             );
         }
     });
+}
+
+/* Summarise what a reorder actually did. The count of orders is only half the
+   story now that each one is emailed on creation — a supplier with no address
+   on file still gets an order, and staff need to know which ones did not go
+   out so they can chase them. */
+function reorderResultText(data, count) {
+    const orders = `${count} purchase order${count === 1 ? '' : 's'} created`;
+    const sent = data.emailed || 0;
+    const failed = data.email_failed || 0;
+    const named = (data.emails || []).filter(e => e.sent).map(e => e.supplier_name);
+
+    if (failed === 0 && sent > 0) {
+        return `${orders} and emailed to ${named.length <= 3 ? named.join(', ') : sent + ' suppliers'}.`;
+    }
+    if (sent === 0) {
+        return `${orders}, but none could be emailed. Send them from each supplier's Performance panel.`;
+    }
+    return `${orders}. ${sent} emailed, ${failed} still to send — see the notes below.`;
 }
 
 async function doReorder(productIds) {
@@ -1057,7 +1076,7 @@ async function doReorder(productIds) {
         if (data.success) {
             const count = data.count || (Array.isArray(data.data) ? data.data.length : 0);
             if (count > 0) {
-                showSuccessDialog('Purchase orders created', `${count} purchase order${count === 1 ? '' : 's'} created. Open the supplier's Performance panel to email each order when you're ready.`, { icon: 'receipt_long' });
+                showSuccessDialog('Purchase orders sent', reorderResultText(data, count), { icon: data.email_failed ? 'outgoing_mail' : 'mark_email_read' });
             } else {
                 showSuccessDialog('No orders generated', data.message || 'Nothing needed reordering — see the notes for details.', { tone: 'info' });
             }
@@ -1113,7 +1132,7 @@ async function bulkReorder() {
     if (ids.length === 0) return;
     showConfirmDialog('Bulk Reorder', `Generate purchase orders for ${ids.length} selected product(s)?`, () => {
         // Second confirmation before the purchase orders are created
-        showConfirmDialog('Final check', `This will create the purchase orders. Suppliers are not emailed automatically — send each order from the supplier's Performance panel. Proceed?`, async () => {
+        showConfirmDialog('Final check', `This will create the purchase orders and <strong>email each one to its assigned supplier straight away</strong>. Proceed?`, async () => {
         try {
             const response = await fetch(`${API_URL}/purchase-orders/auto-generate`, {
                 method: 'POST', headers: getAuthHeaders(),
@@ -1122,7 +1141,7 @@ async function bulkReorder() {
             const data = await response.json();
             const count = data.count || (Array.isArray(data.data) ? data.data.length : 0);
             if (count > 0) {
-                showSuccessDialog('Purchase orders created', `${count} purchase order${count === 1 ? '' : 's'} created. Open the supplier's Performance panel to email each order when you're ready.`, { icon: 'receipt_long' });
+                showSuccessDialog('Purchase orders sent', reorderResultText(data, count), { icon: data.email_failed ? 'outgoing_mail' : 'mark_email_read' });
             } else {
                 showSuccessDialog('No orders generated', data.message || 'Nothing needed reordering — see the notes for details.', { tone: 'info' });
             }
