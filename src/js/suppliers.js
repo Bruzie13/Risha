@@ -20,6 +20,7 @@ async function loadSuppliers() {
         if (data.success) {
             allSuppliers = Array.isArray(data.data) ? data.data : [];
             displaySuppliers(allSuppliers);
+            if (typeof renderSupplierMap === 'function') renderSupplierMap(allSuppliers);
         }
     } catch (error) {
         console.error('Error loading suppliers:', error);
@@ -113,6 +114,7 @@ function openAddSupplierModal() {
     document.getElementById('supplierModalTitle').textContent = 'Add Supplier';
     document.getElementById('supplierForm').reset();
     document.getElementById('supplierModal').classList.add('active');
+    if (typeof openSupplierPicker === 'function') openSupplierPicker(null, null);
 }
 
 function openEditSupplierModal(id) {
@@ -129,6 +131,12 @@ function openEditSupplierModal(id) {
     document.getElementById('city').value = supplier.city || '';
     document.getElementById('payment_terms').value = supplier.payment_terms || 'net30';
     document.getElementById('supplierModal').classList.add('active');
+    if (typeof openSupplierPicker === 'function') {
+        openSupplierPicker(
+            supplier.latitude == null ? null : Number(supplier.latitude),
+            supplier.longitude == null ? null : Number(supplier.longitude)
+        );
+    }
 }
 
 function closeSupplierModal() {
@@ -145,7 +153,10 @@ async function handleSupplierSubmit(event) {
         phone: document.getElementById('phone').value || null,
         address: document.getElementById('address').value || null,
         city: document.getElementById('city').value || null,
-        payment_terms: document.getElementById('payment_terms').value || 'net30'
+        payment_terms: document.getElementById('payment_terms').value || 'net30',
+        // empty string clears an existing pin; the server treats '' as NULL
+        latitude: document.getElementById('latitude').value || null,
+        longitude: document.getElementById('longitude').value || null
     };
     try {
         let response;

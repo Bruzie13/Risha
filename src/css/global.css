@@ -3299,20 +3299,38 @@ html.sidebar-hidden .sidebar-footer .sidebar-btn::after {
   .fa-fab { bottom: 16px; right: 16px; }
 }
 
-/* ===== 3D CARD TILT (tilt3d.js) ===== */
+/* ===== 3D CARD TILT (tilt3d.js) =====
+   The rotation itself is eased frame by frame in JS, so there is no transform
+   transition here — only the lighting and shadow cross-fade in CSS. */
 @media (hover: hover) and (pointer: fine) {
   .tilt-3d {
     position: relative;
     transform-style: preserve-3d;
-    transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s ease;
-    will-change: transform;
+    transition: box-shadow 0.3s ease;
   }
   .tilt-3d.is-tilting {
-    transition: transform 0.06s linear;
     z-index: 5;
-    box-shadow: 0 20px 44px rgba(17, 24, 39, 0.16);
+    box-shadow:
+      var(--sx, 0px) var(--sy, 18px) 46px -14px rgba(17, 24, 39, 0.30),
+      0 2px 6px rgba(17, 24, 39, 0.06);
   }
-  :root.dark-mode .tilt-3d.is-tilting { box-shadow: 0 22px 50px rgba(0, 0, 0, 0.55); }
+  :root.dark-mode .tilt-3d.is-tilting {
+    box-shadow:
+      var(--sx, 0px) var(--sy, 18px) 52px -16px rgba(0, 0, 0, 0.75),
+      0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  /* contents ride above the card face and parallax as it turns */
+  .tilt-layer {
+    transform: translateZ(0);
+    transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .tilt-3d.is-tilting .tilt-layer {
+    transform: translateZ(var(--tz, 12px));
+    transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* broad diffuse highlight that follows the pointer */
   .tilt-glare {
     position: absolute;
     inset: 0;
@@ -3321,9 +3339,557 @@ html.sidebar-hidden .sidebar-footer .sidebar-btn::after {
     opacity: 0;
     transition: opacity 0.3s ease;
     background: radial-gradient(circle at var(--tx, 50%) var(--ty, 50%),
-                rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 45%);
+                rgba(255, 255, 255, 0.40), rgba(255, 255, 255, 0) 45%);
     mix-blend-mode: soft-light;
     z-index: 4;
   }
   .tilt-3d.is-tilting .tilt-glare { opacity: 1; }
+
+  /* tight specular band — the "polished surface" cue */
+  .tilt-sheen {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    background: linear-gradient(105deg,
+                transparent calc(var(--sheen, 50%) - 22%),
+                rgba(255, 255, 255, 0.28) var(--sheen, 50%),
+                transparent calc(var(--sheen, 50%) + 22%));
+    z-index: 3;
+  }
+  .tilt-3d.is-tilting .tilt-sheen { opacity: 0.85; }
+  :root.dark-mode .tilt-sheen {
+    background: linear-gradient(105deg,
+                transparent calc(var(--sheen, 50%) - 22%),
+                rgba(255, 255, 255, 0.10) var(--sheen, 50%),
+                transparent calc(var(--sheen, 50%) + 22%));
+  }
+
+  /* the flat hover-lift would fight the tilt transform — drop it on 3D cards */
+  .tilt-3d:hover { transform: none; }
+}
+
+/* ===== AMBIENT WEBGL BACKDROP (webgl-bg.js) =====
+   The canvas paints the page background itself, so the body has to get out
+   of the way. If WebGL is unavailable we fall back to a static gradient that
+   reads almost identically when nothing is moving. */
+#auroraCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  z-index: -1;
+  pointer-events: none;
+}
+
+:root.aurora-on { background: var(--bg-body); }
+:root.aurora-on body { background: transparent; }
+
+:root.aurora-fallback body {
+  background:
+    radial-gradient(60% 55% at 8% 0%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 70%),
+    radial-gradient(55% 50% at 100% 15%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 72%),
+    radial-gradient(65% 60% at 85% 100%, color-mix(in srgb, var(--secondary) 14%, transparent), transparent 70%),
+    var(--bg-body);
+  background-attachment: fixed;
+}
+
+/* Content sits on the aurora, so surfaces carry a touch more elevation and
+   an inner light edge — that separation is what sells the depth. */
+:root.aurora-on .panel-card,
+:root.aurora-on .kpi-card,
+:root.aurora-on .settings-card,
+:root.aurora-on .table-container,
+:root.aurora-on .stat-card {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55) inset,
+    0 2px 6px rgba(16, 24, 40, 0.04),
+    0 14px 34px -18px rgba(16, 24, 40, 0.28);
+}
+:root.aurora-on.dark-mode .panel-card,
+:root.aurora-on.dark-mode .kpi-card,
+:root.aurora-on.dark-mode .settings-card,
+:root.aurora-on.dark-mode .table-container,
+:root.aurora-on.dark-mode .stat-card {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 2px 8px rgba(0, 0, 0, 0.30),
+    0 18px 40px -20px rgba(0, 0, 0, 0.65);
+}
+
+/* The sidebar becomes a frosted pane over the moving backdrop */
+:root.aurora-on .sidebar {
+  background: color-mix(in srgb, var(--nav-bg) 82%, transparent);
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  :root.aurora-on .sidebar { background: var(--nav-bg); }
+}
+
+/* ===== JUMP — command palette, section rail, back to top (jump.js) ===== */
+
+/* -- the dashboard call-to-action -- */
+.jump-cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 8px 8px 15px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--primary) 32%, transparent);
+  background: linear-gradient(135deg,
+              color-mix(in srgb, var(--primary) 12%, var(--bg-card)),
+              var(--bg-card) 55%,
+              color-mix(in srgb, var(--secondary) 10%, var(--bg-card)));
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease, border-color 0.22s ease;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+.jump-cta .jump-cta-bolt {
+  font-size: 17px;
+  color: var(--primary);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.jump-cta:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--primary) 55%, transparent);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--primary) 26%, transparent);
+}
+.jump-cta:hover .jump-cta-bolt { transform: scale(1.18) rotate(-8deg); }
+.jump-cta:active { transform: translateY(0) scale(0.98); }
+.jump-cta kbd {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary-dark, var(--primary));
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
+  letter-spacing: 0.3px;
+}
+/* a slow sheen sweeps the button so it reads as the live control it is */
+@media (prefers-reduced-motion: no-preference) {
+  .jump-cta::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 40%;
+    left: -60%;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+    transform: skewX(-18deg);
+    animation: jumpSheen 4.5s ease-in-out infinite;
+    pointer-events: none;
+  }
+  :root.dark-mode .jump-cta::after { background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.14), transparent); }
+  @keyframes jumpSheen {
+    0%, 62% { left: -60%; }
+    92%, 100% { left: 120%; }
+  }
+}
+
+.jump-sidebar-btn .material-symbols-outlined { font-size: 18px; }
+.jump-sidebar-btn { color: var(--primary) !important; }
+
+/* -- overlay -- */
+.jump-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding: min(14vh, 120px) 16px 16px;
+  background: radial-gradient(120% 90% at 50% 0%, rgba(12, 16, 28, 0.32), rgba(8, 11, 20, 0.62));
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+}
+.jump-overlay.active { display: flex; animation: jumpFade 0.18s ease; }
+@keyframes jumpFade { from { opacity: 0; } to { opacity: 1; } }
+body.jump-open { overflow: hidden; }
+
+.jump-modal {
+  width: 100%;
+  max-width: 660px;
+  max-height: min(70vh, 620px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass-strong);
+  overflow: hidden;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 40px 90px -20px rgba(10, 14, 26, 0.45),
+    0 12px 30px -12px rgba(10, 14, 26, 0.35);
+  transform-origin: 50% 0%;
+}
+:root.dark-mode .jump-modal {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.07) inset,
+    0 46px 100px -20px rgba(0, 0, 0, 0.8);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .jump-overlay.active .jump-modal {
+    animation: jumpIn 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes jumpIn {
+    from { opacity: 0; transform: perspective(1200px) translateY(-18px) rotateX(7deg) scale(0.97); }
+    to   { opacity: 1; transform: perspective(1200px) translateY(0) rotateX(0deg) scale(1); }
+  }
+}
+
+.jump-input-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 15px 20px;
+  border-bottom: 1px solid var(--border-glass);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 6%, transparent), transparent);
+}
+.jump-lead {
+  font-size: 22px;
+  background: var(--primary-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  flex-shrink: 0;
+}
+.jump-input-row input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.jump-input-row input::placeholder { color: var(--text-muted); font-weight: 400; }
+.jump-esc {
+  border: 1px solid var(--border-glass-strong);
+  background: var(--bg-raised);
+  color: var(--text-muted);
+  border-radius: var(--radius-full);
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 5px 11px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.jump-esc:hover { color: var(--text-primary); border-color: var(--primary); }
+
+.jump-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 8px 10px;
+  scroll-padding: 12px;
+}
+
+.jump-group {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 12px 14px 6px;
+}
+
+.jump-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 9px 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  position: relative;
+  border: 1px solid transparent;
+  transition: background 0.13s ease, transform 0.13s ease, border-color 0.13s ease;
+}
+.jump-row.is-active {
+  background: color-mix(in srgb, var(--primary) 10%, var(--bg-raised));
+  border-color: color-mix(in srgb, var(--primary) 26%, transparent);
+  transform: translateX(3px);
+}
+.jump-row.is-active::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 22%;
+  bottom: 22%;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--primary-gradient);
+}
+.jump-ico {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.jump-row.is-active .jump-ico { transform: scale(1.06) rotate(-4deg); }
+.jump-ico .material-symbols-outlined { font-size: 19px; }
+.jump-ico.coral  { background: var(--primary-bg);  color: var(--primary-dark, var(--primary)); }
+.jump-ico.blue   { background: var(--info-bg);     color: var(--info); }
+.jump-ico.green  { background: var(--success-bg);  color: var(--success); }
+.jump-ico.amber  { background: var(--warning-bg);  color: var(--warning); }
+.jump-ico.red    { background: var(--danger-bg);   color: var(--danger); }
+.jump-ico.purple { background: var(--purple-bg);   color: var(--purple); }
+
+.jump-text { flex: 1; min-width: 0; }
+.jump-title {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.jump-title b { color: var(--primary); font-weight: 800; }
+.jump-sub {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.jump-badge {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: var(--danger-bg);
+  color: var(--danger);
+  flex-shrink: 0;
+}
+.jump-go {
+  font-size: 16px;
+  color: var(--text-muted);
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.jump-row.is-active .jump-go { opacity: 1; color: var(--primary); transform: translateX(2px); }
+
+.jump-empty {
+  padding: 46px 24px;
+  text-align: center;
+  color: var(--text-muted);
+}
+.jump-empty .material-symbols-outlined { font-size: 40px; opacity: 0.55; }
+.jump-empty p { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin: 10px 0 4px; }
+.jump-empty small { font-size: 12px; }
+.jump-searching {
+  padding: 10px 16px 4px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.jump-foot {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--border-glass);
+  background: var(--bg-raised);
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.jump-foot .jump-foot-right { margin-left: auto; }
+.jump-foot kbd {
+  display: inline-block;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  margin-right: 3px;
+  border-radius: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass-strong);
+  color: var(--text-secondary);
+}
+
+/* -- the section the palette sent you to announces itself -- */
+.jump-flash { position: relative; z-index: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  .jump-flash { animation: jumpFlash 1.5s cubic-bezier(0.22, 1, 0.36, 1); }
+  @keyframes jumpFlash {
+    0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 55%, transparent); }
+    30%  { box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 32%, transparent); }
+    100% { box-shadow: 0 0 0 14px color-mix(in srgb, var(--primary) 0%, transparent); }
+  }
+}
+
+/* -- section rail: a spine of the page down the right edge -- */
+.jump-rail {
+  position: fixed;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 7px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--bg-card) 70%, transparent);
+  border: 1px solid var(--border-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 10px 30px -14px rgba(16, 24, 40, 0.35);
+}
+.jump-rail-dot {
+  position: relative;
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--gray-300);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.jump-rail-dot:hover { background: var(--primary-light, var(--primary)); transform: scale(1.35); }
+.jump-rail-dot.is-current {
+  background: var(--primary);
+  transform: scale(1.4);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.jump-rail-label {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%) translateX(6px);
+  white-space: nowrap;
+  padding: 5px 11px;
+  border-radius: var(--radius-full);
+  background: var(--text-primary);
+  color: var(--bg-card);
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+.jump-rail-dot:hover .jump-rail-label { opacity: 1; transform: translateY(-50%) translateX(0); }
+
+/* -- back to top, parked above the assistant button -- */
+.jump-top {
+  position: fixed;
+  right: 30px;
+  bottom: 92px;
+  z-index: 9996;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border-glass-strong);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px) scale(0.9);
+  transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s ease;
+  box-shadow: 0 8px 22px -8px rgba(16, 24, 40, 0.4);
+}
+.jump-top.is-on { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }
+.jump-top:hover { color: var(--primary); border-color: var(--primary); }
+
+@media (max-width: 768px) {
+  .jump-overlay { padding-top: 8vh; }
+  .jump-modal { max-height: 78vh; }
+  .jump-foot .jump-foot-right { display: none; }
+  .jump-top { right: 18px; bottom: 86px; }
+  .jump-cta kbd { display: none; }
+}
+
+/* -- one-time hint pointing at the Jump button -- */
+.jump-tip {
+  position: absolute;
+  z-index: 3500;
+  width: 320px;
+  padding: 15px 16px 13px;
+  border-radius: 16px;
+  background: var(--bg-card);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  box-shadow: 0 24px 50px -18px rgba(16, 24, 40, 0.45);
+  animation: jumpTipIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.jump-tip::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  right: 72px;      /* lines up with the middle of the Jump button */
+  width: 12px;
+  height: 12px;
+  transform: rotate(45deg);
+  background: var(--bg-card);
+  border-left: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+}
+@keyframes jumpTipIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.jump-tip-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--primary-dark, var(--primary));
+  margin-bottom: 6px;
+}
+.jump-tip-head .material-symbols-outlined { font-size: 18px; }
+.jump-tip p { font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); margin-bottom: 12px; }
+.jump-tip em { color: var(--text-primary); font-style: normal; font-weight: 600; }
+.jump-tip-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.jump-tip-key {
+  display: inline-block;
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-glass-strong);
+  color: var(--text-secondary);
+}
+@media (max-width: 768px) {
+  .jump-tip { display: none; }
 }

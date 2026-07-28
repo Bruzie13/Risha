@@ -77,6 +77,9 @@ CREATE TABLE suppliers (
     phone VARCHAR(20),
     address TEXT,
     city VARCHAR(100),
+    -- map pin; NULL until someone locates the supplier
+    latitude DECIMAL(10, 7),
+    longitude DECIMAL(10, 7),
     contact_person VARCHAR(255),
     payment_terms VARCHAR(100),
     is_active BOOLEAN DEFAULT TRUE,
