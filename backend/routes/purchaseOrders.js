@@ -6,6 +6,7 @@ const { authenticateToken, authorizeRole } = require('../middleware/auth');
 router.get('/', authenticateToken, purchaseOrderController.getAllPOs);
 // Static path before '/:id', or Express reads "deliveries" as an order id.
 router.get('/deliveries', authenticateToken, purchaseOrderController.getActiveDeliveries);
+router.get('/route', authenticateToken, purchaseOrderController.getRoute);
 router.get('/:id', authenticateToken, purchaseOrderController.getPOById);
 router.get('/:id/tracking', authenticateToken, purchaseOrderController.getTracking);
 router.post('/:id/tracking-link', authenticateToken, authorizeRole('admin', 'manager'), purchaseOrderController.createTrackingLink);

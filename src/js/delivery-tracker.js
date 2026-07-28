@@ -428,6 +428,61 @@
         ta.remove();
     }
 
+    /* ── Shop location ─────────────────────────────────────────────────────
+       Every distance and arrival estimate is measured from here, so a wrong
+       pin quietly corrupts all of them. Capturing it from the device standing
+       in the shop beats dragging a marker on a map, and it is one tap. */
+    window.setShopLocationHere = function () {
+        if (typeof getUserRole === 'function' && getUserRole() !== 'admin') {
+            showToast('Only an admin can set the shop location.', 'error');
+            return;
+        }
+        if (!navigator.geolocation) {
+            showToast('This browser cannot read a location.', 'error');
+            return;
+        }
+        showConfirmDialog(
+            'Set the shop location',
+            'This saves <strong>where this device is right now</strong> as the shop\'s position. ' +
+            'Do it on a phone or laptop inside the shop for an accurate result. ' +
+            'Every delivery distance and arrival estimate is measured from this point.',
+            function () {
+                showToast('Reading this device\'s position…', 'info');
+                navigator.geolocation.getCurrentPosition(
+                    async function (pos) {
+                        try {
+                            var r = await fetch(API_BASE + '/suppliers/shop-location', {
+                                method: 'PUT', headers: getAuthHeaders(),
+                                body: JSON.stringify({
+                                    latitude: +pos.coords.latitude.toFixed(7),
+                                    longitude: +pos.coords.longitude.toFixed(7),
+                                    label: 'Risha Pet Supplies'
+                                })
+                            });
+                            var d = await r.json();
+                            if (!d.success) { showErrorDialog('Could not save', d.message || 'Unknown error'); return; }
+                            showSuccessDialog('Shop location saved',
+                                'Accurate to about ' + Math.round(pos.coords.accuracy) + ' m. ' +
+                                'Delivery distances and arrival times now measure from here.',
+                                { icon: 'storefront' });
+                        } catch (e) {
+                            showToast('Could not save the shop location', 'error');
+                        }
+                    },
+                    function (err) {
+                        showErrorDialog('Could not read a position',
+                            err.code === 1
+                                ? 'Location permission was declined. Allow it in your browser settings and try again.'
+                                : 'Your position is not available right now. Try again with a clearer signal.');
+                    },
+                    { enableHighAccuracy: true, timeout: 20000 }
+                );
+            },
+            'Use this location',
+            '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">storefront</span>'
+        );
+    };
+
     // ── View toggle ────────────────────────────────────────────────────────
     // List vs Deliveries. (This used to live in supplier-map.js, which went
     // when the supplier map was removed.)

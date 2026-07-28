@@ -557,3 +557,109 @@ exports.getTracking = async (req, res) => {
         res.status(500).json({ success: false, message: 'Error loading tracking data' });
     }
 };
+
+/* ── Road routing ─────────────────────────────────────────────────────────
+   A straight line between a driver and the shop is not how anyone actually
+   travels, and dividing it by GPS speed is not an arrival time. OSRM gives
+   the real road geometry and a driving duration.
+
+   Public demo server, so: short timeout, cache by rounded coordinates (a van
+   moving a few metres does not need a fresh route), and if it is slow or
+   down the caller falls back to the straight-line estimate rather than
+   showing nothing. */
+const OSRM_URL = 'https://router.project-osrm.org/route/v1/driving';
+const routeCache = new Map();
+const ROUTE_CACHE_MAX = 120;
+const ROUTE_TTL_MS = 60000;
+
+exports.getRoute = async (req, res) => {
+    const parse = v => {
+        const parts = String(v || '').split(',').map(Number);
+        return parts.length === 2 && parts.every(Number.isFinite) ? parts : null;
+    };
+    const from = parse(req.query.from);
+    const to = parse(req.query.to);
+    if (!from || !to) {
+        return res.status(400).json({ success: false, message: 'from and to must be "lat,lng"' });
+    }
+
+    // ~3 decimal places is roughly 100m — fine granularity for a road route,
+    // and it stops every GPS twitch becoming an upstream request.
+    const key = [from[0].toFixed(3), from[1].toFixed(3), to[0].toFixed(3), to[1].toFixed(3)].join(',');
+    const hit = routeCache.get(key);
+    if (hit && Date.now() - hit.at < ROUTE_TTL_MS) {
+        return res.status(200).json({ success: true, cached: true, data: hit.data });
+    }
+
+    try {
+        const url = `${OSRM_URL}/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 6000);
+        let json;
+        try {
+            const upstream = await fetch(url, { signal: ctrl.signal, headers: { Accept: 'application/json' } });
+            if (!upstream.ok) throw new Error(`OSRM responded ${upstream.status}`);
+            json = await upstream.json();
+        } finally {
+            clearTimeout(timer);
+        }
+
+        const route = json && Array.isArray(json.routes) ? json.routes[0] : null;
+        if (!route) {
+            return res.status(200).json({ success: false, message: 'No road route found between these points' });
+        }
+
+        /* Sanity-check the answer before trusting it.
+
+           OSRM snaps each input to the nearest routable road with no distance
+           limit. Away from mapped roads — which includes the shop's own area —
+           both ends can snap to the *same* faraway node, and it cheerfully
+           returns a 0 m / 0 s route. Believing that put "Arriving now" on
+           screen while the driver was still a kilometre out.
+
+           Two guards: reject when either end was dragged unreasonably far, and
+           reject when the road distance is shorter than the straight line,
+           which is geometrically impossible. Either way the caller falls back
+           to the straight-line estimate, which is rough but never a lie. */
+        const R = 6371000;
+        const toRad = d => d * Math.PI / 180;
+        const dLat = toRad(to[0] - from[0]);
+        const dLng = toRad(to[1] - from[1]);
+        const h = Math.sin(dLat / 2) ** 2 +
+                  Math.cos(toRad(from[0])) * Math.cos(toRad(to[0])) * Math.sin(dLng / 2) ** 2;
+        const straightM = R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+
+        const MAX_SNAP_M = 1500;
+        const snapped = (json.waypoints || []).map(w => Number(w.distance) || 0);
+        const worstSnap = snapped.length ? Math.max.apply(null, snapped) : 0;
+
+        if (worstSnap > MAX_SNAP_M) {
+            return res.status(200).json({
+                success: false,
+                message: `Nearest road is ${Math.round(worstSnap)} m from one of these points — a road route would not describe this journey`
+            });
+        }
+        // 0.75 leaves room for the curvature/rounding slop, nothing more.
+        if (straightM > 200 && route.distance < straightM * 0.75) {
+            return res.status(200).json({
+                success: false,
+                message: 'Routing returned an impossible distance for these points'
+            });
+        }
+
+        const data = {
+            // GeoJSON is [lng, lat]; Leaflet wants [lat, lng]
+            geometry: (route.geometry.coordinates || []).map(c => [c[1], c[0]]),
+            distance_m: Math.round(route.distance),
+            duration_s: Math.round(route.duration)
+        };
+
+        if (routeCache.size >= ROUTE_CACHE_MAX) routeCache.delete(routeCache.keys().next().value);
+        routeCache.set(key, { at: Date.now(), data });
+
+        res.status(200).json({ success: true, data });
+    } catch (error) {
+        // Never fatal — the live view degrades to its straight-line estimate.
+        res.status(200).json({ success: false, message: 'Routing service unavailable' });
+    }
+};

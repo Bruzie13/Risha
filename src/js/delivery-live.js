@@ -33,6 +33,56 @@
     // them is what makes the movement glide instead of teleport.
     var shown = null, target = null, lastFixAt = null, trail = [];
 
+    // Road route to the shop, from the routing proxy. Null until it answers,
+    // and stays null if the service is unreachable — the straight-line
+    // estimate takes over rather than the view going blank.
+    var route = null, lastRouteAt = 0, lastRouteFrom = null;
+    var ARRIVED_M = 150;   // close enough to call it arrived
+    var framed = false, announced = false;
+
+    // Tell the shop once, not on every poll.
+    function announceArrival() {
+        if (announced) return;
+        announced = true;
+        var el = document.getElementById('liveBanner');
+        if (el) {
+            el.className = 'live-banner show ok';
+            el.innerHTML = '<span class="material-symbols-outlined">check_circle</span> ' +
+                'The driver has reached the shop. Mark the order received once the stock is checked in.';
+        }
+        if (typeof showToast === 'function') showToast('Delivery has arrived at the shop', 'success');
+        try {
+            if (window.Notification && Notification.permission === 'granted') {
+                new Notification('Delivery arrived', { body: poNumber + ' has reached the shop.' });
+            }
+        } catch (e) {}
+    }
+
+    function bearing(a, b) {
+        var y = Math.sin((b[1] - a[1]) * Math.PI / 180) * Math.cos(b[0] * Math.PI / 180);
+        var x = Math.cos(a[0] * Math.PI / 180) * Math.sin(b[0] * Math.PI / 180) -
+                Math.sin(a[0] * Math.PI / 180) * Math.cos(b[0] * Math.PI / 180) * Math.cos((b[1] - a[1]) * Math.PI / 180);
+        return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+
+    // Point the vehicle where it is actually going, averaged over a few fixes
+    // so GPS jitter does not make it spin on the spot.
+    function headingFromTrail() {
+        if (trail.length < 2) return null;
+        var pts = trail.slice(-4);
+        var a = [pts[0].latitude, pts[0].longitude];
+        var b = [pts[pts.length - 1].latitude, pts[pts.length - 1].longitude];
+        if (distanceKm(a[0], a[1], b[0], b[1]) < 0.015) return null;  // basically stationary
+        return bearing(a, b);
+    }
+
+    function durationText(seconds) {
+        var mins = Math.round(seconds / 60);
+        if (mins < 1) return 'arriving now';
+        if (mins < 60) return mins + ' min away';
+        return Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm away';
+    }
+
     function esc(s) {
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -178,6 +228,34 @@
         if (follow) map.panTo(shown, { animate: false });
     }
 
+    // ── Road route ─────────────────────────────────────────────────────────
+    // Re-route only when the driver has actually gone somewhere, or enough
+    // time has passed. Every GPS fix does not need its own route request.
+    async function maybeRefreshRoute(lat, lng) {
+        if (!shop) return;
+        var moved = !lastRouteFrom || distanceKm(lastRouteFrom[0], lastRouteFrom[1], lat, lng) > 0.15;
+        if (!moved && Date.now() - lastRouteAt < 30000) return;
+
+        lastRouteAt = Date.now();
+        lastRouteFrom = [lat, lng];
+        try {
+            var r = await fetch(API_BASE + '/purchase-orders/route?from=' + lat + ',' + lng +
+                                '&to=' + shop.latitude + ',' + shop.longitude, { headers: getAuthHeaders() });
+            var d = await r.json();
+            route = d.success ? d.data : null;
+        } catch (e) {
+            route = null;   // straight-line estimate takes over
+        }
+
+        if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+        if (route && route.geometry && route.geometry.length > 1) {
+            routeLine = L.polyline(route.geometry, {
+                color: '#4FA8DE', weight: 6, opacity: 0.75, lineCap: 'round'
+            }).addTo(map);
+            routeLine.bringToBack();
+        }
+    }
+
     function setStale(isStale, lastAt) {
         var el = document.getElementById('liveBanner');
         var mk = marker && marker.getElement() && marker.getElement().querySelector('.fetch-pin');
@@ -234,18 +312,57 @@
                     { color: '#2FA36B', weight: 4, opacity: 0.7 }).addTo(map);
             }
 
+            // face the direction of travel
+            var head = headingFromTrail();
+            var pinEl = marker.getElement() && marker.getElement().querySelector('.fetch-pin');
+            if (pinEl && head != null) pinEl.style.setProperty('--rot', head.toFixed(0) + 'deg');
+
+            await maybeRefreshRoute(last.latitude, last.longitude);
+
             var stale = (Date.now() - lastFixAt) > STALE_MS;
             setStale(stale, lastFixAt);
 
-            var remaining = shop ? distanceKm(last.latitude, last.longitude, shop.latitude, shop.longitude) : null;
-            document.getElementById('liveDistance').textContent = shop ? formatKm(remaining) : 'shop location not set';
+            var straightKm = shop ? distanceKm(last.latitude, last.longitude, shop.latitude, shop.longitude) : null;
+            // Road distance is the honest one when we have it.
+            var roadKm = route ? route.distance_m / 1000 : null;
+            var showKm = roadKm != null ? roadKm : straightKm;
+
+            var distEl = document.getElementById('liveDistance');
+            distEl.textContent = shop ? formatKm(showKm) : 'shop location not set';
             document.getElementById('liveLastFix').textContent = agoText(lastFixAt);
 
+            var arrived = showKm != null && showKm * 1000 <= ARRIVED_M;
             var etaEl = document.getElementById('liveEta');
-            if (stale) etaEl.textContent = 'unknown — no signal';
-            else {
-                var eta = etaText(remaining);
-                etaEl.textContent = eta || 'not moving';
+
+            if (arrived && !stale) {
+                etaEl.textContent = 'Arriving now';
+                etaEl.className = 'ls-value arriving';
+                announceArrival();
+            } else if (stale) {
+                etaEl.textContent = 'unknown — no signal';
+                etaEl.className = 'ls-value';
+            } else if (route) {
+                etaEl.textContent = durationText(route.duration_s);
+                etaEl.className = 'ls-value';
+            } else {
+                etaEl.textContent = etaText(straightKm) || 'not moving';
+                etaEl.className = 'ls-value';
+            }
+
+            // Say which kind of estimate is on screen — a road ETA and a
+            // straight-line guess are not the same claim.
+            var note = document.getElementById('liveNote');
+            if (note) {
+                note.textContent = route
+                    ? 'Driving time along the road route shown. Traffic is not included.'
+                    : 'Routing unavailable — straight-line distance and recent GPS speed only.';
+            }
+
+            // first fix: frame both the driver and the shop
+            if (!framed && shop) {
+                framed = true;
+                map.fitBounds([[last.latitude, last.longitude], [shop.latitude, shop.longitude]],
+                              { padding: [70, 70], maxZoom: 15 });
             }
         } catch (e) {
             noSignal('Could not reach the server — retrying.');
@@ -260,6 +377,7 @@
         }
         poId = id; poNumber = number || ''; supplierName = supplier || '';
         shown = null; target = null; trail = []; lastFixAt = null; follow = true;
+        route = null; lastRouteAt = 0; lastRouteFrom = null; framed = false; announced = false;
 
         var el = document.getElementById('liveTrackModal') || build();
         el.classList.add('active');
@@ -301,6 +419,7 @@
         // drop the drawn layers so the next open starts clean
         if (marker && map) { map.removeLayer(marker); marker = null; }
         if (trailLine && map) { map.removeLayer(trailLine); trailLine = null; }
+        if (routeLine && map) { map.removeLayer(routeLine); routeLine = null; }
     }
 
     window.closeLiveTracking = close;
