@@ -34,7 +34,7 @@
             min-height: 500px;
             background: #FFFDF9;
             border-radius: var(--radius-xl);
-            box-shadow: 0 24px 80px rgba(224, 101, 91, 0.14);
+            box-shadow: 0 24px 80px color-mix(in srgb, var(--primary) 14%, transparent);
             overflow: hidden;
             position: relative;
             animation: slideUp 0.6s ease;
@@ -44,7 +44,7 @@
             top: 0; left: 0; right: 0;
             height: 18px;
             z-index: 3;
-            background: repeating-linear-gradient(90deg, #EE6A5F 0 40px, #FFF6EE 40px 80px);
+            background: repeating-linear-gradient(90deg, var(--primary) 0 40px, color-mix(in srgb, var(--primary) 8%, #fff) 40px 80px);
             pointer-events: none;
         }
         .shop-awning::after {
@@ -53,15 +53,18 @@
             top: 18px; left: 0; right: 0;
             height: 13px;
             background-image:
-                radial-gradient(circle at 20px 0px, #EE6A5F 12px, transparent 12.5px),
-                radial-gradient(circle at 60px 0px, #FFF6EE 12px, transparent 12.5px);
+                radial-gradient(circle at 20px 0px, var(--primary) 12px, transparent 12.5px),
+                radial-gradient(circle at 60px 0px, color-mix(in srgb, var(--primary) 8%, #fff) 12px, transparent 12.5px);
             background-size: 80px 13px;
             background-repeat: repeat-x;
-            filter: drop-shadow(0 2px 3px rgba(224, 101, 91, 0.18));
+            filter: drop-shadow(0 2px 3px color-mix(in srgb, var(--primary) 18%, transparent));
         }
         .login-brand {
             flex: 1;
-            background: linear-gradient(135deg, #FFB09E 0%, #F58D7E 55%, #EE6A5F 100%);
+            background: linear-gradient(135deg,
+                color-mix(in srgb, var(--primary) 55%, #fff) 0%,
+                color-mix(in srgb, var(--primary) 80%, #fff) 55%,
+                var(--primary) 100%);
             padding: 48px 40px;
             display: flex;
             flex-direction: column;
@@ -247,7 +250,7 @@
         .login-btn {
             width: 100%;
             padding: 12px;
-            background: linear-gradient(135deg, #F28B82, #E0655B);
+            background: var(--primary-gradient);
             color: white;
             border: none;
             border-radius: var(--radius-md);
@@ -261,7 +264,7 @@
         }
         .login-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(255, 181, 167, 0.35);
+            box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 35%, transparent);
         }
         .login-btn:active { transform: translateY(0); }
         .login-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
@@ -307,7 +310,7 @@
             background: #FFFDF9;
             border-radius: var(--radius-xl);
             padding: 28px;
-            box-shadow: 0 24px 80px rgba(224, 101, 91, 0.25);
+            box-shadow: 0 24px 80px color-mix(in srgb, var(--primary) 25%, transparent);
             animation: slideUp 0.3s ease;
         }
         .fp-modal h3 {
