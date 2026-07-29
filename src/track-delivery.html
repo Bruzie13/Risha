@@ -131,6 +131,7 @@
                 <li>Your position is shared <b>only while this page is open</b></li>
                 <li>You can stop at any time — one tap, and it ends</li>
                 <li>The link expires by itself <span id="expiryNote"></span></li>
+                <li>The screen is kept awake while sharing, so it uses more battery</li>
                 <li class="no">Nothing is shared when this page is closed</li>
                 <li class="no">No name, phone number or anything else is collected</li>
             </ul>
@@ -145,8 +146,10 @@
                 <div class="order-row"><span>Order</span><span id="livePo">—</span></div>
                 <div class="order-row"><span>Last sent</span><span id="lastSent">just now</span></div>
                 <div class="order-row"><span>Updates sent</span><span id="sentCount">0</span></div>
+                <div class="order-row"><span>Queued</span><span id="queued"></span></div>
             </div>
             <div class="live-stat" id="accuracy"></div>
+            <div class="live-stat" id="wakeNote"></div>
             <button class="btn-stop" id="stopBtn">Stop sharing</button>
         </div>
 
@@ -170,6 +173,7 @@
     var sentCount = 0;
     var lastSentAt = null;
     var lastPost = 0;
+    var hiddenSince = null;
     var MIN_GAP_MS = 12000;   // don't flood the server; a delivery isn't a race
 
     var el = function (id) { return document.getElementById(id); };
@@ -214,36 +218,137 @@
         });
 
     // ── Sharing ────────────────────────────────────────────────────────────
+    /* Positions are queued, not fired and forgotten. Delivery routes run
+       through dead spots, and a fix dropped because the signal blinked leaves
+       a hole in the shop's map that looks like the driver stopped. Anything
+       that fails to send waits in the queue and goes out on the next attempt,
+       so the trail stays continuous. */
+    var queue = [];
+    var QUEUE_MAX = 60;        // ~12 minutes of fixes; older than that is history
+    var flushing = false;
+
     function post(pos) {
         var now = Date.now();
         if (now - lastPost < MIN_GAP_MS) return;
         lastPost = now;
 
+        queue.push({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracy: pos.coords.accuracy
+        });
+        if (queue.length > QUEUE_MAX) queue = queue.slice(-QUEUE_MAX);
+        flush();
+    }
+
+    function flush() {
+        if (flushing || !queue.length) return;
+        flushing = true;
+
+        var item = queue[0];
         fetch('/api/public/delivery/' + encodeURIComponent(token) + '/position', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                latitude: pos.coords.latitude,
-                longitude: pos.coords.longitude,
-                accuracy: pos.coords.accuracy
-            })
+            body: JSON.stringify(item)
         }).then(function (r) { return r.json(); })
           .then(function (d) {
               if (!d.success) {
+                  queue = [];
                   stop(true);
                   dead('Sharing has ended', d.message || 'The shop switched this link off.');
                   return;
               }
+              queue.shift();                       // only drop it once it landed
               sentCount++;
               lastSentAt = Date.now();
               el('sentCount').textContent = sentCount;
               el('lastSent').textContent = 'just now';
+              updateQueueNote();
               hideMsg();
+              flushing = false;
+              if (queue.length) flush();           // catch up on the backlog
           })
           .catch(function () {
-              showMsg('No connection right now — sharing will resume automatically.', 'warn');
+              // keep the item queued and say so honestly
+              flushing = false;
+              updateQueueNote();
+              showMsg(queue.length > 1
+                  ? 'No connection — ' + queue.length + ' updates are waiting and will send automatically.'
+                  : 'No connection right now — sharing will resume automatically.', 'warn');
           });
     }
+
+    function updateQueueNote() {
+        var q = el('queued');
+        if (q) q.textContent = queue.length ? queue.length + ' waiting to send' : '';
+    }
+
+    // A returning connection is the moment to catch up.
+    window.addEventListener('online', function () { if (sending) flush(); });
+
+    /* Screen Wake Lock.
+
+       The commonest way tracking dies is not a flat battery or lost signal —
+       it is the phone locking itself while it sits in a cradle. A suspended
+       page reports nothing. Holding a wake lock while sharing keeps the screen
+       (and the page) alive.
+
+       The lock is dropped by the browser whenever the page is hidden, so it
+       has to be re-taken on return. Unsupported browsers simply carry on
+       without it; the page warns the driver instead. */
+    var wakeLock = null;
+
+    async function acquireWakeLock() {
+        if (!('wakeLock' in navigator)) {
+            el('wakeNote').textContent = 'Your phone may lock the screen and pause sharing — keep the screen on if you can.';
+            return;
+        }
+        try {
+            wakeLock = await navigator.wakeLock.request('screen');
+            el('wakeNote').textContent = 'Screen kept awake while sharing. This uses more battery.';
+            wakeLock.addEventListener('release', function () { wakeLock = null; });
+        } catch (e) {
+            el('wakeNote').textContent = 'Could not keep the screen awake — sharing pauses if the phone locks.';
+        }
+    }
+
+    function releaseWakeLock() {
+        if (!wakeLock) return;
+        try { wakeLock.release(); } catch (e) {}
+        wakeLock = null;
+    }
+
+    /* Coming back from the background.
+
+       Nothing ran while the page was hidden, so there is a gap no matter what.
+       What we can do is re-take the wake lock, get a fresh fix immediately
+       rather than waiting for the next watch callback, and be straight with
+       the driver that the gap happened. */
+    document.addEventListener('visibilitychange', function () {
+        if (!sending) return;
+
+        if (document.hidden) {
+            hiddenSince = Date.now();
+            return;
+        }
+
+        acquireWakeLock();
+
+        var gap = hiddenSince ? Math.round((Date.now() - hiddenSince) / 1000) : 0;
+        hiddenSince = null;
+        if (gap > 30) {
+            showMsg('Sharing paused for ' + (gap < 90 ? gap + ' seconds' : Math.round(gap / 60) + ' minutes') +
+                    ' while this page was in the background. It has resumed.', 'warn');
+        }
+
+        lastPost = 0;   // send the next fix straight away, do not wait out the gap
+        navigator.geolocation.getCurrentPosition(
+            function (pos) { post(pos); },
+            function () {},
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+        );
+        flush();
+    });
 
     function start() {
         if (!navigator.geolocation) {
@@ -260,6 +365,7 @@
                     el('setup').style.display = 'none';
                     el('liveBox').classList.add('on');
                     lastPost = 0;   // send the first fix immediately
+                    acquireWakeLock();
                 }
                 el('accuracy').textContent = pos.coords.accuracy
                     ? 'Accurate to about ' + Math.round(pos.coords.accuracy) + ' m'
@@ -287,6 +393,7 @@
             watchId = null;
         }
         sending = false;
+        releaseWakeLock();
         if (silent) return;
 
         fetch('/api/public/delivery/' + encodeURIComponent(token) + '/stop', { method: 'POST' })
