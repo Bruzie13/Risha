@@ -138,13 +138,27 @@ async function markAllRead() {
 }
 
 // Permanently delete every read notification, so the pile actually shrinks.
-async function clearRead() {
-    if (!confirm('Delete all read notifications? This cannot be undone.')) return;
+// Uses the app's own confirm dialog — this was the last place still calling
+// the browser's native confirm(), which ignores the theme and looks like a
+// browser warning rather than part of the system.
+function clearRead() {
+    showConfirmDialog(
+        'Clear read notifications',
+        'This permanently deletes every notification you have already read. Unread alerts are kept. This cannot be undone.',
+        doClearRead,
+        'Yes, Clear Them',
+        '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete_sweep</span>'
+    );
+}
+
+async function doClearRead() {
     try {
         const res = await fetch(`${API_BASE}/notifications/read`, { method: 'DELETE', headers: getAuthHeaders() });
         const data = await res.json();
         refreshList();
-        showToast(data.message || 'Cleared read notifications', 'success');
+        showSuccessDialog('Notifications cleared',
+            data.message || 'Your read notifications have been deleted.',
+            { tone: 'danger' });
     } catch (e) {
         showToast('Failed to clear notifications', 'error');
     }
