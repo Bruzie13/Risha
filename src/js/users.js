@@ -129,9 +129,12 @@ async function handleUserSubmit(event) {
     const userData = {
         username: document.getElementById('userUsername').value,
         full_name: document.getElementById('userFullName').value,
-        email: document.getElementById('userEmail').value,
-        role: document.getElementById('userRole').value
+        email: document.getElementById('userEmail').value
     };
+    // Only send a role we actually resolved: an empty value would otherwise
+    // overwrite the account's real role on edit.
+    const role = document.getElementById('userRole').value;
+    if (role) userData.role = role;
     const password = document.getElementById('userPassword').value;
     if (password) {
         const pwError = passwordPolicyError(password);

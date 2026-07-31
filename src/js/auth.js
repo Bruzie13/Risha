@@ -758,10 +758,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const nameEl = document.getElementById('userName');
+    const roleEl = document.getElementById('sidebarUserRole');
     const avatarEl = document.querySelector('.avatar-initials');
     if ((nameEl || avatarEl) && !window.location.pathname.includes('login.html')) {
         const user = getUser();
         if (user && nameEl) nameEl.textContent = user.full_name || user.username || user.email;
+        // Without this the sidebar keeps its "Staff" placeholder for everyone,
+        // including admins. Never share this id with the role picker on
+        // users.html — getElementById would hand the form the wrong element.
+        if (user && roleEl && user.role) roleEl.textContent = user.role.charAt(0).toUpperCase() + user.role.slice(1);
         applyUserIdentity();
     }
 

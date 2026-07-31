@@ -428,12 +428,16 @@ class Sale {
             }
 
             if (period === 'daily') {
+                // item_count comes from a correlated subquery, NOT a join:
+                // joining sale_items repeats each sale once per line, which
+                // multiplies COUNT(*) and SUM(total_amount) by the basket size.
                 sql = `SELECT DATE(s.created_at) as date,
                               COUNT(*) as total_sales,
                               SUM(s.total_amount) as total_amount,
-                              COALESCE(SUM(si.quantity), 0) as item_count
+                              COALESCE(SUM((SELECT SUM(si.quantity)
+                                            FROM sale_items si
+                                            WHERE si.sale_id = s.id)), 0) as item_count
                        FROM sales s
-                       LEFT JOIN sale_items si ON si.sale_id = s.id
                        ${dateFilter}
                        GROUP BY DATE(s.created_at)
                        ORDER BY date DESC`;
@@ -516,12 +520,16 @@ class Sale {
                 params.push(startDate, endDate);
             }
 
+            // No join to sale_items here: it would repeat each sale once per
+            // line and inflate both the transaction count and the revenue.
+            // Units sold come from a correlated subquery instead.
             const [revenueRows] = await connection.execute(
                 `SELECT COUNT(*) as total_transactions,
                         COALESCE(SUM(s.total_amount), 0) as total_revenue,
-                        COALESCE(SUM(si.quantity), 0) as total_items_sold
+                        COALESCE(SUM((SELECT SUM(si.quantity)
+                                      FROM sale_items si
+                                      WHERE si.sale_id = s.id)), 0) as total_items_sold
                  FROM sales s
-                 LEFT JOIN sale_items si ON si.sale_id = s.id
                  ${dateFilter}`,
                 params
             );
