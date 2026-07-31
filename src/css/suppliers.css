@@ -870,3 +870,57 @@
   background: color-mix(in srgb, var(--success) 10%, var(--bg-card));
 }
 .live-banner.ok .material-symbols-outlined { color: var(--success); }
+
+/* The deliveries view used to sit behind a bare truck icon with a red count on
+   it — staff read that as an error badge and never pressed it. Both tabs now
+   carry a word; the icons stay for scanning. Labels drop away on narrow phones
+   where the toolbar has no room for them. */
+#supplierViewToggle .inv-view-btn {
+  width: auto;
+  gap: 6px;
+  padding: 0 13px;
+}
+#supplierViewToggle .inv-view-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  #supplierViewToggle .inv-view-label { display: none; }
+  #supplierViewToggle .inv-view-btn { width: 34px; padding: 0; }
+}
+
+/* Orders can outlive their supplier being deactivated. The order still matters,
+   but the supplier is no longer in the list — say so, and put the contact
+   details on the card so the order is still actionable. */
+.dt-inactive {
+  display: inline-block;
+  margin-left: 7px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.dt-supplier-contact {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Last known position. Deliberately quiet — it is context, not an alarm. */
+.dt-lastseen {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 10px;
+  color: var(--text-muted);
+  font-size: 11.5px;
+}
+.dt-lastseen .material-symbols-outlined { font-size: 13px; }

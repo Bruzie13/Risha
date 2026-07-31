@@ -150,6 +150,12 @@ class DeliveryTracking {
                         UNIX_TIMESTAMP(po.shipped_at) * 1000 AS shipped_at,
                         UNIX_TIMESTAMP(po.received_at) * 1000 AS received_at,
                         s.id AS supplier_id, s.name AS supplier_name,
+                        -- An order can outlive its supplier being switched off.
+                        -- The board still has to show it (it is money owed and
+                        -- goods expected), but staff need to know why they
+                        -- cannot find that supplier in the list.
+                        s.is_active AS supplier_active,
+                        s.phone AS supplier_phone, s.email AS supplier_email,
                         s.latitude AS supplier_lat, s.longitude AS supplier_lng,
                         (SELECT COUNT(*) FROM po_items pi WHERE pi.po_id = po.id) AS item_count,
                         dt.id AS tracking_id, dt.revoked AS tracking_revoked,

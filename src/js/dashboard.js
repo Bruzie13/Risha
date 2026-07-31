@@ -233,7 +233,7 @@ async function loadRecentSales() {
                     <div class="timeline-sub">${s.created_at ? formatTime(s.created_at) : ''}</div>
                 </div>
                 <div class="timeline-right">
-                    <div class="timeline-value">${formatCurrency(s.total_amount || 0)}</div>
+                    <div class="timeline-value">${formatCurrency(s.final_amount ?? s.total_amount ?? 0)}</div>
                     <div class="timeline-status ${state}">${s.status || 'completed'}</div>
                 </div>
             </div>`;

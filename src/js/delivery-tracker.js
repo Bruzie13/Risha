@@ -147,6 +147,19 @@
             : { text: 'Waiting for the supplier to confirm', tone: 'info', icon: 'schedule' };
     }
 
+    // A phone that locked, lost signal or switched apps stops sending. That is
+    // normal, not a failure, so the card keeps showing the last known fix and
+    // says how old it is rather than silently going blank and looking broken.
+    function lastSeenLine(v) {
+        if (v.moving || !v.liveAt) return '';
+        var when = ago(v.liveAt);
+        if (!when) return '';
+        return '<span class="dt-lastseen" title="The driver\'s phone last reported this position. Sharing pauses when the page is closed or the phone loses signal, and resumes when they reopen the link.">' +
+                   '<span class="material-symbols-outlined">location_searching</span>' +
+                   'Last seen ' + esc(when) +
+               '</span>';
+    }
+
     function etaLine(v) {
         if (v.due == null) return '<span class="dt-eta none">No expected date set</span>';
         var when = new Date(v.due).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -220,7 +233,20 @@
             '<div class="dt-top">' +
                 '<div class="dt-id">' +
                     '<span class="dt-po">' + esc(d.po_number || ('PO #' + d.id)) + '</span>' +
-                    '<span class="dt-supplier">' + esc(d.supplier_name || 'Unknown supplier') + '</span>' +
+                    '<span class="dt-supplier">' + esc(d.supplier_name || 'Unknown supplier') +
+                        // Deactivated suppliers vanish from the Suppliers list, so
+                        // without this the order is a dead end: staff see it is
+                        // late but cannot look up who to chase. Show the tag and
+                        // carry the contact details onto the card itself.
+                        (d.supplier_name && Number(d.supplier_active) === 0
+                            ? '<span class="dt-inactive" title="This supplier has been deactivated, so it no longer appears in the supplier list. The order is still outstanding.">inactive</span>'
+                            : '') +
+                    '</span>' +
+                    (Number(d.supplier_active) === 0 && (d.supplier_phone || d.supplier_email)
+                        ? '<span class="dt-supplier-contact">' +
+                              esc([d.supplier_phone, d.supplier_email].filter(Boolean).join(' · ')) +
+                          '</span>'
+                        : '') +
                 '</div>' +
                 '<div class="dt-verdict ' + vd.tone + '">' +
                     '<span class="material-symbols-outlined">' + vd.icon + '</span>' + esc(vd.text) +
@@ -230,6 +256,7 @@
             '<div class="dt-bottom">' +
                 '<span class="dt-meta">' + (d.item_count || 0) + ' item' + (Number(d.item_count) === 1 ? '' : 's') +
                     (d.total_amount ? ' · ' + (typeof formatCurrency === 'function' ? formatCurrency(d.total_amount) : d.total_amount) : '') +
+                    lastSeenLine(v) +
                 '</span>' +
                 etaLine(v) +
             '</div>' +

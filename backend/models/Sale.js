@@ -1,5 +1,12 @@
 const pool = require('../config/database');
 
+// Timestamps are stored in UTC but the shop trades on Philippine time (UTC+8,
+// no DST), so every report groups by CONVERT_TZ(...,'+00:00','+08:00'). Without
+// it the shop opens at 6am and the first two hours of every day are filed under
+// the previous date — the report and the cash drawer could never agree.
+// UNIX_TIMESTAMP(created_at) is deliberately NOT converted: it goes to the
+// browser as epoch milliseconds and is rendered in the viewer's own zone.
+
 class Sale {
     // Shared date/search WHERE, used by getAll, countAll and getStats so the
     // page, its total and its stat cards all cover the same rows.
@@ -7,8 +14,8 @@ class Sale {
         const conditions = [];
         const from = filters.startDate || filters.date_from;
         const to = filters.endDate || filters.date_to;
-        if (from) { conditions.push('DATE(s.created_at) >= ?'); params.push(from); }
-        if (to) { conditions.push('DATE(s.created_at) <= ?'); params.push(to); }
+        if (from) { conditions.push(`DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00')) >= ?`); params.push(from); }
+        if (to) { conditions.push(`DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00')) <= ?`); params.push(to); }
         if (filters.search) {
             conditions.push('(CAST(s.id AS CHAR) LIKE ? OR s.sale_number LIKE ? OR u.full_name LIKE ?)');
             const like = `%${filters.search}%`;
@@ -68,8 +75,8 @@ class Sale {
         try {
             const params = [];
             let sql = `SELECT COUNT(*) AS transactions,
-                        COALESCE(SUM(CASE WHEN s.payment_status <> 'voided' THEN s.total_amount ELSE 0 END), 0) AS revenue,
-                        COALESCE(SUM(CASE WHEN s.payment_status <> 'voided' AND DATE(s.created_at) = CURDATE() THEN s.total_amount ELSE 0 END), 0) AS today_revenue
+                        COALESCE(SUM(CASE WHEN s.payment_status <> 'voided' THEN s.final_amount ELSE 0 END), 0) AS revenue,
+                        COALESCE(SUM(CASE WHEN s.payment_status <> 'voided' AND DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00')) = DATE(CONVERT_TZ(NOW(),'+00:00','+08:00')) THEN s.final_amount ELSE 0 END), 0) AS today_revenue
                        FROM sales s LEFT JOIN users u ON s.created_by = u.id`;
             sql += Sale._filterWhere(filters, params);
             const [rows] = await connection.execute(sql, params);
@@ -270,13 +277,13 @@ class Sale {
         try {
             const interval = days || 30;
             const [rows] = await connection.execute(
-                `SELECT DATE(created_at) as date, 
+                `SELECT DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) as date, 
                  COUNT(*) as transaction_count, 
-                 SUM(total_amount) as daily_total 
+                 SUM(final_amount) as daily_total 
                  FROM sales 
                  WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
                    AND payment_status <> 'voided'
-                 GROUP BY DATE(created_at) 
+                 GROUP BY DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) 
                  ORDER BY date DESC`,
                 [interval]
             );
@@ -294,7 +301,7 @@ class Sale {
                 `SELECT YEAR(created_at) as year, 
                  WEEK(created_at) as week, 
                  COUNT(*) as transaction_count, 
-                 SUM(total_amount) as weekly_total 
+                 SUM(final_amount) as weekly_total 
                  FROM sales 
                  WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? WEEK)
                    AND payment_status <> 'voided'
@@ -316,7 +323,7 @@ class Sale {
                 `SELECT YEAR(created_at) as year, 
                  MONTH(created_at) as month, 
                  COUNT(*) as transaction_count, 
-                 SUM(total_amount) as monthly_total 
+                 SUM(final_amount) as monthly_total 
                  FROM sales 
                  WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? MONTH)
                    AND payment_status <> 'voided'
@@ -334,7 +341,7 @@ class Sale {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                "SELECT SUM(total_amount) as total FROM sales WHERE payment_status <> 'voided'"
+                "SELECT SUM(final_amount) as total FROM sales WHERE payment_status <> 'voided'"
             );
             return rows[0].total || 0;
         } finally {
@@ -382,7 +389,7 @@ class Sale {
                  (SELECT COUNT(*) FROM sale_items si WHERE si.sale_id = s.id) as item_count
                  FROM sales s 
                  LEFT JOIN users u ON s.created_by = u.id 
-                 WHERE DATE(s.created_at) BETWEEN ? AND ?
+                 WHERE DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00')) BETWEEN ? AND ?
                  ORDER BY s.created_at DESC`,
                 [startDate, endDate]
             );
@@ -423,7 +430,7 @@ class Sale {
             let dateParams = [];
 
             if (startDate && endDate) {
-                dateFilter = "WHERE DATE(s.created_at) BETWEEN ? AND ? AND s.payment_status <> 'voided'";
+                dateFilter = "WHERE DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00')) BETWEEN ? AND ? AND s.payment_status <> 'voided'";
                 dateParams = [startDate, endDate];
             }
 
@@ -431,15 +438,15 @@ class Sale {
                 // item_count comes from a correlated subquery, NOT a join:
                 // joining sale_items repeats each sale once per line, which
                 // multiplies COUNT(*) and SUM(total_amount) by the basket size.
-                sql = `SELECT DATE(s.created_at) as date,
+                sql = `SELECT DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00')) as date,
                               COUNT(*) as total_sales,
-                              SUM(s.total_amount) as total_amount,
+                              SUM(s.final_amount) as total_amount,
                               COALESCE(SUM((SELECT SUM(si.quantity)
                                             FROM sale_items si
                                             WHERE si.sale_id = s.id)), 0) as item_count
                        FROM sales s
                        ${dateFilter}
-                       GROUP BY DATE(s.created_at)
+                       GROUP BY DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00'))
                        ORDER BY date DESC`;
                 params.push(...dateParams);
                 topSql = `SELECT p.name, SUM(si.quantity) as quantity
@@ -452,14 +459,14 @@ class Sale {
                           LIMIT 5`;
                 if (startDate && endDate) topParams.push(startDate, endDate);
             } else if (period === 'weekly') {
-                sql = `SELECT ANY_VALUE(CONCAT(YEAR(s.created_at), '-W', LPAD(WEEK(s.created_at), 2, '0'))) as week,
-                              YEAR(s.created_at) as year,
-                              WEEK(s.created_at) as week_number,
+                sql = `SELECT ANY_VALUE(CONCAT(YEAR(CONVERT_TZ(s.created_at,'+00:00','+08:00')), '-W', LPAD(WEEK(CONVERT_TZ(s.created_at,'+00:00','+08:00')), 2, '0'))) as week,
+                              YEAR(CONVERT_TZ(s.created_at,'+00:00','+08:00')) as year,
+                              WEEK(CONVERT_TZ(s.created_at,'+00:00','+08:00')) as week_number,
                               COUNT(*) as total_sales,
-                              SUM(s.total_amount) as total_amount
+                              SUM(s.final_amount) as total_amount
                        FROM sales s
                        ${dateFilter}
-                       GROUP BY YEAR(s.created_at), WEEK(s.created_at)
+                       GROUP BY YEAR(CONVERT_TZ(s.created_at,'+00:00','+08:00')), WEEK(CONVERT_TZ(s.created_at,'+00:00','+08:00'))
                        ORDER BY year DESC, week_number DESC`;
                 params.push(...dateParams);
                 topSql = `SELECT p.name, SUM(si.quantity) as quantity
@@ -472,15 +479,15 @@ class Sale {
                           LIMIT 5`;
                 if (startDate && endDate) topParams.push(startDate, endDate);
             } else if (period === 'monthly') {
-                sql = `SELECT ANY_VALUE(DATE_FORMAT(s.created_at, '%Y-%m')) as month,
-                              ANY_VALUE(MONTHNAME(s.created_at)) as month_name,
-                              YEAR(s.created_at) as year,
-                              MONTH(s.created_at) as month_number,
+                sql = `SELECT ANY_VALUE(DATE_FORMAT(CONVERT_TZ(s.created_at,'+00:00','+08:00'), '%Y-%m')) as month,
+                              ANY_VALUE(MONTHNAME(CONVERT_TZ(s.created_at,'+00:00','+08:00'))) as month_name,
+                              YEAR(CONVERT_TZ(s.created_at,'+00:00','+08:00')) as year,
+                              MONTH(CONVERT_TZ(s.created_at,'+00:00','+08:00')) as month_number,
                               COUNT(*) as total_transactions,
-                              SUM(s.total_amount) as total_amount
+                              SUM(s.final_amount) as total_amount
                        FROM sales s
                        ${dateFilter}
-                       GROUP BY YEAR(s.created_at), MONTH(s.created_at)
+                       GROUP BY YEAR(CONVERT_TZ(s.created_at,'+00:00','+08:00')), MONTH(CONVERT_TZ(s.created_at,'+00:00','+08:00'))
                        ORDER BY year DESC, month_number DESC`;
                 params.push(...dateParams);
                 topSql = `SELECT p.name, SUM(si.quantity) as quantity
@@ -516,7 +523,7 @@ class Sale {
             let dateFilter = "WHERE s.payment_status <> 'voided'";
             const params = [];
             if (startDate && endDate) {
-                dateFilter = "WHERE DATE(s.created_at) BETWEEN ? AND ? AND s.payment_status <> 'voided'";
+                dateFilter = "WHERE DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00')) BETWEEN ? AND ? AND s.payment_status <> 'voided'";
                 params.push(startDate, endDate);
             }
 
@@ -525,7 +532,7 @@ class Sale {
             // Units sold come from a correlated subquery instead.
             const [revenueRows] = await connection.execute(
                 `SELECT COUNT(*) as total_transactions,
-                        COALESCE(SUM(s.total_amount), 0) as total_revenue,
+                        COALESCE(SUM(s.final_amount), 0) as total_revenue,
                         COALESCE(SUM((SELECT SUM(si.quantity)
                                       FROM sale_items si
                                       WHERE si.sale_id = s.id)), 0) as total_items_sold
@@ -537,7 +544,7 @@ class Sale {
             const [paymentRows] = await connection.execute(
                 `SELECT s.payment_method,
                         COUNT(*) as count,
-                        COALESCE(SUM(s.total_amount), 0) as total
+                        COALESCE(SUM(s.final_amount), 0) as total
                  FROM sales s
                  ${dateFilter}
                  GROUP BY s.payment_method

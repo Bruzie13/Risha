@@ -91,9 +91,13 @@
                 <div class="toolbar-left">
                     <input type="text" id="searchInput" class="search-box" placeholder="Search suppliers..." style="width:200px;">
                     <div class="inv-view-toggle" id="supplierViewToggle" role="tablist" aria-label="Supplier view">
-                        <button class="inv-view-btn active" data-view="list" role="tab" aria-selected="true" title="List view"><span class="material-symbols-outlined">list</span></button>
+                        <button class="inv-view-btn active" data-view="list" role="tab" aria-selected="true" title="The supplier list — contacts and payment terms">
+                            <span class="material-symbols-outlined">list</span>
+                            <span class="inv-view-label">Suppliers</span>
+                        </button>
                         <button class="inv-view-btn" data-view="deliveries" role="tab" aria-selected="false" title="Deliveries — what's on the way right now">
                             <span class="material-symbols-outlined">local_shipping</span>
+                            <span class="inv-view-label">Deliveries</span>
                             <span class="view-btn-badge" id="deliveriesBadge" style="display:none;">0</span>
                         </button>
                     </div>
@@ -128,7 +132,9 @@
             <!-- Deliveries view — what is on the way, and whether it is moving -->
             <div class="panel-card deliveries-panel" id="deliveriesPanel" data-jump-title="Deliveries" style="display:none;">
                 <div class="panel-head">
-                    <h3><span class="icon-chip green"><span class="material-symbols-outlined" style="font-size:16px;">local_shipping</span></span> Deliveries on the way</h3>
+                    <h3><span class="icon-chip green"><span class="material-symbols-outlined" style="font-size:16px;">local_shipping</span></span> Deliveries on the way
+                        <span class="panel-sub" style="display:block;font-weight:400;margin-top:3px;">Orders you have placed that have not arrived yet. Set the shop location once so arrival estimates can be measured from it.</span>
+                    </h3>
                     <div class="map-head-actions">
                         <span class="map-hint" id="deliveriesHint"></span>
                         <button class="btn-secondary" id="setShopHereBtn" onclick="setShopLocationHere()" title="Save the shop's position — every distance and arrival estimate is measured from it">

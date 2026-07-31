@@ -290,7 +290,7 @@ function displaySales(sales) {
             <td>${s.customer_name || 'Walk-in'}</td>
             <td>${s.staff_name || 'N/A'}</td>
             <td>${s.item_count || 0}</td>
-            <td>₱${parseFloat(s.total_amount).toFixed(2)}</td>
+            <td>₱${parseFloat(s.final_amount ?? s.total_amount ?? 0).toFixed(2)}</td>
             <td>${s.payment_method || 'N/A'}</td>
             <td>${s.payment_status === 'completed'
                 ? '<span class="status-badge status-in-stock">Completed</span>'
@@ -647,7 +647,9 @@ async function viewSaleDetails(id) {
                     </table>
                 </div>
                 <div class="total-section" style="margin-top:20px;">
-                    <div class="total-row highlight"><span>Total Amount:</span><span>₱${parseFloat(sale.total_amount).toFixed(2)}</span></div>
+                    <div class="total-row"><span>Subtotal:</span><span>₱${parseFloat(sale.total_amount || 0).toFixed(2)}</span></div>
+                    ${parseFloat(sale.discount || 0) > 0 ? `<div class="total-row"><span>Discount (${parseFloat(sale.discount).toFixed(2)}%):</span><span>-₱${(parseFloat(sale.total_amount || 0) - parseFloat(sale.final_amount || 0)).toFixed(2)}</span></div>` : ''}
+                    <div class="total-row highlight"><span>Total Amount:</span><span>₱${parseFloat(sale.final_amount ?? sale.total_amount ?? 0).toFixed(2)}</span></div>
                 </div>
                 <button class="btn-primary" onclick="printReceipt(${sale.id})" style="margin-top:15px;">Print Receipt</button>
             `;
@@ -709,7 +711,8 @@ async function printReceipt(saleId) {
         const ul = getUnitLabel(item.unit_type);
         return `<tr><td style="padding:3px 4px;border-bottom:1px dashed #ccc;">${item.product_name}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:center;">${parseFloat(item.quantity)}${ul}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.unit_price).toFixed(2)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.subtotal || item.quantity * item.unit_price).toFixed(2)}</td></tr>`;
     }).join('');
-    const total = parseFloat(sale.total_amount || sale.final_amount || 0).toFixed(2);
+    // What the customer actually paid — final_amount is net of any discount.
+    const total = parseFloat(sale.final_amount ?? sale.total_amount ?? 0).toFixed(2);
     const disc = parseFloat(sale.discount || 0).toFixed(2);
     const subtotal = parseFloat(sale.total_amount || 0).toFixed(2);
     const date = new Date(sale.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });

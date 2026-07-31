@@ -58,6 +58,19 @@
 
     .explain { font-size: 13px; margin-bottom: 8px; color: var(--muted); }
     .points { list-style: none; margin: 12px 0 20px; }
+    /* Drivers assume tracking keeps running once started. It cannot: the browser
+       stops the page when it is backgrounded. Saying so up front turns a
+       "broken system" into an understood limitation. */
+    .keep-open {
+      display: flex; gap: 9px; align-items: flex-start;
+      margin: 0 0 18px; padding: 11px 13px;
+      border-radius: 12px;
+      background: rgba(238,106,95,0.10);
+      border: 1px solid rgba(238,106,95,0.28);
+      font-size: 12.5px; line-height: 1.5;
+    }
+    .keep-open-icon { font-size: 16px; flex-shrink: 0; line-height: 1.4; }
+    .keep-open-live { opacity: 0.85; }
     .points li {
         position: relative; padding-left: 26px; font-size: 12.8px; margin-bottom: 9px; color: var(--muted);
     }
@@ -150,6 +163,13 @@
                 <li class="no">No name, phone number or anything else is collected</li>
             </ul>
 
+            <p class="keep-open">
+                <span class="keep-open-icon" aria-hidden="true">📱</span>
+                <span><b>Keep this page open while you drive.</b> Locking the phone or
+                switching to another app pauses the updates. If that happens, just open
+                this same link again — it carries on from where it stopped.</span>
+            </p>
+
             <button class="btn-go" id="startBtn">Start sharing my location</button>
         </div>
 
@@ -164,6 +184,7 @@
             </div>
             <div class="live-stat" id="accuracy"></div>
             <div class="live-stat" id="wakeNote"></div>
+            <div class="live-stat keep-open-live">Leave this page on screen — updates pause if you switch apps or lock the phone.</div>
             <button class="btn-stop" id="stopBtn">Stop sharing</button>
         </div>
 
