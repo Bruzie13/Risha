@@ -75,8 +75,8 @@ exports.getExpirationRisk = async (req, res) => {
              LEFT JOIN categories c ON p.category_id = c.id
              LEFT JOIN suppliers s ON p.supplier_id = s.id
              WHERE p.expiration_date IS NOT NULL
-             AND p.expiration_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
-             AND p.expiration_date >= CURDATE()
+             AND p.expiration_date <= DATE_ADD(DATE(CONVERT_TZ(NOW(),'+00:00','+08:00')), INTERVAL 30 DAY)
+             AND p.expiration_date >= DATE(CONVERT_TZ(NOW(),'+00:00','+08:00'))
              AND p.is_active = TRUE
              ORDER BY p.expiration_date ASC`
         );
@@ -87,8 +87,8 @@ exports.getExpirationRisk = async (req, res) => {
              LEFT JOIN categories c ON p.category_id = c.id
              LEFT JOIN suppliers s ON p.supplier_id = s.id
              WHERE p.expiration_date IS NOT NULL
-             AND p.expiration_date > DATE_ADD(CURDATE(), INTERVAL 30 DAY)
-             AND p.expiration_date <= DATE_ADD(CURDATE(), INTERVAL 60 DAY)
+             AND p.expiration_date > DATE_ADD(DATE(CONVERT_TZ(NOW(),'+00:00','+08:00')), INTERVAL 30 DAY)
+             AND p.expiration_date <= DATE_ADD(DATE(CONVERT_TZ(NOW(),'+00:00','+08:00')), INTERVAL 60 DAY)
              AND p.is_active = TRUE
              ORDER BY p.expiration_date ASC`
         );
@@ -99,8 +99,8 @@ exports.getExpirationRisk = async (req, res) => {
              LEFT JOIN categories c ON p.category_id = c.id
              LEFT JOIN suppliers s ON p.supplier_id = s.id
              WHERE p.expiration_date IS NOT NULL
-             AND p.expiration_date > DATE_ADD(CURDATE(), INTERVAL 60 DAY)
-             AND p.expiration_date <= DATE_ADD(CURDATE(), INTERVAL 90 DAY)
+             AND p.expiration_date > DATE_ADD(DATE(CONVERT_TZ(NOW(),'+00:00','+08:00')), INTERVAL 60 DAY)
+             AND p.expiration_date <= DATE_ADD(DATE(CONVERT_TZ(NOW(),'+00:00','+08:00')), INTERVAL 90 DAY)
              AND p.is_active = TRUE
              ORDER BY p.expiration_date ASC`
         );

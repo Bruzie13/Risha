@@ -195,9 +195,9 @@ exports.getEod = async (req, res) => {
                 `SELECT COUNT(*) as transactions, COALESCE(SUM(final_amount), 0) as expected_cash,
                         MIN(created_at) as first_sale, MAX(created_at) as last_sale
                  FROM sales
-                 WHERE DATE(created_at) = ? AND payment_method = 'cash' AND payment_status = 'completed'`, [date]);
+                 WHERE DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) = ? AND payment_method = 'cash' AND payment_status = 'completed'`, [date]);
             const [voided] = await conn.execute(
-                `SELECT COUNT(*) as c FROM sales WHERE DATE(created_at) = ? AND payment_status = 'voided'`, [date]);
+                `SELECT COUNT(*) as c FROM sales WHERE DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) = ? AND payment_status = 'voided'`, [date]);
             const [existing] = await conn.execute(
                 `SELECT cr.*, u.full_name as counted_by_name FROM cash_reconciliations cr
                  LEFT JOIN users u ON cr.counted_by = u.id WHERE cr.business_date = ?`, [date]);
@@ -232,7 +232,7 @@ exports.saveEod = async (req, res) => {
         try {
             const [sales] = await conn.execute(
                 `SELECT COALESCE(SUM(final_amount), 0) as expected FROM sales
-                 WHERE DATE(created_at) = ? AND payment_method = 'cash' AND payment_status = 'completed'`, [bizDate]);
+                 WHERE DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) = ? AND payment_method = 'cash' AND payment_status = 'completed'`, [bizDate]);
             const expected = parseFloat(sales[0].expected) || 0;
             const discrepancy = Math.round((counted - expected) * 100) / 100;
             await conn.execute(

@@ -6,16 +6,16 @@ const STATUS_SQL = {
     low: 'p.stock_quantity > 0 AND p.stock_quantity <= COALESCE(p.reorder_level, 10)',
     out: 'p.stock_quantity <= 0',
     reorder: 'p.stock_quantity <= COALESCE(p.reorder_level, 10)',
-    expiring: 'p.expiration_date IS NOT NULL AND DATEDIFF(DATE(p.expiration_date), CURDATE()) BETWEEN 0 AND 30',
-    expired: 'p.expiration_date IS NOT NULL AND DATEDIFF(DATE(p.expiration_date), CURDATE()) < 0',
-    in: `(p.expiration_date IS NULL OR DATEDIFF(DATE(p.expiration_date), CURDATE()) > 30)
+    expiring: `p.expiration_date IS NOT NULL AND DATEDIFF(DATE(p.expiration_date), DATE(CONVERT_TZ(NOW(),'+00:00','+08:00'))) BETWEEN 0 AND 30`,
+    expired: `p.expiration_date IS NOT NULL AND DATEDIFF(DATE(p.expiration_date), DATE(CONVERT_TZ(NOW(),'+00:00','+08:00'))) < 0`,
+    in: `(p.expiration_date IS NULL OR DATEDIFF(DATE(p.expiration_date), DATE(CONVERT_TZ(NOW(),'+00:00','+08:00'))) > 30)
          AND p.stock_quantity > 0 AND p.stock_quantity > COALESCE(p.reorder_level, 10)`
 };
 
 // Badge priority rank (expired > expiring > out > low > in) for status sorting
 const STATUS_RANK_SQL = `CASE
-    WHEN p.expiration_date IS NOT NULL AND DATEDIFF(DATE(p.expiration_date), CURDATE()) < 0 THEN 0
-    WHEN p.expiration_date IS NOT NULL AND DATEDIFF(DATE(p.expiration_date), CURDATE()) <= 30 THEN 2
+    WHEN p.expiration_date IS NOT NULL AND DATEDIFF(DATE(p.expiration_date), DATE(CONVERT_TZ(NOW(),'+00:00','+08:00'))) < 0 THEN 0
+    WHEN p.expiration_date IS NOT NULL AND DATEDIFF(DATE(p.expiration_date), DATE(CONVERT_TZ(NOW(),'+00:00','+08:00'))) <= 30 THEN 2
     WHEN p.stock_quantity <= 0 THEN 1
     WHEN p.stock_quantity <= COALESCE(p.reorder_level, 10) THEN 3
     ELSE 4
@@ -320,7 +320,7 @@ class Product {
                  LEFT JOIN categories c ON p.category_id = c.id 
                  WHERE p.expiration_date IS NOT NULL 
                  AND p.expiration_date <= DATE_ADD(NOW(), INTERVAL ? DAY) 
-                 AND p.expiration_date >= CURDATE() 
+                 AND p.expiration_date >= DATE(CONVERT_TZ(NOW(),'+00:00','+08:00')) 
                  AND p.is_active = TRUE 
                  ORDER BY p.expiration_date ASC`,
                 [days]

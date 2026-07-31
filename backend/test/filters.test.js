@@ -18,10 +18,20 @@ test('Sale._filterWhere: date range uses either param spelling', () => {
     const a = [], b = [];
     const w1 = Sale._filterWhere({ date_from: '2026-01-01', date_to: '2026-02-01' }, a);
     const w2 = Sale._filterWhere({ startDate: '2026-01-01', endDate: '2026-02-01' }, b);
-    assert.match(w1, /DATE\(s\.created_at\) >= \?/);
-    assert.match(w1, /DATE\(s\.created_at\) <= \?/);
+    assert.match(w1, /DATE\(CONVERT_TZ\(s\.created_at,'\+00:00','\+08:00'\)\) >= \?/);
+    assert.match(w1, /DATE\(CONVERT_TZ\(s\.created_at,'\+00:00','\+08:00'\)\) <= \?/);
     assert.deepEqual(a, ['2026-01-01', '2026-02-01']);
     assert.deepEqual(b, ['2026-01-01', '2026-02-01']); // startDate/endDate alias
+});
+
+test('Sale._filterWhere: date range is bounded in Philippine time, not UTC', () => {
+    // Timestamps are stored in UTC and the shop opens at 6am Manila. Filtering
+    // on the raw column would push the first two hours of trading into the
+    // previous day, so a "today" filter would quietly lose the morning rush.
+    const where = Sale._filterWhere({ date_from: '2026-01-01' }, []);
+    assert.ok(!/DATE\(s\.created_at\)/.test(where),
+        'must not compare the raw UTC column');
+    assert.ok(where.includes("'+08:00'"), 'must convert to Philippine time');
 });
 
 test('Sale._filterWhere: search matches id, sale_number and staff name', () => {
