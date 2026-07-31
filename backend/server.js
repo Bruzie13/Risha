@@ -40,7 +40,10 @@ app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');   // no MIME sniffing
     res.setHeader('X-Frame-Options', 'DENY');             // no clickjacking via iframes
     res.setHeader('Referrer-Policy', 'same-origin');
-    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    // geolocation must stay enabled for our own origin: the driver's delivery
+    // tracking page calls navigator.geolocation. A bare geolocation=() blocks
+    // it for us too, and the browser rejects it before the driver is even asked.
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
     if (process.env.NODE_ENV === 'production') {
         // force HTTPS for 180 days once a browser has seen the site over HTTPS
         res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');

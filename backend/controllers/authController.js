@@ -265,6 +265,10 @@ exports.register = async (req, res) => {
             return res.status(400).json({ success: false, message: pwError });
         }
 
+        if (role && !['admin', 'manager', 'staff', 'viewer'].includes(role)) {
+            return res.status(400).json({ success: false, message: 'Invalid role. Must be one of: admin, manager, staff, viewer' });
+        }
+
         const existingUser = await User.findByUsername(username);
         if (existingUser) {
             return res.status(400).json({
@@ -420,7 +424,7 @@ exports.updateUserRole = async (req, res) => {
             });
         }
 
-        const validRoles = ['admin', 'manager', 'staff'];
+        const validRoles = ['admin', 'manager', 'staff', 'viewer'];
         if (!validRoles.includes(role)) {
             return res.status(400).json({
                 success: false,

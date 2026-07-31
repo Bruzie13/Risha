@@ -449,9 +449,22 @@ function animateCartChange() {
     fetchMotion.cartPulse(document.getElementById('cartCount'), items[items.length - 1]);
 }
 
+// The min/max on the discount input only constrain the spinner arrows —
+// typing 150 straight in used to sail through and render a negative total
+// with a "Charge ₱-1250.00" button. Clamp at the one place every caller reads,
+// and correct the field so the cashier sees what will actually be applied.
+function getDiscountPercent() {
+    const el = document.getElementById('posDiscount');
+    const raw = parseFloat(el?.value);
+    if (!isFinite(raw)) return 0;
+    const clamped = Math.min(100, Math.max(0, raw));
+    if (el && clamped !== raw) el.value = clamped;
+    return clamped;
+}
+
 function updateCartTotals() {
     const subtotal = cartItems.reduce((sum, i) => sum + i.total_price, 0);
-    const discPct = parseFloat(document.getElementById('posDiscount')?.value) || 0;
+    const discPct = getDiscountPercent();
     const discAmt = subtotal * (discPct / 100);
     const total = subtotal - discAmt;
     document.getElementById('posSubtotal').textContent = '₱' + subtotal.toFixed(2);
@@ -464,7 +477,7 @@ function updateCartTotals() {
 
 function getCartTotal() {
     const subtotal = cartItems.reduce((sum, i) => sum + i.total_price, 0);
-    const discPct = parseFloat(document.getElementById('posDiscount')?.value) || 0;
+    const discPct = getDiscountPercent();
     return subtotal - subtotal * (discPct / 100);
 }
 
@@ -500,7 +513,7 @@ function quickCash(amount) {
 async function completeSale() {
     if (isViewer()) { showToast('View-only account. Cannot process sales.', 'error'); return; }
     if (cartItems.length === 0) { showToast('Cart is empty', 'error'); return; }
-    const discount = parseFloat(document.getElementById('posDiscount')?.value) || 0;
+    const discount = getDiscountPercent();
     const subtotal = cartItems.reduce((sum, i) => sum + i.total_price, 0);
     const discAmt = subtotal * (discount / 100);
     const total = subtotal - discAmt;
