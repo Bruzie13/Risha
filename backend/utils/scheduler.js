@@ -29,7 +29,7 @@ async function runBackup() {
 
         const { buildBackup } = require('../server');
         const b = await buildBackup();
-        const ok = await sendBackupEmail(b.gz, b);
+        const ok = await sendBackupEmail(b.zip, b);
         if (ok) {
             const c2 = await pool.getConnection();
             await c2.execute(

@@ -455,17 +455,20 @@ async function sendTestEmail(toEmail) {
     }
 }
 
-// Daily database backup, attached as .json.gz. Sent to the configured
-// sender address (the shop's own inbox acts as offsite storage).
-async function sendBackupEmail(gzBuffer, meta) {
+// Daily database backup, attached as a .zip. Sent to the configured sender
+// address (the shop's own inbox acts as offsite storage).
+//
+// The attachment must be a .zip: Brevo rejects .gz with "Unsupported file
+// format", which silently killed this email every night until it was changed.
+async function sendBackupEmail(zipBuffer, meta) {
     const config = await getEmailConfig();
     if (!config.enabled) return false;
     const to = config.user;
-    const filename = 'risha-backup-' + new Date().toISOString().slice(0, 10) + '.json.gz';
+    const filename = meta.filename || ('risha-backup-' + new Date().toISOString().slice(0, 10) + '.zip');
     const html = `
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
             <h2 style="color:#E14C42;">RISHA daily backup</h2>
-            <p>Attached is today's full database backup (${meta.tables} tables, ${meta.rows} rows, ${(gzBuffer.length / 1024).toFixed(0)} KB compressed).</p>
+            <p>Attached is today's full database backup (${meta.tables} tables, ${meta.rows} rows, ${(zipBuffer.length / 1024).toFixed(0)} KB compressed).</p>
             <p style="color:#888;font-size:12px;">Restore with <code>scripts/restore-backup.js</code>. Keep at least the last 7 of these.</p>
         </div>`;
     try {
@@ -478,7 +481,7 @@ async function sendBackupEmail(gzBuffer, meta) {
                     to: [{ email: to }],
                     subject: `RISHA Backup — ${new Date().toISOString().slice(0, 10)}`,
                     htmlContent: html,
-                    attachment: [{ name: filename, content: gzBuffer.toString('base64') }]
+                    attachment: [{ name: filename, content: zipBuffer.toString('base64') }]
                 })
             });
             if (!res.ok) throw new Error('Brevo ' + res.status + ': ' + (await res.text()).slice(0, 150));
@@ -490,10 +493,10 @@ async function sendBackupEmail(gzBuffer, meta) {
                 to,
                 subject: `RISHA Backup — ${new Date().toISOString().slice(0, 10)}`,
                 html,
-                attachments: [{ filename, content: gzBuffer }]
+                attachments: [{ filename, content: zipBuffer }]
             });
         }
-        console.log(`[Backup] emailed ${filename} to ${to} (${(gzBuffer.length / 1024).toFixed(0)} KB)`);
+        console.log(`[Backup] emailed ${filename} to ${to} (${(zipBuffer.length / 1024).toFixed(0)} KB)`);
         return true;
     } catch (e) {
         console.error('[Backup] email failed:', e.message);
