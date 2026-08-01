@@ -5,7 +5,7 @@ const pool = require('../config/database');
 const logAudit = require('../services/audit');
 const { notifyUserLogin } = require('../services/notifier');
 const { validatePassword } = require('../utils/passwordPolicy');
-const { sendPasswordResetEmail, sendVerificationEmail, sendEmailCode, isValidEmail } = require('../utils/mailer');
+const { sendPasswordResetEmail, sendVerificationEmail, sendEmailCode, sendWelcomeEmail, isValidEmail } = require('../utils/mailer');
 
 // Brute-force protection: after 5 failed logins per IP+username within
 // 10 minutes, further attempts are rejected until the window expires.
@@ -478,9 +478,14 @@ exports.register = async (req, res) => {
 
         logAudit(req.user.id, 'create', 'users', newUser.id, null, newUser, req.ip);
 
+        // Courtesy, not a gate: the account already works, so a failed send
+        // must not fail the request.
+        sendWelcomeEmail(newUser.email, newUser.full_name, newUser.username, newUser.role)
+            .catch(e => console.error('Welcome email failed:', e.message));
+
         res.status(201).json({
             success: true,
-            message: `Account created. ${newUser.email} is verified — they can sign in right away.`,
+            message: `Account created. ${newUser.email} is verified — they can sign in right away, and a welcome email with their username is on the way.`,
             user: newUser
         });
 
