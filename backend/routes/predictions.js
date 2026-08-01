@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { forecastML } = require('../utils/mlForecast');
+const { forecastML, warmMLCache, mlAvailable } = require('../utils/mlForecast');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
@@ -189,10 +189,11 @@ function forecastSeries(series, days = FORECAST_DAYS) {
         });
     }
 
-    // Random Forest + Gradient Boosting ensemble (thesis method): trained on
-    // lag/calendar features when history allows, blended 50/50 with the
-    // statistical baseline. Backtested: blend 95.3% store-level vs 87.3%
-    // statistical-only on this dataset.
+    // Random Forest + Gradient Boosting ensemble (thesis method), fitted in
+    // Python by ml/forecast.py using scikit-learn, and blended 50/50 with the
+    // statistical baseline above. Returns null when history is too short to
+    // train, or when the Python model could not be reached — in both cases the
+    // statistical baseline stands alone rather than the forecast failing.
     const mlPreds = forecastML(series, days);
     if (mlPreds) {
         for (let i = 0; i < predictions.length; i++) {
@@ -221,6 +222,22 @@ function forecastSeries(series, days = FORECAST_DAYS) {
         historyAvg: avg,
         confidence: computeConfidence(n, reg.r2, cv)
     };
+}
+
+// Every series the pipeline below is about to fit, collected up front so the
+// Python model runs once for the whole request instead of once per product.
+// The slices here mirror exactly what forecastSeries and backtestAccuracy pass
+// down: the 56-day fit window, and the training half of the backtest.
+const ML_FIT_WINDOW = 56;
+function mlJobsFor(series, days = FORECAST_DAYS) {
+    const jobs = [];
+    const fitSlice = s => (s.length > ML_FIT_WINDOW ? s.slice(-ML_FIT_WINDOW) : s);
+    jobs.push({ series: fitSlice(series), days });
+    const holdout = series.length >= 42 ? 14 : 7;
+    if (series.length >= holdout + 14) {
+        jobs.push({ series: fitSlice(series.slice(0, -holdout)), days: holdout });
+    }
+    return jobs;
 }
 
 // Backtest: hold out the last 7 days, forecast them from the prior history,
@@ -271,6 +288,7 @@ router.get('/product/:id', authenticateToken, async (req, res) => {
         }
 
         const series = buildDailySeries(rows);
+        warmMLCache(mlJobsFor(series));
         const fc = forecastSeries(series);
 
         const nextMonthTotal = Math.round(fc.predictions.reduce((a, p) => a + p.predicted_quantity, 0) * 100) / 100;
@@ -288,7 +306,8 @@ router.get('/product/:id', authenticateToken, async (req, res) => {
             data: {
                 product_id: Number(req.params.id),
                 product_name: rows[0].name,
-                model: 'Random Forest + Gradient Boosting ensemble (lag & calendar features) blended with a Holt/regression statistical baseline; validated by holdout backtest on a 90-day window',
+                model: 'Random Forest + Gradient Boosting ensemble (scikit-learn, Python) over lag & calendar features, blended with a Holt/regression statistical baseline; validated by holdout backtest on a 90-day window',
+                model_runtime: mlAvailable() ? 'python/scikit-learn' : 'statistical baseline only (Python model unavailable)',
                 historical_data: series,
                 predictions: fc.predictions,
                 next_month_prediction: nextMonthTotal,
@@ -339,9 +358,19 @@ router.get('/all', authenticateToken, async (req, res) => {
         // Headline accuracy is scored at STORE level (sum of holdout forecasts
         // vs sum of actuals): per-product counts are tiny and noisy, but the
         // aggregate is what purchasing actually plans against.
+        // Fit every product in a single Python process before the loop starts.
+        const allSeries = {};
+        const warmJobs = [];
+        Object.entries(byProduct).forEach(([pid, data]) => {
+            const series = buildDailySeries(data.rows);
+            allSeries[pid] = series;
+            warmJobs.push(...mlJobsFor(series));
+        });
+        warmMLCache(warmJobs);
+
         let holdPred = 0, holdActual = 0, backtested = 0;
         const result = Object.entries(byProduct).map(([pid, data]) => {
-            const series = buildDailySeries(data.rows);
+            const series = allSeries[pid];
             const fc = forecastSeries(series);
             const nextMonthTotal = Math.round(fc.predictions.reduce((a, p) => a + p.predicted_quantity, 0) * 100) / 100;
             const dailyAvg = nextMonthTotal / FORECAST_DAYS;

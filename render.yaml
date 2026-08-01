@@ -4,10 +4,11 @@
 services:
   - type: web
     name: risha-pets
-    runtime: node
+    # Docker, not the plain Node runtime: the forecasting model needs Python
+    # and scikit-learn alongside Node, and the Dockerfile installs both.
+    runtime: docker
+    dockerfilePath: ./Dockerfile
     plan: free
-    buildCommand: npm install
-    startCommand: npm start
     healthCheckPath: /login.html
     envVars:
       - key: NODE_ENV
