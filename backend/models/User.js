@@ -28,6 +28,36 @@ class User {
         }
     }
 
+    /* findByUsername/findByEmail deliberately ignore deactivated accounts —
+       they gate sign-in. Uniqueness is a different question: the UNIQUE index
+       covers every row, active or not, so a "is this name free?" check has to
+       see deactivated rows too or it will promise a name the INSERT rejects. */
+    static async findAnyByUsername(username) {
+        const connection = await pool.getConnection();
+        try {
+            const [rows] = await connection.execute(
+                'SELECT id, username, email, full_name, is_active FROM users WHERE username = ?',
+                [username]
+            );
+            return rows[0] || null;
+        } finally {
+            connection.release();
+        }
+    }
+
+    static async findAnyByEmail(email) {
+        const connection = await pool.getConnection();
+        try {
+            const [rows] = await connection.execute(
+                'SELECT id, username, email, full_name, is_active FROM users WHERE email = ?',
+                [email]
+            );
+            return rows[0] || null;
+        } finally {
+            connection.release();
+        }
+    }
+
     static async findById(id) {
         const connection = await pool.getConnection();
         try {
@@ -54,11 +84,13 @@ class User {
         }
     }
 
-    static async getAll() {
+    static async getAll(includeInactive = false) {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                'SELECT id, username, email, full_name, role, phone, address, is_active, UNIX_TIMESTAMP(created_at) * 1000 as created_at FROM users WHERE is_active = TRUE ORDER BY created_at DESC'
+                'SELECT id, username, email, full_name, role, phone, address, is_active, email_verified, UNIX_TIMESTAMP(created_at) * 1000 as created_at FROM users' +
+                (includeInactive ? '' : ' WHERE is_active = TRUE') +
+                ' ORDER BY created_at DESC'
             );
             return rows;
         } finally {

@@ -58,7 +58,7 @@ app.use(cookieParser());
 function authPageGuard(req, res, next) {
     // track-delivery.html is opened by a supplier's driver, who has no account;
     // its unguessable, expiring token is the credential.
-    const publicPages = ['/login.html', '/reset-password.html', '/track-delivery.html', '/', ''];
+    const publicPages = ['/login.html', '/reset-password.html', '/verify-email.html', '/track-delivery.html', '/', ''];
     if (publicPages.includes(req.path)) return next();
     if (!req.path.endsWith('.html')) return next();
 
@@ -179,6 +179,47 @@ async function ensurePasswordResetColumns() {
         console.log('[DB] password reset columns ready');
     } catch (e) {
         console.error('[DB] password reset migration error:', e.message);
+    }
+}
+
+async function ensureEmailVerificationColumns() {
+    try {
+        const conn = await pool.getConnection();
+        try {
+            await conn.execute('ALTER TABLE users ADD COLUMN email_verified TINYINT(1) NOT NULL DEFAULT 0');
+            // The ALTER only succeeds on the first run. Everyone already using
+            // the system is grandfathered in here — otherwise this migration
+            // would lock out every existing account, the only admin included.
+            await conn.execute('UPDATE users SET email_verified = 1');
+            console.log('[DB] existing accounts grandfathered as verified');
+        } catch (e) { /* column exists */ }
+        try { await conn.execute('ALTER TABLE users ADD COLUMN verify_token_hash VARCHAR(64) NULL'); } catch (e) { /* column exists */ }
+        try { await conn.execute('ALTER TABLE users ADD COLUMN verify_token_expires DATETIME NULL'); } catch (e) { /* column exists */ }
+        conn.release();
+        console.log('[DB] email verification columns ready');
+    } catch (e) {
+        console.error('[DB] email verification migration error:', e.message);
+    }
+}
+
+async function ensureEmailCodesTable() {
+    try {
+        const conn = await pool.getConnection();
+        // One pending code per address — requesting a new one replaces the old.
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS email_verification_codes (
+                email VARCHAR(255) NOT NULL PRIMARY KEY,
+                code_hash VARCHAR(64) NOT NULL,
+                expires_at DATETIME NOT NULL,
+                attempts INT NOT NULL DEFAULT 0,
+                requested_by INT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        conn.release();
+        console.log('[DB] email verification codes table ready');
+    } catch (e) {
+        console.error('[DB] email codes migration error:', e.message);
     }
 }
 
@@ -553,6 +594,8 @@ app.post('/api/notifications/check-alerts', authenticateToken, async (req, res) 
 async function runMigrations() {
     await ensureOpsTables();
     await ensurePasswordResetColumns();
+    await ensureEmailVerificationColumns();
+    await ensureEmailCodesTable();
     await ensureEmailLogsTable();
     await ensureIndexes();
     console.log('[DB] migrations complete');

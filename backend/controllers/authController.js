@@ -5,7 +5,7 @@ const pool = require('../config/database');
 const logAudit = require('../services/audit');
 const { notifyUserLogin } = require('../services/notifier');
 const { validatePassword } = require('../utils/passwordPolicy');
-const { sendPasswordResetEmail, isValidEmail } = require('../utils/mailer');
+const { sendPasswordResetEmail, sendVerificationEmail, sendEmailCode, isValidEmail } = require('../utils/mailer');
 
 // Brute-force protection: after 5 failed logins per IP+username within
 // 10 minutes, further attempts are rejected until the window expires.
@@ -40,6 +40,139 @@ function recordFailure(key) {
         for (const [k, v] of loginAttempts) {
             if (now - v.first > ATTEMPT_WINDOW_MS) loginAttempts.delete(k);
         }
+    }
+}
+
+const VERIFY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+
+// j***doe@gmail.com — enough for the owner to recognise which inbox to open,
+// not enough to hand a full address to whoever is looking at the screen.
+function maskEmail(email) {
+    if (!isValidEmail(email)) return 'your email address';
+    const [local, domain] = String(email).trim().split('@');
+    const head = local.slice(0, 1);
+    const tail = local.length > 2 ? local.slice(-1) : '';
+    return `${head}***${tail}@${domain}`;
+}
+
+/**
+ * Issue a fresh confirmation link for a user and email it out.
+ * Any previously issued token stops working the moment this replaces it.
+ */
+async function issueVerificationEmail(user) {
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const expires = new Date(Date.now() + VERIFY_TOKEN_TTL_MS);
+
+    const conn = await pool.getConnection();
+    try {
+        await conn.execute(
+            'UPDATE users SET verify_token_hash = ?, verify_token_expires = ?, email_verified = 0 WHERE id = ?',
+            [tokenHash, expires, user.id]
+        );
+    } finally {
+        conn.release();
+    }
+
+    await sendVerificationEmail(user.email, user.full_name, token);
+}
+
+const EMAIL_CODE_TTL_MS = 10 * 60 * 1000;
+const MAX_CODE_ATTEMPTS = 5;
+
+/**
+ * Admin-only. Mails a 6-digit code to the address being registered, so the
+ * inbox has to actually exist before the account can be created.
+ */
+exports.sendEmailVerificationCode = async (req, res) => {
+    try {
+        const email = String(req.body.email || '').trim();
+        if (!isValidEmail(email)) {
+            return res.status(400).json({ success: false, message: 'Enter a valid email address first' });
+        }
+
+        // No point mailing a code for an address that can never be registered.
+        const owner = await User.findAnyByEmail(email);
+        if (owner) {
+            return res.status(400).json({
+                success: false,
+                message: owner.is_active
+                    ? `That email address is already used by ${owner.username}.`
+                    : `That email address belongs to a deactivated account (${owner.username}).`
+            });
+        }
+
+        const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+        const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+        const expires = new Date(Date.now() + EMAIL_CODE_TTL_MS);
+
+        const conn = await pool.getConnection();
+        try {
+            // Re-requesting replaces the pending code and clears the attempt count.
+            await conn.execute(
+                `INSERT INTO email_verification_codes (email, code_hash, expires_at, attempts, requested_by)
+                 VALUES (?, ?, ?, 0, ?)
+                 ON DUPLICATE KEY UPDATE code_hash = VALUES(code_hash), expires_at = VALUES(expires_at), attempts = 0, requested_by = VALUES(requested_by)`,
+                [email, codeHash, expires, req.user.id]
+            );
+        } finally {
+            conn.release();
+        }
+
+        await sendEmailCode(email, code);
+        logAudit(req.user.id, 'email_code_sent', 'users', null, null, { email }, req.ip);
+
+        res.status(200).json({
+            success: true,
+            message: `A 6-digit code was sent to ${email}. It expires in 10 minutes.`
+        });
+    } catch (error) {
+        console.error('Send email code error:', error);
+        res.status(500).json({ success: false, message: 'Could not send the code: ' + error.message });
+    }
+};
+
+/**
+ * Check a submitted code against the pending one for that address.
+ * Returns an error string, or null when the code is good (and consumed).
+ */
+async function consumeEmailCode(email, code) {
+    if (!code || !/^\d{6}$/.test(String(code).trim())) {
+        return 'Enter the 6-digit code that was emailed to that address.';
+    }
+
+    const conn = await pool.getConnection();
+    try {
+        const [rows] = await conn.execute(
+            'SELECT code_hash, attempts, expires_at > NOW() AS still_valid FROM email_verification_codes WHERE email = ?',
+            [email]
+        );
+        if (!rows.length) {
+            return 'No code has been sent to that address yet. Use "Send code" first.';
+        }
+        const row = rows[0];
+        if (!Number(row.still_valid)) {
+            await conn.execute('DELETE FROM email_verification_codes WHERE email = ?', [email]);
+            return 'That code has expired. Send a new one.';
+        }
+        if (row.attempts >= MAX_CODE_ATTEMPTS) {
+            await conn.execute('DELETE FROM email_verification_codes WHERE email = ?', [email]);
+            return 'Too many incorrect attempts. Send a new code.';
+        }
+
+        const submitted = crypto.createHash('sha256').update(String(code).trim()).digest('hex');
+        // Both sides are fixed-length hex digests, so timingSafeEqual is safe here.
+        const match = crypto.timingSafeEqual(Buffer.from(submitted, 'hex'), Buffer.from(row.code_hash, 'hex'));
+        if (!match) {
+            await conn.execute('UPDATE email_verification_codes SET attempts = attempts + 1 WHERE email = ?', [email]);
+            const left = MAX_CODE_ATTEMPTS - (row.attempts + 1);
+            return `That code is not correct. ${left > 0 ? left + ' attempt(s) left.' : 'Send a new code.'}`;
+        }
+
+        await conn.execute('DELETE FROM email_verification_codes WHERE email = ?', [email]);
+        return null;
+    } finally {
+        conn.release();
     }
 }
 
@@ -97,6 +230,18 @@ exports.login = async (req, res) => {
             return res.status(401).json({
                 success: false,
                 message: 'Invalid username or password'
+            });
+        }
+
+        // Password was right, so this is the real owner of the account — but the
+        // address on file is still unproven. Say so plainly (the password is
+        // already confirmed, so this leaks nothing an attacker doesn't have).
+        if (Number(user.email_verified) === 0) {
+            loginAttempts.delete(key);
+            return res.status(403).json({
+                success: false,
+                code: 'EMAIL_NOT_VERIFIED',
+                message: 'Please confirm your email address first. Check ' + maskEmail(user.email) + ' for the confirmation link.'
             });
         }
 
@@ -251,12 +396,33 @@ exports.register = async (req, res) => {
             });
         }
 
-        const { username, email, password, full_name, phone, address, role } = req.body;
+        const { username, email, password, full_name, phone, address, role, emailCode } = req.body;
 
         if (!username || !password || !full_name) {
             return res.status(400).json({
                 success: false,
                 message: 'Username, password, and full name are required'
+            });
+        }
+
+        // The address is what the account is verified against, so it has to be
+        // real and reachable — no placeholder fallback any more.
+        if (!isValidEmail(email)) {
+            return res.status(400).json({
+                success: false,
+                message: 'A valid email address is required — a code is sent to it before the account can be created'
+            });
+        }
+
+        const emailOwner = await User.findAnyByEmail(String(email).trim());
+        if (emailOwner) {
+            return res.status(400).json({
+                success: false,
+                conflict: 'email',
+                deactivatedId: emailOwner.is_active ? undefined : emailOwner.id,
+                message: emailOwner.is_active
+                    ? `That email address is already used by ${emailOwner.username}.`
+                    : `That email address belongs to a deactivated account (${emailOwner.username}). Tick "Show deactivated" on this page to restore it, or use a different address.`
             });
         }
 
@@ -269,17 +435,31 @@ exports.register = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid role. Must be one of: admin, manager, staff, viewer' });
         }
 
-        const existingUser = await User.findByUsername(username);
+        // Deleting a user only flips is_active, but the UNIQUE index keeps
+        // holding the name — so say which case this is instead of insisting a
+        // name is taken by an account the admin cannot see anywhere.
+        const existingUser = await User.findAnyByUsername(username);
         if (existingUser) {
             return res.status(400).json({
                 success: false,
-                message: 'Username already taken'
+                conflict: 'username',
+                deactivatedId: existingUser.is_active ? undefined : existingUser.id,
+                message: existingUser.is_active
+                    ? 'Username already taken'
+                    : `"${username}" belongs to a deactivated account (${existingUser.full_name || existingUser.email}). Tick "Show deactivated" on this page to restore it, or pick a different username.`
             });
+        }
+
+        // Last gate: the code proves someone opened that inbox. Checked after
+        // the cheap validations so a fumbled form doesn't burn an attempt.
+        const codeError = await consumeEmailCode(String(email).trim(), emailCode);
+        if (codeError) {
+            return res.status(400).json({ success: false, conflict: 'code', message: codeError });
         }
 
         const newUser = await User.create({
             username,
-            email: email || username + '@risha.local',
+            email: String(email).trim(),
             password,
             full_name,
             phone,
@@ -287,24 +467,167 @@ exports.register = async (req, res) => {
             role: role || 'staff'
         });
 
+        // The code was the proof, so there is nothing left to confirm — the
+        // account is verified from birth and can sign in immediately.
+        const conn = await pool.getConnection();
+        try {
+            await conn.execute('UPDATE users SET email_verified = 1 WHERE id = ?', [newUser.id]);
+        } finally {
+            conn.release();
+        }
+
         logAudit(req.user.id, 'create', 'users', newUser.id, null, newUser, req.ip);
 
         res.status(201).json({
             success: true,
-            message: 'User registered successfully',
+            message: `Account created. ${newUser.email} is verified — they can sign in right away.`,
             user: newUser
         });
 
     } catch (error) {
-        // DB unique constraint — e.g. two admins creating the same username at once
+        // DB unique constraint — e.g. two admins creating the same account at
+        // once. Name the column that actually collided; the index name is in
+        // the driver's message ("for key 'email'").
         if (error && error.code === 'ER_DUP_ENTRY') {
-            return res.status(400).json({ success: false, message: 'Username already taken' });
+            const onEmail = /'email'/.test(error.sqlMessage || '');
+            return res.status(400).json({
+                success: false,
+                conflict: onEmail ? 'email' : 'username',
+                message: onEmail ? 'That email address is already registered' : 'Username already taken'
+            });
         }
         console.error('Register error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error during registration'
         });
+    }
+};
+
+/**
+ * Public — the link in the confirmation email lands here.
+ * Consumes the token so a forwarded or leaked link can't be reused.
+ */
+exports.verifyEmail = async (req, res) => {
+    try {
+        const { token } = req.body;
+        if (!token) {
+            return res.status(400).json({ success: false, message: 'This confirmation link is missing its token.' });
+        }
+
+        const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
+        const conn = await pool.getConnection();
+        let rows;
+        try {
+            [rows] = await conn.execute(
+                'SELECT id, username, email, email_verified FROM users WHERE verify_token_hash = ? AND is_active = 1',
+                [tokenHash]
+            );
+        } finally {
+            conn.release();
+        }
+
+        if (!rows.length) {
+            return res.status(400).json({
+                success: false,
+                message: 'This confirmation link is invalid or has already been used. Ask an administrator to send a new one.'
+            });
+        }
+
+        const user = rows[0];
+
+        // Expiry is checked after the row is found so an expired link can say so
+        // precisely instead of looking indistinguishable from a bad token.
+        const conn2 = await pool.getConnection();
+        let fresh;
+        try {
+            [fresh] = await conn2.execute(
+                'SELECT id FROM users WHERE id = ? AND verify_token_expires > NOW()',
+                [user.id]
+            );
+            if (!fresh.length) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'This confirmation link has expired. Ask an administrator to send a new one.'
+                });
+            }
+            await conn2.execute(
+                'UPDATE users SET email_verified = 1, verify_token_hash = NULL, verify_token_expires = NULL WHERE id = ?',
+                [user.id]
+            );
+        } finally {
+            conn2.release();
+        }
+
+        logAudit(user.id, 'email_verified', 'users', user.id, null, { email: user.email }, req.ip);
+        res.status(200).json({
+            success: true,
+            message: 'Email confirmed. You can now sign in to FETCH.',
+            username: user.username
+        });
+    } catch (error) {
+        console.error('Verify email error:', error);
+        res.status(500).json({ success: false, message: 'Server error confirming email' });
+    }
+};
+
+/**
+ * Public — for someone stuck at the sign-in screen with an unconfirmed account.
+ * Answers the same way regardless, so it can't be used to probe for accounts.
+ */
+exports.resendVerification = async (req, res) => {
+    const genericResponse = {
+        success: true,
+        message: 'If that account exists and still needs confirming, a new link has been sent to its email address.'
+    };
+    try {
+        const { username } = req.body;
+        if (!username || !String(username).trim()) {
+            return res.status(400).json({ success: false, message: 'Username or email is required' });
+        }
+
+        const input = String(username).trim();
+        let user = await User.findByUsername(input);
+        if (!user && isValidEmail(input)) user = await User.findByEmail(input);
+
+        if (!user || !user.is_active || Number(user.email_verified) === 1 || !isValidEmail(user.email)) {
+            return res.status(200).json(genericResponse);
+        }
+
+        await issueVerificationEmail(user);
+        logAudit(user.id, 'verification_resent', 'users', user.id, null, null, req.ip);
+        res.status(200).json(genericResponse);
+    } catch (error) {
+        console.error('Resend verification error:', error.message);
+        res.status(200).json(genericResponse);
+    }
+};
+
+/**
+ * Admin-side resend from the Users page, where a real error is more useful
+ * than the deliberately vague public answer.
+ */
+exports.adminResendVerification = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findByIdWithPassword(id);
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        if (Number(user.email_verified) === 1) {
+            return res.status(400).json({ success: false, message: 'That account is already confirmed.' });
+        }
+        if (!isValidEmail(user.email)) {
+            return res.status(400).json({ success: false, message: 'That account has no valid email address on file. Edit the user and set one first.' });
+        }
+
+        await issueVerificationEmail(user);
+        logAudit(req.user.id, 'verification_resent', 'users', user.id, null, { email: user.email }, req.ip);
+        res.status(200).json({ success: true, message: `A new confirmation link was sent to ${user.email}.` });
+    } catch (error) {
+        console.error('Admin resend verification error:', error);
+        res.status(500).json({ success: false, message: 'Could not send the confirmation email: ' + error.message });
     }
 };
 
@@ -335,7 +658,9 @@ exports.verifyToken = async (req, res) => {
 
 exports.getAllUsers = async (req, res) => {
     try {
-        const users = await User.getAll();
+        // Opt-in, so the normal view stays the list of people who can sign in.
+        const includeInactive = req.query.includeInactive === '1' || req.query.includeInactive === 'true';
+        const users = await User.getAll(includeInactive);
         res.status(200).json({
             success: true,
             data: users
@@ -387,6 +712,26 @@ exports.updateUser = async (req, res) => {
         }
 
         const oldUser = await User.findById(id);
+
+        // Changing the address undoes the proof we had, so the new one has to be
+        // confirmed too — otherwise an edit is a way around verification.
+        const newEmail = updateData.email !== undefined ? String(updateData.email).trim() : null;
+        const emailChanged = !!(newEmail && oldUser && newEmail.toLowerCase() !== String(oldUser.email || '').toLowerCase());
+        if (newEmail !== null && !isValidEmail(newEmail)) {
+            return res.status(400).json({ success: false, message: 'A valid email address is required' });
+        }
+        if (emailChanged) {
+            const emailOwner = await User.findAnyByEmail(newEmail);
+            if (emailOwner && emailOwner.id !== parseInt(id)) {
+                return res.status(400).json({
+                    success: false,
+                    message: emailOwner.is_active
+                        ? `That email address is already used by ${emailOwner.username}.`
+                        : `That email address belongs to a deactivated account (${emailOwner.username}).`
+                });
+            }
+        }
+
         const user = await User.update(id, updateData);
 
         if (!user) {
@@ -398,9 +743,21 @@ exports.updateUser = async (req, res) => {
 
         logAudit(req.user.id, 'update', 'users', parseInt(id), oldUser, updateData, req.ip);
 
+        let message = 'User updated successfully';
+        if (emailChanged) {
+            try {
+                await issueVerificationEmail({ id: user.id, email: newEmail, full_name: user.full_name });
+                message = `User updated. ${newEmail} must be confirmed before they can sign in again — a link has been sent.`;
+            } catch (e) {
+                console.error('Verification email failed after email change:', e.message);
+                message = `User updated, but the confirmation email to ${newEmail} failed (${e.message}). They cannot sign in until it is resent.`;
+            }
+        }
+
         res.status(200).json({
             success: true,
-            message: 'User updated successfully',
+            emailChanged,
+            message,
             data: user
         });
     } catch (error) {

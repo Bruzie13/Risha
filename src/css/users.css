@@ -159,6 +159,54 @@
   color: var(--gray-500);
 }
 
+/* Email field and its "Send code" button share a row so the two read as one
+   step: prove the address, then create the account. */
+.email-verify-row { display: flex; gap: 8px; align-items: stretch; }
+.email-verify-row .form-input { flex: 1; min-width: 0; }
+.email-verify-row .btn-secondary { white-space: nowrap; font-size: 12px; padding: 0 12px; }
+.email-verify-row .btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.inactive-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.inactive-toggle input { accent-color: var(--primary); cursor: pointer; }
+.inactive-toggle:hover { color: var(--text-secondary); }
+
+/* Sits under the address in the Email column: an account stays locked out of
+   sign-in until this reads Verified, so it earns its own line. */
+.verify-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.verify-badge .material-symbols-outlined { font-size: 13px; }
+
+.verify-badge.verified {
+  background: var(--success-bg, rgba(47, 163, 107, 0.12));
+  color: var(--success, #2FA36B);
+}
+
+.verify-badge.pending {
+  background: var(--warning-bg, rgba(224, 149, 64, 0.14));
+  color: var(--warning, #C77B18);
+}
+
 .permission-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
