@@ -109,17 +109,90 @@ document.getElementById('searchInput')?.addEventListener('keyup', (e) => {
 /* ── Email verification code (new accounts only) ──────────────────────────
    The account is not created until a code mailed to the address comes back,
    so a mistyped Gmail is caught here rather than the day someone needs it. */
-let codedEmail = null;   // the address the pending code was sent to
+let codedEmail = null;      // the address the pending code was sent to
+let codeExpiresAt = null;   // epoch ms, drives the countdown
+let codeTimer = null;
+
+function codeEls() {
+    return {
+        email: document.getElementById('userEmail'),
+        input: document.getElementById('userEmailCode'),
+        hint: document.getElementById('emailCodeHint'),
+        sendBtn: document.getElementById('sendCodeBtn'),
+        submit: document.getElementById('userSubmitBtn'),
+        blocked: document.getElementById('submitBlockedHint')
+    };
+}
+
+/* Single place that decides what the form is asking for right now, so the
+   button state, the hint and the code box can never disagree. */
+function refreshCodeState() {
+    const el = codeEls();
+    if (!el.input || !el.submit) return;
+
+    if (editingUserId) {
+        el.submit.disabled = false;
+        if (el.blocked) el.blocked.textContent = '';
+        return;
+    }
+
+    const typed = el.input.value.trim();
+    const emailNow = (el.email.value || '').trim().toLowerCase();
+    const ready = !!codedEmail && emailNow === codedEmail && /^\d{6}$/.test(typed);
+
+    el.submit.disabled = !ready;
+    el.input.disabled = !codedEmail || emailNow !== codedEmail;
+
+    if (el.blocked) {
+        if (ready) el.blocked.textContent = '';
+        else if (!codedEmail) el.blocked.textContent = 'Step 1: press "Send code" to email a code to that address.';
+        else if (emailNow !== codedEmail) el.blocked.textContent = 'The email changed — send a new code to this address.';
+        else el.blocked.textContent = 'Step 2: type the 6-digit code from that inbox.';
+    }
+}
+
+function onCodeTyped() {
+    const el = codeEls();
+    // Digits only, so a pasted "123 456" or "code: 123456" still works.
+    el.input.value = el.input.value.replace(/\D/g, '').slice(0, 6);
+    refreshCodeState();
+}
 
 function onEmailChanged() {
     // Typing a different address invalidates the code already sent.
     const current = document.getElementById('userEmail').value.trim().toLowerCase();
     if (codedEmail && current !== codedEmail) {
         codedEmail = null;
-        document.getElementById('emailCodeRow').style.display = 'none';
-        document.getElementById('userEmailCode').value = '';
-        document.getElementById('userEmailCode').required = false;
+        codeExpiresAt = null;
+        const el = codeEls();
+        el.input.value = '';
+        el.hint.className = 'code-hint';
+        el.hint.innerHTML = 'Press <strong>Send code</strong> above — we email a 6-digit code to that address. Type it here to prove the inbox is real.';
+        el.sendBtn.textContent = 'Send code';
     }
+    refreshCodeState();
+}
+
+function startCodeCountdown() {
+    if (codeTimer) clearInterval(codeTimer);
+    codeTimer = setInterval(() => {
+        const el = codeEls();
+        if (!codeExpiresAt || !el.hint) return clearInterval(codeTimer);
+        const left = Math.max(0, Math.round((codeExpiresAt - Date.now()) / 1000));
+        if (left === 0) {
+            clearInterval(codeTimer);
+            codedEmail = null;
+            codeExpiresAt = null;
+            el.hint.className = 'code-hint failed';
+            el.hint.textContent = 'That code expired. Press "Resend code" to get a new one.';
+            refreshCodeState();
+            return;
+        }
+        const mm = String(Math.floor(left / 60)).padStart(2, '0');
+        const ss = String(left % 60).padStart(2, '0');
+        el.hint.className = 'code-hint sent';
+        el.hint.textContent = `Code sent to ${codedEmail} · expires in ${mm}:${ss}`;
+    }, 1000);
 }
 
 async function sendEmailCode() {
@@ -137,25 +210,34 @@ async function sendEmailCode() {
             method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ email })
         });
         const data = await res.json();
+        const el = codeEls();
         if (data.success) {
             codedEmail = email.toLowerCase();
-            const row = document.getElementById('emailCodeRow');
-            row.style.display = '';
-            const input = document.getElementById('userEmailCode');
-            input.required = true;
-            input.value = '';
-            input.focus();
-            document.getElementById('emailCodeHint').textContent = data.message;
+            codeExpiresAt = Date.now() + 10 * 60 * 1000;
+            el.input.value = '';
+            el.input.disabled = false;
+            el.input.focus();
+            el.hint.className = 'code-hint sent';
+            el.hint.textContent = `Code sent to ${email} · expires in 10:00`;
+            startCodeCountdown();
             showToast('Code sent to ' + email, 'success');
         } else {
-            showErrorDialog('Could not send the code', data.message || 'Unknown error');
+            // Inline, next to the field it concerns — a dialog gets dismissed
+            // and then the reason is gone.
+            codedEmail = null;
+            codeExpiresAt = null;
+            el.hint.className = 'code-hint failed';
+            el.hint.textContent = data.message || 'Could not send the code.';
         }
     } catch (error) {
         console.error('Error sending email code:', error);
-        showToast('Failed to send the code', 'error');
+        const el = codeEls();
+        el.hint.className = 'code-hint failed';
+        el.hint.textContent = 'Could not reach the server. Check your connection and try again.';
     } finally {
         btn.disabled = false;
         btn.textContent = codedEmail ? 'Resend code' : 'Send code';
+        refreshCodeState();
     }
 }
 
@@ -207,12 +289,15 @@ async function resendVerification(id) {
 
 function resetEmailCodeState() {
     codedEmail = null;
-    const row = document.getElementById('emailCodeRow');
-    if (row) row.style.display = 'none';
-    const input = document.getElementById('userEmailCode');
-    if (input) { input.value = ''; input.required = false; }
-    const btn = document.getElementById('sendCodeBtn');
-    if (btn) { btn.disabled = false; btn.textContent = 'Send code'; }
+    codeExpiresAt = null;
+    if (codeTimer) { clearInterval(codeTimer); codeTimer = null; }
+    const el = codeEls();
+    if (el.input) { el.input.value = ''; el.input.disabled = true; }
+    if (el.hint) {
+        el.hint.className = 'code-hint';
+        el.hint.innerHTML = 'Press <strong>Send code</strong> above — we email a 6-digit code to that address. Type it here to prove the inbox is real.';
+    }
+    if (el.sendBtn) { el.sendBtn.disabled = false; el.sendBtn.textContent = 'Send code'; }
 }
 
 function openAddUserModal() {
@@ -221,6 +306,8 @@ function openAddUserModal() {
     document.getElementById('userForm').reset();
     resetEmailCodeState();
     document.getElementById('sendCodeBtn').style.display = '';
+    document.getElementById('emailCodeRow').style.display = '';
+    refreshCodeState();
     const unameEl = document.getElementById('userUsername');
     unameEl.disabled = false;
     unameEl.title = '';
@@ -239,6 +326,8 @@ function openEditUserModal(id) {
     // account and mails a confirmation link, no code needed here.
     resetEmailCodeState();
     document.getElementById('sendCodeBtn').style.display = 'none';
+    document.getElementById('emailCodeRow').style.display = 'none';
+    refreshCodeState();
     const unameEl = document.getElementById('userUsername');
     unameEl.value = user.username || '';
     unameEl.disabled = true;
@@ -268,9 +357,10 @@ async function handleUserSubmit(event) {
 
     if (!editingUserId) {
         const code = document.getElementById('userEmailCode').value.trim();
+        // Backstop — the Create User button is disabled until these hold.
         if (!codedEmail) {
             showErrorDialog('Verify the email first',
-                'Press "Send code" to email a 6-digit code to that address, then type the code here. The account is only created once the code checks out.');
+                'Press "Send code" next to the email field. We email a 6-digit code to that address; type it into the "Email verification code" box below, then create the account.');
             return;
         }
         if (userData.email.trim().toLowerCase() !== codedEmail) {

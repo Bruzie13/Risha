@@ -15,6 +15,101 @@ function isValidEmail(email) {
     return typeof email === 'string' && EMAIL_REGEX.test(email.trim());
 }
 
+/* ── Email layout ────────────────────────────────────────────────────────
+   Mail clients are not browsers: Gmail strips <style> blocks, Outlook has no
+   flexbox or border-radius on containers, and images are blocked until the
+   reader allows them. So everything below is table-based with inline styles,
+   and every message has to still read correctly with no images at all. */
+
+const BRAND = {
+    app: 'FETCH',
+    org: 'Risha Pet Supplies',
+    primary: '#E14C42',
+    ink: '#1B2437',
+    body: '#5A6478',
+    muted: '#8A94A8',
+    line: '#EDE4DA',
+    page: '#F7F2EC'
+};
+
+function escapeAttr(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+/**
+ * Wrap a message body in the shared branded shell.
+ * `preheader` is the grey snippet Gmail shows beside the subject in the inbox
+ * list — without one, clients scrape the first visible text, which reads badly.
+ */
+function emailShell({ preheader, title, contentHtml, footerNote }) {
+    return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light only" />
+<title>${escapeAttr(title)}</title>
+</head>
+<body style="margin:0;padding:0;background:${BRAND.page};-webkit-text-size-adjust:100%;">
+<span style="display:none;font-size:1px;color:${BRAND.page};max-height:0;max-width:0;opacity:0;overflow:hidden;">${escapeAttr(preheader)}</span>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${BRAND.page};padding:28px 12px;">
+  <tr>
+    <td align="center">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:100%;background:#FFFFFF;border:1px solid ${BRAND.line};border-radius:16px;overflow:hidden;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+        <tr>
+          <td style="background:${BRAND.primary};padding:22px 30px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+              <tr>
+                <td style="vertical-align:middle;">
+                  <div style="font-size:20px;font-weight:bold;color:#FFFFFF;letter-spacing:0.3px;">${BRAND.app}</div>
+                  <div style="font-size:12px;color:rgba(255,255,255,0.85);margin-top:3px;">${BRAND.org}</div>
+                </td>
+                <td align="right" style="vertical-align:middle;">
+                  <img src="${BASE_URL}/images/favicon-192.png" width="40" height="40" alt=""
+                       style="display:block;border:0;border-radius:10px;background:#FFFFFF;" />
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px 30px 26px;">
+            ${contentHtml}
+          </td>
+        </tr>
+        <tr>
+          <td style="border-top:1px solid ${BRAND.line};padding:18px 30px 24px;">
+            <p style="margin:0;font-size:12px;line-height:1.6;color:${BRAND.muted};">${footerNote}</p>
+            <p style="margin:10px 0 0;font-size:12px;color:${BRAND.muted};">— ${BRAND.org}</p>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:16px 0 0;font-size:11px;color:${BRAND.muted};font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+        This is an automated message from the ${BRAND.app} system. Please do not reply.
+      </p>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+}
+
+function paragraph(html) {
+    return `<p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:${BRAND.body};">${html}</p>`;
+}
+
+function heading(text) {
+    return `<h1 style="margin:0 0 14px;font-size:22px;line-height:1.35;font-weight:bold;color:${BRAND.ink};">${text}</h1>`;
+}
+
+function ctaButton(url, label) {
+    return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px auto 8px;">
+      <tr><td align="center" bgcolor="${BRAND.primary}" style="border-radius:10px;">
+        <a href="${escapeAttr(url)}" style="display:inline-block;padding:13px 34px;font-size:15px;font-weight:bold;color:#FFFFFF;text-decoration:none;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">${label}</a>
+      </td></tr>
+    </table>`;
+}
+
 /**
  * Load email config. DB settings (app_settings) take priority, .env is the fallback.
  */
@@ -79,7 +174,10 @@ async function sendViaBrevo(config, mailOptions) {
             sender: { email: config.user, name: config.fromName },
             to: [{ email: mailOptions.to }],
             subject: mailOptions.subject,
-            htmlContent: mailOptions.html
+            htmlContent: mailOptions.html,
+            // A text part is what separates real mail from something a script
+            // threw together; filters weigh HTML-only messages more harshly.
+            ...(mailOptions.text ? { textContent: mailOptions.text } : {})
         })
     });
     if (!res.ok) {
@@ -387,32 +485,43 @@ async function sendPasswordResetEmail(toEmail, fullName, resetToken) {
         throw new Error('Email credentials not configured');
     }
     const resetUrl = `${BASE_URL}/reset-password.html?token=${resetToken}`;
-    const mailOptions = {
+
+    const content =
+        heading('Reset your password') +
+        paragraph(`Hi <strong>${escapeAttr(fullName || 'there')}</strong>,`) +
+        paragraph(`Someone asked to reset the password for your <strong>${BRAND.app}</strong> account at ${BRAND.org}. Choose a new one here:`) +
+        ctaButton(resetUrl, 'Choose a new password') +
+        `<p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:${BRAND.body};text-align:center;">This link expires in <strong>30 minutes</strong>.</p>` +
+        `<p style="margin:14px 0 0;font-size:12px;line-height:1.6;color:${BRAND.muted};">If the button does not work, copy this into your browser:<br /><a href="${escapeAttr(resetUrl)}" style="color:${BRAND.primary};word-break:break-all;">${escapeAttr(resetUrl)}</a></p>`;
+
+    const text = [
+        'Reset your password',
+        '',
+        `Hi ${fullName || 'there'},`,
+        '',
+        `Someone asked to reset the password for your ${BRAND.app} account at ${BRAND.org}. Choose a new one here:`,
+        '',
+        resetUrl,
+        '',
+        'This link expires in 30 minutes.',
+        '',
+        `If you didn't ask for this, ignore this email — your password will not change.`,
+        '',
+        `— ${BRAND.org}`
+    ].join('\n');
+
+    await sendMessage(config, {
         from: `"${config.fromName}" <${config.user}>`,
         to: toEmail,
-        subject: 'Reset your RISHA password',
-        html: `
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
-                <div style="background:#E14C42;padding:22px 24px;border-radius:14px 14px 0 0;">
-                    <h1 style="color:white;margin:0;font-size:21px;">RISHA Pet Supplies</h1>
-                    <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:13px;">Password Reset Request</p>
-                </div>
-                <div style="padding:25px;border:1px solid #e6eaf2;border-top:0;border-radius:0 0 14px 14px;background:#ffffff;">
-                    <p style="font-size:16px;color:#1B2437;">Hi <strong>${fullName || 'there'}</strong>,</p>
-                    <p style="color:#5A6478;">We received a request to reset the password for your FETCH account. Click the button below to choose a new password. This link expires in <strong>30 minutes</strong>.</p>
-                    <div style="text-align:center;margin:24px 0 8px;">
-                        <a href="${resetUrl}"
-                           style="display:inline-block;background:#E14C42;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 32px;border-radius:10px;">
-                            Reset My Password
-                        </a>
-                    </div>
-                    <p style="color:#8A94A8;font-size:12px;margin-top:20px;">If the button doesn't work, copy this link into your browser:<br><a href="${resetUrl}" style="color:#E14C42;word-break:break-all;">${resetUrl}</a></p>
-                    <p style="color:#8A94A8;font-size:12px;">If you didn't request this, you can safely ignore this email — your password will not change.</p>
-                </div>
-            </div>
-        `
-    };
-    await sendMessage(config, mailOptions);
+        subject: `Reset your ${BRAND.app} password`,
+        text,
+        html: emailShell({
+            preheader: `Choose a new password for your ${BRAND.app} account. Link expires in 30 minutes.`,
+            title: `Reset your ${BRAND.app} password`,
+            contentHtml: content,
+            footerNote: `You received this because a password reset was requested for the ${BRAND.app} account on this address. If that wasn't you, ignore this email — your password will not change.`
+        })
+    });
 }
 
 /**
@@ -426,32 +535,43 @@ async function sendVerificationEmail(toEmail, fullName, verifyToken) {
         throw new Error('Email credentials not configured');
     }
     const verifyUrl = `${BASE_URL}/verify-email.html?token=${verifyToken}`;
-    const mailOptions = {
+
+    const content =
+        heading('Confirm your new email address') +
+        paragraph(`Hi <strong>${escapeAttr(fullName || 'there')}</strong>,`) +
+        paragraph(`The email address on your <strong>${BRAND.app}</strong> account at ${BRAND.org} was changed to this one. Confirm it to switch your sign-in back on.`) +
+        ctaButton(verifyUrl, 'Confirm this address') +
+        `<p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:${BRAND.body};text-align:center;">This link expires in <strong>24 hours</strong>.</p>` +
+        `<p style="margin:14px 0 0;font-size:12px;line-height:1.6;color:${BRAND.muted};">If the button does not work, copy this into your browser:<br /><a href="${escapeAttr(verifyUrl)}" style="color:${BRAND.primary};word-break:break-all;">${escapeAttr(verifyUrl)}</a></p>`;
+
+    const text = [
+        'Confirm your new email address',
+        '',
+        `Hi ${fullName || 'there'},`,
+        '',
+        `The email address on your ${BRAND.app} account at ${BRAND.org} was changed to this one. Confirm it to switch your sign-in back on.`,
+        '',
+        verifyUrl,
+        '',
+        'This link expires in 24 hours.',
+        '',
+        `If you weren't expecting this, ignore it — the account stays locked until someone confirms.`,
+        '',
+        `— ${BRAND.org}`
+    ].join('\n');
+
+    await sendMessage(config, {
         from: `"${config.fromName}" <${config.user}>`,
         to: toEmail,
-        subject: 'Confirm your RISHA email address',
-        html: `
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
-                <div style="background:#E14C42;padding:22px 24px;border-radius:14px 14px 0 0;">
-                    <h1 style="color:white;margin:0;font-size:21px;">RISHA Pet Supplies</h1>
-                    <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:13px;">Confirm Your Email Address</p>
-                </div>
-                <div style="padding:25px;border:1px solid #e6eaf2;border-top:0;border-radius:0 0 14px 14px;background:#ffffff;">
-                    <p style="font-size:16px;color:#1B2437;">Hi <strong>${fullName || 'there'}</strong>,</p>
-                    <p style="color:#5A6478;">An administrator created a FETCH account for you at Risha Pet Supplies. Confirm this email address to activate your sign-in. This link expires in <strong>24 hours</strong>.</p>
-                    <div style="text-align:center;margin:24px 0 8px;">
-                        <a href="${verifyUrl}"
-                           style="display:inline-block;background:#E14C42;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 32px;border-radius:10px;">
-                            Confirm My Email
-                        </a>
-                    </div>
-                    <p style="color:#8A94A8;font-size:12px;margin-top:20px;">If the button doesn't work, copy this link into your browser:<br><a href="${verifyUrl}" style="color:#E14C42;word-break:break-all;">${verifyUrl}</a></p>
-                    <p style="color:#8A94A8;font-size:12px;">If you weren't expecting this, you can safely ignore this email — the account stays locked until someone confirms it.</p>
-                </div>
-            </div>
-        `
-    };
-    await sendMessage(config, mailOptions);
+        subject: `Confirm your email address for ${BRAND.app}`,
+        text,
+        html: emailShell({
+            preheader: `Confirm this address to switch your ${BRAND.app} sign-in back on. Link expires in 24 hours.`,
+            title: `Confirm your ${BRAND.app} email address`,
+            contentHtml: content,
+            footerNote: `You received this because this address was set on a ${BRAND.app} account at ${BRAND.org}. If that wasn't expected, ignore this email — the account stays locked until someone confirms it.`
+        })
+    });
 }
 
 /**
@@ -463,28 +583,113 @@ async function sendEmailCode(toEmail, code) {
     if (!process.env.BREVO_API_KEY && !buildTransporter(config)) {
         throw new Error('Email credentials not configured');
     }
-    const mailOptions = {
+
+    const content =
+        heading('Confirm your email address') +
+        paragraph(`A staff account is being set up for you on <strong>${BRAND.app}</strong>, the inventory and point-of-sale system used at ${BRAND.org}.`) +
+        paragraph('To finish, give this code to the person setting up your account:') +
+        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:22px 0;">
+          <tr><td align="center" bgcolor="#FFF3F1" style="border:1px solid #F8D7D2;border-radius:14px;padding:20px 16px;">
+            <div style="font-size:12px;font-weight:bold;letter-spacing:1.2px;text-transform:uppercase;color:${BRAND.muted};margin-bottom:10px;">Your verification code</div>
+            <div style="font-family:'Courier New',Courier,monospace;font-size:38px;font-weight:bold;letter-spacing:10px;color:${BRAND.primary};">${code}</div>
+            <div style="font-size:13px;color:${BRAND.body};margin-top:12px;">Expires in 10 minutes</div>
+          </td></tr>
+        </table>` +
+        paragraph(`Until this code is entered, <strong>no account exists</strong> — we ask for it so nobody can register an address they do not own.`);
+
+    const text = [
+        'Confirm your email address',
+        '',
+        `A staff account is being set up for you on ${BRAND.app}, the inventory and point-of-sale system used at ${BRAND.org}.`,
+        '',
+        `Your verification code: ${code}`,
+        'This code expires in 10 minutes.',
+        '',
+        'Give this code to the person setting up your account. Until it is entered, no account exists.',
+        '',
+        `If you were not expecting this, ignore this email — nothing was created and nobody can use your address without the code.`,
+        '',
+        `— ${BRAND.org}`
+    ].join('\n');
+
+    await sendMessage(config, {
         from: `"${config.fromName}" <${config.user}>`,
         to: toEmail,
-        subject: `${code} is your RISHA verification code`,
-        html: `
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
-                <div style="background:#E14C42;padding:22px 24px;border-radius:14px 14px 0 0;">
-                    <h1 style="color:white;margin:0;font-size:21px;">RISHA Pet Supplies</h1>
-                    <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:13px;">Email Verification Code</p>
-                </div>
-                <div style="padding:25px;border:1px solid #e6eaf2;border-top:0;border-radius:0 0 14px 14px;background:#ffffff;">
-                    <p style="color:#5A6478;margin-top:0;">Someone is setting up a FETCH account for this email address at Risha Pet Supplies. Give them this code to finish:</p>
-                    <div style="text-align:center;margin:22px 0;">
-                        <span style="display:inline-block;background:#FFF1EE;color:#E14C42;font-size:32px;font-weight:800;letter-spacing:8px;padding:14px 26px;border-radius:12px;font-family:'Courier New',monospace;">${code}</span>
-                    </div>
-                    <p style="color:#5A6478;text-align:center;margin:0;">This code expires in <strong>10 minutes</strong>.</p>
-                    <p style="color:#8A94A8;font-size:12px;margin-top:22px;">If you weren't expecting this, ignore this email — no account is created without the code.</p>
-                </div>
-            </div>
-        `
-    };
-    await sendMessage(config, mailOptions);
+        subject: `${code} is your ${BRAND.app} verification code`,
+        text,
+        html: emailShell({
+            preheader: `${code} — your verification code for ${BRAND.app}. Expires in 10 minutes.`,
+            title: `Your ${BRAND.app} verification code`,
+            contentHtml: content,
+            footerNote: `You received this because someone at ${BRAND.org} entered this address when setting up a staff account. If that wasn't expected, ignore this email — no account is created without the code, and nobody else can use your address.`
+        })
+    });
+}
+
+/**
+ * The "you're in" email a real signup sends once the account actually exists:
+ * what it is, who they are on it, and where to sign in.
+ */
+async function sendWelcomeEmail(toEmail, fullName, username, role) {
+    const config = await getEmailConfig();
+    if (!process.env.BREVO_API_KEY && !buildTransporter(config)) {
+        throw new Error('Email credentials not configured');
+    }
+
+    const roleLabel = { admin: 'Administrator', manager: 'Manager', staff: 'Staff', viewer: 'Viewer' }[role] || 'Staff';
+    const loginUrl = `${BASE_URL}/login.html`;
+
+    const content =
+        heading(`Welcome to ${BRAND.app}, ${escapeAttr((fullName || '').split(' ')[0] || 'there')}`) +
+        paragraph(`Your account at <strong>${BRAND.org}</strong> is ready. ${BRAND.app} is where the shop's stock, sales and suppliers are managed.`) +
+        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:22px 0;border:1px solid ${BRAND.line};border-radius:14px;">
+          <tr><td style="padding:18px 20px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+              <tr>
+                <td style="font-size:13px;color:${BRAND.muted};padding-bottom:8px;">Username</td>
+                <td align="right" style="font-size:14px;font-weight:bold;color:${BRAND.ink};padding-bottom:8px;">${escapeAttr(username)}</td>
+              </tr>
+              <tr>
+                <td style="font-size:13px;color:${BRAND.muted};padding-bottom:8px;">Email</td>
+                <td align="right" style="font-size:14px;color:${BRAND.ink};padding-bottom:8px;">${escapeAttr(toEmail)}</td>
+              </tr>
+              <tr>
+                <td style="font-size:13px;color:${BRAND.muted};">Access level</td>
+                <td align="right" style="font-size:14px;color:${BRAND.ink};">${roleLabel}</td>
+              </tr>
+            </table>
+          </td></tr>
+        </table>` +
+        paragraph('Sign in with the password you agreed with your administrator. Change it once you are in, from Settings.') +
+        ctaButton(loginUrl, `Sign in to ${BRAND.app}`) +
+        `<p style="margin:16px 0 0;font-size:12px;line-height:1.6;color:${BRAND.muted};text-align:center;">Or open <a href="${escapeAttr(loginUrl)}" style="color:${BRAND.primary};">${escapeAttr(loginUrl)}</a></p>`;
+
+    const text = [
+        `Welcome to ${BRAND.app}`,
+        '',
+        `Your account at ${BRAND.org} is ready.`,
+        '',
+        `Username: ${username}`,
+        `Email: ${toEmail}`,
+        `Access level: ${roleLabel}`,
+        '',
+        `Sign in at ${loginUrl} with the password you agreed with your administrator, then change it from Settings.`,
+        '',
+        `— ${BRAND.org}`
+    ].join('\n');
+
+    await sendMessage(config, {
+        from: `"${config.fromName}" <${config.user}>`,
+        to: toEmail,
+        subject: `Your ${BRAND.app} account is ready`,
+        text,
+        html: emailShell({
+            preheader: `Your account at ${BRAND.org} is ready — here is your username and where to sign in.`,
+            title: `Your ${BRAND.app} account is ready`,
+            contentHtml: content,
+            footerNote: `An administrator at ${BRAND.org} created this account after confirming your email address. If you did not expect it, contact them before signing in.`
+        })
+    });
 }
 
 /**
@@ -582,6 +787,7 @@ module.exports = {
     sendPasswordResetEmail,
     sendVerificationEmail,
     sendEmailCode,
+    sendWelcomeEmail,
     sendBackupEmail,
     sendLowStockAlert,
     sendTestEmail,
