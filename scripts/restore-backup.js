@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * Restore a RISHA backup (.json.gz produced by /api/backup or the daily email).
+ * Restore a RISHA backup (.zip produced by /api/backup or the daily email).
+ * Older .json.gz backups, from before Brevo forced the switch to zip, still work.
  *
  * Usage:
- *   node scripts/restore-backup.js path/to/risha-backup-YYYY-MM-DD.json.gz [--confirm]
+ *   node scripts/restore-backup.js path/to/risha-backup-YYYY-MM-DD.zip [--confirm]
  *
  * Targets the database from backend/.env by default, or DB_URL=mysql://... to override.
  * Without --confirm it only shows what WOULD be restored.
@@ -14,15 +15,32 @@ const zlib = require('zlib');
 const path = require('path');
 const mysql = require(path.join(__dirname, '..', 'backend', 'node_modules', 'mysql2', 'promise'));
 
+/**
+ * Read either format. A ZIP starts with "PK\x03\x04"; anything else is assumed
+ * to be the gzip these backups used to be. The archive holds exactly one file,
+ * deflated, so the payload runs from just past the local header to the start of
+ * the central directory.
+ */
+function readBackup(buf) {
+    if (!(buf[0] === 0x50 && buf[1] === 0x4B)) return zlib.gunzipSync(buf).toString();
+    const nameLen = buf.readUInt16LE(26);
+    const extraLen = buf.readUInt16LE(28);
+    const start = 30 + nameLen + extraLen;
+    const compressedSize = buf.readUInt32LE(18);
+    const method = buf.readUInt16LE(8);
+    const body = buf.subarray(start, start + compressedSize);
+    return (method === 0 ? body : zlib.inflateRawSync(body)).toString();
+}
+
 (async () => {
     const file = process.argv[2];
     const confirm = process.argv.includes('--confirm');
     if (!file || !fs.existsSync(file)) {
-        console.error('Usage: node scripts/restore-backup.js <backup.json.gz> [--confirm]');
+        console.error('Usage: node scripts/restore-backup.js <backup.zip|backup.json.gz> [--confirm]');
         process.exit(1);
     }
 
-    const dump = JSON.parse(zlib.gunzipSync(fs.readFileSync(file)).toString());
+    const dump = JSON.parse(readBackup(fs.readFileSync(file)));
     console.log(`Backup from ${dump.created_at} — ${Object.keys(dump.tables).length} tables:`);
     for (const [t, rows] of Object.entries(dump.tables)) {
         console.log(`  ${t.padEnd(24)} ${rows.length} rows`);

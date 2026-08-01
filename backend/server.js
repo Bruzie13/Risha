@@ -97,10 +97,16 @@ app.use('/api/assistant', assistantRoutes);
 const pool = require('./config/database');
 const crypto = require('crypto');
 
-const zlib = require('zlib');
+const { zipSingleFile } = require('./utils/zip');
 
-// Full-database dump as gzipped JSON. Used by the admin download button and
-// the daily scheduled backup email. Restore with scripts/restore-backup.js.
+// Full-database dump as a ZIP holding one JSON file. Used by the admin
+// download button and the daily scheduled backup email. Restore with
+// scripts/restore-backup.js.
+//
+// ZIP rather than gzip for two reasons: Brevo refuses .gz attachments outright
+// ("Unsupported file format: gz"), which meant the daily backup email failed
+// every night; and .zip opens with a double-click on the Windows machines the
+// shop uses, where .gz needs extra software.
 async function buildBackup() {
     const conn = await pool.getConnection();
     try {
@@ -111,8 +117,14 @@ async function buildBackup() {
             const [rows] = await conn.query(`SELECT * FROM \`${t}\``);
             dump.tables[t] = rows;
         }
-        const json = JSON.stringify(dump);
-        return { gz: zlib.gzipSync(Buffer.from(json)), tables: tableNames.length, rows: Object.values(dump.tables).reduce((a, r) => a + r.length, 0) };
+        const json = Buffer.from(JSON.stringify(dump));
+        const day = new Date().toISOString().slice(0, 10);
+        return {
+            zip: zipSingleFile(`risha-backup-${day}.json`, json),
+            filename: `risha-backup-${day}.zip`,
+            tables: tableNames.length,
+            rows: Object.values(dump.tables).reduce((a, r) => a + r.length, 0),
+        };
     } finally {
         conn.release();
     }
@@ -122,12 +134,11 @@ const backupAuth = require('./middleware/auth');
 app.get('/api/backup', backupAuth.authenticateToken, backupAuth.authorizeRole('admin'), async (req, res) => {
     try {
         const b = await buildBackup();
-        const name = 'risha-backup-' + new Date().toISOString().slice(0, 10) + '.json.gz';
         res.set({
-            'Content-Type': 'application/gzip',
-            'Content-Disposition': `attachment; filename="${name}"`
+            'Content-Type': 'application/zip',
+            'Content-Disposition': `attachment; filename="${b.filename}"`
         });
-        res.send(b.gz);
+        res.send(b.zip);
     } catch (e) {
         console.error('Backup error:', e.message);
         res.status(500).json({ success: false, message: 'Backup failed' });
