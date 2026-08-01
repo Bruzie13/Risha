@@ -893,3 +893,24 @@
 .perf-card.perf-clickable:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
 .perf-card.perf-active { border-color: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 25%, transparent); }
 .perf-badge-steady { background: var(--success-bg, rgba(47,163,107,0.12)); color: var(--success, #2FA36B); }
+
+/* ═══ REPORT TABLE CELLS ═════════════════════════════════════════════════
+   Daily / weekly / monthly rows were bare <td>s, so a row of real figures
+   read as flat body text. Give the period its own weight and let the
+   numbers line up in a column the eye can scan. */
+.data-table td.rt-label {
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+.data-table td.rt-num,
+.data-table td.rt-amount {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+}
+.data-table td.rt-amount {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.data-table th.rt-num-h { text-align: right; }

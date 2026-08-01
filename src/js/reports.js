@@ -160,28 +160,28 @@ function renderReportTable(period, data) {
     if (period === 'daily') {
         tbody.innerHTML = limited.map(r => `
             <tr>
-                <td>${r.date ? new Date(r.date).toLocaleDateString() : 'N/A'}</td>
-                <td>${r.total_sales ?? 0}</td>
-                <td>${formatCurrency(r.total_amount ?? 0)}</td>
-                <td>${formatNumber(parseFloat(r.item_count ?? r.total_items) || 0)}</td>
+                <td class="rt-label">${r.date ? new Date(r.date).toLocaleDateString() : 'N/A'}</td>
+                <td class="rt-num">${r.total_sales ?? 0}</td>
+                <td class="rt-amount">${formatCurrency(r.total_amount ?? 0)}</td>
+                <td class="rt-num">${formatNumber(parseFloat(r.item_count ?? r.total_items) || 0)}</td>
             </tr>
         `).join('');
     } else if (period === 'weekly') {
         tbody.innerHTML = limited.map(r => `
             <tr>
-                <td>${escHtml(r.week || 'N/A')}</td>
-                <td>${escHtml(r.week_number || 'N/A')}</td>
-                <td>${formatCurrency(r.total_amount ?? 0)}</td>
-                <td>${r.total_sales ?? 0}</td>
+                <td class="rt-label">${escHtml(r.week || 'N/A')}</td>
+                <td class="rt-num">${escHtml(r.week_number || 'N/A')}</td>
+                <td class="rt-amount">${formatCurrency(r.total_amount ?? 0)}</td>
+                <td class="rt-num">${r.total_sales ?? 0}</td>
             </tr>
         `).join('');
     } else if (period === 'monthly') {
         tbody.innerHTML = limited.map(r => `
             <tr>
-                <td>${escHtml(r.month_name || r.month || 'N/A')}</td>
-                <td>${r.total_transactions ?? 0}</td>
-                <td>${formatCurrency(r.total_amount ?? 0)}</td>
-                <td>${r.total_sales ?? '-'}</td>
+                <td class="rt-label">${escHtml(r.month_name || r.month || 'N/A')}</td>
+                <td class="rt-num">${r.total_transactions ?? 0}</td>
+                <td class="rt-amount">${formatCurrency(r.total_amount ?? 0)}</td>
+                <td class="rt-num">${r.total_sales ?? '-'}</td>
             </tr>
         `).join('');
     }

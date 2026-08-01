@@ -17,9 +17,20 @@ window.addEventListener('load', async () => {
     await loadUsers();
 });
 
+// MySQL hands back 1/0, not true/false — comparing against `false` alone
+// reported every deactivated account as Active.
+function isActive(u) {
+    return u.is_active !== false && Number(u.is_active) !== 0;
+}
+
+function showingInactive() {
+    return !!document.getElementById('showInactive')?.checked;
+}
+
 async function loadUsers() {
     try {
-        const response = await fetch(`${API_BASE}/auth/users`, { headers: getAuthHeaders() });
+        const url = `${API_BASE}/auth/users` + (showingInactive() ? '?includeInactive=1' : '');
+        const response = await fetch(url, { headers: getAuthHeaders() });
         const data = await response.json();
         if (data.success) {
             allUsers = Array.isArray(data.data) ? data.data : [];
@@ -59,17 +70,25 @@ function displayUsers(users) {
     tbody.innerHTML = shown.map(u => `
         <tr>
             <td>${escHtml(u.full_name || 'N/A')}</td>
-            <td>${escHtml(u.email)}</td>
+            <td>
+                ${escHtml(u.email)}
+                ${Number(u.email_verified) === 1
+                    ? '<span class="verify-badge verified" title="This address has been confirmed by the account holder"><span class="material-symbols-outlined">verified</span> Verified</span>'
+                    : '<span class="verify-badge pending" title="Cannot sign in until the confirmation link is clicked"><span class="material-symbols-outlined">mark_email_unread</span> Unconfirmed</span>'}
+            </td>
             <td><span class="role-badge role-${u.role}">${escHtml(u.role)}</span></td>
             <td>
-                <span class="status-badge ${u.is_active !== false ? 'status-in-stock' : 'status-expired'}">
-                    ${u.is_active !== false ? 'Active' : 'Inactive'}
+                <span class="status-badge ${isActive(u) ? 'status-in-stock' : 'status-expired'}">
+                    ${isActive(u) ? 'Active' : 'Deactivated'}
                 </span>
             </td>
             <td>${u.created_at ? new Date(u.created_at).toLocaleDateString() : 'N/A'}</td>
             <td>
+                ${!isActive(u)
+                    ? `<button class="btn-edit" onclick="restoreUser(${u.id})" title="Reactivate this account — its username and email were never released">Restore</button>`
+                    : `${Number(u.email_verified) === 1 ? '' : `<button class="btn-edit" onclick="resendVerification(${u.id})" title="Send the confirmation link again">Resend</button>`}
                 <button class="btn-edit" onclick="openEditUserModal(${u.id})">Edit</button>
-                <button class="btn-delete" onclick="deleteUser(${u.id})">Delete</button>
+                <button class="btn-delete" onclick="deleteUser(${u.id})">Delete</button>`}
             </td>
         </tr>
     `).join('');
@@ -87,10 +106,121 @@ document.getElementById('searchInput')?.addEventListener('keyup', (e) => {
     displayUsers(filtered);
 });
 
+/* ── Email verification code (new accounts only) ──────────────────────────
+   The account is not created until a code mailed to the address comes back,
+   so a mistyped Gmail is caught here rather than the day someone needs it. */
+let codedEmail = null;   // the address the pending code was sent to
+
+function onEmailChanged() {
+    // Typing a different address invalidates the code already sent.
+    const current = document.getElementById('userEmail').value.trim().toLowerCase();
+    if (codedEmail && current !== codedEmail) {
+        codedEmail = null;
+        document.getElementById('emailCodeRow').style.display = 'none';
+        document.getElementById('userEmailCode').value = '';
+        document.getElementById('userEmailCode').required = false;
+    }
+}
+
+async function sendEmailCode() {
+    const email = document.getElementById('userEmail').value.trim();
+    const btn = document.getElementById('sendCodeBtn');
+    if (!email) {
+        showErrorDialog('Email required', 'Type the new user\'s email address first, then send the code.');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    try {
+        const res = await fetch(`${API_BASE}/auth/email-code`, {
+            method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (data.success) {
+            codedEmail = email.toLowerCase();
+            const row = document.getElementById('emailCodeRow');
+            row.style.display = '';
+            const input = document.getElementById('userEmailCode');
+            input.required = true;
+            input.value = '';
+            input.focus();
+            document.getElementById('emailCodeHint').textContent = data.message;
+            showToast('Code sent to ' + email, 'success');
+        } else {
+            showErrorDialog('Could not send the code', data.message || 'Unknown error');
+        }
+    } catch (error) {
+        console.error('Error sending email code:', error);
+        showToast('Failed to send the code', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = codedEmail ? 'Resend code' : 'Send code';
+    }
+}
+
+async function restoreUser(id) {
+    const user = allUsers.find(u => u.id === id);
+    showConfirmDialog(
+        'Restore account',
+        `Reactivate ${user?.full_name || 'this account'} (${user?.username || ''})? They will be able to sign in again with their existing password.`,
+        async () => {
+            try {
+                const res = await fetch(`${API_BASE}/auth/users/${id}/status`, {
+                    method: 'PUT', headers: getAuthHeaders()
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showSuccessDialog('Account restored', data.message, { icon: 'person_check' });
+                    await loadUsers();
+                } else {
+                    showErrorDialog('Could not restore account', data.message || 'Unknown error');
+                }
+            } catch (error) {
+                console.error('Error restoring user:', error);
+                showToast('Failed to restore account', 'error');
+            }
+        },
+        'Yes, Restore',
+        '<span class="material-symbols-outlined" style="font-size:48px;color:var(--success);">person_check</span>'
+    );
+}
+
+async function resendVerification(id) {
+    const user = allUsers.find(u => u.id === id);
+    try {
+        const res = await fetch(`${API_BASE}/auth/users/${id}/resend-verification`, {
+            method: 'POST', headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (data.success) {
+            showSuccessDialog('Confirmation link sent', data.message, { icon: 'mark_email_read' });
+            await loadUsers();
+        } else {
+            showErrorDialog('Could not send the link', data.message || 'Unknown error');
+        }
+    } catch (error) {
+        console.error('Error resending verification:', error);
+        showToast(`Failed to email ${user?.email || 'that user'}`, 'error');
+    }
+}
+
+function resetEmailCodeState() {
+    codedEmail = null;
+    const row = document.getElementById('emailCodeRow');
+    if (row) row.style.display = 'none';
+    const input = document.getElementById('userEmailCode');
+    if (input) { input.value = ''; input.required = false; }
+    const btn = document.getElementById('sendCodeBtn');
+    if (btn) { btn.disabled = false; btn.textContent = 'Send code'; }
+}
+
 function openAddUserModal() {
     editingUserId = null;
     document.getElementById('userModalTitle').textContent = 'Add New User';
     document.getElementById('userForm').reset();
+    resetEmailCodeState();
+    document.getElementById('sendCodeBtn').style.display = '';
     const unameEl = document.getElementById('userUsername');
     unameEl.disabled = false;
     unameEl.title = '';
@@ -105,6 +235,10 @@ function openEditUserModal(id) {
     const user = allUsers.find(u => u.id === id);
     if (!user) return;
     document.getElementById('userModalTitle').textContent = 'Edit User';
+    // Editing keeps the link-based flow: changing the address re-locks the
+    // account and mails a confirmation link, no code needed here.
+    resetEmailCodeState();
+    document.getElementById('sendCodeBtn').style.display = 'none';
     const unameEl = document.getElementById('userUsername');
     unameEl.value = user.username || '';
     unameEl.disabled = true;
@@ -131,6 +265,24 @@ async function handleUserSubmit(event) {
         full_name: document.getElementById('userFullName').value,
         email: document.getElementById('userEmail').value
     };
+
+    if (!editingUserId) {
+        const code = document.getElementById('userEmailCode').value.trim();
+        if (!codedEmail) {
+            showErrorDialog('Verify the email first',
+                'Press "Send code" to email a 6-digit code to that address, then type the code here. The account is only created once the code checks out.');
+            return;
+        }
+        if (userData.email.trim().toLowerCase() !== codedEmail) {
+            showErrorDialog('Email changed', 'The email address changed after the code was sent. Send a new code to this address.');
+            return;
+        }
+        if (!/^\d{6}$/.test(code)) {
+            showErrorDialog('Code required', 'Enter the 6-digit code that was emailed to ' + userData.email + '.');
+            return;
+        }
+        userData.emailCode = code;
+    }
     // Only send a role we actually resolved: an empty value would otherwise
     // overwrite the account's real role on edit.
     const role = document.getElementById('userRole').value;
@@ -160,10 +312,12 @@ async function handleUserSubmit(event) {
         if (!data.success) {
             showErrorDialog('Could not save user', data.message || 'Unknown error');
         } else {
+            // The server's message carries the real outcome — whether the
+            // address ended up verified, and which one.
             showSuccessDialog(
                 editingUserId ? 'User updated' : 'User created',
-                editingUserId ? 'The account details have been saved.' : 'The new account can log in right away.',
-                { icon: 'person' }
+                data.message || (editingUserId ? 'The account details have been saved.' : 'The new account has been created.'),
+                { icon: data.emailChanged ? 'mark_email_unread' : 'person' }
             );
             closeUserModal();
             await loadUsers();
@@ -175,14 +329,17 @@ async function handleUserSubmit(event) {
 }
 
 async function deleteUser(id) {
-    showConfirmDialog('Delete User', 'Are you sure you want to delete this user? This cannot be undone.', async () => {
+    // Deletion is a deactivation: the row stays, so the username and email stay
+    // reserved. Saying "cannot be undone" sent admins hunting for a name that
+    // the list no longer showed but the database still held.
+    showConfirmDialog('Delete User', 'Deactivate this account? They can no longer sign in, and their username and email stay reserved. You can bring the account back later with "Show deactivated".', async () => {
         try {
             const response = await fetch(`${API_BASE}/auth/users/${id}`, {
                 method: 'DELETE', headers: getAuthHeaders()
             });
             const data = await response.json();
             if (data.success) {
-                showSuccessDialog('User deleted', 'The account has been removed and can no longer log in.', { tone: 'danger' });
+                showSuccessDialog('User deactivated', 'The account can no longer sign in. Tick "Show deactivated" to restore it.', { tone: 'danger' });
                 await loadUsers();
             } else {
                 showToast('Error: ' + (data.message || 'Unknown'), 'error');

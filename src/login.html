@@ -581,6 +581,29 @@
         </div>
     </div>
     <script>
+        function escapeHtml(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+
+        async function resendVerification(username) {
+            const errorEl = document.getElementById('loginError');
+            errorEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">outgoing_mail</span> Sending a new confirmation link...';
+            try {
+                const res = await fetch(API_BASE + '/auth/resend-verification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username })
+                });
+                const data = await res.json();
+                errorEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">mark_email_read</span> ' +
+                    escapeHtml(data.message || 'If that account still needs confirming, a new link is on its way.');
+            } catch (err) {
+                errorEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">error</span> Connection error. Please try again.';
+            }
+        }
+
         async function handleLogin(e) {
             e.preventDefault();
             const username = document.getElementById('username').value;
@@ -604,8 +627,19 @@
                     localStorage.setItem('user', JSON.stringify(data.user));
                     // Auth cookie is set by the server as HttpOnly on login
                     window.location.href = 'dashboard.html';
+                } else if (data.code === 'EMAIL_NOT_VERIFIED') {
+                    // Password was right — the only thing missing is the click,
+                    // so offer to send the link again instead of a dead end.
+                    errorEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">mark_email_unread</span> ' +
+                        escapeHtml(data.message) +
+                        ' <a href="#" id="resendVerifyLink" style="color:inherit;font-weight:700;text-decoration:underline;">Resend it</a>';
+                    errorEl.classList.add('show');
+                    document.getElementById('resendVerifyLink').addEventListener('click', function (ev) {
+                        ev.preventDefault();
+                        resendVerification(username);
+                    });
                 } else {
-                    errorEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">error</span> ' + (data.message || 'Invalid username or password');
+                    errorEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">error</span> ' + escapeHtml(data.message || 'Invalid username or password');
                     errorEl.classList.add('show');
                 }
             } catch (err) {

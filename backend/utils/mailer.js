@@ -416,6 +416,78 @@ async function sendPasswordResetEmail(toEmail, fullName, resetToken) {
 }
 
 /**
+ * Confirm a new account's email address really exists and belongs to them.
+ * Until the link is clicked the account cannot sign in, so a typo'd or made-up
+ * address is caught on day one instead of the day someone needs a reset.
+ */
+async function sendVerificationEmail(toEmail, fullName, verifyToken) {
+    const config = await getEmailConfig();
+    if (!process.env.BREVO_API_KEY && !buildTransporter(config)) {
+        throw new Error('Email credentials not configured');
+    }
+    const verifyUrl = `${BASE_URL}/verify-email.html?token=${verifyToken}`;
+    const mailOptions = {
+        from: `"${config.fromName}" <${config.user}>`,
+        to: toEmail,
+        subject: 'Confirm your RISHA email address',
+        html: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
+                <div style="background:#E14C42;padding:22px 24px;border-radius:14px 14px 0 0;">
+                    <h1 style="color:white;margin:0;font-size:21px;">RISHA Pet Supplies</h1>
+                    <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:13px;">Confirm Your Email Address</p>
+                </div>
+                <div style="padding:25px;border:1px solid #e6eaf2;border-top:0;border-radius:0 0 14px 14px;background:#ffffff;">
+                    <p style="font-size:16px;color:#1B2437;">Hi <strong>${fullName || 'there'}</strong>,</p>
+                    <p style="color:#5A6478;">An administrator created a FETCH account for you at Risha Pet Supplies. Confirm this email address to activate your sign-in. This link expires in <strong>24 hours</strong>.</p>
+                    <div style="text-align:center;margin:24px 0 8px;">
+                        <a href="${verifyUrl}"
+                           style="display:inline-block;background:#E14C42;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 32px;border-radius:10px;">
+                            Confirm My Email
+                        </a>
+                    </div>
+                    <p style="color:#8A94A8;font-size:12px;margin-top:20px;">If the button doesn't work, copy this link into your browser:<br><a href="${verifyUrl}" style="color:#E14C42;word-break:break-all;">${verifyUrl}</a></p>
+                    <p style="color:#8A94A8;font-size:12px;">If you weren't expecting this, you can safely ignore this email — the account stays locked until someone confirms it.</p>
+                </div>
+            </div>
+        `
+    };
+    await sendMessage(config, mailOptions);
+}
+
+/**
+ * Send the 6-digit code an admin must type back before an account is created.
+ * Proving the inbox exists up front means a typo'd Gmail never becomes a user.
+ */
+async function sendEmailCode(toEmail, code) {
+    const config = await getEmailConfig();
+    if (!process.env.BREVO_API_KEY && !buildTransporter(config)) {
+        throw new Error('Email credentials not configured');
+    }
+    const mailOptions = {
+        from: `"${config.fromName}" <${config.user}>`,
+        to: toEmail,
+        subject: `${code} is your RISHA verification code`,
+        html: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
+                <div style="background:#E14C42;padding:22px 24px;border-radius:14px 14px 0 0;">
+                    <h1 style="color:white;margin:0;font-size:21px;">RISHA Pet Supplies</h1>
+                    <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:13px;">Email Verification Code</p>
+                </div>
+                <div style="padding:25px;border:1px solid #e6eaf2;border-top:0;border-radius:0 0 14px 14px;background:#ffffff;">
+                    <p style="color:#5A6478;margin-top:0;">Someone is setting up a FETCH account for this email address at Risha Pet Supplies. Give them this code to finish:</p>
+                    <div style="text-align:center;margin:22px 0;">
+                        <span style="display:inline-block;background:#FFF1EE;color:#E14C42;font-size:32px;font-weight:800;letter-spacing:8px;padding:14px 26px;border-radius:12px;font-family:'Courier New',monospace;">${code}</span>
+                    </div>
+                    <p style="color:#5A6478;text-align:center;margin:0;">This code expires in <strong>10 minutes</strong>.</p>
+                    <p style="color:#8A94A8;font-size:12px;margin-top:22px;">If you weren't expecting this, ignore this email — no account is created without the code.</p>
+                </div>
+            </div>
+        `
+    };
+    await sendMessage(config, mailOptions);
+}
+
+/**
  * Send a test email so admins can verify their configuration from Settings.
  */
 async function sendTestEmail(toEmail) {
@@ -508,6 +580,8 @@ module.exports = {
     sendPOEmail,
     sendTrackingLinkEmail,
     sendPasswordResetEmail,
+    sendVerificationEmail,
+    sendEmailCode,
     sendBackupEmail,
     sendLowStockAlert,
     sendTestEmail,

@@ -272,8 +272,12 @@
    match the rest of FETCH, in both themes. */
 
 .supplier-map-panel { margin-bottom: 20px; overflow: hidden; }
-.supplier-map-panel .map-head-actions { display: flex; align-items: center; gap: 12px; }
-.supplier-map-panel .map-hint { font-size: 11.5px; color: var(--text-muted); font-weight: 600; }
+/* The deliveries panel reuses this head markup, so keep both in the selector —
+   scoped to the map panel alone, its hint and buttons fell back to bare text. */
+.supplier-map-panel .map-head-actions,
+.deliveries-panel .map-head-actions { display: flex; align-items: center; gap: 12px; }
+.supplier-map-panel .map-hint,
+.deliveries-panel .map-hint { font-size: 11.5px; color: var(--text-muted); font-weight: 600; }
 
 .supplier-map-body {
   display: grid;
