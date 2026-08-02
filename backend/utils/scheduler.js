@@ -5,16 +5,33 @@ const { sendLowStockAlert, sendBackupEmail } = require('./mailer');
 
 const CHECK_INTERVAL = 60 * 60 * 1000;
 const BACKUP_INTERVAL = 24 * 60 * 60 * 1000;
+// Just under the forecast cache's own 5-minute TTL, so it is refreshed before
+// it can expire under a reader rather than after.
+const FORECAST_WARM_INTERVAL = 4 * 60 * 1000;
 let intervalHandle = null;
 let backupHandle = null;
+let forecastHandle = null;
 
 function start() {
-    console.log('[Scheduler] Started (every 60 min; backups daily)');
+    console.log('[Scheduler] Started (every 60 min; backups daily; forecasts every 4 min)');
     runAllChecks();
     intervalHandle = setInterval(runAllChecks, CHECK_INTERVAL);
     // first backup shortly after boot, then daily
     setTimeout(runBackup, 2 * 60 * 1000);
     backupHandle = setInterval(runBackup, BACKUP_INTERVAL);
+    // Fit the forecast model once at boot so the first person to open
+    // Analytics reads a cache instead of waiting on Python.
+    setTimeout(warmForecasts, 5000);
+    forecastHandle = setInterval(warmForecasts, FORECAST_WARM_INTERVAL);
+}
+
+function warmForecasts() {
+    try {
+        const predictions = require('../routes/predictions');
+        if (typeof predictions.warmAllPredictions === 'function') predictions.warmAllPredictions();
+    } catch (e) {
+        console.error('[Scheduler] Forecast warm error:', e.message);
+    }
 }
 
 async function runBackup() {
@@ -46,6 +63,7 @@ async function runBackup() {
 function stop() {
     if (intervalHandle) clearInterval(intervalHandle);
     if (backupHandle) clearInterval(backupHandle);
+    if (forecastHandle) clearInterval(forecastHandle);
     console.log('[Scheduler] Stopped');
 }
 
