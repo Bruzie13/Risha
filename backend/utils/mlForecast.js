@@ -27,6 +27,17 @@ const WARMUP = 28;                 // must match ml/forecast.py
 const MIN_TRAIN_ROWS = 14;
 const MAX_BUFFER = 64 * 1024 * 1024;
 
+/* Only the most recent weeks are fitted — older retail history mostly adds
+   noise. This lives here, next to the cache key it feeds, because the window
+   and the key have to be decided in the same place: when the caller trimmed
+   the series and the lookup did not, every warm entry was filed under a key
+   nobody ever asked for, and each product quietly fell back to fitting itself
+   in its own Python process. */
+const FIT_WINDOW = 56;
+function fitSlice(series) {
+    return series.length > FIT_WINDOW ? series.slice(-FIT_WINDOW) : series;
+}
+
 let cache = new Map();
 let pythonBroken = null;           // remembers a failed run so we warn once
 
@@ -66,12 +77,16 @@ function runPython(jobs, days) {
         return {};
     }
     try {
+        const started = Date.now();
         const stdout = execFileSync(PYTHON, [SCRIPT], {
             input: JSON.stringify({ days, jobs }),
             encoding: 'utf8',
             maxBuffer: MAX_BUFFER,
             timeout: 120000,
         });
+        // One line per Python process. A healthy request logs one fit of many
+        // series; a page of single-series lines means the cache is missing.
+        console.log(`[ML] fitted ${jobs.length} series in ${Date.now() - started}ms`);
         pythonBroken = null;
         return JSON.parse(stdout).results || {};
     } catch (err) {
@@ -96,11 +111,12 @@ function warmMLCache(list) {
     const days = list.length ? list[0].days : 30;
 
     for (const item of list) {
-        const key = seriesKey(item.series, item.days);
+        const fit = fitSlice(item.series);
+        const key = seriesKey(fit, item.days);
         if (cache.has(key)) continue;
-        if (item.series.length < WARMUP + MIN_TRAIN_ROWS) { cache.set(key, null); continue; }
-        jobs.push({ key, series: item.series.map(p => p.quantity), first_dow: firstDow(item.series), days: item.days });
-        keyed.push({ key, series: item.series });
+        if (fit.length < WARMUP + MIN_TRAIN_ROWS) { cache.set(key, null); continue; }
+        jobs.push({ key, series: fit.map(p => p.quantity), first_dow: firstDow(fit), days: item.days });
+        keyed.push({ key, series: fit });
     }
 
     if (!jobs.length) return;
@@ -115,14 +131,17 @@ function warmMLCache(list) {
  * Returns daily predictions, or null when history is too short to train.
  */
 function forecastML(series, days) {
-    if (series.length < WARMUP + MIN_TRAIN_ROWS) return null;
-    const key = seriesKey(series, days);
+    const fit = fitSlice(series);
+    if (fit.length < WARMUP + MIN_TRAIN_ROWS) return null;
+    const key = seriesKey(fit, days);
     if (cache.has(key)) return cache.get(key);
 
     // Cache miss: fit this one series on its own rather than skip the model.
+    // After a warm pass this should be rare — a burst of these means the warm
+    // list and the callers have drifted apart again.
     const results = runPython(
-        [{ key, series: series.map(p => p.quantity), first_dow: firstDow(series) }], days);
-    const dated = toDated(series, results[key] || null);
+        [{ key, series: fit.map(p => p.quantity), first_dow: firstDow(fit), days }], days);
+    const dated = toDated(fit, results[key] || null);
     cache.set(key, dated);
     return dated;
 }

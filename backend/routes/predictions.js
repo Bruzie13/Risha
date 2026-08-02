@@ -224,18 +224,18 @@ function forecastSeries(series, days = FORECAST_DAYS) {
     };
 }
 
-// Every series the pipeline below is about to fit, collected up front so the
-// Python model runs once for the whole request instead of once per product.
-// The slices here mirror exactly what forecastSeries and backtestAccuracy pass
-// down: the 56-day fit window, and the training half of the backtest.
-const ML_FIT_WINDOW = 56;
+/* Every series the pipeline below is about to fit, collected up front so the
+   Python model runs once for the whole request instead of once per product.
+   These must match exactly what forecastSeries and backtestAccuracy later ask
+   for, or the warm pass fills the cache with keys nobody looks up.
+
+   Pass series through whole: mlForecast trims them to its own fit window, and
+   trimming here as well is what made the warm cache miss every time. */
 function mlJobsFor(series, days = FORECAST_DAYS) {
-    const jobs = [];
-    const fitSlice = s => (s.length > ML_FIT_WINDOW ? s.slice(-ML_FIT_WINDOW) : s);
-    jobs.push({ series: fitSlice(series), days });
+    const jobs = [{ series, days }];
     const holdout = series.length >= 42 ? 14 : 7;
     if (series.length >= holdout + 14) {
-        jobs.push({ series: fitSlice(series.slice(0, -holdout)), days: holdout });
+        jobs.push({ series: series.slice(0, -holdout), days: holdout });
     }
     return jobs;
 }
@@ -331,12 +331,19 @@ router.get('/product/:id', authenticateToken, async (req, res) => {
     }
 });
 
+/* Fitting every product costs ~14s of Python on a laptop and considerably
+   more on a small cloud instance — long enough that whoever opened Analytics
+   after the cache expired watched a spinner until the browser gave up.
+
+   So nobody waits on it: a warm copy is rebuilt in the background on boot and
+   on a timer, an expired copy is still served immediately while a fresh one is
+   computed behind it, and concurrent callers share one rebuild instead of each
+   starting their own Python process. */
+const ALL_TTL_MS = 5 * 60 * 1000;
 let allCache = { at: 0, payload: null };
-router.get('/all', authenticateToken, async (req, res) => {
-    try {
-        if (allCache.payload && Date.now() - allCache.at < 5 * 60 * 1000) {
-            return res.json(allCache.payload);
-        }
+let rebuildInFlight = null;
+
+async function computeAllPredictions() {
         const [rows] = await pool.query(`
             SELECT si.product_id, p.name, p.unit_price, p.stock_quantity, p.reorder_level,
                    si.quantity, s.created_at as sale_date
@@ -415,7 +422,36 @@ router.get('/all', authenticateToken, async (req, res) => {
             }
         };
         allCache = { at: Date.now(), payload };
-        res.json(payload);
+        return payload;
+}
+
+/** One rebuild at a time, however many callers ask for it. */
+function rebuildAllPredictions() {
+    if (!rebuildInFlight) {
+        const started = Date.now();
+        rebuildInFlight = computeAllPredictions()
+            .then(p => { console.log(`[Predictions] forecast cache rebuilt in ${Date.now() - started}ms`); return p; })
+            .catch(e => { console.error('[Predictions] rebuild failed:', e.message); throw e; })
+            .finally(() => { rebuildInFlight = null; });
+    }
+    return rebuildInFlight;
+}
+
+/** Called on boot and on a timer so the cache is warm before anyone asks. */
+function warmAllPredictions() {
+    return rebuildAllPredictions().catch(() => {});
+}
+
+router.get('/all', authenticateToken, async (req, res) => {
+    try {
+        const age = Date.now() - allCache.at;
+        if (allCache.payload) {
+            // Stale is served too — a few minutes old beats a 30-second wait —
+            // with a refresh kicked off behind it.
+            if (age >= ALL_TTL_MS) rebuildAllPredictions().catch(() => {});
+            return res.json(allCache.payload);
+        }
+        res.json(await rebuildAllPredictions());
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -561,5 +597,7 @@ router.get('/trends', authenticateToken, async (req, res) => {
 
 // exposed for offline evaluation scripts / tests
 router._internals = { forecastSeries, backtestAccuracy, buildDailySeries, winsorize };
+// server.js warms this on boot and on a timer so Analytics opens instantly
+router.warmAllPredictions = warmAllPredictions;
 
 module.exports = router;
