@@ -276,8 +276,42 @@
    scoped to the map panel alone, its hint and buttons fell back to bare text. */
 .supplier-map-panel .map-head-actions,
 .deliveries-panel .map-head-actions { display: flex; align-items: center; gap: 12px; }
+/* "7 on the way · 2 late" is one short status line — never a stack of
+   two-word rows, however tight the header gets. */
 .supplier-map-panel .map-hint,
-.deliveries-panel .map-hint { font-size: 11.5px; color: var(--text-muted); font-weight: 600; }
+.deliveries-panel .map-hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Title above, subtitle beneath, both clear of the buttons on the right.
+   When the header runs out of room the buttons drop to their own row rather
+   than squeezing the heading down to one word per line. */
+.deliveries-panel .panel-head { flex-wrap: wrap; }
+
+.deliveries-panel .panel-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+/* Shrinkable, so on a phone the buttons wrap under the status line instead of
+   running off the right edge. Never grows, so on a desktop they stay right. */
+.deliveries-panel .map-head-actions {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.deliveries-panel .panel-head-text .panel-sub {
+  font-weight: 400;
+  max-width: 62ch;
+  line-height: 1.45;
+}
 
 .supplier-map-body {
   display: grid;
