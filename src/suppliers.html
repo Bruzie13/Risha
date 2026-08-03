@@ -132,9 +132,14 @@
             <!-- Deliveries view — what is on the way, and whether it is moving -->
             <div class="panel-card deliveries-panel" id="deliveriesPanel" data-jump-title="Deliveries" style="display:none;">
                 <div class="panel-head">
-                    <h3><span class="icon-chip green"><span class="material-symbols-outlined" style="font-size:16px;">local_shipping</span></span> Deliveries on the way
-                        <span class="panel-sub" style="display:block;font-weight:400;margin-top:3px;">Orders you have placed that have not arrived yet. Set the shop location once so arrival estimates can be measured from it.</span>
-                    </h3>
+                    <!-- Title and subtitle stack in their own block. Inside the
+                         h3 the subtitle became a flex sibling of the title, took
+                         half the header, and squeezed the status text into a
+                         two-words-per-line column. -->
+                    <div class="panel-head-text">
+                        <h3><span class="icon-chip green"><span class="material-symbols-outlined" style="font-size:16px;">local_shipping</span></span> Deliveries on the way</h3>
+                        <span class="panel-sub">Orders you have placed that have not arrived yet. Set the shop location once so arrival estimates can be measured from it.</span>
+                    </div>
                     <div class="map-head-actions">
                         <span class="map-hint" id="deliveriesHint"></span>
                         <button class="btn-secondary" id="setShopHereBtn" onclick="setShopLocationHere()" title="Save the shop's position — every distance and arrival estimate is measured from it">
