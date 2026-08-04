@@ -35,8 +35,37 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
+/* Content-Security-Policy.
+
+   The pages carry ~287 inline on* handlers, so script-src has to allow
+   'unsafe-inline' until those are rewritten as listeners — this policy does
+   NOT stop a script from running. What it does stop is that script talking to
+   anyone: connect-src and img-src are restricted to our own origin and the few
+   hosts we genuinely use, which is the step that turns a stolen token into a
+   token the attacker cannot send anywhere. Tightening script-src is the
+   follow-up work; the containment is worth having now.
+
+   Origins allowed, and why: jsdelivr serves Chart.js, Google hosts the fonts,
+   OpenStreetMap serves the supplier-map tiles, Cloudinary serves product
+   images when CLOUDINARY_URL is configured (they are data: URIs otherwise). */
+const CSP = [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+    // jsdelivr also serves leaflet.css, and Leaflet pulls its marker icons from
+    // that same path — both would be blocked by a self-only style/img policy.
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: https://res.cloudinary.com https://cdn.jsdelivr.net https://*.tile.openstreetmap.org",
+    "connect-src 'self'"
+].join('; ');
+
 // Security headers on every response
 app.use((req, res, next) => {
+    res.setHeader('Content-Security-Policy', CSP);
     res.setHeader('X-Content-Type-Options', 'nosniff');   // no MIME sniffing
     res.setHeader('X-Frame-Options', 'DENY');             // no clickjacking via iframes
     res.setHeader('Referrer-Policy', 'same-origin');
@@ -199,6 +228,21 @@ async function ensureEmailVerificationColumns() {
         console.log('[DB] email verification columns ready');
     } catch (e) {
         console.error('[DB] email verification migration error:', e.message);
+    }
+}
+
+async function ensureTokenVersionColumn() {
+    try {
+        const conn = await pool.getConnection();
+        // Bumped whenever an account is deactivated, deleted, demoted, or has
+        // its password changed. A JWT carries the version it was minted with,
+        // so raising it makes every token issued before now stop verifying —
+        // the piece stateless JWTs otherwise lack.
+        try { await conn.execute('ALTER TABLE users ADD COLUMN token_version INT NOT NULL DEFAULT 0'); } catch (e) { /* column exists */ }
+        conn.release();
+        console.log('[DB] token_version column ready');
+    } catch (e) {
+        console.error('[DB] token_version migration error:', e.message);
     }
 }
 
@@ -607,6 +651,7 @@ async function runMigrations() {
     await ensureOpsTables();
     await ensurePasswordResetColumns();
     await ensureEmailVerificationColumns();
+    await ensureTokenVersionColumn();
     await ensureEmailCodesTable();
     await ensureEmailLogsTable();
     await ensureIndexes();

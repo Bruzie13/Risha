@@ -182,12 +182,31 @@ const generateToken = (user) => {
             id: user.id,
             email: user.email,
             username: user.username,
-            role: user.role
+            role: user.role,
+            // Checked on every request; raising the stored version retires
+            // every token minted before it. See bumpTokenVersion below.
+            tv: Number(user.token_version) || 0
         },
         process.env.JWT_SECRET,
         { expiresIn: '24h' }
     );
 };
+
+/**
+ * End every existing session for a user. Called wherever their access should
+ * stop mattering immediately: deactivation, deletion, role change, password
+ * change or reset.
+ */
+async function bumpTokenVersion(userId) {
+    const conn = await pool.getConnection();
+    try {
+        await conn.execute('UPDATE users SET token_version = token_version + 1 WHERE id = ?', [userId]);
+    } catch (e) {
+        console.error('Failed to bump token version for user', userId, e.message);
+    } finally {
+        conn.release();
+    }
+}
 
 exports.login = async (req, res) => {
     try {
@@ -374,6 +393,8 @@ exports.resetPassword = async (req, res) => {
             conn2.release();
         }
 
+        // Whoever prompted the reset may already hold a live token — retire it.
+        await bumpTokenVersion(userId);
         logAudit(userId, 'password_reset', 'users', userId, null, null, req.ip);
         res.status(200).json({ success: true, message: 'Password has been reset. You can now sign in.' });
     } catch (error) {
@@ -751,7 +772,11 @@ exports.updateUser = async (req, res) => {
         // forever and copied into every nightly backup. Record that a password
         // was changed, never what it was.
         const auditedChanges = { ...updateData };
-        if (auditedChanges.password) auditedChanges.password = '[changed]';
+        if (auditedChanges.password) {
+            auditedChanges.password = '[changed]';
+            // An admin resetting someone's password ends that person's sessions.
+            await bumpTokenVersion(parseInt(id));
+        }
 
         logAudit(req.user.id, 'update', 'users', parseInt(id), oldUser, auditedChanges, req.ip);
 
@@ -810,6 +835,9 @@ exports.updateUserRole = async (req, res) => {
             });
         }
 
+        // A demotion has to bite now, not whenever their token happens to expire.
+        await bumpTokenVersion(parseInt(id));
+
         res.status(200).json({
             success: true,
             message: 'User role updated successfully',
@@ -828,6 +856,7 @@ exports.deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
         await User.delete(id);
+        await bumpTokenVersion(parseInt(id));
         logAudit(req.user.id, 'delete', 'users', parseInt(id), null, null, req.ip);
         res.status(200).json({
             success: true,
@@ -855,6 +884,11 @@ exports.toggleUserStatus = async (req, res) => {
         }
 
         const updatedUser = await User.update(id, { is_active: !user.is_active });
+
+        // Deactivation must not wait for the token to lapse. (The middleware
+        // refuses inactive accounts outright too; this clears the token as well,
+        // so re-activating them later does not revive the old session.)
+        await bumpTokenVersion(parseInt(id));
 
         res.status(200).json({
             success: true,
@@ -967,9 +1001,28 @@ exports.changePassword = async (req, res) => {
 
         await User.update(userId, { password: newPassword });
 
+        /* Changing a password retires every session that password opened —
+           including any an attacker is sitting in. That would sign this user
+           out mid-action, so mint them a replacement token carrying the new
+           version and hand it back for the client to store. Every OTHER token
+           for this account stops working immediately. */
+        await bumpTokenVersion(userId);
+        const refreshed = await User.findById(userId);
+        const token = refreshed ? generateToken({ ...refreshed, token_version: Number(refreshed.token_version) || 0 }) : null;
+        if (token) {
+            res.cookie('token', token, {
+                httpOnly: true,
+                sameSite: 'lax',
+                secure: process.env.NODE_ENV === 'production',
+                maxAge: 24 * 60 * 60 * 1000,
+                path: '/'
+            });
+        }
+
         res.status(200).json({
             success: true,
-            message: 'Password changed successfully'
+            message: 'Password changed successfully',
+            token
         });
     } catch (error) {
         console.error('Change password error:', error);
