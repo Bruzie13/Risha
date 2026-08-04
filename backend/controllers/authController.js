@@ -746,7 +746,14 @@ exports.updateUser = async (req, res) => {
             });
         }
 
-        logAudit(req.user.id, 'update', 'users', parseInt(id), oldUser, updateData, req.ip);
+        // updateData is the raw request body: when an admin sets someone's
+        // password it arrives here in the clear, and the audit row is kept
+        // forever and copied into every nightly backup. Record that a password
+        // was changed, never what it was.
+        const auditedChanges = { ...updateData };
+        if (auditedChanges.password) auditedChanges.password = '[changed]';
+
+        logAudit(req.user.id, 'update', 'users', parseInt(id), oldUser, auditedChanges, req.ip);
 
         let message = 'User updated successfully';
         if (emailChanged) {

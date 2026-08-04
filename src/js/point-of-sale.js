@@ -287,16 +287,16 @@ function displaySales(sales) {
         <tr>
             <td>#${s.id}</td>
             <td>${new Date(s.created_at).toLocaleDateString()}</td>
-            <td>${s.customer_name || 'Walk-in'}</td>
-            <td>${s.staff_name || 'N/A'}</td>
+            <td>${escHtml(s.customer_name || 'Walk-in')}</td>
+            <td>${escHtml(s.staff_name || 'N/A')}</td>
             <td>${s.item_count || 0}</td>
             <td>₱${parseFloat(s.final_amount ?? s.total_amount ?? 0).toFixed(2)}</td>
-            <td>${s.payment_method || 'N/A'}</td>
+            <td>${escHtml(s.payment_method || 'N/A')}</td>
             <td>${s.payment_status === 'completed'
                 ? '<span class="status-badge status-in-stock">Completed</span>'
                 : s.payment_status === 'voided'
                     ? '<span class="status-badge status-expired" title="Voided — stock was restored">Voided</span>'
-                    : '<span class="status-badge status-expired">' + (s.payment_status || 'N/A') + '</span>'}</td>
+                    : '<span class="status-badge status-expired">' + escHtml(s.payment_status || 'N/A') + '</span>'}</td>
             <td>
                 <button class="btn-view" onclick="viewSaleDetails(${s.id})">View</button>
                 ${viewer || s.payment_status === 'voided' ? '' : `<button class="btn-delete" onclick="voidSale(${s.id})">Void</button>`}
@@ -557,7 +557,7 @@ function updateItemsList() {
         return `
         <div class="item-row">
             <div class="item-info">
-                <div class="item-name">${item.product_name}</div>
+                <div class="item-name">${escHtml(item.product_name)}</div>
                 <div class="item-detail">Qty: ${item.quantity}${unitLabel} × ₱${item.unit_price.toFixed(2)}${unitLabel ? '/' + unitLabel.trim() : ''}</div>
             </div>
             <div class="item-price">₱${item.total_price.toFixed(2)}</div>
@@ -631,18 +631,18 @@ async function viewSaleDetails(id) {
             document.getElementById('saleDetailsContent').innerHTML = `
                 <div class="details-row"><span class="details-label">Sale ID</span><span class="details-value">#${sale.id}</span></div>
                 <div class="details-row"><span class="details-label">Date</span><span class="details-value">${new Date(sale.created_at).toLocaleString()}</span></div>
-                <div class="details-row"><span class="details-label">Staff</span><span class="details-value">${sale.staff_name || 'N/A'}</span></div>
-                <div class="details-row"><span class="details-label">Customer</span><span class="details-value">${sale.customer_name || 'N/A'}</span></div>
-                <div class="details-row"><span class="details-label">Phone</span><span class="details-value">${sale.customer_phone || 'N/A'}</span></div>
-                <div class="details-row"><span class="details-label">Payment</span><span class="details-value">${sale.payment_method}</span></div>
+                <div class="details-row"><span class="details-label">Staff</span><span class="details-value">${escHtml(sale.staff_name || 'N/A')}</span></div>
+                <div class="details-row"><span class="details-label">Customer</span><span class="details-value">${escHtml(sale.customer_name || 'N/A')}</span></div>
+                <div class="details-row"><span class="details-label">Phone</span><span class="details-value">${escHtml(sale.customer_phone || 'N/A')}</span></div>
+                <div class="details-row"><span class="details-label">Payment</span><span class="details-value">${escHtml(sale.payment_method)}</span></div>
                 <div class="details-row"><span class="details-label">Discount</span><span class="details-value">${sale.discount_percent || 0}%</span></div>
-                <div class="details-row"><span class="details-label">Notes</span><span class="details-value">${sale.notes || 'None'}</span></div>
+                <div class="details-row"><span class="details-label">Notes</span><span class="details-value">${escHtml(sale.notes || 'None')}</span></div>
                 <div class="details-items"><h4>Items Sold</h4>
                     <table class="sales-table" style="margin:0;">
                         <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
                         <tbody>${(sale.items || []).map(item => {
                             const ul = getUnitLabel(item.unit_type);
-                            return `<tr><td>${item.product_name}</td><td>${parseFloat(item.quantity)}${ul}</td><td>₱${parseFloat(item.unit_price).toFixed(2)}</td><td>₱${parseFloat(item.subtotal).toFixed(2)}</td></tr>`;
+                            return `<tr><td>${escHtml(item.product_name)}</td><td>${parseFloat(item.quantity)}${ul}</td><td>₱${parseFloat(item.unit_price).toFixed(2)}</td><td>₱${parseFloat(item.subtotal).toFixed(2)}</td></tr>`;
                         }).join('')}</tbody>
                     </table>
                 </div>
@@ -709,7 +709,7 @@ async function printReceipt(saleId) {
     if (!sale) { receiptWindow.close(); showToast('Sale data not available', 'error'); return; }
     const itemsHTML = (sale.items || []).map(item => {
         const ul = getUnitLabel(item.unit_type);
-        return `<tr><td style="padding:3px 4px;border-bottom:1px dashed #ccc;">${item.product_name}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:center;">${parseFloat(item.quantity)}${ul}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.unit_price).toFixed(2)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.subtotal || item.quantity * item.unit_price).toFixed(2)}</td></tr>`;
+        return `<tr><td style="padding:3px 4px;border-bottom:1px dashed #ccc;">${escHtml(item.product_name)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:center;">${parseFloat(item.quantity)}${ul}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.unit_price).toFixed(2)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.subtotal || item.quantity * item.unit_price).toFixed(2)}</td></tr>`;
     }).join('');
     // What the customer actually paid — final_amount is net of any discount.
     const total = parseFloat(sale.final_amount ?? sale.total_amount ?? 0).toFixed(2);
@@ -741,8 +741,8 @@ async function printReceipt(saleId) {
             <div style="text-align:left;font-size:11px;line-height:1.6;">
                 <div>Receipt #: <strong>${String(sale.sale_number || sale.id).padStart(6, '0')}</strong></div>
                 <div>Date: ${date}</div>
-                <div>Cashier: ${sale.staff_name || 'N/A'}</div>
-                <div>Customer: ${sale.customer_name || 'Walk-in'}${sale.customer_phone ? ' (' + sale.customer_phone + ')' : ''}</div>
+                <div>Cashier: ${escHtml(sale.staff_name || 'N/A')}</div>
+                <div>Customer: ${escHtml(sale.customer_name || 'Walk-in')}${sale.customer_phone ? ' (' + escHtml(sale.customer_phone) + ')' : ''}</div>
                 <div>Payment: ${(sale.payment_method || 'cash').toUpperCase()}</div>
             </div>
             <hr>
@@ -768,7 +768,7 @@ function printCurrentReceipt() {
     if (currentSaleItems.length === 0) { showToast('No items in sale', 'error'); return; }
     const itemsHTML = currentSaleItems.map(item => {
         const ul = getUnitLabel(item.unit_type);
-        return `<tr><td style="padding:3px 4px;border-bottom:1px dashed #ccc;">${item.product_name}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:center;">${parseFloat(item.quantity)}${ul}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.unit_price).toFixed(2)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.total_price).toFixed(2)}</td></tr>`;
+        return `<tr><td style="padding:3px 4px;border-bottom:1px dashed #ccc;">${escHtml(item.product_name)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:center;">${parseFloat(item.quantity)}${ul}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.unit_price).toFixed(2)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.total_price).toFixed(2)}</td></tr>`;
     }).join('');
     const subtotal = currentSaleItems.reduce((sum, i) => sum + i.total_price, 0);
     const discPct = parseFloat(document.getElementById('discount')?.value || 0);

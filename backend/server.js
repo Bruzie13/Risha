@@ -383,6 +383,11 @@ setInterval(() => {
     }
 }, 5 * 60000).unref();
 
+// Tracking ids are crypto.randomBytes(32).toString('hex') — 64 hex characters,
+// nothing else. Checking the shape before use keeps unvalidated path input out
+// of both the database and the rendered page.
+const TRACKING_ID_RE = /^[a-f0-9]{64}$/;
+
 app.get('/track/:trackingId.gif', rateLimitTracking, async (req, res) => {
     const { trackingId } = req.params;
     try {
@@ -425,6 +430,13 @@ app.post('/track/confirm/:trackingId', rateLimitTracking, async (req, res) => {
 
 app.get('/track/click/:trackingId', rateLimitTracking, async (req, res) => {
     const { trackingId } = req.params;
+    // This id is interpolated into the inline script below, so it must be
+    // proven to be an id before it is rendered. Tracking ids are
+    // crypto.randomBytes(32).toString('hex') (see mailer.js), so the shape is
+    // exact — anything else is not a link we ever sent.
+    if (!TRACKING_ID_RE.test(trackingId)) {
+        return res.status(404).type('text/plain').send('Not found');
+    }
     let known = false;
     try {
         const conn = await pool.getConnection();

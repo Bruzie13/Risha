@@ -509,10 +509,21 @@ function showToast(message, type) {
     }, 4500);
 }
 
+/* Kept in step with the copy in utils.js. Both exist because analytics.html and
+   audit.html load auth.js without utils.js, and auth.js loads second everywhere
+   else — so whichever page you are on, this is the definition that wins.
+
+   The textContent/innerHTML trick this used to use escapes < > and &, but NOT
+   quotes, which is silently wrong for the call sites that interpolate into an
+   attribute (title="${escHtml(name)}"). Escape quotes too. */
 function escHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str || '';
-    return div.innerHTML;
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 // ===== NOTIFICATION SYSTEM =====
