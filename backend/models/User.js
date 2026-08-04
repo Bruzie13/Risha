@@ -62,7 +62,10 @@ class User {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                'SELECT id, username, email, full_name, avatar, role, phone, address, is_active, UNIX_TIMESTAMP(created_at) * 1000 as created_at FROM users WHERE id = ?',
+                // token_version is needed to mint a replacement JWT after a
+                // password change; without it the new token stamps 0 against a
+                // freshly-bumped row and locks the user straight back out.
+                'SELECT id, username, email, full_name, avatar, role, phone, address, is_active, token_version, UNIX_TIMESTAMP(created_at) * 1000 as created_at FROM users WHERE id = ?',
                 [id]
             );
             return rows[0] || null;

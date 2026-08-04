@@ -594,7 +594,13 @@ async function changePassword() {
         });
         var data = await res.json();
         if (data.success) {
-            showSuccessDialog('Password changed', 'Use your new password the next time you log in.', { icon: 'lock_reset' });
+            // Changing the password retires every session it opened. The server
+            // hands back a replacement for THIS browser; without storing it the
+            // next request would be rejected and we'd bounce to the login page.
+            if (data.token) localStorage.setItem('authToken', data.token);
+            showSuccessDialog('Password changed',
+                'Use your new password next time you sign in. Any other device signed in as you has been signed out.',
+                { icon: 'lock_reset' });
             currentPw.value = '';
             newPw.value = '';
             confirmPw.value = '';
