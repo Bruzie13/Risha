@@ -295,6 +295,68 @@
             border: 1px solid var(--danger-bg);
         }
         .login-error.show { display: block; }
+        /* Keep-me-signed-in: the native box is hidden but still the control,
+           so the label, keyboard and screen readers all keep working. */
+        .remember-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin: 2px 0 18px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .remember-row input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .remember-box {
+            flex: none;
+            width: 19px;
+            height: 19px;
+            margin-top: 1px;
+            border-radius: 6px;
+            border: 1.5px solid #E3D6CE;
+            background: #FFFDF9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.16s ease, border-color 0.16s ease;
+        }
+        .remember-box .material-symbols-outlined {
+            font-size: 15px;
+            color: #fff;
+            transform: scale(0.4);
+            opacity: 0;
+            transition: transform 0.16s ease, opacity 0.16s ease;
+        }
+        .remember-row input:checked + .remember-box {
+            background: var(--primary-dark, #E14C42);
+            border-color: var(--primary-dark, #E14C42);
+        }
+        .remember-row input:checked + .remember-box .material-symbols-outlined {
+            transform: scale(1);
+            opacity: 1;
+        }
+        .remember-row input:focus-visible + .remember-box {
+            box-shadow: 0 0 0 3px var(--primary-bg, rgba(238, 106, 95, 0.25));
+        }
+        .remember-text {
+            font-family: 'Inter', sans-serif;
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--text-primary, #1B2437);
+            line-height: 1.35;
+        }
+        .remember-text small {
+            display: block;
+            font-weight: 400;
+            font-size: 11.5px;
+            color: var(--text-muted, #8A94A8);
+            margin-top: 2px;
+        }
+
         .forgot-row { text-align: center; margin-top: 14px; }
         .forgot-link {
             background: none;
@@ -446,7 +508,7 @@
             .pet-illustration { width: 72px; top: 14px; right: 14px; bottom: auto; left: auto; opacity: 0.85; }
         }
     </style>
-<script>/* login page is always light-themed */document.documentElement.classList.remove('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');if(!localStorage.getItem('authToken'))document.cookie='token=;path=/;max-age=0';try{var _av=JSON.parse(localStorage.getItem('accentVars')||'null');if(_av){for(var _k in _av)document.documentElement.style.setProperty(_k,_av[_k]);}}catch(e){}var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
+<script>/* login page is always light-themed */document.documentElement.classList.remove('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');if(!sessionStorage.getItem('authToken')&&!localStorage.getItem('authToken'))document.cookie='token=;path=/;max-age=0';try{var _av=JSON.parse(localStorage.getItem('accentVars')||'null');if(_av){for(var _k in _av)document.documentElement.style.setProperty(_k,_av[_k]);}}catch(e){}var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
     </head>
 <body>
     <div class="login-3d" id="login3d" aria-hidden="true">
@@ -554,6 +616,13 @@
                             <button type="button" class="toggle-password" id="togglePassword" tabindex="-1" aria-label="Toggle password visibility"><span class="material-symbols-outlined" style="font-size:18px;">visibility</span></button>
                         </div>
                     </div>
+                    <label class="remember-row" for="rememberMe">
+                        <input type="checkbox" id="rememberMe">
+                        <span class="remember-box" aria-hidden="true"><span class="material-symbols-outlined">check</span></span>
+                        <span class="remember-text">Keep me signed in
+                            <small>Leave this off on a shared till — the session ends when the browser closes.</small>
+                        </span>
+                    </label>
                     <button type="submit" class="login-btn" id="loginBtn">Sign In</button>
                     <div class="forgot-row">
                         <button type="button" class="forgot-link" id="forgotLink">Forgot password?</button>
@@ -617,16 +686,18 @@
             btn.textContent = 'Signing in...';
 
             try {
+                const remember = !!document.getElementById('rememberMe')?.checked;
                 const response = await fetch(API_BASE + '/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ username, password, remember })
                 });
                 const data = await response.json();
                 if (data.success && data.token) {
-                    localStorage.setItem('authToken', data.token);
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                    // Auth cookie is set by the server as HttpOnly on login
+                    // Unticked, the session lives in sessionStorage and dies with
+                    // the browser. Ticked, it persists. The server matches this
+                    // for its own cookie, so the two cannot disagree.
+                    setToken(data.token, remember, data.user);
                     window.location.href = 'dashboard.html';
                 } else if (data.code === 'EMAIL_NOT_VERIFIED') {
                     // Password was right — the only thing missing is the click,

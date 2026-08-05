@@ -1,7 +1,37 @@
 var API_BASE = '/api';
 
+/* Where the token lives decides how long you stay signed in.
+
+   sessionStorage is per browser session: close the browser and it is gone, so
+   the next visit asks for a password again. localStorage survives restarts,
+   which is what "Remember me" means — and it is opt-in, because a shop till is
+   often a shared machine and staying signed in on it by default is the wrong
+   answer. Reads check both, so the rest of the app never has to care which. */
 function getToken() {
-    return localStorage.getItem('authToken');
+    return sessionStorage.getItem('authToken') || localStorage.getItem('authToken');
+}
+
+function setToken(token, remember, user) {
+    clearToken();
+    var store = remember ? localStorage : sessionStorage;
+    store.setItem('authToken', token);
+    if (user) store.setItem('user', typeof user === 'string' ? user : JSON.stringify(user));
+    // Remembering the account also means offering the username next time.
+    if (remember && user) {
+        try {
+            var u = typeof user === 'string' ? JSON.parse(user) : user;
+            if (u && u.username) localStorage.setItem('rememberUser', u.username);
+        } catch (e) {}
+    } else {
+        localStorage.removeItem('rememberUser');
+    }
+}
+
+function clearToken() {
+    sessionStorage.removeItem('authToken');
+    sessionStorage.removeItem('user');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
 }
 
 function getAuthHeaders() {
@@ -17,8 +47,7 @@ const origFetch = window.fetch;
 window.fetch = function() {
     return origFetch.apply(this, arguments).then(function(res) {
         if (res.status === 401 && !res.url.includes('/auth/login')) {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('user');
+            clearToken();
             if (!window.location.pathname.includes('login.html')) {
                 window.location.href = 'login.html';
             }
@@ -38,7 +67,7 @@ function canManage() {
 // authenticated page (back/forward cache). Re-check the session whenever a
 // page is restored that way and bounce to login if it's gone.
 window.addEventListener('pageshow', function (e) {
-    if (e.persisted && !localStorage.getItem('authToken') && !window.location.pathname.includes('login.html')) {
+    if (e.persisted && !getToken() && !window.location.pathname.includes('login.html')) {
         window.location.href = 'login.html';
     }
 });
@@ -97,7 +126,7 @@ function isAuthenticated() {
 
 function getUser() {
     try {
-        const userStr = localStorage.getItem('user');
+        const userStr = sessionStorage.getItem('user') || localStorage.getItem('user');
         return userStr ? JSON.parse(userStr) : null;
     } catch { return null; }
 }
@@ -193,8 +222,7 @@ function logout() {
         'Logout',
         'Are you sure you want to logout?',
         () => {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('user');
+            clearToken();
             localStorage.removeItem('rememberUser');
             // Ask the server to clear the HttpOnly auth cookie, then redirect
             fetch(API_BASE + '/auth/logout', { method: 'POST' })
@@ -717,8 +745,7 @@ window.addEventListener('load', async () => {
                     return;
                 }
             } catch (e) {}
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('user');
+            clearToken();
         }
     }
 });
