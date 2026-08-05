@@ -120,23 +120,75 @@
         @media (min-height: 720px) {
             .pet-illustration { width: 168px; bottom: -10px; }
         }
+        /* The brand mark is a slowly turning medallion, built the same way as
+           the one in the welcome intro — nine thin discs stepped along Z
+           between two faces — so the two screens read as one product rather
+           than two. It turns once every 16 seconds: present, but never
+           competing with the sign-in form for attention. */
         .login-brand .brand-icon {
             width: 64px;
             height: 64px;
-            border-radius: 16px;
-            overflow: hidden;
-            background: rgba(255,255,255,0.15);
+            margin-bottom: 24px;
+            perspective: 520px;
+            overflow: visible;      /* the rim has to be allowed outside the box */
+            background: none;
+            border: 0;
+        }
+        .brand-coin {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            animation: brandSway 7s ease-in-out infinite;
+        }
+        /* Swings rather than spins. A full turn puts the mark edge-on twice a
+           cycle and backwards for half of it, so the logo — the one thing on
+           this screen that has to stay recognisable — would be unreadable most
+           of the time. Swinging shows the rim and the depth while keeping the
+           face toward the viewer throughout. */
+        @keyframes brandSway {
+            0%, 100% { transform: rotateY(-26deg) rotateX(3deg); }
+            50%      { transform: rotateY(26deg) rotateX(-3deg); }
+        }
+        .bc-slice, .bc-face {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+        }
+        .bc-slice { background: linear-gradient(140deg, #E5504A, #A8332F); }
+        .bc-slice:nth-child(1) { transform: translateZ(-5px); }
+        .bc-slice:nth-child(2) { transform: translateZ(-3.75px); }
+        .bc-slice:nth-child(3) { transform: translateZ(-2.5px); }
+        .bc-slice:nth-child(4) { transform: translateZ(-1.25px); }
+        .bc-slice:nth-child(5) { transform: translateZ(0); }
+        .bc-slice:nth-child(6) { transform: translateZ(1.25px); }
+        .bc-slice:nth-child(7) { transform: translateZ(2.5px); }
+        .bc-slice:nth-child(8) { transform: translateZ(3.75px); }
+        .bc-slice:nth-child(9) { transform: translateZ(5px); }
+        .bc-face {
+            backface-visibility: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 24px;
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255,255,255,0.1);
+            overflow: hidden;
+            box-shadow: 0 6px 18px rgba(120, 40, 30, 0.30);
         }
-        .login-brand .brand-icon img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        .bc-front {
+            transform: translateZ(5.5px);
+            background: #FFFDF9;
+            border: 2px solid rgba(255,255,255,0.85);
+        }
+        .bc-front img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+        .bc-back {
+            transform: translateZ(-5.5px) rotateY(180deg);
+            background: linear-gradient(140deg, #F88070, #E5504A);
+            border: 2px solid rgba(255,255,255,0.55);
+            color: #FFF6EE;
+        }
+        .bc-back .material-symbols-outlined { font-size: 30px; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .brand-coin { animation: none; }
         }
         .login-brand h1 {
             font-family: 'Nunito', sans-serif;
@@ -528,7 +580,15 @@
         <div class="login-container">
             <div class="shop-awning" aria-hidden="true"></div>
             <div class="login-brand">
-                <div class="brand-icon" title="FETCH — Inventory Management for Risha Pet Supplies"><img src="images/logo.jpeg" alt="RISHA" title="FETCH — Inventory Management for Risha Pet Supplies"></div>
+                <div class="brand-icon" title="FETCH — Inventory Management for Risha Pet Supplies">
+                    <div class="brand-coin">
+                        <span class="bc-slice"></span><span class="bc-slice"></span><span class="bc-slice"></span>
+                        <span class="bc-slice"></span><span class="bc-slice"></span><span class="bc-slice"></span>
+                        <span class="bc-slice"></span><span class="bc-slice"></span><span class="bc-slice"></span>
+                        <span class="bc-face bc-front"><img src="images/logo.jpeg" alt="RISHA"></span>
+                        <span class="bc-face bc-back"><span class="material-symbols-outlined">pets</span></span>
+                    </div>
+                </div>
                 <h1><span class="skel-reveal skel-reveal-inline">FETCH <span>for Risha Pet Supplies</span></span></h1>
                 <svg class="pet-illustration" viewBox="0 0 340 230" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <!-- grass mound -->
