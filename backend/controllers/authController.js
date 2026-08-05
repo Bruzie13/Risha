@@ -210,7 +210,7 @@ async function bumpTokenVersion(userId) {
 
 exports.login = async (req, res) => {
     try {
-        const { username, password } = req.body;
+        const { username, password, remember } = req.body;
 
         if (!username || !password) {
             return res.status(400).json({
@@ -272,14 +272,20 @@ exports.login = async (req, res) => {
 
         notifyUserLogin(user, req.ip).catch(e => console.error('Notif error:', e.message));
 
-        // HttpOnly cookie for the server-side page guard (not readable by JS)
-        res.cookie('token', token, {
+        /* HttpOnly cookie for the server-side page guard (not readable by JS).
+           Without "remember" it is deliberately given no maxAge, which makes it
+           a session cookie the browser drops on close — matching where the
+           client puts the token. If the two disagreed, closing the browser
+           would clear the token but leave the cookie still admitting you to
+           pages. */
+        const cookieOpts = {
             httpOnly: true,
             sameSite: 'lax',
             secure: process.env.NODE_ENV === 'production',
-            maxAge: 24 * 60 * 60 * 1000,
             path: '/'
-        });
+        };
+        if (remember) cookieOpts.maxAge = 24 * 60 * 60 * 1000;
+        res.cookie('token', token, cookieOpts);
 
         res.status(200).json({
             success: true,

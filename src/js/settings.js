@@ -597,7 +597,13 @@ async function changePassword() {
             // Changing the password retires every session it opened. The server
             // hands back a replacement for THIS browser; without storing it the
             // next request would be rejected and we'd bounce to the login page.
-            if (data.token) localStorage.setItem('authToken', data.token);
+            // Keep the replacement wherever the current session already lives,
+            // so changing a password does not silently convert a till session
+            // into one that survives the browser closing.
+            if (data.token) {
+                (sessionStorage.getItem('authToken') ? sessionStorage : localStorage)
+                    .setItem('authToken', data.token);
+            }
             showSuccessDialog('Password changed',
                 'Use your new password next time you sign in. Any other device signed in as you has been signed out.',
                 { icon: 'lock_reset' });
