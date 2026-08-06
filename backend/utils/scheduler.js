@@ -13,16 +13,30 @@ let backupHandle = null;
 let forecastHandle = null;
 
 function start() {
-    console.log('[Scheduler] Started (every 60 min; backups daily; forecasts every 4 min)');
+    console.log('[Scheduler] Started (every 60 min; backups daily)');
     runAllChecks();
     intervalHandle = setInterval(runAllChecks, CHECK_INTERVAL);
     // first backup shortly after boot, then daily
     setTimeout(runBackup, 2 * 60 * 1000);
     backupHandle = setInterval(runBackup, BACKUP_INTERVAL);
-    // Fit the forecast model once at boot so the first person to open
-    // Analytics reads a cache instead of waiting on Python.
-    setTimeout(warmForecasts, 5000);
-    forecastHandle = setInterval(warmForecasts, FORECAST_WARM_INTERVAL);
+    /* Pre-fitting the forecast model is OFF unless FORECAST_WARM=1.
+
+       It calls Python through execFileSync, which blocks the event loop for as
+       long as the fit takes — 14s on a laptop, far longer on a small shared
+       instance. Running it 5s after boot meant the server could not answer the
+       platform's health check, so the container was killed and restarted, and
+       5s later it blocked again: a boot loop that took the site down.
+
+       Leave it off until the Python call is made asynchronous. With it off the
+       forecast is computed on demand instead, which costs the first viewer of
+       Analytics a wait but keeps the server answering. */
+    if (process.env.FORECAST_WARM === '1') {
+        console.log('[Scheduler] Forecast pre-fitting ENABLED (blocking; only safe on a dedicated instance)');
+        setTimeout(warmForecasts, 5000);
+        forecastHandle = setInterval(warmForecasts, FORECAST_WARM_INTERVAL);
+    } else {
+        console.log('[Scheduler] Forecast pre-fitting off — forecasts are computed on first request');
+    }
 }
 
 function warmForecasts() {
