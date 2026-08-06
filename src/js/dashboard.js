@@ -20,6 +20,38 @@ window.addEventListener('load', async () => {
     }
 });
 
+/* ── Urgency: one number, 0 to 1, that the motion layer reads ─────────────
+   Every row that can run out of something computes this from its real
+   figure. The CSS turns it into tempo, heat and meter width, so how fast a
+   row breathes IS the data — no legend to learn. */
+
+function clamp01(n) {
+    return Math.max(0, Math.min(1, Number(n) || 0));
+}
+
+/* Expiry is scaled against the 90-day window the dashboard already reports
+   on. The curve is deliberately not linear: the difference between 3 days
+   and 10 matters enormously to a shopkeeper, while 70 vs 80 does not, so
+   urgency climbs steeply only near the end. */
+function expiryUrgency(days) {
+    if (days === null || days === undefined || isNaN(days)) return 0;
+    if (days <= 0) return 1;
+    const linear = clamp01(1 - (days / 90));
+    // Exponent > 1 spreads the near end apart. A gentler curve made 3 days and
+    // 30 days read as 0.98 and 0.80 — visually identical, which would have made
+    // the whole signal useless exactly where it matters most.
+    return Number(Math.pow(linear, 1.6).toFixed(2));
+}
+
+// Motion alone is not an accessible signal, so the same reading is available
+// as text on hover and to a screen reader.
+function urgencyLabel(u) {
+    if (u >= 0.75) return 'Critical — act today';
+    if (u >= 0.45) return 'Urgent — act this week';
+    if (u >= 0.2) return 'Worth watching';
+    return 'No action needed yet';
+}
+
 function renderGreeting() {
     const user = getUser();
     const name = (user?.full_name || user?.username || '').trim();
@@ -381,7 +413,10 @@ async function loadLowStockAlerts() {
             const reorder = p.reorder_level ?? 10;
             const fillPct = Math.min(100, Math.round((stock / Math.max(reorder, 1)) * 100));
             const barClass = stock === 0 ? 'danger' : fillPct < 30 ? 'danger' : 'warning';
-            return `<div class="stock-bar-item">
+            // Empty shelf is maximum urgency; at or above the reorder level there
+            // is nothing to shout about yet.
+            const urgency = clamp01(1 - (stock / Math.max(reorder, 1)));
+            return `<div class="stock-bar-item urg" style="--urgency:${urgency.toFixed(2)}" title="${urgencyLabel(urgency)}">
                 <div class="stock-bar-info">
                     <div class="stock-bar-name">${escHtml(p.name)}</div>
                     <div class="stock-bar-sub">SKU: ${escHtml(p.sku || 'N/A')} · Reorder: ${formatNumber(reorder)}</div>
@@ -390,6 +425,7 @@ async function loadLowStockAlerts() {
                     <div class="stock-bar-fill ${barClass}" style="width:${Math.max(4, fillPct)}%"></div>
                 </div>
                 <div class="stock-bar-num" style="color:${stock === 0 ? 'var(--danger)' : 'var(--warning)'}">${formatNumber(stock)}</div>
+                <span class="urg-meter" aria-hidden="true"></span>
             </div>`;
         }).join('');
     } catch (e) {
@@ -574,12 +610,14 @@ async function loadExpirationRisk() {
                     const exp = parseExpiryDate(p.expiration_date);
                     const days = p.days_until_expiry ?? daysFromToday(exp);
                     const daysClass = days !== null && days <= 30 ? 'danger' : days !== null && days <= 60 ? 'warning' : 'info';
-                    return `<div class="product-expiry-item">
+                    const urgency = expiryUrgency(days);
+                    return `<div class="product-expiry-item urg" style="--urgency:${urgency}" title="${urgencyLabel(urgency)}">
                         <div class="pei-info">
                             <div class="pei-name">${escHtml(p.name)}</div>
                             <div class="pei-sub">Expires ${exp ? exp.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'} · Stock: ${formatNumber(p.stock_quantity || 0)}</div>
                         </div>
                         <div class="pei-days ${daysClass}">${days !== null ? days + ' days' : '—'}</div>
+                        <span class="urg-meter" aria-hidden="true"></span>
                     </div>`;
                 }).join('');
             } else {
