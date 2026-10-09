@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', function () {
 var ACCENTS = [
     // 'default' carries no values: it clears any override so the stylesheet's
     // own accent applies, including its lighter dark-mode variant.
-    { key: 'default', name: 'Blue',   primary: '#1D5ED8' },
+    { key: 'default', name: 'Risha blue', primary: '#0A74BF' },
     { key: 'indigo',  name: 'Indigo', primary: '#4B4FD6' },
     { key: 'teal',    name: 'Teal',   primary: '#0E7A78' },
     { key: 'green',   name: 'Green',  primary: '#17794A' },

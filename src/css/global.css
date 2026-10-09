@@ -1,101 +1,111 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
 
 /* ---------------------------------------------------------------------------
-   Design tokens — FETCH, third pass.
+   Design tokens — FETCH, fourth pass: the shop's own colours.
 
-   A working tool for a shop. The palette is taken from the Risha mark: the
-   deep blue of its ring carries the shell, its blue at full strength is the
-   one colour for "you can act on this", and its sun yellow appears only as
-   the small mark that says "you are here". Green, amber and red are kept for
-   the state of stock and money and are never decoration.
+   Everything here is read off the Risha Pet Supplies sign (src/images/logo.jpeg):
+   the sky blue of its disc carries the sidebar, its red is the one colour for
+   "do this" (the main button on every page), and its yellow is the band across
+   the top of each page and the mark for "look here". The paper the pages sit
+   on is that yellow let down almost to white, so no surface is plain grey.
 
-   The ground is a blue-tinted paper, not grey: white panels sit on it and a
-   second, slightly cooler neutral separates toolbars and table heads from the
-   content they govern.
+   Green and amber are kept for the state of stock and money. Red also means
+   "act now" (sold out, expired), which is the same thing the red button says.
 
    Controls look like controls before anyone hovers over them: a filled or
-   clearly outlined body, a soft shadow underneath, a label in semibold, and a
-   visible press.
+   firmly outlined body sitting on a solid lower edge, which it loses when it
+   is pressed.
 --------------------------------------------------------------------------- */
 :root {
   /* brand */
-  --brand-ink: #0E1E36;          /* the rail */
-  --brand-ink-2: #172C4C;        /* raised on the rail */
-  --brand-ink-3: #223C63;        /* hover on the rail */
-  --brand-sun: #F2B33D;          /* "you are here" */
+  --brand-sky: #0A78C5;          /* the sidebar */
+  --brand-sky-2: #0868AC;        /* raised on the sidebar */
+  --brand-sky-3: #06568F;        /* the edge under things on the sidebar */
+  --brand-red: #E3202B;          /* the main action */
+  --brand-red-dark: #B5141D;
+  --brand-sun: #FFD23F;          /* the page band, "look here" */
+  --brand-sun-soft: #FFF0B8;
+  --brand-sun-ink: #4E3C00;
+  --brand-ink: #10283F;          /* the dark of the system: text, overlays */
+  --brand-ink-2: #1B3A57;
+  --brand-ink-3: #27506F;
 
-  --primary: #1D5ED8;
-  --primary-dark: #174BB0;
-  --primary-darker: #123C8F;
-  --primary-light: #9DBBF2;
-  --primary-bg: color-mix(in srgb, var(--primary) 9%, transparent);
+  --primary: #0A74BF;            /* links, selection, focus, charts */
+  --primary-dark: #086199;
+  --primary-darker: #064F7E;
+  --primary-light: #9AD2F4;
+  --primary-bg: color-mix(in srgb, var(--primary) 10%, transparent);
   --primary-glow: color-mix(in srgb, var(--primary) 32%, transparent);
   --primary-gradient: var(--primary);
 
   --secondary: var(--primary);
   --secondary-dim: var(--primary-bg);
-  --accent: #96590A;
-  --accent-dim: rgba(196, 124, 20, 0.14);
-  --danger: #C2362B;
-  --danger-bg: rgba(194, 54, 43, 0.10);
+  --accent: #8A5A00;
+  --accent-dim: rgba(255, 210, 63, 0.30);
+  --danger: #D11A26;
+  --danger-bg: rgba(227, 32, 43, 0.10);
   --info: var(--primary);
   --info-bg: var(--primary-bg);
-  --success: #17794A;
-  --success-bg: rgba(23, 121, 74, 0.11);
-  --warning: #96590A;
-  --warning-bg: rgba(196, 124, 20, 0.14);
-  --purple: #4F5D75;
-  --purple-bg: rgba(79, 93, 117, 0.10);
+  --success: #107A45;
+  --success-bg: rgba(16, 122, 69, 0.12);
+  --warning: #8A5A00;
+  --warning-bg: rgba(255, 210, 63, 0.30);
+  --purple: #4A5F78;
+  --purple-bg: rgba(74, 95, 120, 0.10);
 
   /* surfaces */
-  --bg-body: #EDF1F7;
+  --bg-body: #FFF5D1;
   --bg-card: #FFFFFF;
-  --bg-card-hover: #F7F9FC;
-  --bg-raised: #F3F6FA;           /* toolbars, table heads */
+  --bg-card-hover: #FFFBEE;
+  --bg-raised: #FFF9E3;           /* toolbars, table heads */
   --bg-glass: #FFFFFF;
-  --bg-glass-hover: #F7F9FC;
-  --bg-glass-strong: #E4EAF2;
-  --bg-inset: #E9EEF5;            /* wells, tracks */
-  --bg-deep: #EDF1F7;
-  --bg-secondary: #F3F6FA;
+  --bg-glass-hover: #FFFBEE;
+  --bg-glass-strong: #F8ECC0;
+  --bg-inset: #F8ECC0;            /* wells, tracks */
+  --bg-deep: #FFF5D1;
+  --bg-secondary: #FFF9E3;
   --bg-elevated: #FFFFFF;
-  --nav-bg: var(--brand-ink);
-  --nav-text: #B9C6DA;
-  --nav-text-active: #FFFFFF;
-  --nav-border: rgba(255, 255, 255, 0.09);
-  --nav-glass: var(--brand-ink);
+  --band-bg: var(--brand-sun);    /* the band across the top of a page */
+  --band-text: var(--brand-ink);
+  --band-sub: var(--brand-sun-ink);
+  --nav-bg: var(--brand-sky);
+  --nav-text: #FFFFFF;
+  --nav-text-active: var(--brand-red);
+  --nav-border: rgba(255, 255, 255, 0.22);
+  --nav-glass: var(--brand-sky);
 
-  /* text — each passes 4.5:1 on white and on the ground */
-  --text-primary: #0E1B2E;
-  --text-secondary: #3F4E65;
-  --text-muted: #5D6B81;
+  /* text — each passes 4.5:1 on white and on the paper */
+  --text-primary: #10283F;
+  --text-secondary: #37506A;
+  --text-muted: #5A6E82;
   --text-inverse: #FFFFFF;
 
   /* lines */
-  --border-glass: #D9E0EA;
-  --border-glass-strong: #B4C0D1;   /* the outline of a control */
+  --border-glass: #EDDDA2;
+  --border-glass-strong: #B9C9D8;   /* the outline of a control */
   --border-glass-accent: color-mix(in srgb, var(--primary) 38%, transparent);
-  --border-color: #D9E0EA;
-  --border-strong: #B4C0D1;
-  --border-subtle: #E7ECF3;
-  --border-default: #D9E0EA;
+  --border-color: #EDDDA2;
+  --border-strong: #B9C9D8;
+  --border-subtle: #F6ECC6;
+  --border-default: #EDDDA2;
 
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
   --radius-full: 9999px;
 
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Rubik', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-display: var(--font-sans);
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
-  --transition: 0.16s cubic-bezier(0.2, 0.8, 0.2, 1);
+  --transition: 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --float-y: 0px;
 
-  --sidebar-w: 240px;
+  --sidebar-w: 244px;
   --sidebar-collapsed-w: 68px;
   --nav-h: 0px;
 
@@ -112,33 +122,33 @@
   --accent-glow: transparent;
   --accent-gradient: var(--primary);
 
-  --gray-50: #F7F9FC;
-  --gray-100: #EEF2F7;
-  --gray-200: #DDE4ED;
-  --gray-300: #C3CDDB;
-  --gray-400: #94A2B6;
-  --gray-500: #5D6B81;
-  --gray-600: #3F4E65;
-  --gray-700: #24324A;
+  --gray-50: #FFFBEE;
+  --gray-100: #FAF0CB;
+  --gray-200: #EDDDA2;
+  --gray-300: #D9C680;
+  --gray-400: #9FA9B4;
+  --gray-500: #5A6E82;
+  --gray-600: #37506A;
+  --gray-700: #1B3A57;
 
-  --chart-1: #1D5ED8;
-  --chart-1-soft: #B6CCF4;
+  --chart-1: #0D96E6;
+  --chart-1-soft: #B4DEF7;
 
-  /* what a control rests on, and what it does when pressed */
-  --control-shadow: 0 1px 2px rgba(14, 30, 54, 0.10), 0 1px 1px rgba(14, 30, 54, 0.06);
-  --control-shadow-hover: 0 3px 8px rgba(14, 30, 54, 0.14), 0 1px 2px rgba(14, 30, 54, 0.08);
-  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--primary) 34%, transparent);
+  /* a control sits on a solid lower edge; pressing it takes the edge away */
+  --edge: 2px;
+  --control-shadow: 0 var(--edge) 0 var(--border-glass-strong);
+  --control-shadow-hover: 0 var(--edge) 0 var(--gray-400);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--primary) 38%, transparent);
 }
 
-/* Shortcut variables used by some page-specific CSS files. Shadows carry an
-   offset and a soft blur; nothing glows. */
+/* Shortcut variables used by some page-specific CSS files. */
 :root {
   --white: #FFFFFF;
   --radius: var(--radius-lg);
-  --shadow-sm: 0 1px 2px rgba(14, 30, 54, 0.06);
-  --shadow: 0 1px 3px rgba(14, 30, 54, 0.08), 0 1px 2px rgba(14, 30, 54, 0.05);
-  --shadow-md: 0 6px 16px rgba(14, 30, 54, 0.10), 0 2px 4px rgba(14, 30, 54, 0.06);
-  --shadow-lg: 0 20px 48px rgba(14, 30, 54, 0.22), 0 4px 12px rgba(14, 30, 54, 0.10);
+  --shadow-sm: 0 1px 0 rgba(16, 40, 63, 0.04);
+  --shadow: 0 1px 2px rgba(16, 40, 63, 0.08);
+  --shadow-md: 0 8px 20px rgba(16, 40, 63, 0.12), 0 2px 4px rgba(16, 40, 63, 0.06);
+  --shadow-lg: 0 24px 56px rgba(16, 40, 63, 0.26), 0 4px 12px rgba(16, 40, 63, 0.10);
 }
 
 @keyframes fadeIn {
@@ -1631,77 +1641,88 @@ input[type="datetime-local"] {
 
 /* ===== DARK MODE ===== */
 :root.dark-mode {
-  --brand-ink: #0A1524;
-  --brand-ink-2: #14233A;
-  --brand-ink-3: #1D3050;
+  --brand-sky: #0A4F7E;
+  --brand-sky-2: #0C6199;
+  --brand-sky-3: #073A5E;
+  --brand-red: #E5323C;
+  --brand-red-dark: #A8161F;
+  --brand-sun: #FFD23F;
+  --brand-sun-soft: #4A3F14;
+  --brand-sun-ink: #FFE9A3;
+  --brand-ink: #081621;
+  --brand-ink-2: #13293B;
+  --brand-ink-3: #1D3B53;
 
-  --bg-body: #0E1724;
-  --bg-card: #162132;
-  --bg-card-hover: #1B283C;
-  --bg-raised: #1B283C;
-  --bg-glass: #162132;
-  --bg-glass-hover: #1B283C;
-  --bg-glass-strong: #24344C;
-  --bg-inset: #101A29;
-  --bg-deep: #0E1724;
-  --bg-secondary: #1B283C;
-  --bg-elevated: #1B283C;
-  --nav-bg: var(--brand-ink);
-  --nav-text: #A9B8CF;
-  --nav-text-active: #FFFFFF;
-  --nav-border: rgba(255, 255, 255, 0.07);
-  --nav-glass: var(--brand-ink);
+  --bg-body: #0D1A25;
+  --bg-card: #152635;
+  --bg-card-hover: #1A2E40;
+  --bg-raised: #1A2E40;
+  --bg-glass: #152635;
+  --bg-glass-hover: #1A2E40;
+  --bg-glass-strong: #233B50;
+  --bg-inset: #0F1F2C;
+  --bg-deep: #0D1A25;
+  --bg-secondary: #1A2E40;
+  --bg-elevated: #1A2E40;
+  --band-bg: #152635;
+  --band-text: #FFFFFF;
+  --band-sub: #A9BCCD;
+  --nav-bg: var(--brand-sky);
+  --nav-text: #FFFFFF;
+  --nav-text-active: #B5141D;
+  --nav-border: rgba(255, 255, 255, 0.16);
+  --nav-glass: var(--brand-sky);
 
-  --text-primary: #EDF2F8;
-  --text-secondary: #B9C5D6;
-  --text-muted: #93A2B8;
-  --text-inverse: #0E1724;
+  --text-primary: #EEF4F9;
+  --text-secondary: #BCCBD9;
+  --text-muted: #94A7B9;
+  --text-inverse: #0D1A25;
 
-  --border-glass: #27364D;
-  --border-glass-strong: #3B4D69;
-  --border-color: #27364D;
-  --border-strong: #3B4D69;
-  --border-subtle: #1F2D43;
-  --border-default: #27364D;
+  --border-glass: #263C50;
+  --border-glass-strong: #3D566D;
+  --border-color: #263C50;
+  --border-strong: #3D566D;
+  --border-subtle: #1E3345;
+  --border-default: #263C50;
 
-  --primary: #5B93F5;
-  --primary-dark: #7AA8F8;
-  --primary-darker: #9DBFFA;
-  --primary-light: #2E4E86;
+  --primary: #4DB3F2;
+  --primary-dark: #78C6F6;
+  --primary-darker: #A3D9F9;
+  --primary-light: #1F567C;
   --primary-bg: color-mix(in srgb, var(--primary) 16%, transparent);
-  --success: #4FBF8B;
-  --success-bg: rgba(79, 191, 139, 0.15);
-  --warning: #E0A84A;
-  --warning-bg: rgba(224, 168, 74, 0.15);
-  --accent: #E0A84A;
-  --accent-dim: rgba(224, 168, 74, 0.15);
-  --danger: #F0796D;
-  --danger-bg: rgba(240, 121, 109, 0.15);
+  --success: #4FC58C;
+  --success-bg: rgba(79, 197, 140, 0.15);
+  --warning: #FFD86B;
+  --warning-bg: rgba(255, 210, 63, 0.16);
+  --accent: #FFD86B;
+  --accent-dim: rgba(255, 210, 63, 0.16);
+  --danger: #FF7A82;
+  --danger-bg: rgba(255, 122, 130, 0.15);
   --info: var(--primary);
   --info-bg: var(--primary-bg);
-  --purple: #A9B8CF;
-  --purple-bg: rgba(169, 184, 207, 0.13);
+  --purple: #A9BCCD;
+  --purple-bg: rgba(169, 188, 205, 0.13);
 
-  --gray-50: #1B283C;
-  --gray-100: #223149;
-  --gray-200: #2C3D58;
-  --gray-300: #3B4D69;
-  --gray-400: #5E7190;
-  --gray-500: #93A2B8;
-  --gray-600: #B9C5D6;
-  --gray-700: #D5DEEA;
+  --gray-50: #1A2E40;
+  --gray-100: #20374B;
+  --gray-200: #2A445A;
+  --gray-300: #3D566D;
+  --gray-400: #5F7A93;
+  --gray-500: #94A7B9;
+  --gray-600: #BCCBD9;
+  --gray-700: #D8E3EC;
 
   --accent-glow: transparent;
   --secondary: var(--primary);
   --secondary-dim: var(--primary-bg);
-  --chart-1: #5B93F5;
-  --chart-1-soft: #2E4E86;
-  --control-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --control-shadow-hover: 0 3px 8px rgba(0, 0, 0, 0.4);
+  --chart-1: #4DB3F2;
+  --chart-1-soft: #1F567C;
+  --control-shadow: 0 var(--edge) 0 #0A141D;
+  --control-shadow-hover: 0 var(--edge) 0 #0A141D;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
+  --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 24px 56px rgba(0, 0, 0, 0.55);
 }
 
 :root.dark-mode .search-modal { background: var(--bg-card); }
@@ -3458,10 +3479,7 @@ body.jump-open { overflow: hidden; }
 }
 .jump-lead {
   font-size: 22px;
-  background: var(--primary-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--primary);
   flex-shrink: 0;
 }
 .jump-input-row input {

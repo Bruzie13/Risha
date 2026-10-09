@@ -451,7 +451,7 @@ function chartTheme() {
 
 // Categories need distinct hues, but muted ones: the chart should not
 // out-shout the figures beside it.
-const CHART_PALETTE = ['#2A63AD', '#7FA3D4', '#B9853A', '#4C8A6B', '#8A7AA8', '#9AA3AE', '#B5696A', '#5E9AA0'];
+const CHART_PALETTE = ['#0D96E6', '#E3202B', '#FFC21A', '#12A37B', '#7C5CC4', '#F28A1F', '#5A6E82', '#7CCBF7'];
 
 async function loadCharts() {
     try {

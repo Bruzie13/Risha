@@ -8,3 +8,4 @@ __pycache__/
 database/generate_dummy_data.py
 .claude/
 backups/
+.impeccable/
