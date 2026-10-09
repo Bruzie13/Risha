@@ -1,0 +1,368 @@
+/* pos-register.css — the point of sale screen, and only that.
+   Linked last on pos.html, after system.css.
+
+   The till is two things side by side. On the left, finding a product: a
+   scan-and-search bar, the categories with how many of each can be sold, and
+   the products as rows tinted by category. On the right, the sale itself: a
+   solid panel in the sidebar's blue holding the sale as a paper receipt, the
+   cash box, and one yellow button.
+
+   Everything is sized from the window, so it holds on any laptop:
+     - the cart panel is a third of the width, between 350 and 460px
+     - the category list stays down the side on every laptop; it only
+       becomes a row of chips on a tablet or phone
+     - as the window narrows a row's "Add" button becomes a plus (1340px),
+       the three buttons at the top keep their icons only (1200px), and the
+       row's little picture goes (1100px)
+     - on a short screen every fixed part tightens in two steps so the list of
+       items in the sale never disappears
+     - under 900px the cart drops below the products and the page scrolls
+
+   The receipt is paper: it stays white with dark ink in dark mode too. */
+
+:root {
+  --sidebar-collapsed-w: 84px;
+  --till-soft: color-mix(in srgb, var(--text-primary) 7%, var(--bg-card));
+  --till-line: color-mix(in srgb, var(--text-primary) 15%, var(--bg-card));
+  --till-pad: clamp(14px, 1.8vw, 26px);
+}
+
+body, .main-wrapper { background: var(--bg-card); }
+
+/* one colour per kind of product (see categoryTone in js/pos.js) */
+.tone-food   { --t: #0C8ADB; }
+.tone-health { --t: #17A065; }
+.tone-care   { --t: #E0A800; --t-ink: #7A5B00; --t-mix: 30%; }
+.tone-litter { --t: #E3202B; }
+.tone-home   { --t: #7C5CC4; }
+.tone-toy    { --t: #F28A1F; }
+.tone-other  { --t: #5A6E82; }
+:root.dark-mode .tone-care { --t-ink: #FFD86B; --t-mix: 20%; }
+
+/* ----- The sidebar is a slim strip: the logo, where you are, and the three
+   things at the bottom ----- */
+@media (min-width: 769px) {
+  html.sidebar-hidden .sidebar .sidebar-header { padding: 16px 0 6px; border-bottom: none; justify-content: center; }
+  html.sidebar-hidden .sidebar .sidebar-brand .brand-icon { display: block; width: 54px; height: 54px; border-width: 3px; }
+  html.sidebar-hidden .sidebar-collapse-btn { display: none; }
+  html.sidebar-hidden .sidebar .sidebar-nav { padding: 12px 0; align-items: center; gap: 8px; }
+  html.sidebar-hidden .sidebar .sidebar-nav .nav-link { width: 54px; height: 54px; padding: 0; border-radius: 16px; }
+  html.sidebar-hidden .sidebar .sidebar-nav .nav-link.active { box-shadow: 0 3px 0 var(--brand-sky-3); }
+  html.sidebar-hidden .sidebar .sidebar-nav .nav-link .nav-icon.material-symbols-outlined { font-size: 26px; }
+  html.sidebar-hidden .sidebar .sidebar-footer { border-top: none; padding: 8px 0 14px; align-items: center; }
+  html.sidebar-hidden .sidebar .sidebar-user { padding: 0; margin-bottom: 8px; cursor: pointer; }
+  html.sidebar-hidden .sidebar .sidebar-user:hover { background: none; }
+  html.sidebar-hidden .sidebar .sidebar-user .avatar { width: 42px; height: 42px; }
+  html.sidebar-hidden .sidebar .sidebar-actions { gap: 6px; flex: 0 0 auto; }
+  html.sidebar-hidden .sidebar .sidebar-btn { flex: 0 0 46px; width: 46px; height: 46px; border-radius: 14px; background: transparent; box-shadow: none; }
+  html.sidebar-hidden .sidebar .sidebar-btn .material-symbols-outlined { font-size: 24px !important; }
+  html.sidebar-hidden .sidebar .sidebar-btn:hover { background: rgba(255, 255, 255, 0.18); }
+  html.sidebar-hidden .sidebar .sidebar-btn.sidebar-logout { margin-top: 0; }
+  html.sidebar-hidden .sidebar .sidebar-btn.sidebar-logout:hover { background: var(--brand-red); box-shadow: none; }
+}
+
+/* ----- The frame: products | sale ----- */
+.content.pos-content.till {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(350px, 33vw, 460px);
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  padding: 0;
+}
+.content.pos-content.till > * { max-width: none; }
+
+.till-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: clamp(10px, 2.4vh, 20px) clamp(12px, 1.5vw, 22px) 0 var(--till-pad); }
+
+/* title and the three occasional actions */
+.till-top { display: flex; align-items: center; gap: 14px; margin-bottom: clamp(8px, 1.7vh, 14px); }
+.till-top h1 { font-size: clamp(22px, 2.3vw, 30px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; color: var(--text-primary); white-space: nowrap; }
+.till-actions { margin-left: auto; display: flex; gap: 8px; }
+.till-act {
+  appearance: none; display: inline-flex; align-items: center; gap: 7px;
+  height: 42px; padding: 0 16px; border: none; border-radius: 999px;
+  background: var(--till-soft); color: var(--text-primary);
+  font: inherit; font-size: 14px; font-weight: 600; white-space: nowrap; cursor: pointer;
+  box-shadow: 0 2px 0 var(--till-line);
+  transition: background-color var(--transition), transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+}
+.till-act .material-symbols-outlined { font-size: 20px; }
+.till-act:hover { background: var(--till-line); }
+.till-act:active { transform: translateY(2px); box-shadow: none; }
+
+/* one bar, two fields: scan on the left, search on the right */
+.till-find {
+  display: flex; flex-shrink: 0; height: 52px;
+  border: 2px solid var(--text-primary); border-radius: 999px; background: var(--bg-card);
+  margin-bottom: clamp(10px, 2vh, 16px);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.till-find:focus-within { border-color: var(--primary); box-shadow: var(--focus-ring); }
+.till-scan, .till-search { position: relative; display: flex; align-items: center; min-width: 0; }
+.till-scan { flex: 0 1 250px; min-width: 168px; border-right: 2px solid var(--till-line); }
+.till-search { flex: 1 1 auto; }
+.till-find .material-symbols-outlined { position: absolute; left: 18px; font-size: 21px; color: var(--text-muted); pointer-events: none; }
+.till-find input {
+  width: 100%; height: 100%; min-width: 0;
+  border: 0; outline: 0; background: transparent; border-radius: 999px;
+  padding: 0 18px 0 50px;
+  font: inherit; font-size: 15px; color: var(--text-primary);
+}
+.till-find input::placeholder { color: var(--text-muted); }
+.till-scan input { padding-right: 56px; }
+.till-scan::after {
+  content: 'F2'; position: absolute; right: 14px;
+  font-size: 12px; font-weight: 700; line-height: 1.5; padding: 0 8px; border-radius: 6px;
+  background: var(--brand-sun); color: #10283F; pointer-events: none;
+}
+#posSearchSuggest { border-radius: 14px !important; margin-top: 8px !important; }
+
+/* categories beside the products */
+.till-cols { display: grid; grid-template-columns: clamp(146px, 15vw, 208px) minmax(0, 1fr); gap: clamp(10px, 1.3vw, 18px); flex: 1; min-height: 0; }
+.till-cats { display: flex; flex-direction: column; gap: 4px; align-self: start; max-height: 100%; overflow-y: auto; }
+.till-cats .pos-category-filter {
+  appearance: none; display: flex; align-items: center; gap: 10px; width: 100%;
+  min-height: 44px; padding: 0 14px;
+  border: none; border-radius: 14px; background: transparent; box-shadow: none; transform: none;
+  color: var(--text-primary); font: inherit; font-size: 14.5px; font-weight: 600; text-align: left; white-space: nowrap; cursor: pointer;
+  transition: background-color var(--transition), color var(--transition);
+}
+.till-cats .pos-category-filter:hover { background: var(--till-soft); color: var(--text-primary); border-color: transparent; }
+.till-cats .pos-category-filter:active { transform: none; }
+.till-cats .pos-category-filter.active, .till-cats .pos-category-filter.active:hover { background: var(--text-primary); color: var(--bg-card); box-shadow: none; transform: none; }
+.till-cats .pos-category-filter i { width: 10px; height: 10px; border-radius: 50%; background: var(--t); flex-shrink: 0; }
+.till-cats .pos-category-filter span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.till-cats .pos-category-filter em { font-style: normal; font-size: 13px; font-weight: 500; opacity: 0.62; }
+.till-cats .pos-cat-unsellable { margin-top: 8px; border: 1.5px dashed var(--till-line); color: var(--text-muted); font-weight: 500; }
+.till-cats .pos-cat-unsellable.active { border-style: solid; border-color: var(--text-primary); }
+
+/* the products, as rows */
+.till-listwrap { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.till-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 2px 6px 10px 2px; }
+.till-row {
+  display: grid; grid-template-columns: 46px minmax(0, 1fr) auto 112px 92px; align-items: center; gap: 14px;
+  min-height: 66px; padding: 8px 10px; border-radius: 18px; flex-shrink: 0;
+  background: color-mix(in srgb, var(--t) var(--t-mix, 15%), var(--bg-card));
+  cursor: pointer; user-select: none;
+  transition: box-shadow var(--transition), transform 120ms var(--ease-out);
+}
+.till-row:hover { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--t) 60%, transparent); }
+.till-row:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; box-shadow: none; }
+.tr-thumb { position: relative; width: 46px; height: 46px; border-radius: 14px; overflow: hidden; display: grid; place-items: center; background: var(--bg-card); color: var(--t); }
+.tr-thumb .material-symbols-outlined { font-size: 24px; font-variation-settings: 'FILL' 1; }
+.tr-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.tr-name { min-width: 0; }
+.tr-name small { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; line-height: 1.25; color: color-mix(in srgb, var(--t-ink, var(--t)) 82%, var(--text-primary)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tr-name small:empty { display: none; }
+.tr-name b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 15.5px; font-weight: 700; line-height: 1.22; color: var(--text-primary); }
+.tr-stock { font-size: 13px; font-weight: 500; color: var(--text-secondary); white-space: nowrap; }
+.tr-stock.low { font-weight: 700; color: var(--accent); }
+.tr-price { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; text-align: right; white-space: nowrap; color: var(--text-primary); }
+.tr-add {
+  display: flex; align-items: center; justify-content: center; gap: 3px; height: 40px; border-radius: 999px;
+  background: var(--bg-card); color: var(--text-primary); font-size: 14px; font-weight: 700;
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--text-primary) 20%, transparent);
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+}
+.tr-add .material-symbols-outlined { font-size: 19px; }
+.till-row:active .tr-add { transform: translateY(2px); box-shadow: none; }
+.till-row.unavailable { cursor: not-allowed; background: var(--till-soft); }
+.till-row.unavailable:hover { box-shadow: none; }
+.till-row.unavailable .tr-thumb { opacity: 0.55; }
+.till-row.unavailable .tr-name b, .till-row.unavailable .tr-price { color: var(--text-muted); }
+.till-row.unavailable .tr-stock { color: var(--text-muted); font-weight: 500; }
+.tr-tag { justify-self: end; padding: 4px 12px; border-radius: 999px; background: var(--brand-red); color: #fff; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.tr-tag.soldout { background: var(--text-muted); }
+.till-none { margin: auto; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 32px 16px; text-align: center; color: var(--text-muted); font-size: 14px; }
+.till-none .material-symbols-outlined { font-size: 40px; }
+.till-none b { font-size: 16px; color: var(--text-primary); }
+#posPagination { flex-shrink: 0; display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 0 12px; }
+
+/* ----- The sale: a blue panel, the receipt in it, the cash, one button ----- */
+.till-cart {
+  display: flex; flex-direction: column; min-height: 0; min-width: 0;
+  margin: 14px 14px 14px 0; padding: 16px;
+  background: var(--brand-sky); color: #fff; border-radius: 28px;
+}
+.till-cart-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 2px 6px 12px; }
+.till-cart-head h2 { font-size: 21px; font-weight: 800; color: #fff; }
+.till-cart-head > div { display: flex; align-items: center; gap: 8px; }
+.cart-count { padding: 3px 12px; border-radius: 999px; background: #fff; color: var(--brand-sky); font-size: 13.5px; font-weight: 800; white-space: nowrap; }
+.till-clear {
+  appearance: none; min-height: 28px; padding: 0 13px; border: 1.5px solid rgba(255, 255, 255, 0.7); border-radius: 999px;
+  background: transparent; color: #fff; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+  transition: background-color var(--transition);
+}
+.till-clear:hover { background: rgba(255, 255, 255, 0.2); }
+
+.till-receipt {
+  /* paper: these keep everything on it light, whatever the theme */
+  --text-primary: #10283F; --text-secondary: #37506A; --text-muted: #5A6E82; --bg-card: #FFFFFF; --primary: #0969AD;
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  padding: 14px 16px 20px; border-radius: 14px 14px 0 0;
+  background: #fff; color: #10283F;
+  /* a torn lower edge */
+  -webkit-mask: linear-gradient(#000 0 0) top / 100% calc(100% - 9px) no-repeat, radial-gradient(circle at 9px 0, #000 8.5px, transparent 9px) bottom left / 18px 9px repeat-x;
+          mask: linear-gradient(#000 0 0) top / 100% calc(100% - 9px) no-repeat, radial-gradient(circle at 9px 0, #000 8.5px, transparent 9px) bottom left / 18px 9px repeat-x;
+}
+.till-receipt-head { flex-shrink: 0; text-align: center; padding-bottom: 10px; border-bottom: 1.5px dashed #B9C9D8; }
+.till-receipt-head b { display: block; font-size: 15px; font-weight: 800; letter-spacing: 0.05em; }
+.till-receipt-head small { font-size: 12.5px; color: #5A6E82; }
+.till-items { flex: 1; min-height: 64px; overflow-y: auto; }
+.till-item { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(72px, auto) 22px; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px dashed #D9E2EA; }
+.ti-info { min-width: 0; }
+.ti-info b { display: block; font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ti-info small { font-size: 12.5px; color: #5A6E82; white-space: nowrap; }
+.ti-qty { display: flex; align-items: center; height: 32px; border-radius: 999px; background: #EEF2F5; }
+.ti-qty button { width: 28px; height: 32px; padding: 0; border: 0; border-radius: 999px; background: transparent; color: #075688; font: inherit; font-size: 17px; font-weight: 800; line-height: 1; cursor: pointer; }
+.ti-qty button:hover { background: #DCE5EC; }
+.ti-qty .qty-val { width: 30px; height: 32px; padding: 0; border: 0; outline: 0; background: transparent; color: #10283F; font: inherit; font-size: 14px; font-weight: 700; text-align: center; -moz-appearance: textfield; appearance: textfield; }
+.ti-qty .qty-val::-webkit-outer-spin-button, .ti-qty .qty-val::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.ti-qty .qty-val:focus { background: #fff; border-radius: 6px; box-shadow: 0 0 0 2px #0C8ADB; }
+.ti-total { font-size: 14px; font-weight: 700; text-align: right; white-space: nowrap; }
+.ti-remove { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #D11A26; cursor: pointer; }
+.ti-remove .material-symbols-outlined { font-size: 17px; }
+.ti-remove:hover { background: #FDE3E4; }
+.till-empty { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 12px 0; text-align: center; color: #5A6E82; font-size: 13.5px; }
+.till-empty .material-symbols-outlined { font-size: 34px; color: #B9C9D8; }
+.till-empty b { font-size: 15px; color: #10283F; }
+.till-customer { flex-shrink: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-top: 10px; }
+.till-customer input { min-width: 0; height: 34px; padding: 0 10px; border: 1.5px solid transparent; border-radius: 10px; outline: 0; background: #F2F5F8; color: #10283F; font: inherit; font-size: 13px; }
+.till-customer input::placeholder { color: #5A6E82; }
+.till-customer input:focus { background: #fff; border-color: #0C8ADB; }
+.till-sum { flex-shrink: 0; padding-top: 8px; }
+.till-sum .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px 0; font-size: 14px; color: #37506A; }
+.till-sum .row.total { align-items: baseline; margin-top: 6px; padding-top: 8px; border-top: 1.5px dashed #B9C9D8; color: #10283F; font-weight: 800; }
+.till-sum .row.total span:first-child { font-size: 17px; }
+.till-sum .row.total span:last-child { font-size: 27px; letter-spacing: -0.01em; }
+.till-disc { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; font-size: 13px; }
+.till-disc input { width: 52px; height: 28px; padding: 0; border: 1.5px solid #B9C9D8; border-radius: 8px; outline: 0; background: #fff; color: #10283F; font: inherit; font-size: 13.5px; font-weight: 600; text-align: center; }
+.till-disc input:focus { border-color: #0C8ADB; }
+.till-disc .pos-discount-limit { margin-left: 4px; font-size: 12.5px; color: #5A6E82; }
+
+.till-pay { flex-shrink: 0; padding: 12px 6px 0; }
+.till-tender { display: flex; align-items: center; gap: 10px; }
+.till-tender label { font-size: 14.5px; font-weight: 600; color: #fff; }
+.till-tender small { font-size: 12.5px; font-weight: 400; opacity: 0.88; }
+.till-tender input { margin-left: auto; width: 160px; min-width: 0; height: 46px; padding: 0 14px; border: 0; border-radius: 14px; outline: 0; background: #fff; color: #10283F; font: inherit; font-size: 20px; font-weight: 800; text-align: right; -moz-appearance: textfield; appearance: textfield; }
+.till-tender input::-webkit-outer-spin-button, .till-tender input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.till-tender input::placeholder { color: #9FB0BF; }
+.till-tender input:focus { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.6); }
+.till-quick { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+.till-quick button { height: 34px; padding: 0; border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.22); color: #fff; font: inherit; font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; transition: background-color var(--transition), transform 120ms var(--ease-out); }
+.till-quick button:hover { background: rgba(255, 255, 255, 0.34); }
+.till-quick button:active { transform: translateY(1px); }
+.till-quick button.exact { background: #fff; color: var(--brand-sky); }
+.till-change { display: flex; align-items: baseline; justify-content: space-between; margin-top: 10px; font-weight: 600; }
+.till-change span:last-child { font-size: 19px; font-weight: 800; color: #FFE27A; }
+.till-change.insufficient span:last-child { color: #FFC4C8; }
+.till-charge {
+  appearance: none; display: flex; align-items: center; justify-content: space-between; width: 100%;
+  height: 62px; margin-top: 12px; padding: 0 24px; border: 0; border-radius: 18px;
+  background: var(--brand-sun); color: #10283F; font: inherit; font-size: 19px; font-weight: 800; cursor: pointer;
+  box-shadow: 0 4px 0 #D6A600;
+  transition: background-color var(--transition), transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+}
+.till-charge:hover { background: #FFDB60; }
+.till-charge:active { transform: translateY(4px); box-shadow: none; }
+.till-charge:focus-visible, .till-clear:focus-visible, .till-quick button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; box-shadow: none; }
+.till-charge:focus-visible { box-shadow: 0 4px 0 #D6A600; }
+
+/* ----- Narrower laptops -----
+   The categories stay down the side at every laptop width. What gives way
+   instead is the product row: "Add" becomes a plus, then the top buttons lose
+   their words, then the little picture goes. */
+@media (max-width: 1339px) {
+  .till-cats .pos-category-filter { min-height: 40px; padding: 0 10px; gap: 8px; font-size: 14px; }
+  .till-row { grid-template-columns: 42px minmax(0, 1fr) auto 100px 42px; gap: 10px; }
+  .tr-thumb { width: 42px; height: 42px; }
+  .tr-add { width: 40px; }
+  .tr-add span:not(.material-symbols-outlined) { display: none; }
+  .tr-price { font-size: 17px; }
+}
+@media (max-width: 1199px) {
+  .till-act { width: 42px; padding: 0; justify-content: center; }
+  .till-act span:not(.material-symbols-outlined) { display: none; }
+  .till-scan { flex-basis: 190px; min-width: 150px; }
+  .till-tender small { display: none; }
+  .till-tender input { width: 140px; }
+  .till-cart { padding: 14px; }
+  /* a narrower receipt: a long product name takes two lines rather than being cut */
+  .ti-info b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.2; }
+  .till-customer input { font-size: 12.5px; padding: 0 8px; }
+}
+@media (max-width: 1099px) {
+  .till-row { grid-template-columns: minmax(0, 1fr) auto 90px 40px; padding-left: 14px; }
+  .tr-thumb { display: none; }
+  .tr-name b { font-size: 14.5px; }
+  .tr-price { font-size: 16px; }
+  .tr-stock { font-size: 12.5px; }
+  .till-cats .pos-category-filter { font-size: 13.5px; padding: 0 8px; gap: 6px; }
+}
+
+/* ----- Shorter laptops: everything fixed gets a little tighter ----- */
+@media (max-height: 820px) {
+  .till-act { height: 38px; }
+  .till-find { height: 46px; }
+  .till-row { min-height: 58px; padding: 6px 10px; }
+  .tr-thumb { width: 40px; height: 40px; }
+  .till-cats .pos-category-filter { min-height: 38px; }
+  .till-cart { margin: 10px 10px 10px 0; padding: 12px; border-radius: 24px; }
+  .till-cart-head { margin-bottom: 9px; }
+  .till-receipt { padding: 10px 14px 18px; }
+  .till-receipt-head { padding-bottom: 7px; }
+  .till-item { padding: 7px 0; }
+  .till-customer { padding-top: 8px; }
+  .till-sum .row.total span:last-child { font-size: 23px; }
+  .till-pay { padding-top: 9px; }
+  .till-tender input { height: 40px; font-size: 18px; }
+  .till-quick { margin-top: 8px; }
+  .till-quick button { height: 30px; }
+  .till-change { margin-top: 7px; }
+  .till-charge { height: 52px; margin-top: 9px; font-size: 17.5px; }
+}
+@media (max-height: 680px) {
+  .till-top { margin-bottom: 6px; }
+  .till-top h1 { font-size: 21px; }
+  .till-find { height: 42px; margin-bottom: 8px; }
+  .till-row { min-height: 52px; }
+  .till-receipt-head small { display: none; }
+  .till-item { padding: 5px 0; }
+  .ti-qty, .ti-qty button, .ti-qty .qty-val { height: 28px; }
+  .till-customer input { height: 30px; }
+  .till-sum { padding-top: 5px; }
+  .till-sum .row.total { margin-top: 4px; padding-top: 5px; }
+  .till-sum .row.total span:last-child { font-size: 21px; }
+  .till-tender input { height: 36px; }
+  .till-quick button { height: 28px; }
+  .till-charge { height: 46px; }
+}
+
+/* ----- Tablet and phone: the sale follows the products and the page scrolls ----- */
+@media (max-width: 900px) {
+  .content.pos-content.till { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .till-cols { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 10px; }
+  .till-cats { flex-direction: row; flex-wrap: wrap; gap: 6px; max-height: none; overflow: visible; align-self: auto; }
+  .till-cats .pos-category-filter { width: auto; min-height: 36px; padding: 0 13px; gap: 7px; border-radius: 999px; background: var(--till-soft); font-size: 14px; }
+  .till-cats .pos-category-filter span { flex: 0 1 auto; }
+  .till-cats .pos-cat-unsellable { margin-top: 0; margin-left: auto; background: transparent; }
+  .till-row { grid-template-columns: 42px minmax(0, 1fr) auto 100px 42px; padding-left: 10px; }
+  .tr-thumb { display: grid; }
+  .till-main { padding-bottom: 12px; }
+  .till-list { max-height: 54vh; }
+  .till-cart { margin: 0 12px 14px; }
+  .till-items { max-height: 40vh; }
+}
+@media (max-width: 768px) {
+  .till-top { padding-left: 52px; min-height: 44px; }   /* clear of the menu button */
+  .till-find { flex-direction: column; height: auto; border-radius: 18px; }
+  .till-scan { flex: none; height: 46px; border-right: none; border-bottom: 2px solid var(--till-line); }
+  .till-search { height: 46px; }
+  .till-row { grid-template-columns: 40px minmax(0, 1fr) 92px 40px; }
+  .tr-thumb { width: 40px; height: 40px; }
+  .tr-stock { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .till-act:active, .till-charge:active, .till-quick button:active, .till-row:active .tr-add { transform: none; }
+}

@@ -25,8 +25,9 @@ let posDisplayCount = POS_PAGE_SIZE;
 window.addEventListener('load', async () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
     if (isViewer()) {
-        document.querySelector('.pos-cart-actions .btn-primary')?.remove();
+        document.getElementById('posPayBtn')?.remove();
     }
+    setReceiptMeta();
     await Promise.all([loadProducts(), renderCategoryFilters()]);
     loadTill();
     setupBarcodeListener();
@@ -175,22 +176,63 @@ function productCategory(p) {
     return p.category_name || p.category || '';
 }
 
-// Category buttons come from the categories table (the loaded products no
-// longer cover the whole catalog); filtering happens on the server by id.
+/* One colour per kind of product. It is the dot beside a category and the
+   tint of every product row in it, so a cashier learns to find things by
+   colour as well as by name. */
+function categoryTone(name) {
+    const c = String(name || '').toLowerCase();
+    if (c.includes('food') || c.includes('treat')) return 'food';
+    if (c.includes('health') || c.includes('medic') || c.includes('wellness')) return 'health';
+    if (c.includes('access') || c.includes('groom')) return 'care';
+    if (c.includes('litter') || c.includes('waste')) return 'litter';
+    if (c.includes('cage') || c.includes('habitat')) return 'home';
+    if (c.includes('toy')) return 'toy';
+    return 'other';
+}
+
+/* Who is selling and what day it is, at the top of the receipt. */
+function setReceiptMeta() {
+    const el = document.getElementById('tillReceiptMeta');
+    if (!el) return;
+    let name = '';
+    try {
+        const user = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
+        name = String(user.full_name || user.username || '').trim().split(/\s+/)[0] || '';
+    } catch (e) { /* no name, just the date */ }
+    const day = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    el.textContent = (name ? `Cashier: ${name} · ` : '') + day;
+}
+
+// The category list comes from the categories table, each with how many of
+// its products can be sold today. Filtering happens on the server by id.
 async function renderCategoryFilters() {
     const container = document.getElementById('categoryFilters');
     if (!container) return;
+    const total = async status => {
+        try {
+            const res = await fetch(`${API_BASE}/products?status=${status}&limit=1&fields=light`, { headers: getAuthHeaders() });
+            const data = await res.json();
+            return data.success ? Number(data.total) : null;
+        } catch (e) { return null; }
+    };
     let cats = [];
-    try {
-        const res = await fetch(`${API_BASE}/products/categories`, { headers: getAuthHeaders() });
-        const data = await res.json();
-        if (data.success && Array.isArray(data.data)) cats = data.data;
-    } catch (e) { /* keep just the All button */ }
-    let html = '<button class="pos-category-filter active" data-cat="" onclick="filterByCategory(this,\'\')">All</button>';
+    const [sellable, unsellable] = await Promise.all([
+        total('sellable'), total('unsellable'),
+        (async () => {
+            try {
+                const res = await fetch(`${API_BASE}/products/categories`, { headers: getAuthHeaders() });
+                const data = await res.json();
+                if (data.success && Array.isArray(data.data)) cats = data.data;
+            } catch (e) { /* keep just "All products" */ }
+        })()
+    ]);
+    const count = n => (n == null || isNaN(n) ? '' : `<em>${Number(n)}</em>`);
+    const on = cat => (String(activeCategory) === String(cat) ? ' active' : '');
+    let html = `<button type="button" class="pos-category-filter${on('')}" data-cat="" onclick="filterByCategory(this,'')"><span>All products</span>${count(sellable)}</button>`;
     cats.forEach(c => {
-        html += `<button class="pos-category-filter" data-cat="${c.id}" onclick="filterByCategory(this,'${c.id}')">${escHtml(c.name)}</button>`;
+        html += `<button type="button" class="pos-category-filter${on(c.id)}" data-cat="${Number(c.id)}" onclick="filterByCategory(this,'${Number(c.id)}')"><i class="tone-${categoryTone(c.name)}"></i><span>${escHtml(c.name)}</span>${count(c.sellable_count)}</button>`;
     });
-    html += `<button class="pos-category-filter pos-cat-unsellable" data-cat="${UNSELLABLE_VIEW}" onclick="filterByCategory(this,'${UNSELLABLE_VIEW}')" title="Expired or sold-out products. They cannot be added to a sale.">Can't be sold</button>`;
+    html += `<button type="button" class="pos-category-filter pos-cat-unsellable${on(UNSELLABLE_VIEW)}" data-cat="${UNSELLABLE_VIEW}" onclick="filterByCategory(this,'${UNSELLABLE_VIEW}')" title="Expired or sold-out products. They cannot be added to a sale."><span>Can't be sold</span>${count(unsellable)}</button>`;
     container.innerHTML = html;
 }
 
@@ -233,7 +275,7 @@ function renderProducts(products) {
     const grid = document.getElementById('productGrid');
     if (!grid) return;
     if (products.length === 0) {
-        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);"><span class="material-symbols-outlined" style="font-size:40px;">search_off</span><br>No products found</div>';
+        grid.innerHTML = '<div class="till-none"><span class="material-symbols-outlined">search_off</span><b>No products found</b><span>Try another name, or pick a different category.</span></div>';
         document.getElementById('posPagination').innerHTML = '';
         return;
     }
@@ -242,7 +284,7 @@ function renderProducts(products) {
         const unitLabel = getUnitLabel(p.unit_type);
         const stock = parseFloat(p.stock_quantity) || 0;
         let stockClass = '';
-        let stockText = formatQty(stock) + unitLabel;
+        let stockText = formatQty(stock) + unitLabel + ' left';
         const blocked = unavailableReason(p);
         if (blocked) {
             stockClass = 'out';
@@ -252,22 +294,27 @@ function renderProducts(products) {
                 : 'None left';
         }
         else if (stock <= 10) stockClass = 'low';
-        const cat = productCategory(p).toLowerCase();
+        const category = productCategory(p);
+        const cat = category.toLowerCase();
         const icon = cat.includes('food') || cat.includes('treat') ? 'pet_supplies'
             : cat.includes('toy') ? 'toys'
             : cat.includes('medicine') || cat.includes('health') ? 'medication'
-            : cat.includes('groom') ? 'soap'
+            : cat.includes('groom') || cat.includes('access') ? 'soap'
             : 'inventory_2';
+        const tone = categoryTone(category);
+        const name = escHtml(p.name);
         // Not sellable: no click handler at all, and it says why.
         const open = blocked
-            ? `<div class="pos-product-card unavailable" aria-disabled="true" title="${escHtml(p.name)} — ${blocked.toLowerCase()}, cannot be sold">`
-            : `<div class="pos-product-card" role="button" tabindex="0" onclick="addToCart(${Number(p.id)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();addToCart(${Number(p.id)});}" title="${escHtml(p.name)}">`;
+            ? `<div class="till-row unavailable tone-${tone}" aria-disabled="true" title="${name} — ${blocked.toLowerCase()}, cannot be sold">`
+            : `<div class="till-row tone-${tone}" role="button" tabindex="0" onclick="addToCart(${Number(p.id)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();addToCart(${Number(p.id)});}" title="Add ${name} to the sale">`;
         return `${open}
-            ${blocked ? `<span class="p-tag ${blocked === 'Expired' ? 'expired' : 'soldout'}">${blocked}</span>` : ''}
-            <div class="p-img">${p.image_url ? `<img class="p-img-photo" src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.remove()">` : ''}<span class="material-symbols-outlined" style="font-size:22px;">${icon}</span></div>
-            <div class="p-name">${escHtml(p.name)}</div>
-            <div class="p-price">${formatCurrency(parseFloat(p.unit_price || 0))}</div>
-            <div class="p-stock ${stockClass}">${stockText}</div>
+            <div class="tr-thumb">${p.image_url ? `<img src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.remove()">` : ''}<span class="material-symbols-outlined">${icon}</span></div>
+            <div class="tr-name"><small>${escHtml(p.brand || category || '')}</small><b>${name}</b></div>
+            <div class="tr-stock ${stockClass}">${stockText}</div>
+            <div class="tr-price">${formatCurrency(parseFloat(p.unit_price || 0))}</div>
+            ${blocked
+                ? `<span class="tr-tag ${blocked === 'Expired' ? 'expired' : 'soldout'}">${blocked}</span>`
+                : `<span class="tr-add"><span class="material-symbols-outlined">add</span><span>Add</span></span>`}
         </div>`;
     }).join('');
     updatePagination('posPagination', { length: posTotal }, posDisplayCount, 'showMorePosProducts', 'showLessPosProducts', POS_PAGE_SIZE);
@@ -475,26 +522,25 @@ function renderCart() {
     setTimeout(animateCartChange, 30);
     const container = document.getElementById('cartItems');
     if (!container) return;
-    if (cartItems.length === 0) {
-        container.innerHTML = '<div class="pos-cart-empty"><div class="empty-icon"><span class="material-symbols-outlined" style="font-size:44px;">shopping_cart</span></div>Cart is empty<br><span style="font-size:12px;color:var(--text-muted);">Click a product to add</span></div>';
-        document.getElementById('cartCount').textContent = '0';
+    const countEl = document.getElementById('cartCount');
+    const n = cartItems.length;
+    if (countEl) countEl.textContent = n + (n === 1 ? ' item' : ' items');
+    if (n === 0) {
+        container.innerHTML = '<div class="till-empty"><span class="material-symbols-outlined">shopping_basket</span><b>Nothing in this sale yet</b><span>Scan a barcode or press Add on a product.</span></div>';
         return;
     }
-    document.getElementById('cartCount').textContent = cartItems.length;
     container.innerHTML = cartItems.map((item, idx) => {
         const ul = getUnitLabelShort(item.unit_type);
-        return `<div class="pos-cart-item">
-            <div class="pos-ci-info">
-                <div class="pos-ci-name">${escHtml(item.product_name)}</div>
-                <div class="pos-ci-meta">${formatCurrency(item.unit_price)} / ${ul}</div>
+        const name = escHtml(item.product_name);
+        return `<div class="till-item pos-cart-item">
+            <div class="ti-info"><b title="${name}">${name}</b><small>${formatCurrency(item.unit_price)} / ${ul}</small></div>
+            <div class="ti-qty">
+                <button type="button" onclick="updateCartQty(${idx}, -1)" title="Decrease" aria-label="One less ${name}">−</button>
+                <input type="number" class="qty-val" value="${item.quantity}" min="0" step="${getQtyStep(item.unit_type)}" aria-label="Quantity of ${name}" onchange="setCartQty(${idx}, this.value)" onclick="this.select()">
+                <button type="button" onclick="updateCartQty(${idx}, 1)" title="Increase" aria-label="One more ${name}">+</button>
             </div>
-            <div class="pos-ci-qty">
-                <button onclick="updateCartQty(${idx}, -1)" title="Decrease"><span class="material-symbols-outlined" style="font-size:14px;">remove</span></button>
-                <input type="number" class="qty-val" value="${item.quantity}" min="0" step="${getQtyStep(item.unit_type)}" onchange="setCartQty(${idx}, this.value)" onclick="this.select()">
-                <button onclick="updateCartQty(${idx}, 1)" title="Increase"><span class="material-symbols-outlined" style="font-size:14px;">add</span></button>
-            </div>
-            <div class="pos-ci-total">${formatCurrency(item.total_price)}</div>
-            <button class="pos-ci-remove" onclick="removeFromCart(${idx})" title="Remove"><span class="material-symbols-outlined">close</span></button>
+            <div class="ti-total">${formatCurrency(item.total_price)}</div>
+            <button type="button" class="ti-remove" onclick="removeFromCart(${idx})" title="Remove" aria-label="Remove ${name}"><span class="material-symbols-outlined">close</span></button>
         </div>`;
     }).join('');
 }
@@ -776,7 +822,7 @@ function setupAutocomplete() {
         suggest.style.display = 'none';
     });
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('.pos-search-wrap')) suggest.style.display = 'none';
+        if (!e.target.closest('.till-search')) suggest.style.display = 'none';
     });
 }
 

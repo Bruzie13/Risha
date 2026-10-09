@@ -26,9 +26,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css?v=50">
     <link rel="stylesheet" href="css/pos.css?v=33">
-<script>/* the till has one page, so its sidebar starts as a narrow strip unless someone opened it */if(localStorage.getItem('sidebarHidden')!=='false')document.documentElement.classList.add('sidebar-hidden');</script>
+<script>/* the till has one page, so its sidebar is always the narrow strip */document.documentElement.classList.add('sidebar-hidden');</script>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=30">
+        <link rel="stylesheet" href="css/system.css?v=31">
+        <link rel="stylesheet" href="css/pos-register.css?v=1">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -78,101 +79,79 @@
     </nav>
 
     <div class="main-wrapper">
-        <div class="page-header pos-header">
-            <div>
-                <h1>Point of sale</h1>
-                <div class="breadcrumb">Ring up a sale</div>
-            </div>
-            <div class="page-header-actions">
-                <button type="button" id="connectPrinterBtn" class="btn-secondary" style="display:none;" title="Connect a USB thermal printer for one-tap receipts (no print dialog)" onclick="connectThermalPrinter()">
-                            <span class="material-symbols-outlined">print</span>
-                            <span id="connectPrinterLabel">Connect printer</span>
-                        </button>
-                <button type="button" class="btn-secondary" onclick="openMySales()"><span class="material-symbols-outlined">receipt_long</span> My sales today</button>
-                <button type="button" class="btn-secondary" onclick="openPosEod()"><span class="material-symbols-outlined">savings</span> End of day</button>
-            </div>
-        </div>
-
-        <div class="content pos-content" style="padding:0;">
-            <div class="pos-layout">
-                <!-- Left: Product Grid -->
-                <div class="pos-products">
-                    <div class="pos-toolbar">
-                        <div class="pos-scan-wrap" title="Press F2 to focus the scanner">
-                            <span class="material-symbols-outlined scan-icon">barcode_scanner</span>
-                            <input type="text" id="barcodeScanInput" placeholder="Scan barcode" autofocus>
-                        </div>
-                        <div class="pos-search-wrap">
-                            <span class="material-symbols-outlined search-icon">search</span>
-                            <input type="text" class="pos-search" id="posSearchInput" placeholder="Search products..." oninput="filterProducts()">
-                        </div>
+        <div class="content pos-content till" style="padding:0;">
+            <!-- Left: find a product -->
+            <div class="till-main">
+                <header class="till-top">
+                    <h1>Point of sale</h1>
+                    <div class="till-actions">
+                        <button type="button" id="connectPrinterBtn" class="till-act" style="display:none;" title="Connect a USB thermal printer for one-tap receipts (no print dialog)" onclick="connectThermalPrinter()"><span class="material-symbols-outlined">print</span><span id="connectPrinterLabel">Connect printer</span></button>
+                        <button type="button" class="till-act" title="My sales today" onclick="openMySales()"><span class="material-symbols-outlined">receipt_long</span><span>My sales today</span></button>
+                        <button type="button" class="till-act" title="End of day" onclick="openPosEod()"><span class="material-symbols-outlined">savings</span><span>End of day</span></button>
                     </div>
-                    <div class="pos-cats-bar" id="categoryFilters"></div>
-                    <div class="pos-grid" id="productGrid">
+                </header>
+                <div class="till-find">
+                    <div class="till-scan" title="Press F2 to focus the scanner">
+                        <span class="material-symbols-outlined">barcode_scanner</span>
+                        <input type="text" id="barcodeScanInput" placeholder="Scan barcode" aria-label="Scan barcode" autofocus>
                     </div>
-                    <div id="posPagination" class="pagination-bar"></div>
+                    <div class="till-search">
+                        <span class="material-symbols-outlined">search</span>
+                        <input type="text" class="pos-search" id="posSearchInput" placeholder="Search products" aria-label="Search products" oninput="filterProducts()">
+                    </div>
                 </div>
+                <div class="till-cols">
+                    <nav class="till-cats" id="categoryFilters" aria-label="Product categories"></nav>
+                    <div class="till-listwrap">
+                        <div class="till-list" id="productGrid"></div>
+                        <div id="posPagination" class="pagination-bar"></div>
+                    </div>
+                </div>
+            </div>
 
-                <!-- Right: Cart Panel -->
-                <div class="pos-cart">
-                    <div class="pos-cart-header">
-                        <h3><span class="icon-chip coral"><span class="material-symbols-outlined" style="font-size:16px;">shopping_cart</span></span> Current sale</h3>
-                        <span class="cart-count" id="cartCount">0</span>
+            <!-- Right: the sale, drawn as its receipt -->
+            <aside class="till-cart" aria-label="Current sale">
+                <div class="till-cart-head">
+                    <h2>Current sale</h2>
+                    <div><span class="cart-count" id="cartCount">0 items</span><button type="button" class="till-clear" onclick="clearCart()">Clear</button></div>
+                </div>
+                <div class="till-receipt">
+                    <div class="till-receipt-head"><b>RISHA PET SUPPLIES</b><small id="tillReceiptMeta">Sale in progress</small></div>
+                    <div class="till-items" id="cartItems">
+                        <div class="till-empty"><span class="material-symbols-outlined">shopping_basket</span><b>Nothing in this sale yet</b><span>Scan a barcode or press Add on a product.</span></div>
                     </div>
-                    <div class="pos-cart-items" id="cartItems">
-                        <div class="pos-cart-empty">
-                            <div class="empty-icon"><span class="material-symbols-outlined" style="font-size:40px;">add_shopping_cart</span></div>
-                            No items added<br>
-                            <span style="font-size:12px;">Scan or click products to add</span>
-                        </div>
+                    <div class="till-customer">
+                        <input type="text" id="posCustomerName" placeholder="Customer (optional)" aria-label="Customer name, optional">
+                        <input type="text" id="posCustomerPhone" placeholder="Phone (optional)" aria-label="Customer phone, optional">
                     </div>
-                    <div class="pos-cart-customer">
-                        <input type="text" id="posCustomerName" placeholder="Customer (optional)">
-                        <input type="text" id="posCustomerPhone" placeholder="Phone (optional)">
-                    </div>
-                    <div class="pos-cart-summary">
-                        <div class="summary-row">
-                            <span>Subtotal</span>
-                            <span id="posSubtotal">₱0.00</span>
-                        </div>
-                        <div class="summary-row discount-row">
+                    <div class="till-sum">
+                        <div class="row"><span>Subtotal</span><span id="posSubtotal">₱0.00</span></div>
+                        <div class="row">
                             <span>Discount
-                                <span class="discount-inline">
-                                    <input type="number" id="posDiscount" value="0" min="0" max="100" step="0.01" oninput="updateCartTotals()">%<span id="posDiscountLimit" class="pos-discount-limit"></span>
-                                </span>
+                                <span class="till-disc"><input type="number" id="posDiscount" value="0" min="0" max="100" step="0.01" aria-label="Discount percent" oninput="updateCartTotals()">%<span id="posDiscountLimit" class="pos-discount-limit"></span></span>
                             </span>
                             <span id="posDiscountAmount">-₱0.00</span>
                         </div>
-                        <div class="summary-row total">
-                            <span>Total</span>
-                            <span class="total-val" id="posTotal">₱0.00</span>
-                        </div>
-
-                        <div class="pos-tender-section" id="posTenderSection">
-                            <div class="pos-tender-row">
-                                <label for="posTendered">Cash received <small class="pos-cash-only">cash only</small></label>
-                                <input type="number" id="posTendered" min="0" step="0.01" placeholder="0.00" oninput="updateChange()">
-                            </div>
-                            <div class="pos-quick-cash">
-                                <button type="button" class="exact" onclick="quickCash('exact')">Exact</button>
-                                <button type="button" onclick="quickCash(20)">+20</button>
-                                <button type="button" onclick="quickCash(50)">+50</button>
-                                <button type="button" onclick="quickCash(100)">+100</button>
-                                <button type="button" onclick="quickCash(500)">+500</button>
-                                <button type="button" onclick="quickCash(1000)">+1000</button>
-                            </div>
-                            <div class="pos-change-row" id="posChangeRow">
-                                <span>Change</span>
-                                <span id="posChange">₱0.00</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="pos-cart-actions">
-                        <button class="btn-secondary" onclick="clearCart()"><span class="material-symbols-outlined" style="font-size:14px;">delete_sweep</span> Clear</button>
-                        <button class="btn-primary pos-pay-main" id="posPayBtn" onclick="completeSale()"><span class="material-symbols-outlined" style="font-size:16px;">point_of_sale</span> Charge <span id="posPayTotal">₱0.00</span></button>
+                        <div class="row total"><span>Total</span><span id="posTotal">₱0.00</span></div>
                     </div>
                 </div>
-            </div>
+                <div class="till-pay" id="posTenderSection">
+                    <div class="till-tender">
+                        <label for="posTendered">Cash received <small>· cash only</small></label>
+                        <input type="number" id="posTendered" min="0" step="0.01" placeholder="0.00" oninput="updateChange()">
+                    </div>
+                    <div class="till-quick">
+                        <button type="button" class="exact" onclick="quickCash('exact')">Exact</button>
+                        <button type="button" onclick="quickCash(20)">+20</button>
+                        <button type="button" onclick="quickCash(50)">+50</button>
+                        <button type="button" onclick="quickCash(100)">+100</button>
+                        <button type="button" onclick="quickCash(500)">+500</button>
+                        <button type="button" onclick="quickCash(1000)">+1000</button>
+                    </div>
+                    <div class="till-change" id="posChangeRow"><span>Change</span><span id="posChange">₱0.00</span></div>
+                    <button type="button" class="till-charge" id="posPayBtn" onclick="completeSale()"><span>Charge</span><span id="posPayTotal">₱0.00</span></button>
+                </div>
+            </aside>
         </div>
     </div>
 
@@ -304,7 +283,7 @@
 <script src="js/jump.js?v=30"></script>
 <script src="js/assistant.js?v=24"></script>
     <script src="js/escpos-print.js?v=3"></script>
-    <script src="js/pos.js?v=41"></script>
+    <script src="js/pos.js?v=42"></script>
 </body>
 </html>
 

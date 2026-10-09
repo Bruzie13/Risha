@@ -299,8 +299,13 @@ class Product {
     static async getCategories() {
         const connection = await pool.getConnection();
         try {
+            // sellable_count: how many of its products can be sold today — the
+            // number the till shows beside each category.
             const [rows] = await connection.execute(
-                'SELECT * FROM categories ORDER BY name'
+                `SELECT c.*,
+                        (SELECT COUNT(*) FROM products p
+                          WHERE p.category_id = c.id AND p.is_active = TRUE AND NOT ${UNSELLABLE_SQL}) AS sellable_count
+                   FROM categories c ORDER BY c.name`
             );
             return rows;
         } finally {

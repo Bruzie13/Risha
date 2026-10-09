@@ -88,6 +88,15 @@ h1, h2, h3 { font-family: var(--font-display); }
   color: var(--text-primary);
 }
 
+/* On a small laptop (769 to 1024px wide) the sidebar is a narrow strip. Its
+   theme, notifications and logout buttons were hidden at that width, which
+   left no way to sign out from the sidebar. They are stacked instead. */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .sidebar .sidebar-footer { display: flex; flex-direction: column; align-items: center; padding: 8px 6px; }
+  .sidebar .sidebar-actions { flex-direction: column; align-items: center; gap: 4px; }
+  .sidebar .sidebar-btn { display: flex; flex: 0 0 36px; width: 36px; height: 36px; padding: 0; }
+}
+
 /* ----- Shell: the yellow band. The page's name and its main actions always
    sit here, in the same place on every page. ----- */
 .page-header {
@@ -527,202 +536,10 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); widt
   .settings-sidebar .settings-tab { width: 100%; justify-content: flex-start; }
 }
 
-/* ----- Point of sale: a product is a big button ----- */
-.pos-product-card {
-  border: 1.5px solid var(--border-glass-strong);
-  border-radius: var(--radius-lg);
-  background: var(--bg-card);
-  box-shadow: var(--control-shadow);
-  transition: border-color var(--transition), box-shadow 120ms var(--ease-out), transform 120ms var(--ease-out);
-}
-.pos-product-card:not(.unavailable):hover { border-color: var(--primary); box-shadow: 0 var(--edge) 0 var(--primary); }
-.pos-product-card:not(.unavailable):active { transform: translateY(var(--edge)); box-shadow: none; }
-/* the plus says "tap to add" before anyone tries it */
-.pos-product-card:not(.unavailable)::after {
-  content: 'add';
-  font-family: 'Material Symbols Outlined';
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 19px;
-  background: var(--brand-red);
-  color: #fff;
-  box-shadow: 0 2px 0 var(--brand-red-dark);
-}
-.pos-product-card .p-name { font-weight: 600; color: var(--text-primary); }
-.pos-product-card .p-price { font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
-.pos-product-card .p-stock { padding-right: 30px; }
-.pos-product-card.unavailable { background: var(--bg-raised); border-style: dashed; box-shadow: none; }
-.pos-product-card .p-img,
-.pos-product-card:nth-child(4n+2) .p-img, .pos-product-card:nth-child(4n+3) .p-img, .pos-product-card:nth-child(4n) .p-img { background: var(--bg-inset); color: var(--text-muted); border-radius: var(--radius-md); }
-/* six buttons share one row evenly (two rows of three on a phone), so
-   "+1000" is never pushed out of the panel */
-.pos-quick-cash { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; }
-@media (max-width: 420px) { .pos-quick-cash { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-.pos-quick-cash button {
-  min-width: 0; min-height: 36px; padding: 0 2px; white-space: nowrap;
-  border: 1.5px solid var(--border-glass-strong); border-radius: var(--radius-md);
-  background: var(--bg-card); color: var(--text-primary);
-  font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
-  box-shadow: var(--control-shadow);
-}
-.pos-quick-cash button:hover { background: var(--bg-card-hover); border-color: var(--gray-400); }
-.pos-quick-cash button:active { transform: translateY(var(--edge)); box-shadow: none; }
-/* "Exact" is the dark one; it keeps its dark body on hover (it used to turn cream under white text) */
-.pos-quick-cash button.exact, .pos-quick-cash button.exact:hover { background: var(--brand-ink); border-color: var(--brand-ink); color: #fff; box-shadow: 0 var(--edge) 0 #000; opacity: 1; }
-.pos-pay-main { min-height: 54px; font-size: 17px; font-weight: 700; }
-.pos-ci-remove, .btn-remove { min-height: 30px; padding: 0 8px; box-shadow: none; border-color: transparent; background: transparent; color: var(--danger); }
-.pos-ci-remove:hover, .btn-remove:hover { background: var(--danger-bg); }
-
-/* The POS fills the screen exactly on any laptop: its band is a fixed
-   height (--pos-band) and the selling area takes the rest. Side by side from
-   901px wide; below that the cart drops under the products. On a short
-   screen the band gets thinner. */
-:root { --pos-band: 80px; }
-@media (max-height: 700px) { :root { --pos-band: 60px; } }
-@media (min-width: 901px) {
-  .page-header.pos-header { height: var(--pos-band); min-height: var(--pos-band); padding-top: 8px; padding-bottom: 8px; flex-direction: row; align-items: center; flex-wrap: nowrap; }
-  .pos-header .page-header-actions { width: auto; margin-left: auto; flex-shrink: 0; }
-  .pos-layout { flex-direction: row; height: calc(100vh - var(--pos-band)); height: calc(100dvh - var(--pos-band)); }
-  .content.pos-content { min-height: 0; }
-  .pos-products { max-height: none; border-bottom: none; min-height: 0; }
-  .pos-cart { width: clamp(330px, 31vw, 440px); min-height: 0; }
-  .pos-cart-items { min-height: 84px; }
-}
-.content.pos-content > * { max-width: none; }   /* the till uses the whole width, however wide the screen */
-.pos-cart-summary { overflow-y: auto; }
-
-/* The cart list is the part of the checkout the cashier reads, so it gets
-   the room. Everything fixed around it (heading, customer fields, totals,
-   cash box, buttons) is set tighter, and the "Cash payment only" banner
-   became two words beside "Cash received". On a laptop screen the list now
-   shows about six items before it scrolls; it showed two. */
-.pos-cart-header { padding: 10px 16px; }
-.pos-cart-items { padding: 4px 10px; }
-.pos-cart-item { padding: 8px 6px; gap: 8px; }
-.pos-cart-empty { padding: 28px 16px 20px; }
-.pos-cart-customer { padding: 8px 16px; gap: 6px; }
-.pos-cart-customer input { padding: 7px 10px; font-size: 13px; min-height: 34px; }
-.pos-cart-summary { padding: 8px 16px 10px; }
-.pos-cart-summary .summary-row { padding: 2px 0; font-size: 13.5px; }
-.pos-cart-summary .summary-row.total { font-size: 20px; padding-top: 6px; margin-top: 4px; }
-.pos-tender-section { margin-top: 8px; padding: 9px 12px 10px; }
-.pos-tender-row input { padding: 6px 10px; min-height: 38px; font-size: 17px; box-sizing: border-box; min-width: 0; }
-.pos-tender-row label { flex-shrink: 0; }
-.pos-tender-row label { font-size: 13px; }
-.pos-cash-only { font-size: 12px; font-weight: 500; color: var(--text-muted); margin-left: 4px; }
-.pos-quick-cash { margin-top: 7px; }
-.pos-quick-cash button { min-height: 32px; }
-.pos-change-row { margin-top: 7px; padding-top: 6px; }
-.pos-cart-actions { padding: 8px 16px 12px; }
-.pos-cart-actions .pos-pay-main { min-height: 48px; }
-.pos-cash-banner { display: none; }
-
-/* ----- Point of sale layout: room to work -----
-   The till was crowded: a full sidebar for one link, three controls and a
-   printer button on one line, small tiles packed tight, and a cart panel
-   built from boxes inside boxes. Now the sidebar starts as a narrow strip,
-   the printer button sits in the band with the other occasional actions,
-   tiles are larger with air between them, and the cart is plain lines and
-   space instead of bordered boxes. */
-.pos-toolbar { gap: 12px; padding: clamp(10px, 1.6vh, 18px) clamp(14px, 1.8vw, 24px) 12px; flex-wrap: nowrap; }
-.pos-scan-wrap { flex: 0 1 260px; }
-.pos-search-wrap { flex: 1 1 auto; }
-.pos-scan-wrap input, .pos-search-wrap input { min-height: 44px; font-size: 14.5px; border-width: 1.5px; box-shadow: none; }
-.pos-cats-bar { gap: 8px; padding: 2px clamp(14px, 1.8vw, 24px) 12px; flex-wrap: wrap; overflow-x: visible; }
-.pos-cat-unsellable { margin-left: auto; }
-.pos-cat-unsellable:not(.active) { background: transparent; border-style: dashed; box-shadow: none; color: var(--text-muted); }
-.pos-grid { grid-template-columns: repeat(auto-fill, minmax(clamp(150px, 13vw, 190px), 1fr)); gap: clamp(10px, 1.2vw, 16px); padding: 4px clamp(14px, 1.8vw, 24px) 24px; }
-.pos-product-card { padding: 14px 16px 14px; }
-.pos-product-card .p-name { font-size: 14px; line-height: 1.3; margin: 2px 0 0; min-height: 2.6em; }
-.pos-product-card .p-price { font-size: 18px; margin: 0; }
-.pos-product-card .p-stock { font-size: 12.5px; margin: 0; }
-#posPagination { padding: 10px 24px 14px; }
-
-.pos-cart { box-shadow: none; border-left: 1.5px solid var(--border-glass); }
-.pos-cart-header { padding: 16px 22px 12px; border-bottom: none; }
-.pos-cart-header h3 { font-size: 18px; font-weight: 700; }
-.pos-cart-header .icon-chip { display: none; }
-.pos-cart-items { padding: 0 16px; border-top: 1.5px solid var(--border-subtle); }
-.pos-cart-item { padding: 12px 6px; gap: 10px; }
-.pos-cart-customer { padding: 12px 22px 0; gap: 10px; border-top: 1.5px solid var(--border-subtle); }
-.pos-cart-customer input { background: var(--bg-raised); border-color: transparent; }
-.pos-cart-customer input:focus { background: var(--bg-card); border-color: var(--primary); }
-.pos-cart-summary { padding: 12px 22px 12px; border-top: none; }
-.pos-cart-summary .summary-row { padding: 3px 0; }
-.pos-cart-summary .summary-row.total { border-top: 1.5px solid var(--border-glass); padding-top: 10px; margin-top: 8px; font-size: 22px; }
-.pos-tender-section { margin-top: 12px; padding: 12px 0 0; background: transparent; border: none; border-top: 1.5px solid var(--border-subtle); border-radius: 0; }
-.pos-quick-cash { margin-top: 10px; gap: 6px; }
-.pos-quick-cash button { min-height: 36px; }
-.pos-change-row { margin-top: 10px; padding-top: 0; border-top: none; }
-.pos-cart-actions { padding: 12px 22px 18px; gap: 12px; }
-.pos-cart-actions .pos-pay-main { min-height: 52px; }
-
-/* ----- Point of sale on smaller and shorter laptops -----
-   Width: under 1200px the three buttons in the band keep their icons and lose
-   their words (each still has its tooltip), and the scan box gives room to
-   the search box. Height: the cart's fixed parts tighten in two steps so the
-   list of items never disappears, down to a 1280x720 screen. */
-@media (min-width: 901px) and (max-width: 1199px) {
-  .pos-header .page-header-actions { flex-wrap: nowrap; gap: 8px; }
-  .pos-header .page-header-actions .btn-secondary { font-size: 0; gap: 0; padding: 0 12px; min-width: 44px; }
-  .pos-header .page-header-actions .btn-secondary .material-symbols-outlined { font-size: 20px !important; margin: 0; }
-  .pos-header .page-header-actions .btn-secondary span:not(.material-symbols-outlined) { font-size: 0; }
-  .pos-scan-wrap { flex: 0 1 190px; min-width: 150px; }
-  .pos-search-wrap { min-width: 0; }
-  /* a narrower cart: the row gives the product name the room, not the controls */
-  .pos-cart-item { gap: 6px; }
-  .pos-ci-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .pos-ci-qty button { width: 24px; }
-  .pos-ci-qty .qty-val { width: 34px; }
-  .pos-ci-total { min-width: 58px; }
-  .pos-cash-only { display: none; }
-  .pos-cart-header, .pos-cart-customer, .pos-cart-summary, .pos-cart-actions { padding-left: 14px; padding-right: 14px; }
-}
-@media (max-height: 700px) and (min-width: 901px) {
-  .pos-header h1 { font-size: 21px; }
-  .pos-header .breadcrumb { display: none; }
-}
-@media (max-height: 820px) and (min-width: 901px) {
-  .pos-scan-wrap input, .pos-search-wrap input { min-height: 40px; }
-  .pos-cart-header { padding: 10px 18px 8px; }
-  .pos-cart-header h3 { font-size: 16.5px; }
-  .pos-cart-item { padding: 8px 6px; }
-  .pos-cart-customer { padding: 8px 18px 0; }
-  .pos-cart-summary { padding: 8px 18px 8px; }
-  .pos-cart-summary .summary-row { padding: 1px 0; }
-  .pos-cart-summary .summary-row.total { font-size: 20px; padding-top: 6px; margin-top: 5px; }
-  .pos-tender-section { margin-top: 8px; padding-top: 8px; }
-  .pos-quick-cash { margin-top: 7px; }
-  .pos-quick-cash button { min-height: 32px; }
-  .pos-change-row { margin-top: 6px; }
-  .pos-cart-actions { padding: 8px 18px 12px; }
-  .pos-cart-actions .pos-pay-main { min-height: 46px; }
-  .pos-product-card { padding: 12px 14px 12px; }
-}
-@media (max-height: 660px) and (min-width: 901px) {
-  .pos-cart-customer input { min-height: 30px; padding: 5px 9px; }
-  .pos-cart-summary .summary-row.total { font-size: 18px; }
-  .pos-tender-row input { min-height: 34px; font-size: 16px; }
-  .pos-quick-cash button { min-height: 28px; font-size: 12.5px; }
-  .pos-cart-actions .pos-pay-main, .pos-cart-actions .btn-secondary { min-height: 42px; }
-  .pos-product-card .p-img { width: 36px; height: 36px; }
-  .pos-cats-bar { padding-bottom: 8px; }
-}
-/* stacked (tablet and phone): the cart follows the products and the page scrolls */
-@media (max-width: 900px) {
-  .pos-layout { flex-direction: column; height: auto; }
-  .pos-products { max-height: 56vh; }
-  .pos-cart { width: 100%; border-left: none; border-top: 1.5px solid var(--border-glass); }
-  .pos-toolbar { flex-wrap: wrap; }
-  .pos-scan-wrap, .pos-search-wrap { flex: 1 1 200px; }
-}
+/* The point of sale screen has its own stylesheet, css/pos-register.css,
+   loaded after this one on pos.html. Nothing about the till lives here. */
+.btn-remove { min-height: 30px; padding: 0 8px; box-shadow: none; border-color: transparent; background: transparent; color: var(--danger); }
+.btn-remove:hover { background: var(--danger-bg); }
 
 /* ----- Outside the sign-in wall: the yellow of the sign, its paws and bones
    drifting slowly, and one white card ----- */
@@ -755,7 +572,6 @@ body.auth-page {
 .rp-table th { white-space: normal; vertical-align: bottom; line-height: 1.35; }
 .rp-table th.num, .rp-table td.num { white-space: nowrap; }
 .rp-table th.num { white-space: normal; }
-.pos-product-card.unavailable .p-stock::before { display: none; }
 
 /* ----- Reading: headings break into even lines, paragraphs never leave one
    word alone on the last line, and running text stops at a readable width. ----- */
