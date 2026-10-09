@@ -575,19 +575,6 @@ body.auth-page {
 .rp-table th.num { white-space: normal; }
 .pos-product-card.unavailable .p-stock::before { display: none; }
 
-/* ----- Sidebar icons: all in the yellow of the sign, like the Jump bolt.
-   Labels stay white. The page you are on keeps its own colour, because
-   yellow would vanish on its white tab. ----- */
-.sidebar-nav .nav-link .nav-icon.material-symbols-outlined,
-.sidebar-nav .nav-link:hover .nav-icon.material-symbols-outlined,
-.sidebar-btn, .sidebar-btn:hover,
-.sidebar-btn .material-symbols-outlined,
-.sidebar-collapse-btn, .sidebar-collapse-btn:hover,
-.sidebar-user .user-settings-btn, .sidebar-user .user-settings-btn:hover { color: var(--brand-sun); }
-.sidebar-nav .nav-link.active .nav-icon.material-symbols-outlined,
-.sidebar-nav .nav-link.active:hover .nav-icon.material-symbols-outlined { color: var(--nav-text-active); }
-.sidebar-btn.sidebar-logout:hover, .sidebar-btn.sidebar-logout:hover .material-symbols-outlined { color: #fff; }
-
 /* ===========================================================================
    MOTION — after Emil Kowalski's design-engineering rules
    (~/.agents/skills/emil-design-eng).
