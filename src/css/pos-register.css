@@ -243,6 +243,14 @@ body, .main-wrapper { background: var(--bg-card); }
   box-shadow: 0 4px 0 #D6A600;
   transition: background-color var(--transition), transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
 }
+.till-charge:disabled, .till-charge:disabled:hover { background: rgba(255, 255, 255, 0.22); color: rgba(255, 255, 255, 0.85); box-shadow: none; cursor: not-allowed; transform: none; }
+/* today's count is saved: the drawer is closed and says so */
+.till-closed { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, 0.16); font-size: 13px; line-height: 1.45; color: #fff; }
+.till-closed[hidden] { display: none; }
+.till-closed .material-symbols-outlined { font-size: 22px; flex-shrink: 0; color: var(--brand-sun); }
+.till-closed b { display: block; font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+.till-cart.closed .till-tender, .till-cart.closed .till-quick, .till-cart.closed .till-change { display: none; }
+.till-cart.closed .till-clear { display: none; }
 .till-charge:hover { background: #FFDB60; }
 .till-charge:active { transform: translateY(4px); box-shadow: none; }
 .till-charge:focus-visible, .till-clear:focus-visible, .till-quick button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; box-shadow: none; }

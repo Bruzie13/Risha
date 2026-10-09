@@ -88,6 +88,23 @@ exports.createSale = async (req, res) => {
             });
         }
 
+        /* A cashier who has saved the end-of-day count has closed the drawer.
+           A sale after that would put cash into a drawer whose count is
+           already final, and it would never be counted. So selling stops with
+           the count, the same as cash in and out does, until an administrator
+           reopens the count. */
+        if (req.user.role === 'cashier') {
+            const [closed] = await pool.query(
+                'SELECT id FROM cash_reconciliations WHERE business_date = ? AND counted_by = ?', [shopToday(), req.user.id]);
+            if (closed.length) {
+                return res.status(400).json({
+                    success: false,
+                    code: 'DRAWER_CLOSED',
+                    message: "Your drawer is closed for today: the end-of-day count is already saved. Ask an administrator to reopen the count if you need to sell again."
+                });
+            }
+        }
+
         for (const item of items) {
             if (!item.product_id || !item.quantity || item.quantity <= 0) {
                 return res.status(400).json({ success: false, message: 'Each item must have a valid product_id and positive quantity' });

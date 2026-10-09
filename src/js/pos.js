@@ -34,6 +34,8 @@ window.addEventListener('load', async () => {
     document.getElementById('posSearchInput')?.addEventListener('keyup', filterProducts);
     // Live stock: another terminal's sale shows here without a refresh
     setInterval(refreshStockLevels, 10000);
+    // Coming back to the till: has the count been saved, or reopened, meanwhile?
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) loadTill(); });
     initThermalPrinter();
 });
 
@@ -433,6 +435,7 @@ function setupBarcodeListener() {
 }
 
 function addToCart(productId) {
+    if (drawerClosed()) { showToast('Your drawer is closed for today', 'warning'); return; }
     const product = allProducts.find(p => p.id === productId);
     if (!product) return;
     const stock = parseFloat(product.stock_quantity) || 0;
@@ -617,6 +620,7 @@ function quickCash(amount) {
 
 async function completeSale() {
     if (isViewer()) { showToast('View-only account. Cannot process sales.', 'error'); return; }
+    if (drawerClosed()) { showToast('Your drawer is closed for today', 'warning'); return; }
     if (cartItems.length === 0) { showToast('Cart is empty', 'error'); return; }
     const discount = getDiscountPercent();
     const subtotal = cartItems.reduce((sum, i) => sum + i.total_price, 0);
@@ -669,6 +673,11 @@ async function completeSale() {
                 if (tenderInput) tenderInput.value = '';
                 updateChange();
                 if (saleId) printReceipt(saleId, tendered, change);
+            } else if (data.code === 'DRAWER_CLOSED') {
+                // counted from another tab or device: catch up and say so
+                if (posTill) posTill.counted = true;
+                applyDrawerState();
+                showToast(data.message, 'warning');
             } else {
                 showToast('Error: ' + (data.message || 'Unknown'), 'error');
             }
@@ -844,11 +853,33 @@ async function loadTill() {
         if (input) input.max = posMaxDiscount;
         const hint = document.getElementById('posDiscountLimit');
         if (hint) hint.textContent = posMaxDiscount < 100 ? `up to ${posMaxDiscount}%` : '';
+        applyDrawerState();
         // First thing each day: what is in the drawer before any sale.
-        if (!posTill.opening_set && !posTill.counted) openPosOpen(false);
+        if (!posTill.opening_set && !posTill.counted && !document.getElementById('posOpenModal')?.classList.contains('active')) openPosOpen(false);
     } catch (e) {
         console.error('Till load failed:', e);
     }
+}
+
+/* Once today's count is saved the drawer is closed: no more sales, no more
+   cash in or out, no second count. The screen says so instead of letting a
+   sale be built and then refusing it. An administrator reopening the count
+   opens it again, which this picks up when the till is next looked at. */
+function drawerClosed() {
+    return !!(posTill && posTill.counted);
+}
+
+function applyDrawerState() {
+    const closed = drawerClosed();
+    document.querySelector('.till-cart')?.classList.toggle('closed', closed);
+    const note = document.getElementById('tillClosed');
+    if (note) note.hidden = !closed;
+    const pay = document.getElementById('posPayBtn');
+    if (pay) {
+        pay.disabled = closed;
+        pay.title = closed ? "Today's count is saved. An administrator can reopen it." : '';
+    }
+    if (closed && cartItems.length) { cartItems = []; renderCart(); updateCartTotals(); }
 }
 
 function openPosOpen(canCancel) {
@@ -1137,6 +1168,7 @@ function savePosEod() {
                 const data = await res.json();
                 if (!data.success) { showToast(data.message || 'The count could not be saved', 'error'); return; }
                 if (posTill) posTill.counted = true;
+                applyDrawerState();
                 showPosEodResult({ ...data.data, notes: document.getElementById('posEodNotes').value });
             } catch (e) {
                 console.error('End-of-day save failed:', e);
