@@ -596,7 +596,7 @@ async function completeSale() {
             });
             const data = await response.json();
             if (data.success) {
-                showToast('Sale completed' + (change > 0 ? ' Change: ₱' + change.toFixed(2) : ''), 'success');
+                showToast('Sale completed!' + (change > 0 ? ' Change: ₱' + change.toFixed(2) : ''), 'success');
                 const saleId = data.data?.id || data.data?.sale_id;
                 cartItems = [];
                 renderCart();
@@ -615,7 +615,7 @@ async function completeSale() {
             console.error('Error creating sale:', error);
             showToast('Failed to create sale', 'error');
         }
-    }, 'Complete Sale', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">payments</span>');
+    }, 'Complete sale', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">payments</span>');
 }
 
 async function printReceipt(saleId, tendered, change) {

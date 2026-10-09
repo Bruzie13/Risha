@@ -1,0 +1,493 @@
+Form,Test case ID,Description and expected result,Status,Comment
+System test: Admin and Users,1-01,Enter the login credentials then click the Sign in button Successfully logged in without error and directed to the account's home page (Dashboard / Point of Sale / Supplier Portal),Passed,Cashier lands on Point of Sale; a wrong password is refused. Administrator and Supplier routing not exercised (no login available to the tester).
+System test: Admin and Users,2-01,"Tick ""Keep me signed in"" then click the Sign in button Successfully logged in and the session is kept after the browser is closed",Passed,"With the box ticked the session is stored for the browser, not just the tab. Not verified by actually closing the browser."
+System test: Admin and Users,3-01,"Click the ""Forgot your password?"" link Successfully displayed the Reset your password form",Passed,
+System test: Admin and Users,3-02,"Enter the username or email then click the ""Ask for a reset"" button Successfully sent the reset request to the administrator",Passed,One request created and administrators notified; asking twice does not duplicate it.
+System test: Admin and Users,3-03,Open the approved reset link from the email Successfully displayed the Choose a new password page,Passed,Done by the project owner on localhost earlier today.
+System test: Admin and Users,3-04,"Enter and confirm the new password then click the ""Save new password"" button Successfully reset the password and redirected to the Sign in page",Passed,Done by the project owner on localhost earlier today.
+System test: Admin and Users,4-01,Open the confirmation link sent to the new account's email Successfully confirmed the email address and allowed the account to sign in,Open,Needs a newly created account. An invalid or used link is correctly refused.
+System test: Admin and Users,5-01,"Click the Dashboard menu in the sidebar Successfully displayed the KPI cards, sales chart, stock by category, recent sales, restocking list, expiring products and purchase orders",Open,Needs an administrator sign-in.
+System test: Admin and Users,6-01,Click any card in the Expiring products panel (Within 30 days / 31 to 60 / 61 to 90) Successfully displayed the list of products expiring within the selected range,Open,Needs an administrator sign-in.
+System test: Admin and Users,6-02,Click the Close button Successfully closed the Expiring Products form,Open,Needs an administrator sign-in.
+System test: Admin and Users,7-01,Click the status button of a purchase order in the Purchase orders panel Successfully displayed the confirmation message,Open,Needs an administrator sign-in.
+System test: Admin and Users,7-02,Click the confirm button Successfully updated the status of the purchase order,Open,Needs an administrator sign-in.
+System test: Admin and Users,8-01,Press Ctrl/ + J or click the Jump to button ⌘ Successfully displayed the Jump to search palette,Open,Needs an administrator sign-in.
+System test: Admin and Users,8-02,"Type the name of a page, action or product then press Enter Successfully redirected to the selected page or item",Open,Needs an administrator sign-in.
+System test: Admin and Users,9-01,Click the FETCH Assistant & Help button Successfully displayed the assistant panel,Open,Needs an administrator sign-in.
+System test: Admin and Users,9-02,Type a question then click the Send button Successfully displayed the answer of the assistant,Open,Needs an administrator sign-in.
+System test: Admin and Users,10-01,"Type the name, SKU or barcode of an existing product in the search box Successfully displayed the product on the list without error",Open,Needs an administrator sign-in.
+System test: Admin and Users,11-01,Click the dropdown All Categories Successfully displayed all the categories,Open,Needs an administrator sign-in.
+System test: Admin and Users,11-02,Click any specific category Successfully displayed all the products under the category,Open,Needs an administrator sign-in.
+System test: Admin and Users,12-01,"Click the dropdown All Species Successfully displayed all the species (Dog, Cat, Bird, Fish)",Open,Needs an administrator sign-in.
+System test: Admin and Users,12-02,Click any specific species Successfully displayed all the products for the species,Open,Needs an administrator sign-in.
+System test: Admin and Users,13-01,Click the Sort dropdown Successfully displayed all the sort options,Open,Needs an administrator sign-in.
+System test: Admin and Users,13-02,"Click any sort option (Name, Price, Stock, Expiry, Status) Successfully arranged the products based on the selected option",Open,Needs an administrator sign-in.
+System test: Admin and Users,14-01,"Click any status chip (Low Stock, Out of Stock, Expiring Soon, Expired, Healthy) Successfully displayed the products with the selected status",Open,Needs an administrator sign-in.
+System test: Admin and Users,15-01,Click the Card view / Table view button Successfully displayed the products as cards or as a table,Open,Needs an administrator sign-in.
+System test: Admin and Users,16-01,Click the Add button Successfully displayed the Add New Product form,Open,Needs an administrator sign-in.
+System test: Admin and Users,16-02,Click the Generate button beside the Barcode field Successfully generated an in-store barcode,Open,Needs an administrator sign-in.
+System test: Admin and Users,16-03,Click the Upload button and choose an image Successfully displayed the image preview,Open,Needs an administrator sign-in.
+System test: Admin and Users,16-04,"Enter all required details, then click the Save Product button Successfully added a new product without error",Open,Needs an administrator sign-in.
+System test: Admin and Users,17-01,Click any product Successfully displayed the Product Details form,Open,Needs an administrator sign-in.
+System test: Admin and Users,18-01,Click the Edit button inside the Product Details form Successfully displayed the Edit Product form,Open,Needs an administrator sign-in.
+System test: Admin and Users,18-02,"Enter all required details, then click the Save Product button Successfully updated the details of the product",Open,Needs an administrator sign-in.
+System test: Admin and Users,19-01,Click the Delete button inside the Product Details form Successfully displayed the Delete Product confirmation,Open,Needs an administrator sign-in.
+System test: Admin and Users,19-02,"Click the Yes, Delete button Successfully deleted the product",Open,Needs an administrator sign-in.
+System test: Admin and Users,20-01,Click the Stock button of a product Successfully displayed the Adjust Stock form,Open,Needs an administrator sign-in.
+System test: Admin and Users,20-02,"Select the adjustment type, enter the quantity and reason, then click the Save Adjustment button Successfully updated the stock quantity of the product",Open,Needs an administrator sign-in.
+System test: Admin and Users,21-01,Click the Reorder button Successfully displayed the list of low-stock products,Open,Needs an administrator sign-in.
+System test: Admin and Users,21-02,Select the products to reorder then click the confirm button Successfully displayed the final check message,Open,Needs an administrator sign-in.
+System test: Admin and Users,21-03,Click the Proceed button Successfully created the purchase orders and emailed each supplier,Open,Needs an administrator sign-in.
+System test: Admin and Users,22-01,Tick the checkboxes of products Successfully displayed the bulk action bar,Open,Needs an administrator sign-in.
+System test: Admin and Users,22-02,Click the Bulk Reorder button then confirm Successfully created purchase orders for the selected products,Open,Needs an administrator sign-in.
+System test: Admin and Users,22-03,"Click the Adjust Stock button, enter a quantity then confirm Successfully adjusted the stock of the selected products",Open,Needs an administrator sign-in.
+System test: Admin and Users,22-04,Click the Delete button then confirm Successfully deleted the selected products,Open,Needs an administrator sign-in.
+System test: Admin and Users,22-05,Click the Clear button Successfully cleared the selection,Open,Needs an administrator sign-in.
+System test: Admin and Users,23-01,Click the Import button Successfully displayed the Import Products from CSV form,Open,Needs an administrator sign-in.
+System test: Admin and Users,23-02,Click the Download Template button Successfully saved the CSV template,Open,Needs an administrator sign-in.
+System test: Admin and Users,23-03,Choose a CSV file Successfully displayed the preview of the products,Open,Needs an administrator sign-in.
+System test: Admin and Users,23-04,Click the Import Products button Successfully imported the products without error,Open,Needs an administrator sign-in.
+System test: Admin and Users,24-01,Click the Barcodes button Successfully displayed the Assign Barcodes form,Open,Needs an administrator sign-in.
+System test: Admin and Users,24-02,Enter or scan a barcode for a product then click Save Successfully saved the barcode of the product,Open,Needs an administrator sign-in.
+System test: Admin and Users,25-01,Click the Images button Successfully displayed the Product Images form,Open,Needs an administrator sign-in.
+System test: Admin and Users,25-02,Upload an image for a product Successfully saved the image of the product,Open,Needs an administrator sign-in.
+System test: Admin and Users,26-01,Type the sale number or customer of an existing sale in the search box Successfully displayed the sale on the table without error,Open,Needs an administrator sign-in.
+System test: Admin and Users,27-01,Click the From date field and choose a start date Successfully selected the start date,Open,Needs an administrator sign-in.
+System test: Admin and Users,27-02,Click the To date field and choose an end date Successfully selected the end date,Open,Needs an administrator sign-in.
+System test: Admin and Users,27-03,Click the Filter button Successfully filtered and displayed records within the selected date range,Open,Needs an administrator sign-in.
+System test: Admin and Users,27-04,Click the Clear button Successfully displayed all the sales,Open,Needs an administrator sign-in.
+System test: Admin and Users,28-01,Click the View button of a sale Successfully displayed the Sale Details form,Open,Needs an administrator sign-in.
+System test: Admin and Users,28-02,Click the Print Receipt button Successfully displayed the printed version of the receipt,Open,Needs an administrator sign-in.
+System test: Admin and Users,29-01,Click the Void button of a sale Successfully displayed the void reason form,Open,Needs an administrator sign-in.
+System test: Admin and Users,29-02,Enter the reason then click the confirm button Successfully voided the sale and restored the stock,Open,Needs an administrator sign-in.
+System test: Admin and Users,30-01,Click the Delete Sale button inside the Sale Details form Successfully displayed the Delete Sale confirmation,Open,Needs an administrator sign-in.
+System test: Admin and Users,30-02,Click the confirm button Successfully deleted the sale and restored the stock,Open,Needs an administrator sign-in.
+System test: Admin and Users,31-01,Click the Export CSV button Successfully displayed the file manager,Open,Needs an administrator sign-in.
+System test: Admin and Users,31-02,Click the Save button Successfully saved the CSV file,Open,Needs an administrator sign-in.
+System test: Admin and Users,32-01,Click the End of Day button Successfully displayed the End of day cash count form with the expected cash,Open,Needs an administrator sign-in.
+System test: Admin and Users,32-02,"Enter the cash counted then click the Save Count button Successfully saved the count and displayed if the drawer is balanced, over or short",Open,Needs an administrator sign-in.
+System test: Admin and Users,32-03,Click the Reopen button of a recorded count then confirm Successfully removed the count so it can be recorded again,Open,Needs an administrator sign-in.
+System test: Admin and Users,33-01,Type the name of an existing supplier in the search box Successfully displayed the supplier on the table without error,Open,Needs an administrator sign-in.
+System test: Admin and Users,34-01,Click the Add Supplier button Successfully displayed the Add New Supplier form,Open,Needs an administrator sign-in.
+System test: Admin and Users,34-02,"Enter all required details, then click the Save Supplier button Successfully added a new supplier without error",Open,Needs an administrator sign-in.
+System test: Admin and Users,35-01,Click the Edit button of a supplier Successfully displayed the Edit Supplier form,Open,Needs an administrator sign-in.
+System test: Admin and Users,35-02,"Enter all required details, then click the Save Supplier button Successfully updated the details of the supplier",Open,Needs an administrator sign-in.
+System test: Admin and Users,36-01,Click the Delete button of a supplier Successfully displayed the Delete Supplier confirmation,Open,Needs an administrator sign-in.
+System test: Admin and Users,36-02,Click the confirm button Successfully deleted the supplier,Open,Needs an administrator sign-in.
+System test: Admin and Users,37-01,"Click the Performance button of a supplier Successfully displayed the fulfillment rate, lead time, orders and purchase order history",Open,Needs an administrator sign-in.
+System test: Admin and Users,38-01,Click the Emails button or the supplier's email address Successfully displayed the email history with read receipts,Open,Needs an administrator sign-in.
+System test: Admin and Users,39-01,"Click the Orders view beside the search box Successfully displayed the orders on the way, offers, price changes and unpaid deliveries",Open,Needs an administrator sign-in.
+System test: Admin and Users,39-02,Click the Refresh button Successfully refreshed the orders,Open,Needs an administrator sign-in.
+System test: Admin and Users,40-01,Click the Mark confirmed button of a pending order then confirm Successfully updated the order as confirmed,Open,Needs an administrator sign-in.
+System test: Admin and Users,40-02,Click the Mark shipped button of a confirmed order then confirm Successfully updated the order as shipped,Open,Needs an administrator sign-in.
+System test: Admin and Users,40-03,"Click the Receive into stock button, enter the quantities received then confirm Successfully received the order and added the quantities to stock",Open,Needs an administrator sign-in.
+System test: Admin and Users,41-01,Click the Cancel order button Successfully displayed the cancel confirmation,Open,Needs an administrator sign-in.
+System test: Admin and Users,41-02,Click the confirm button Successfully cancelled the order,Open,Needs an administrator sign-in.
+System test: Admin and Users,42-01,Click the Accept offer button of an offered order then confirm Successfully converted the offer into a confirmed order,Open,Needs an administrator sign-in.
+System test: Admin and Users,42-02,Click the Decline button of an offered order then confirm Successfully declined the offer,Open,Needs an administrator sign-in.
+System test: Admin and Users,43-01,Click the Accept button of a proposed price then confirm Successfully updated the price in the inventory,Open,Needs an administrator sign-in.
+System test: Admin and Users,43-02,Click the Decline button of a proposed price then confirm Successfully declined the proposal and kept the price,Open,Needs an administrator sign-in.
+System test: Admin and Users,44-01,Click the Mark as paid button of a delivered order then confirm Successfully marked the order as paid,Open,Needs an administrator sign-in.
+System test: Admin and Users,45-01,Click the Notes button of an order Successfully displayed the notes of the order,Open,Needs an administrator sign-in.
+System test: Admin and Users,45-02,Type a note then click the Send button Successfully added the note to the order,Open,Needs an administrator sign-in.
+System test: Admin and Users,46-01,"Click any period (Last 7 days, Last 30 days, This month, All time) Successfully displayed the sales report for the selected period",Open,Needs an administrator sign-in.
+System test: Admin and Users,46-02,"Click the Day / Week / Month button Successfully grouped the report by day, week or month",Open,Needs an administrator sign-in.
+System test: Admin and Users,47-01,Select the Custom option in the filter Successfully displayed the date range picker,Open,Needs an administrator sign-in.
+System test: Admin and Users,47-02,Click the From date field and choose a start date Successfully selected the start date,Open,Needs an administrator sign-in.
+System test: Admin and Users,47-03,Click the To date field and choose an end date Successfully selected the end date,Open,Needs an administrator sign-in.
+System test: Admin and Users,47-04,Apply the selected date range Successfully filtered and displayed records within the selected date range,Open,Needs an administrator sign-in.
+System test: Admin and Users,48-01,Click the Export CSV button Successfully displayed the file manager,Open,Needs an administrator sign-in.
+System test: Admin and Users,48-02,Click the Save button Successfully saved the CSV file,Open,Needs an administrator sign-in.
+System test: Admin and Users,49-01,"Click the Stock planning tab Successfully displayed the 30-day forecast, products to reorder and forecast accuracy",Open,Needs an administrator sign-in.
+System test: Admin and Users,49-02,Click the Refresh button Successfully recalculated the forecast,Open,Needs an administrator sign-in.
+System test: Admin and Users,50-01,Click the Export list button Successfully displayed the file manager,Open,Needs an administrator sign-in.
+System test: Admin and Users,50-02,Click the Save button Successfully saved the reorder list CSV file,Open,Needs an administrator sign-in.
+System test: Admin and Users,51-01,Click the Create purchase orders button Successfully displayed the confirmation message,Open,Needs an administrator sign-in.
+System test: Admin and Users,51-02,Click the confirm button Successfully created the purchase orders and emailed each supplier,Open,Needs an administrator sign-in.
+System test: Admin and Users,52-01,Type the name of an existing product in the All products search box Successfully displayed the product on the table without error,Open,Needs an administrator sign-in.
+System test: Admin and Users,52-02,"Click any filter (Selling fast, Selling steadily, Selling slowly, Not selling) Successfully displayed the products under the selected filter",Open,Needs an administrator sign-in.
+System test: Admin and Users,53-01,Click any product in the All products table Successfully displayed the sales history and forecast of the product,Open,Needs an administrator sign-in.
+System test: Admin and Users,53-02,Click the Close button Successfully closed the product detail,Open,Needs an administrator sign-in.
+System test: Admin and Users,54-01,Click the Void requests tab Successfully displayed the sales waiting for a decision,Open,Needs an administrator sign-in.
+System test: Admin and Users,54-02,Click the Void sale button then confirm Successfully voided the sale and returned the items to stock,Open,Needs an administrator sign-in.
+System test: Admin and Users,54-03,Click the Keep sale button then confirm Successfully dismissed the request and kept the sale,Open,Needs an administrator sign-in.
+System test: Admin and Users,55-01,Click the Activity log tab Successfully displayed the activity log,Open,Needs an administrator sign-in.
+System test: Admin and Users,55-02,Click the dropdown All actions and choose an action Successfully displayed the records of the selected action,Open,Needs an administrator sign-in.
+System test: Admin and Users,55-03,Click the dropdown All areas and choose an area Successfully displayed the records of the selected area,Open,Needs an administrator sign-in.
+System test: Admin and Users,56-01,Click the Notifications bell icon Successfully displayed the notifications drop-down,Open,Needs an administrator sign-in.
+System test: Admin and Users,56-02,Click any notification Successfully marked the notification as read,Open,Needs an administrator sign-in.
+System test: Admin and Users,57-01,Click the dropdown All Types and choose a type Successfully displayed the notifications of the selected type,Open,Needs an administrator sign-in.
+System test: Admin and Users,57-02,Click the dropdown All Status and choose a status Successfully displayed the notifications with the selected status,Open,Needs an administrator sign-in.
+System test: Admin and Users,58-01,Click the Mark All Read button Successfully marked all notifications as read,Open,Needs an administrator sign-in.
+System test: Admin and Users,59-01,Click the Clear Read button Successfully displayed the confirmation message,Open,Needs an administrator sign-in.
+System test: Admin and Users,59-02,Click the confirm button Successfully cleared the read notifications USERS,Open,Needs an administrator sign-in.
+System test: Admin and Users,60-01,Type the name of an existing user in the search box Successfully displayed the user on the table without error,Open,Needs an administrator sign-in.
+System test: Admin and Users,61-01,Click the Add User button Successfully displayed the Add New User form,Open,Needs an administrator sign-in.
+System test: Admin and Users,61-02,Enter the email then click the Send code button Successfully sent the 6-digit code to the email,Open,Needs an administrator sign-in.
+System test: Admin and Users,61-03,"Enter all required details and the code, then click the Create User button Successfully added a new user without error",Open,Needs an administrator sign-in.
+System test: Admin and Users,62-01,Click the Edit button of a user Successfully displayed the Edit User form,Open,Needs an administrator sign-in.
+System test: Admin and Users,62-02,"Enter all required details, then click the Update User button Successfully updated the details of the user",Open,Needs an administrator sign-in.
+System test: Admin and Users,63-01,Click the Delete button of a user Successfully displayed the deactivate confirmation,Open,Needs an administrator sign-in.
+System test: Admin and Users,63-02,Click the confirm button Successfully deactivated the user,Open,Needs an administrator sign-in.
+System test: Admin and Users,64-01,Tick the Show deactivated toggle Successfully displayed the deactivated users,Open,Needs an administrator sign-in.
+System test: Admin and Users,64-02,Click the Restore button then confirm Successfully restored the user,Open,Needs an administrator sign-in.
+System test: Admin and Users,65-01,Click the Resend button of an unconfirmed user Successfully sent a new confirmation link,Open,Needs an administrator sign-in.
+System test: Admin and Users,66-01,Click the Approve and email link button of a request Successfully approved the request and emailed the reset link,Open,Needs an administrator sign-in.
+System test: Admin and Users,66-02,Click the Decline button of a request Successfully declined the request,Open,Needs an administrator sign-in.
+System test: Admin and Users,67-01,Click the Settings icon Successfully displayed the Settings page,Open,Needs an administrator sign-in.
+System test: Admin and Users,67-02,Enter the full name and email then click the Save Changes button Successfully updated the profile,Open,Needs an administrator sign-in.
+System test: Admin and Users,68-01,Click the Upload photo button Successfully displayed the file manager,Open,Needs an administrator sign-in.
+System test: Admin and Users,68-02,Click any photo inside the file manager then click the Open button Successfully displayed the new profile photo,Open,Needs an administrator sign-in.
+System test: Admin and Users,68-03,Click the Remove button Successfully removed the profile photo,Open,Needs an administrator sign-in.
+System test: Admin and Users,69-01,Click the Password tab Successfully displayed the Change Password form,Open,Needs an administrator sign-in.
+System test: Admin and Users,69-02,"Enter the current, new and confirm password then click the Update Password button Successfully changed the password",Open,Needs an administrator sign-in.
+System test: Admin and Users,70-01,Click the Preferences tab Successfully displayed the preferences,Open,Needs an administrator sign-in.
+System test: Admin and Users,70-02,Enter the discount limit then click the Save limit button Successfully saved the discount limit,Open,Needs an administrator sign-in.
+System test: Admin and Users,71-01,Click the Download Backup button Successfully displayed the file manager,Open,Needs an administrator sign-in.
+System test: Admin and Users,71-02,Click the Save button Successfully saved the backup file,Open,Needs an administrator sign-in.
+System test: Admin and Users,72-01,"Choose a mode (System, Light, Dark), accent colour, font and text size Successfully displayed the preview of the appearance",Open,Needs an administrator sign-in.
+System test: Admin and Users,72-02,Click the Save Changes button Successfully saved the appearance,Open,Needs an administrator sign-in.
+System test: Admin and Users,72-03,Click the Reset button Successfully restored the default appearance,Open,Needs an administrator sign-in.
+System test: Admin and Users,73-01,Click the Email tab Successfully displayed the Email Configuration form,Open,Needs an administrator sign-in.
+System test: Admin and Users,73-02,Enter the Gmail address and app password then click the Save button Successfully saved and verified the email settings,Open,Needs an administrator sign-in.
+System test: Admin and Users,73-03,Enter a recipient then click the Send Test Email button Successfully sent the test email,Open,Needs an administrator sign-in.
+System test: Admin and Users,74-01,Click the Logout button Successfully logged out and redirected to the Sign in page,Open,Needs an administrator sign-in.
+System test: Admin and Users,75-01,Sign in as Staff Successfully displayed the Starting cash form,In Progress,The starting cash form works (opened through Change). Its automatic appearance on the first sign-in of the day could not be reproduced: today was already opened.
+System test: Admin and Users,75-02,Enter the cash in the drawer then click the Save starting cash button Successfully saved the starting cash,Passed,"""Starting cash saved: ₱2,000.00"""
+System test: Admin and Users,76-01,Type the name of an existing product in the search box Successfully displayed the product without error,Passed,Searching PEDIGREE lists the Pedigree products (also matches by brand).
+System test: Admin and Users,76-02,Click any category button Successfully displayed the products under the category,Passed,
+System test: Admin and Users,77-01,Press F2 then scan the barcode of a product Successfully added the product to the cart,Passed,F2 focuses the scan field; a typed code adds the product. No physical scanner used.
+System test: Admin and Users,78-01,Click any product card Successfully added the product to the Current Sale,Passed,"""PEDIGREE POUCH ADULT added to cart"""
+System test: Admin and Users,78-02,Click the + / − button of an item Successfully updated the quantity and total,Passed,"Quantity and total update; cannot exceed stock (""Only 25 in stock"")."
+System test: Admin and Users,78-03,Click the remove (x) button of an item Successfully removed the item from the cart,Passed,
+System test: Admin and Users,78-04,Click the Clear button Successfully cleared the cart,Passed,
+System test: Admin and Users,79-01,"Enter the customer name, phone and discount (optional) Successfully computed the subtotal, discount and total",Passed,"5% of ₱38.00 = ₱1.90, total ₱36.10. A 50% discount is cut to the 10% limit with a message."
+System test: Admin and Users,79-02,"Enter the cash received or click a quick cash button (Exact, +20, +50, +100, +500, +1000) Successfully computed the change",Passed,"Exact = ₱38.00; +20 = ₱58.00, change ₱20.00."
+System test: Admin and Users,79-03,Click the Charge button Successfully displayed the Confirm Cash Sale form,Passed,
+System test: Admin and Users,79-04,"Click the confirm button Successfully recorded the sale, deducted the stock and displayed the receipt",Passed,"Sale #2578 recorded, stock 25 to 24, print dialog opened. This sale is a test: void it under Reports > Void requests."
+System test: Admin and Users,79-05,Click the Print button Successfully printed the receipt,Passed,The browser print dialog opened.
+System test: Admin and Users,80-01,Click the Connect Printer button and choose the USB printer Successfully connected the thermal printer,Open,Needs the USB thermal printer.
+System test: Admin and Users,81-01,Click the My sales today button Successfully displayed the sales of the cashier for today,Passed,
+System test: Admin and Users,81-02,Click the Reprint button of a sale Successfully printed the receipt again,Passed,
+System test: Admin and Users,82-01,Click the Ask to void button of a sale Successfully displayed the void request form,Passed,"The button reads ""Ask for void"", the form says ""Ask to void""."
+System test: Admin and Users,82-02,Enter the reason then click the confirm button Successfully sent the void request to a manager,Passed,"Request sent; row shows ""Void requested"". Asking again is refused."
+System test: Admin and Users,83-01,Click the End of day button Successfully displayed the End of day cash count form with the expected cash,Passed,"Shows starting cash and number of sales. The expected cash is deliberately hidden until the count is saved (blind count), so ""with the expected cash"" in the form is not what happens."
+System test: Admin and Users,83-02,"Enter the cash counted then click the Save count button Successfully saved the count and displayed if the drawer is balanced, over or short",Open,Not run: saving would close today's till on the live database.
+System test: Supplier,1-01,Enter the login credentials then click the Sign in button Successfully logged in without error and directed to the account's home page (Dashboard / Point of Sale / Supplier Portal),Passed,Cashier lands on Point of Sale; a wrong password is refused. Administrator and Supplier routing not exercised (no login available to the tester).
+System test: Supplier,2-01,"Tick ""Keep me signed in"" then click the Sign in button Successfully logged in and the session is kept after the browser is closed",Passed,"With the box ticked the session is stored for the browser, not just the tab. Not verified by actually closing the browser."
+System test: Supplier,3-01,"Click the ""Forgot your password?"" link Successfully displayed the Reset your password form",Passed,
+System test: Supplier,3-02,"Enter the username or email then click the ""Ask for a reset"" button Successfully sent the reset request to the administrator",Passed,One request created and administrators notified; asking twice does not duplicate it.
+System test: Supplier,3-03,Open the approved reset link from the email Successfully displayed the Choose a new password page,Passed,Done by the project owner on localhost earlier today.
+System test: Supplier,3-04,"Enter and confirm the new password then click the ""Save new password"" button Successfully reset the password and redirected to the Sign in page",Passed,Done by the project owner on localhost earlier today.
+System test: Supplier,4-01,Open the confirmation link sent to the new account's email Successfully confirmed the email address and allowed the account to sign in,Open,Needs a newly created account. An invalid or used link is correctly refused.
+System test: Supplier,5-01,"Sign in as Supplier Successfully displayed the open orders, payments, products, performance and past orders",Open,Needs the supplier sign-in: the test password no longer works.
+System test: Supplier,6-01,Click the Confirm order button of a pending order Successfully displayed the Confirm order form,Open,Needs the supplier sign-in: the test password no longer works.
+System test: Supplier,6-02,"Enter the delivery date and quantities, then click the Save button Successfully confirmed the order",Open,Needs the supplier sign-in: the test password no longer works.
+System test: Supplier,7-01,Click the Mark as shipped button of a confirmed order Successfully displayed the Mark as shipped form,Open,Needs the supplier sign-in: the test password no longer works.
+System test: Supplier,7-02,Enter the delivery receipt number then click the Save button Successfully marked the order as shipped,Open,Needs the supplier sign-in: the test password no longer works.
+System test: Supplier,8-01,Click the Change delivery date button Successfully displayed the Change delivery date form,Open,Needs the supplier sign-in: the test password no longer works.
+System test: Supplier,8-02,"Enter the new date and reason, then click the Save button Successfully updated the delivery date",Open,Needs the supplier sign-in: the test password no longer works.
+System test: Supplier,9-01,Click the Notes button of an order Successfully displayed the notes of the order,Open,Needs the supplier sign-in: the test password no longer works.
+System test: Supplier,9-02,Type a note then click the Send button Successfully added the note to the order,Open,Needs the supplier sign-in: the test password no longer works.
+System test: Supplier,10-01,Click the Offer an order button Successfully displayed the Offer an order form,Open,Needs the supplier sign-in: the test password no longer works.
+System test: Supplier,10-02,"Enter the quantities and delivery date, then click the Save button Successfully sent the offer to the shop",Open,Needs the supplier sign-in: the test password no longer works.
+System test: Supplier,11-01,Click the propose price button of a product Successfully displayed the New price form,Open,Needs the supplier sign-in: the test password no longer works.
+System test: Supplier,11-02,"Enter the new price and reason, then click the Send to the shop button Successfully sent the price for approval",Open,Needs the supplier sign-in: the test password no longer works.
+System test: Supplier,12-01,Click the Edit contact details button Successfully displayed the contact details form,Open,Needs the supplier sign-in: the test password no longer works.
+System test: Supplier,12-02,"Enter all required details, then click the Save button Successfully updated the contact details",Open,Needs the supplier sign-in: the test password no longer works.
+Unit test plan (UAT),1-01,"Check if the Username field is empty A tooltip ""Please fill out this field."" will be displayed",Passed,
+Unit test plan (UAT),1-02,"Check if the Password field is empty A tooltip ""Please fill out this field."" will be displayed",Passed,
+Unit test plan (UAT),1-03,"Click ""Forgot your password?"", check if the Username or email field is empty A tooltip ""Please fill out this field."" will be displayed",Passed,
+Unit test plan (UAT),1-04,"Inside the Choose a new password page (reset link), check if the New password field is empty A tooltip ""Please fill out this field."" will be displayed",Passed,
+Unit test plan (UAT),1-05,"Inside the Choose a new password page, check if the Confirm password field is empty A tooltip ""Please fill out this field."" will be displayed",Passed,
+Unit test plan (UAT),2-01,"Check if the user entered an incorrect username or password A label ""Invalid username or password"" will be displayed",Passed,Shown on the sign-in form.
+Unit test plan (UAT),2-02,"Inside the Choose a new password page, if the user enters a password with fewer than 6 characters A label ""Password must be at least 6 characters long"" will be displayed",Passed,
+Unit test plan (UAT),2-03,"Inside the Choose a new password page, if the user enters a password without an uppercase letter A label ""Password must contain at least one uppercase letter (A–Z)"" will be displayed",Passed,
+Unit test plan (UAT),2-04,"Inside the Choose a new password page, if the user enters a password without a lowercase letter A label ""Password must contain at least one lowercase letter (a–z)"" will be displayed",Passed,
+Unit test plan (UAT),2-05,"Inside the Choose a new password page, if the user enters a password without a number A label ""Password must contain at least one number (0– 9)"" will be displayed",Passed,
+Unit test plan (UAT),2-06,"Inside the Choose a new password page, if the user enters a password without a special character A label ""Password must contain at least one special character (e.g. !@#$%)"" will be displayed",Passed,
+Unit test plan (UAT),2-07,"Inside the Choose a new password page, if the user enters a mismatched password in the Confirm password field A label ""Passwords do not match."" will be displayed",Passed,
+Unit test plan (UAT),3-01,"Check if the user credentials entered are correct If the account role is ""Administrator"", ""Manager"" or ""Viewer"" the user will be directed to the Dashboard; if ""Staff"" to the Point of Sale; if ""Supplier"" to the Supplier Portal",In Progress,Staff goes to Point of Sale. Administrator and Supplier routing not exercised.
+Unit test plan (UAT),3-02,"Check if the show/hide password (eye) icon works when clicked The password will be shown as plain text, then hidden again on the next click",Passed,
+Unit test plan (UAT),3-03,"Tick ""Keep me signed in"" and sign in, then close and reopen the browser The user stays signed in. If unticked, the session ends when the browser is closed",Passed,Session kept for the browser when ticked. Browser not actually closed.
+Unit test plan (UAT),3-04,"Click ""Forgot your password?"", enter a username or email, then click ""Ask for a reset"" A label ""If that account exists, the administrator has been asked to approve a password reset. Once it is approved, a reset link is sent to the email address on the account."" will be displayed",Failed,"Wording differs. Now: ""If that account exists: an administrator account is emailed a reset link straight away. Any other account waits for an administrator to approve it, and is then emailed the link."" Changed today when administrators were given a direct link. Update the form."
+Unit test plan (UAT),3-05,"Inside the Reset your password window, check if the Cancel button works when clicked The window will close and the user returns to the Sign in form",Passed,
+Unit test plan (UAT),3-06,"Open an approved reset link, enter a valid new password and click ""Save new password"" A label ""Password has been reset. You can now sign in. Redirecting to sign in..."" will be displayed and the user is directed to the Sign in page",Passed,Done by the project owner on localhost earlier today.
+Unit test plan (UAT),3-07,"Open the email confirmation link sent to a new account A label ""Email confirmed. You can now sign in to FETCH."" will be displayed",Open,Needs a newly created account.
+Unit test plan (UAT),3-08,"Check if the ""Back to sign in"" link on the reset page works when clicked The user will be directed to the Sign in page",Passed,
+Unit test plan (UAT),4-01,"Check if the user signs in with an account whose email is not yet confirmed A label ""Please confirm your email address first. Check (masked email) for the confirmation link."" will be displayed with a ""Resend it"" link",Open,Needs an unconfirmed account.
+Unit test plan (UAT),4-02,"Check if the user signs in with a deactivated account A label ""Invalid username or password"" will be displayed and access is refused",Open,Needs a deactivated account.
+Unit test plan (UAT),4-03,"Check if the user opens a reset link that is expired or already used A label ""This reset link is invalid or has expired. Please request a new one."" will be displayed",Passed,
+Unit test plan (UAT),5-01,"Check if the user enters a wrong password 5 times within 15 minutes A label ""Too many login attempts. Try again in (seconds)s."" will be displayed and sign-in is blocked for a few minutes",Passed,"Sixth attempt answers ""Too many login attempts. Try again in 900s."" A defect was found and fixed here: successful sign-ins were being counted too."
+Unit test plan (UAT),6-01,Check if the Dashboard menu works when clicked The user will be redirected to the Dashboard module,Open,Needs an administrator sign-in.
+Unit test plan (UAT),6-02,Check if the Inventory menu works when clicked The user will be redirected to the Inventory module,Open,Needs an administrator sign-in.
+Unit test plan (UAT),6-03,Check if the Sales History menu works when clicked The user will be redirected to the Sales History module,Open,Needs an administrator sign-in.
+Unit test plan (UAT),6-04,Check if the Suppliers menu works when clicked The user will be redirected to the Suppliers module,Open,Needs an administrator sign-in.
+Unit test plan (UAT),6-05,Check if the Reports menu works when clicked The user will be redirected to the Reports module,Open,Needs an administrator sign-in.
+Unit test plan (UAT),6-06,Check if the Users menu works when clicked (Administrator only) The user will be redirected to the Users module,Open,Needs an administrator sign-in.
+Unit test plan (UAT),6-07,Check if the profile name / Settings (gear) icon works when clicked The user will be redirected to the Settings module,Open,Needs an administrator sign-in.
+Unit test plan (UAT),6-08,Check if the Notifications (bell) icon works when clicked A notifications drop-down will open showing the latest alerts and the unread count badge,Open,Needs an administrator sign-in.
+Unit test plan (UAT),6-09,Check if the Theme toggle icon works when clicked The interface will switch between light and dark mode,Open,Needs an administrator sign-in.
+Unit test plan (UAT),6-10,"Check if the Collapse sidebar button works when clicked The sidebar will collapse to icons only, and expand again on the next click",Open,Needs an administrator sign-in.
+Unit test plan (UAT),6-11,"Press Ctrl/ + J (or click ""Jump to""), type a page, action ⌘ or product name The Jump to palette will open and show matching pages, sections, actions and products; pressing Enter opens the selected result",Open,Needs an administrator sign-in.
+Unit test plan (UAT),6-12,Check if the FETCH Assistant & Help button works when clicked The assistant panel will open where the user can type a question and receive an answer,Open,Needs an administrator sign-in.
+Unit test plan (UAT),6-13,Check if the Logout icon works when clicked The session will end and the user will be directed to the Sign in page,Open,Needs an administrator sign-in.
+Unit test plan (UAT),7-01,Check if the Total Products info is correct The Total Products card will display the total number of products and how many are active,Open,Needs an administrator sign-in.
+Unit test plan (UAT),7-02,Check if the Total Revenue info is correct The Total Revenue card will display the total sales amount and number of transactions (voided sales excluded),Open,Needs an administrator sign-in.
+Unit test plan (UAT),7-03,Check if the Restock Needed info is correct The Restock Needed card will display the number of products at or below their reorder level,Open,Needs an administrator sign-in.
+Unit test plan (UAT),7-04,Check if the Expiring Soon info is correct The Expiring Soon card will display the number of products expiring within 30 days,Open,Needs an administrator sign-in.
+Unit test plan (UAT),7-05,Check if the Inventory Value info is correct The Inventory Value card will display the retail value of all stock on hand,Open,Needs an administrator sign-in.
+Unit test plan (UAT),7-06,"Check if the ""Sales, last 30 days"" chart is correct The chart will display the daily sales totals for the last 30 days",Open,Needs an administrator sign-in.
+Unit test plan (UAT),7-07,"Check if the ""Stock by category"" chart is correct The chart will display the stock quantity per product category",Open,Needs an administrator sign-in.
+Unit test plan (UAT),7-08,Check if the Recent Sales list refreshes automatically New sales will appear in the list within 10 seconds with the Live indicator shown,Open,Needs an administrator sign-in.
+Unit test plan (UAT),7-09,Check if the Needs restocking list is correct The list will display the products that are low or out of stock,Open,Needs an administrator sign-in.
+Unit test plan (UAT),7-10,Click a card in the Expiring products panel (Within 30 days / In 31 to 60 days / In 61 to 90 days) A window will open listing the products in that range with their expiry date and quantity,Open,Needs an administrator sign-in.
+Unit test plan (UAT),7-11,"Inside the Purchase orders panel, check if the order status (advance) button works when clicked A confirmation will appear, and the purchase order moves to its next status",Open,Needs an administrator sign-in.
+Unit test plan (UAT),7-12,Check if the Add Product button works when clicked The user will be redirected to the Inventory module,Open,Needs an administrator sign-in.
+Unit test plan (UAT),7-13,"Check if the ""View all →"" links work when clicked The user will be redirected to Sales History (Recent Sales) or Suppliers (Purchase orders)",Open,Needs an administrator sign-in.
+Unit test plan (UAT),7-14,Check if the alerts chip works when clicked The notifications drop-down will open,Open,Needs an administrator sign-in.
+Unit test plan (UAT),8-01,"Click the Add button, check if the SKU field is empty If the user clicks Save Product, a tooltip ""Please fill out this field."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),8-02,"Inside the Add New Product module, check if the Product Name field is empty If the user clicks Save Product, a tooltip ""Please fill out this field."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),8-03,"Inside the Add New Product module, check if no Category is selected If the user clicks Save Product, a tooltip ""Please select an item in the list."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),8-04,"Inside the Add New Product module, check if the Unit Price field is empty If the user clicks Save Product, a tooltip ""Please fill out this field."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),8-05,"Inside the Adjust Stock module, check if the Quantity field is empty If the user clicks Save Adjustment, a label ""Invalid quantity"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),8-06,"Inside the Assign Barcodes module, check if the barcode field is empty If the user clicks Save, a label ""Enter a barcode first"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),8-07,"Inside the Import Products from CSV module, click Import Products without choosing a file A label ""No valid products to import"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),9-01,"Inside the Add New Product module, check if the user tries to enter letters in the Unit Price field The user will not be able to type letters in the Unit Price field",Open,Needs an administrator sign-in.
+Unit test plan (UAT),9-02,"Inside the Add New Product module, check if the user tries to enter letters in the Stock Quantity field The user will not be able to type letters in the Stock Quantity field",Open,Needs an administrator sign-in.
+Unit test plan (UAT),9-03,"Inside the Add New Product module, upload a file that is not an image A label ""Please choose an image file"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),9-04,"Inside the Import Products from CSV module, choose a CSV without the sku or name column A label ""Missing required columns: sku, name"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),9-05,"Inside the Import Products from CSV module, choose a CSV with a header row only A label ""CSV must have a header row and at least one data row"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),10-01,"Inside the Add New Product module, enter a negative value in the Stock Quantity field A tooltip ""Value must be greater than or equal to 0."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),10-02,"Inside the Add New Product module, enter a negative value in the Reorder Level field A tooltip ""Value must be greater than or equal to 0."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),10-03,"Inside the Adjust Stock module, enter 0 or a negative value in the Quantity field A label ""Invalid quantity"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-01,"Check if the Total Products, Low Stock, Expiring Soon, Total Inventory Value and Overstock info are correct Each stat card will display the correct count/value based on the product records",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-02,Check if the Low Stock stat card works when clicked Only the low-stock products will be shown,Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-03,"Click the status chips (All, Low Stock, Out of Stock, Expiring Soon, Expired, Healthy) Only the products with the selected status will be shown, with the count on each chip",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-04,"Check if the Searchbar works when searching by name, SKU or barcode The user will view contents depending on the search bar",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-05,Click the All Categories drop-down menu and select a category Only products under the selected category will be shown,Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-06,"Click the All Species drop-down menu and select Dog, Cat, Bird or Fish Only products for the selected species will be shown",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-07,"Click the Sort drop-down menu (Name, Price, Stock, Expiry, Status) The products will be arranged according to the selected sort order",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-08,Check if the Card view / Table view buttons work when clicked The products will be displayed as cards or as a table,Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-09,"In Table view, click a column header (Product, Category, Price, Stock, Expiration, Status) The table will be sorted by that column; clicking again reverses the order",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-10,"Click Add, fill in all required fields and click Save Product A message ""Product added"" will be displayed and the product is saved in the inventory",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-11,"Inside the Add New Product module, check if the Generate barcode button works when clicked An in-store barcode will be generated in the Barcode field",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-12,"Inside the Add New Product module, check if the Upload image button works when clicked The file manager will open; the chosen image shows as a preview with ""Image ready — save the product to keep it""",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-13,"Click a product, check if the Product Details window works The product details (SKU, price, stock, supplier, batch, expiry, etc.) will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-14,"Inside the Product Details window, click Edit, change a detail and click Save Product A message ""Product updated"" will be displayed and the record is updated",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-15,"Inside the Product Details window, click Delete A confirmation ""Are you sure you want to delete this product? This cannot be undone."" will appear; on Yes, Delete the product is removed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-16,"Click Stock on a product, choose Add Stock (In), enter the quantity and click Save Adjustment A message ""Stock adjusted"" will be displayed and the stock increases by the quantity",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-17,"Inside the Adjust Stock module, choose Remove Stock (Out) / Damage and save A message ""Stock adjusted"" will be displayed and the stock decreases by the quantity",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-18,"Check if the Reorder button works when clicked A list of low-stock products will appear; after selecting and confirming, purchase orders are created and emailed to each assigned supplier",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-19,"Tick product checkboxes, check if Bulk Reorder works when clicked A confirmation and final check will appear; purchase orders are created for the selected products",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-20,"Tick product checkboxes, check if Adjust Stock (bulk) works when clicked A confirmation ""Adjust stock by (qty) for (n) product(s)?"" will appear; stock of all selected products is updated",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-21,"Tick product checkboxes, check if Delete (bulk) works when clicked A confirmation ""Delete (n) product(s)? This cannot be undone."" will appear; the selected products are removed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-22,"Tick product checkboxes, check if the Clear button works when clicked All selected checkboxes will be cleared",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-23,"Click Import, check if Download Template works when clicked The user will be directed to the file manager to save the CSV template",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-24,"Inside the Import Products from CSV module, choose a valid CSV and click Import Products A preview will display, then a message ""Import complete — Created (n) product(s)"" is displayed and the products are added",Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-25,Check if the Barcodes button works when clicked The Assign Barcodes window will open where a barcode can be saved per product,Open,Needs an administrator sign-in.
+Unit test plan (UAT),11-26,Check if the Images button works when clicked The Product Images window will open where an image can be saved per product,Open,Needs an administrator sign-in.
+Unit test plan (UAT),12-01,"Click Add, check if the user enters a SKU that already exists A label ""Error: A product with this SKU already exists"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),12-02,"Inside the Assign Barcodes module, enter a barcode already used by another product A label ""Could not save (barcode may already be used)"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),12-03,"Click Reorder when no product is below its reorder level A label ""No products need reordering"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),12-04,"Sign in as Viewer, check if Add / Edit / Delete / Adjust Stock works A label ""Your role can't add products."" (or edit/delete/adjust) will be displayed; inventory is read- only",Open,Needs an administrator sign-in.
+Unit test plan (UAT),13-01,"On first sign-in of the day, check if the Starting cash field is empty If the user clicks Save starting cash, a label ""Enter the cash in the drawer, or 0 if it is empty"" will be displayed",Passed,
+Unit test plan (UAT),13-02,"Check if the cart is empty when Charge is clicked A label ""Cart is empty"" will be displayed",Passed,
+Unit test plan (UAT),13-03,"Add items to the cart, check if the Cash received field is empty If the user clicks Charge, a label ""Enter the cash amount received"" will be displayed",Passed,
+Unit test plan (UAT),13-04,"Click End of day, check if the Cash counted in the drawer field is empty If the user clicks Save count, a label ""Enter the cash counted in the drawer"" will be displayed",Passed,
+Unit test plan (UAT),13-05,"Inside My sales today, click Ask to void, check if the reason is empty or too short A label ""Say briefly what went wrong"" will be displayed",Passed,"Works, but the dialog closes after the message, so the cashier has to press the button again."
+Unit test plan (UAT),14-01,"Check if the user scans/types a barcode that does not exist A label 'No product found for ""(barcode)""' will be displayed",Passed,
+Unit test plan (UAT),14-02,Check if the user tries to enter letters in the Cash received field The user will not be able to type letters in the Cash received field,Passed,
+Unit test plan (UAT),14-03,Check if the user tries to enter letters in the Discount (%) field The user will not be able to type letters in the Discount field,Passed,
+Unit test plan (UAT),15-01,"Check if the Cash received is less than the total If the user clicks Charge, a label ""Insufficient cash — customer gave less than the total"" will be displayed",Passed,
+Unit test plan (UAT),15-02,"Check if the user enters a discount above the allowed limit A label ""The largest discount allowed is (limit)%"" will be displayed and the discount is capped",Passed,
+Unit test plan (UAT),15-03,"Check if the user increases the cart quantity beyond the available stock A label ""Only (n) in stock"" / ""Not enough stock"" will be displayed",Passed,"""Only 25 in stock"""
+Unit test plan (UAT),15-04,"Check if the user clicks an expired product A label ""(product) has expired and cannot be sold"" will be displayed",Failed,"By design since today: an expired product cannot be clicked at all. It is greyed, tagged ""Expired"", and its tooltip reads ""(product) — expired, cannot be sold"". No message appears. Update the form."
+Unit test plan (UAT),15-05,"Check if the user clicks a product with zero stock A label ""(product) is sold out"" will be displayed",Failed,"Same as 15-04 for sold-out products: not clickable, tagged, no message. Update the form."
+Unit test plan (UAT),16-01,"Enter the starting cash and click Save starting cash A label ""Starting cash saved: ₱(amount)"" will be displayed",Passed,
+Unit test plan (UAT),16-02,Check if the category buttons work when clicked Only the products under the selected category will be shown,Passed,
+Unit test plan (UAT),16-03,Check if the Searchbar works when searching a product The user will view contents depending on the search bar,Passed,
+Unit test plan (UAT),16-04,Press F2 and scan a product barcode The scan field is focused and the scanned product is added to the cart,Passed,
+Unit test plan (UAT),16-05,"Check if clicking a product card works The product is added to the Current Sale with a label ""(product) added to cart""",Passed,
+Unit test plan (UAT),16-06,"Inside the cart, check if the + / − quantity buttons work when clicked The quantity and the line total will be updated",Passed,
+Unit test plan (UAT),16-07,"Inside the cart, check if the Remove (x) button works when clicked The item will be removed with a label ""(product) removed""",Passed,
+Unit test plan (UAT),16-08,"Check if the Clear button works when clicked All items will be removed with a label ""Cart cleared""",Passed,
+Unit test plan (UAT),16-09,"Enter a discount (%), check if the subtotal, discount and total are correct The discount amount and total will be recomputed automatically",Passed,
+Unit test plan (UAT),16-10,"Check if the quick cash buttons (Exact, +20, +50, +100, +500, +1000) work when clicked The Cash received amount is filled/added and the change is computed automatically",Passed,
+Unit test plan (UAT),16-11,"Check if the Charge button works when clicked with enough cash A ""Confirm Cash Sale"" summary will appear; on confirm a label ""Sale completed! Change: ₱(amount)"" is displayed, stock is deducted and a receipt is shown",Passed,"Dialog title is ""Confirm cash sale"" (lower-case c and s). Message: ""Sale completed! Change: ₱12.00""."
+Unit test plan (UAT),16-12,Check if the Print receipt works after a sale The receipt will be printed (thermal printer or print dialog),Passed,
+Unit test plan (UAT),16-13,"Check if the Connect Printer button works when clicked The browser asks for a USB printer; a label ""Thermal printer connected — receipts now print directly"" will be displayed",Open,Needs the USB thermal printer.
+Unit test plan (UAT),16-14,"Check if the ""My sales today"" button works when clicked A list of the cashier's own sales for today will be displayed with Reprint and Ask to void buttons",Passed,
+Unit test plan (UAT),16-15,"Inside My sales today, check if the Reprint button works when clicked The receipt of that sale will be printed again",Passed,
+Unit test plan (UAT),16-16,"Inside My sales today, click Ask to void and enter a reason A label ""Sent to a manager"" will be displayed and the request appears in Reports > Void requests",Passed,
+Unit test plan (UAT),16-17,"Check if the End of day button works when clicked The End of day cash count window shows the starting cash, cash sales and expected cash",Passed,
+Unit test plan (UAT),16-18,"Inside End of day, enter the cash counted and click Save count The Over / Short / Balanced amount is shown and the count is saved after confirmation",Open,Not run: would close today's till on the live database.
+Unit test plan (UAT),17-01,"Inside End of day, try to save the count again after it was already recorded today A label ""Today's count is already recorded. Ask a manager if it needs to be done again."" will be displayed",Open,Needs a saved count (see 16-18).
+Unit test plan (UAT),17-02,"Try to change the starting cash after today's count is recorded A label ""Today's cash count is already recorded, so the starting cash can no longer be changed."" will be displayed",Open,Needs a saved count (see 16-18).
+Unit test plan (UAT),17-03,"Inside My sales today, ask to void a sale that already has a void request A label ""A void has already been requested for that sale."" will be displayed",Passed,
+Unit test plan (UAT),17-04,"Sign in as Staff, check if other back-office pages can be opened The Staff account can only open the Point of Sale and Settings; other pages redirect back to the POS",Passed,
+Unit test plan (UAT),18-01,"Click Filter without selecting a From or To date A label ""Select a date range"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),18-02,"Click Void on a sale, check if the reason field is empty A label ""A reason is required to void a sale"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),18-03,"Click End of Day, check if the Cash counted in drawer field is empty If the user clicks Save Count, a message ""Invalid amount — Enter the cash amount actually counted in the drawer."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),19-01,"Check if the Total Sales Amount, Total Transactions and Today's Sales info are correct Each stat card will display the correct totals (voided sales excluded)",Open,Needs an administrator sign-in.
+Unit test plan (UAT),19-02,Check if the Searchbar works when searching a sale The user will view contents depending on the search bar,Open,Needs an administrator sign-in.
+Unit test plan (UAT),19-03,Select a From and To date and click Filter All records will be displayed inside the table based on the selected date range,Open,Needs an administrator sign-in.
+Unit test plan (UAT),19-04,Check if the Clear button works when clicked The date filter is removed and all sales are displayed,Open,Needs an administrator sign-in.
+Unit test plan (UAT),19-05,"Check if the View button of a sale works when clicked The Sale Details window will display the items, totals, cashier and payment",Open,Needs an administrator sign-in.
+Unit test plan (UAT),19-06,"Inside Sale Details, check if the Print Receipt button works when clicked The print preview of the receipt will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),19-07,"Click Void on a sale and enter a reason A message ""Sale voided — The sale was marked voided and its stock has been restored."" will be displayed and the status changes to Voided",Open,Needs an administrator sign-in.
+Unit test plan (UAT),19-08,"Inside Sale Details, check if Delete Sale works when clicked A confirmation ""Are you sure you want to delete this sale? This cannot be undone."" will appear; on confirm ""Sale deleted"" is displayed and stock is restored",Open,Needs an administrator sign-in.
+Unit test plan (UAT),19-09,"Check if the Export CSV button works when clicked The user will be directed to the file manager to save the CSV file with a label ""Sales exported successfully""",Open,Needs an administrator sign-in.
+Unit test plan (UAT),19-10,Check if the End of Day button works when clicked The End of day cash count (whole shop) window shows the expected cash for the business date,Open,Needs an administrator sign-in.
+Unit test plan (UAT),19-11,"Inside End of Day, enter the cash counted and click Save Count A message ""Day closed"" with Balanced / Over by / Short by (amount) will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),19-12,"Inside End of Day history, check if Reopen works on a recorded count A confirmation ""Reopen this count?"" will appear; on confirm a label ""Count removed. It can be recorded again."" is displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),20-01,"Click Export CSV when there are no sales in the list A label ""No sales to export"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),20-02,"Check if a voided sale can be voided again A label ""Sale is already voided"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),20-03,"Sign in as Viewer, check if Void / Delete Sale works A label ""Your role can't void sales."" / ""Your role can't delete sales."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),21-01,"Click Add Supplier, check if the Supplier Name field is empty If the user clicks Save Supplier, a tooltip ""Please fill out this field."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),21-02,"Inside the Add New Supplier module, check if the Contact Person field is empty If the user clicks Save Supplier, a tooltip ""Please fill out this field."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),21-03,"Inside the Add New Supplier module, check if the Email field is empty If the user clicks Save Supplier, a tooltip ""Please fill out this field."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),21-04,"Inside the Add New Supplier module, check if the Phone field is empty If the user clicks Save Supplier, a tooltip ""Please fill out this field."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),21-05,"Inside Orders on the way, open Notes and send an empty note A label ""Write a note first."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),22-01,"Inside the Add New Supplier module, check if the Email field is incorrect (no @) A tooltip ""Please include an '@' in the email address."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),23-01,Check if the Total Suppliers and Active Suppliers info are correct Each stat card will display the correct count of suppliers,Open,Needs an administrator sign-in.
+Unit test plan (UAT),23-02,Check if the Searchbar works when searching a supplier The user will view contents depending on the search bar,Open,Needs an administrator sign-in.
+Unit test plan (UAT),23-03,"Click Add Supplier, fill in all required fields and click Save Supplier A message ""Supplier added — The new supplier is ready for purchase orders."" will be displayed and the record is saved",Open,Needs an administrator sign-in.
+Unit test plan (UAT),23-04,"Click Edit on a supplier, change a detail and click Save Supplier A message ""Supplier updated"" will be displayed and the record is updated",Open,Needs an administrator sign-in.
+Unit test plan (UAT),23-05,"Click Delete on a supplier A confirmation ""Are you sure you want to delete this supplier? This cannot be undone."" will appear; on confirm ""Supplier deleted"" is displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),23-06,"Check if the Performance button works when clicked The Performance window will display Fulfillment Rate, Avg Lead Time, Orders Received, Total Orders and the Purchase Order History",Open,Needs an administrator sign-in.
+Unit test plan (UAT),23-07,"Check if the Emails button / supplier email address works when clicked The Email History window will display every email sent with its read receipt ( delivered, opened) ✓ ✓✓",Open,Needs an administrator sign-in.
+Unit test plan (UAT),23-08,"Check if the Orders view (beside the search box) works when clicked The Orders on the way, Offered by suppliers, Price changes to decide and Delivered, not yet paid sections will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),23-09,"Inside the Orders view, check if the Refresh button works when clicked The lists are reloaded with a label ""Orders refreshed""",Open,Needs an administrator sign-in.
+Unit test plan (UAT),23-10,"Inside Orders on the way, check if Mark confirmed / Mark shipped works when clicked A confirmation will appear; on confirm the order moves to Confirmed / On its way",Open,Needs an administrator sign-in.
+Unit test plan (UAT),23-11,"Inside Orders on the way, check if Receive into stock works when clicked A confirmation of the quantities received will appear; the order is marked Received and the product stock increases",Open,Needs an administrator sign-in.
+Unit test plan (UAT),23-12,"Inside Orders on the way, check if Cancel order works when clicked A confirmation ""(PO) will be marked cancelled. This cannot be undone."" will appear; the order is cancelled",Open,Needs an administrator sign-in.
+Unit test plan (UAT),23-13,"Inside Offered by suppliers, check if Accept offer / Decline works when clicked The offer becomes a confirmed order, or is marked cancelled",Open,Needs an administrator sign-in.
+Unit test plan (UAT),23-14,"Inside Price changes to decide, check if Accept / Decline works when clicked A label ""Price updated in inventory."" or ""Proposal declined. The price is unchanged."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),23-15,"Inside Delivered, not yet paid, check if Mark as paid works when clicked A confirmation will appear and a label ""Marked as paid."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),23-16,"Inside Orders on the way, check if Notes works when clicked The message thread with the supplier will open and a new note can be posted",Open,Needs an administrator sign-in.
+Unit test plan (UAT),24-01,"Email a purchase order to a supplier with no email address on file A message ""This supplier has no email address on file"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),24-02,"Check if a purchase order that is not yet received can be marked paid A label ""Only a received order can be marked paid."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),24-03,"Sign in as Viewer, check the supplier list The Edit and Delete buttons will not be shown; the list is read-only REPORTS — SALES",Open,Needs an administrator sign-in.
+Unit test plan (UAT),25-01,"Click Custom, then Apply without choosing a From or To date A label ""Choose both a start and an end date"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),26-01,"Click Custom, check if the From date is later than the To date A label ""The start date is after the end date"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),27-01,"Check if the period buttons (Last 7 days, Last 30 days, This month, All time) work when clicked All figures, charts and tables will be updated for the selected period",Open,Needs an administrator sign-in.
+Unit test plan (UAT),27-02,"Click Custom, choose a From and To date and click Apply All records will be displayed based on the selected date range",Open,Needs an administrator sign-in.
+Unit test plan (UAT),27-03,"Check if the Day / Week / Month buttons work when clicked The revenue chart and breakdown table will be grouped by day, week or month",Open,Needs an administrator sign-in.
+Unit test plan (UAT),27-04,"Check if the Revenue, Sales made, Average per sale and Items sold info are correct Each figure will display the correct totals for the selected period",Open,Needs an administrator sign-in.
+Unit test plan (UAT),27-05,Check if the Best-selling products and Sales by category charts are correct The charts will display the top products and the revenue per category for the period,Open,Needs an administrator sign-in.
+Unit test plan (UAT),27-06,"Hover to Reports, check if the Export CSV button works when clicked The user will be directed to the file manager to save the CSV file with a label ""Sales report exported""",Open,Needs an administrator sign-in.
+Unit test plan (UAT),28-01,"Click Export CSV for a period with no sales A label ""There is nothing to export for this period"" will be displayed REPORTS — STOCK PLANNING (PREDICTIVE ANALYTICS)",Open,Needs an administrator sign-in.
+Unit test plan (UAT),29-01,Click the Stock planning tab The forecast for the next 30 days will be displayed using Random Forest and Gradient Boosting on up to 12 months of sales,Open,Needs an administrator sign-in.
+Unit test plan (UAT),29-02,"Check if the Expected to sell, Expected revenue, Products to reorder and Forecast accuracy info are correct Each figure will display the forecast totals and the model's measured accuracy",Open,Needs an administrator sign-in.
+Unit test plan (UAT),29-03,"Check if the ""What to reorder"" table is correct Each product to reorder will show the reason, stock on hand, on order, order-by date and suggested order quantity",Open,Needs an administrator sign-in.
+Unit test plan (UAT),29-04,"Inside What to reorder, check if the Export list button works when clicked The user will be directed to the file manager to save the CSV with a label ""Reorder list exported""",Open,Needs an administrator sign-in.
+Unit test plan (UAT),29-05,"Inside What to reorder, check if Create purchase orders works when clicked A confirmation will appear; on confirm a message ""Purchase orders created"" is displayed and each supplier is emailed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),29-06,"Check if the ""Too much stock"" table is correct The overstocked products, quantity more than needed and money tied up will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),29-07,"Check if the ""Likely to expire before it sells"" table is correct Products likely to expire with leftover quantity and value at cost will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),29-08,"Inside All products, check if the Searchbar works when searching a product The user will view contents depending on the search bar",Open,Needs an administrator sign-in.
+Unit test plan (UAT),29-09,"Inside All products, click the filters (All, Selling fast, Selling steadily, Selling slowly, Not selling) Only products with the selected sales speed will be shown with the count per filter",Open,Needs an administrator sign-in.
+Unit test plan (UAT),29-10,"Inside All products, click a product The product detail will display its sales history and 30- day forecast chart",Open,Needs an administrator sign-in.
+Unit test plan (UAT),29-11,"Inside the product detail, check if the Close button works when clicked The product detail will close",Open,Needs an administrator sign-in.
+Unit test plan (UAT),29-12,Check if the Busiest days of the week and Sales by month charts are correct The charts will display sales per weekday and per month,Open,Needs an administrator sign-in.
+Unit test plan (UAT),29-13,Check if the Expected sales by category and by brand charts are correct The charts will display the forecast per category and per brand,Open,Needs an administrator sign-in.
+Unit test plan (UAT),29-14,"Check if the ""How good is the forecast"" table is correct The accuracy of each forecasting method will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),29-15,Check if the Refresh button works when clicked The forecast and all stock planning figures will be recalculated,Open,Needs an administrator sign-in.
+Unit test plan (UAT),30-01,"Click Export list when no product needs reordering A label ""Nothing needs reordering right now"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),30-02,"Click Create purchase orders when no listed product can be ordered A label ""Nothing on the list can be ordered right now"" will be displayed REPORTS — VOID REQUESTS & ACTIVITY LOG",Open,Needs an administrator sign-in.
+Unit test plan (UAT),31-01,Click the Void requests tab The sales a cashier asked to void will be displayed with the cashier's reason and amount; the tab shows the pending count,Open,Needs an administrator sign-in.
+Unit test plan (UAT),31-02,"Inside Waiting for a decision, check if Void sale works when clicked A confirmation will appear; a label ""Sale voided and its items returned to stock"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),31-03,"Inside Waiting for a decision, check if Keep sale works when clicked A confirmation will appear; a label ""Request dismissed. The sale stands."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),31-04,"Inside Void requests, check if the Refresh button works when clicked The list is reloaded with a label ""Void requests refreshed""",Open,Needs an administrator sign-in.
+Unit test plan (UAT),31-05,"Check if the ""Voided in the last 90 days"" list is correct All voided sales with cashier, date, reason and amount will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),31-06,Click the Activity log tab (Administrator) The log of who did what and when will be displayed,Open,Needs an administrator sign-in.
+Unit test plan (UAT),31-07,"Inside Activity log, click the All actions drop-down (Created, Updated, Deleted, Signed in) Only the records with the selected action will be shown",Open,Needs an administrator sign-in.
+Unit test plan (UAT),31-08,"Inside Activity log, click the All areas drop-down (Products, Sales, Suppliers, Purchase orders, Users) Only the records in the selected area will be shown",Open,Needs an administrator sign-in.
+Unit test plan (UAT),31-09,"Inside Activity log, check if the Refresh button works when clicked The activity log will be reloaded",Open,Needs an administrator sign-in.
+Unit test plan (UAT),32-01,"Check if the low stock, stock out and expiring product alerts are generated A notification will appear for each product that is low, out of stock or near expiry",Open,Needs an administrator sign-in.
+Unit test plan (UAT),32-02,"Click the All Types drop-down (Low Stock, Stock Out, Expiration, Overstock, Reorder, Information) Only notifications of the selected type will be shown",Open,Needs an administrator sign-in.
+Unit test plan (UAT),32-03,"Click the All Status drop-down (Unread, Read) Only notifications with the selected status will be shown",Open,Needs an administrator sign-in.
+Unit test plan (UAT),32-04,Click a notification The notification will be marked as read and the unread badge decreases,Open,Needs an administrator sign-in.
+Unit test plan (UAT),32-05,"Check if the Mark All Read button works when clicked A label ""All notifications marked as read"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),32-06,"Check if the Clear Read button works when clicked A confirmation will appear; on confirm a message ""Notifications cleared"" is displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),32-07,Check if the Refresh button works when clicked The notification list will be reloaded,Open,Needs an administrator sign-in.
+Unit test plan (UAT),33-01,"Click Add User, check if the Full Name field is empty If the user clicks Create User, a tooltip ""Please fill out this field."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),33-02,"Inside the Add New User module, check if the Username field is empty If the user clicks Create User, a tooltip ""Please fill out this field."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),33-03,"Inside the Add New User module, click Send code while the Email field is empty A message ""Email required — Type the new user's email address first, then send the code."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),33-04,"Inside the Add New User module, check if the Email verification code is empty A message ""Code required — Enter the 6-digit code that was emailed to (email)."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),33-05,"Inside the Add New User module, check if the Password field is empty A message ""Password required — Set a password for the new account before saving."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),33-06,"Inside the Add New User module, choose role Supplier without choosing a supplier A message ""Supplier required — Choose which supplier this account belongs to."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),34-01,"Inside the Add New User module, check if the Email field is incorrect (no @) A tooltip ""Please include an '@' in the email address."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),34-02,"Inside the Add New User module, enter a password with fewer than 6 characters A message ""Password too weak — Must be at least 6 characters."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),34-03,"Inside the Add New User module, enter a password without an uppercase letter A message ""Password too weak — Add at least one uppercase letter (A–Z)."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),34-04,"Inside the Add New User module, enter a password without a number A message ""Password too weak — Add at least one number (0–9)."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),34-05,"Inside the Add New User module, enter a password without a special character A message ""Password too weak — Add at least one special character (e.g. !@#$%)."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),34-06,"Inside the Add New User module, enter a wrong verification code A label ""That code is not correct. (n) attempt(s) left."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),34-07,"Inside the Add New User module, change the email after the code was sent A message ""Email changed — The email address changed after the code was sent. Send a new code to this address."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),35-01,Check if the Searchbar works when searching a user The user will view contents depending on the search bar,Open,Needs an administrator sign-in.
+Unit test plan (UAT),35-02,"Check if the ""Show deactivated"" toggle works when clicked Deactivated accounts will be shown in the list with a Restore button",Open,Needs an administrator sign-in.
+Unit test plan (UAT),35-03,"Inside the Add New User module, enter an email and click Send code A label ""Code sent to (email)"" will be displayed and a 6- digit code is emailed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),35-04,"Inside the Add New User module, fill in all fields with the correct code and click Create User A message ""User created"" will be displayed and the user is added to the table",Open,Needs an administrator sign-in.
+Unit test plan (UAT),35-05,"Inside the Add New User module, check the Role drop- down (Staff, Manager, Administrator, Viewer, Supplier) The selected role is saved; the Supplier field appears only when Supplier is chosen",Open,Needs an administrator sign-in.
+Unit test plan (UAT),35-06,"Click Edit on a user, change details and click Update User The user details/role will be updated and saved",Open,Needs an administrator sign-in.
+Unit test plan (UAT),35-07,"Click Delete on a user A confirmation ""Deactivate this account?"" will appear; on confirm ""User deactivated"" is displayed and the user can no longer sign in",Open,Needs an administrator sign-in.
+Unit test plan (UAT),35-08,"With Show deactivated ticked, click Restore on a deactivated user A confirmation will appear and a message ""Account restored"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),35-09,"Click Resend on an unconfirmed user A message ""Confirmation link sent"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),35-10,"Inside Password reset requests, click ""Approve and email link"" A label ""Approved. A reset link was emailed to (name); it works for 1 hour."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),35-11,"Inside Password reset requests, click Decline A label ""Declined. (name)'s password stays as it is."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),36-01,"Inside the Add New User module, check if the Username already exists A message ""Username already taken"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),36-02,"Inside the Add New User module, check if the Email Address already exists A label ""That email address is already used by (username)."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),36-03,"Inside the Add New User module, enter a code that has already expired A label ""That code has expired. Send a new one."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),37-01,"Inside the Add New User module, enter a wrong code 5 times A label ""Too many incorrect attempts. Send a new code."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),38-01,"Inside the Profile tab, check if the Full Name field is empty If the user clicks Save Changes, a label ""Please enter your full name"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),38-02,"Inside the Password tab, check if the Current Password field is empty If the user clicks Update Password, a label ""Enter current password"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),38-03,"Inside the Password tab, check if the New Password field is empty A label ""Enter new password"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),38-04,"Inside the Password tab, check if the Confirm New Password field is empty A label ""Confirm new password"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),38-05,"Inside the Email tab (Administrator), check if the Gmail App Password is empty A label ""A Gmail app password is required"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),38-06,"Inside Send Test Email, check if the Recipient field is empty A label ""Enter a recipient email first"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),39-01,"Inside the Profile tab, check if the Email field is incorrect A label ""Please enter a valid email address"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),39-02,"Inside the Password tab, enter a new password that does not meet the policy A message ""Password too weak"" with the missing rule (length, uppercase, lowercase, number, special character) will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),39-03,"Inside the Password tab, enter a mismatched password in Confirm New Password A message ""Passwords do not match — The new password and its confirmation must be identical."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),39-04,"Inside the Email tab, check if the Sender Gmail Address is incorrect A label ""A valid sender Gmail address is required"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),39-05,"Inside the Profile tab, upload a file that is not an image as profile photo A label ""Could not process image"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),40-01,"Inside Preferences > Point of sale, enter a discount limit below 0 or above 100 A label ""Enter a limit between 0 and 100"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),41-01,"Inside the Profile tab, change the full name/email and click Save Changes A message ""Profile updated — Your account details have been saved."" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),41-02,"Inside the Profile tab, check if Upload photo works when clicked The file manager will open; a label ""Profile photo updated"" is displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),41-03,"Inside the Profile tab, check if Remove (photo) works when clicked A label ""Profile photo removed"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),41-04,"Inside the Password tab, enter valid passwords and click Update Password A message ""Password changed"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),41-05,"Inside Preferences, enter a valid discount limit and click Save limit A label ""Cashiers can now discount up to (n)%"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),41-06,"Inside Preferences, check if Download Backup works when clicked (Administrator) The user will be directed to the file manager to save the backup file with a message ""Backup downloaded""",Open,Needs an administrator sign-in.
+Unit test plan (UAT),41-07,"Inside Preferences, check if the Notifications and Compact Sidebar toggles work The setting turns on/off and is applied to the interface",Open,Needs an administrator sign-in.
+Unit test plan (UAT),41-08,"Inside Appearance, click the mode buttons (System, Light, Dark) The interface theme changes to the selected mode",Open,Needs an administrator sign-in.
+Unit test plan (UAT),41-09,"Inside Appearance, click an accent colour, font (Sans, Serif, Mono) and text size (Small, Default, Large, Larger) A preview of the change is applied immediately",Open,Needs an administrator sign-in.
+Unit test plan (UAT),41-10,"Inside Appearance, check if Save Changes works when clicked A label ""Appearance saved"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),41-11,"Inside Appearance, check if Discard / Reset works when clicked A label ""Changes discarded"" will be displayed, or the default appearance is restored",Open,Needs an administrator sign-in.
+Unit test plan (UAT),41-12,"Click the Session tab The logged-in username, role and account status will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),41-13,"Inside the Session tab, check if the Logout button works when clicked The user will be signed out and directed to the Sign in page",Open,Needs an administrator sign-in.
+Unit test plan (UAT),41-14,"Inside the Email tab, enter valid Gmail credentials and click Save A message ""Email settings saved — Credentials verified with Gmail"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),41-15,"Inside Send Test Email, enter a recipient and click Send Test Email A message ""Test email sent"" will be displayed and the email arrives in the inbox",Open,Needs an administrator sign-in.
+Unit test plan (UAT),42-01,"Inside the Password tab, check if the Current Password is incorrect A message ""Password not changed — Current password is incorrect"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),42-02,"Inside the Profile tab, enter an email already used by another account A label ""That email is already used by another account"" will be displayed",Open,Needs an administrator sign-in.
+Unit test plan (UAT),43-01,"Click Confirm order, check if the delivery date is empty A label ""Choose the date you will deliver"" will be displayed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),43-02,"Click Change delivery date, check if the new date is empty A label ""Choose the new delivery date"" will be displayed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),43-03,"Inside Change delivery date, check if the reason is empty or too short A label ""Say briefly why the date changed"" will be displayed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),43-04,"Click Offer an order, check if no quantity is entered A label ""Enter a quantity for at least one product"" will be displayed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),43-05,"Inside Offer an order, check if the delivery date is empty A label ""Choose the date you could deliver"" will be displayed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),43-06,"Inside Notes, send an empty note A label ""Write a note first."" will be displayed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),44-01,"Inside Products you supply, propose a price of 0 or less A label ""Enter a price greater than zero"" will be displayed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),44-02,"Click Edit contact details, enter a phone number with letters A label ""Enter a phone number using digits, spaces and + ( ) - only."" will be displayed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),44-03,"Click Mark as shipped, enter a receipt number with invalid characters A label ""The receipt number can use letters, numbers, spaces and . / # _ - only."" will be displayed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),45-01,"Inside Confirm order, choose a delivery date in the past A label ""The delivery date cannot be in the past."" will be displayed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),45-02,"Inside Confirm order, choose a delivery date more than a year away A label ""That delivery date is more than a year away."" will be displayed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),45-03,"Click Offer an order when 5 offers are already waiting A label ""You already have 5 offers waiting for the shop. Wait for an answer before sending more."" will be displayed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),46-01,Sign in as Supplier The user will be directed to the Supplier Portal showing only their own orders and products,Open,Needs the supplier sign-in.
+Unit test plan (UAT),46-02,"Inside Open orders, click Confirm order, enter the date and quantities and save A label ""Order confirmed."" will be displayed and the status changes to Confirmed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),46-03,"Inside Open orders, click Mark as shipped A label ""Order marked as shipped."" will be displayed and the shop sees it as On its way",Open,Needs the supplier sign-in.
+Unit test plan (UAT),46-04,"Inside Open orders, click Change delivery date with a valid date and reason A label ""Delivery date updated."" will be displayed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),46-05,"Inside Open orders, click Notes and send a note The note will be added to the order thread and visible to the shop",Open,Needs the supplier sign-in.
+Unit test plan (UAT),46-06,"Click Offer an order, fill in quantities and date and send A label ""Offer sent. It becomes an order if the shop accepts it."" will be displayed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),46-07,"Inside Products you supply, propose a new price A label ""Sent to the shop for approval. The current price stays until they agree."" will be displayed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),46-08,"Click Edit contact details, update and save A label ""Your details were updated."" will be displayed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),46-09,"Check if the Payments, How you are doing and Past orders sections are correct The payments due, the supplier's delivery performance and order history will be displayed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),47-01,"Inside Products you supply, propose the same price as the current one A label ""That is already the current price."" will be displayed",Open,Needs the supplier sign-in.
+Unit test plan (UAT),47-02,"Inside Open orders, confirm an order that is no longer pending A label ""Only an order waiting for confirmation can be confirmed."" will be displayed",Open,Needs the supplier sign-in.
