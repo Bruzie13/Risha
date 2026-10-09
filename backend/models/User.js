@@ -91,11 +91,22 @@ class User {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                'SELECT id, username, email, full_name, role, phone, address, is_active, email_verified, UNIX_TIMESTAMP(created_at) * 1000 as created_at FROM users' +
-                (includeInactive ? '' : ' WHERE is_active = TRUE') +
-                ' ORDER BY created_at DESC'
+                'SELECT u.id, u.username, u.email, u.full_name, u.role, u.phone, u.address, u.is_active, u.email_verified, u.supplier_id, s.name AS supplier_name, UNIX_TIMESTAMP(u.created_at) * 1000 as created_at FROM users u LEFT JOIN suppliers s ON s.id = u.supplier_id' +
+                (includeInactive ? '' : ' WHERE u.is_active = TRUE') +
+                ' ORDER BY u.created_at DESC'
             );
             return rows;
+        } finally {
+            connection.release();
+        }
+    }
+
+    /** The supplier a login is tied to, or null. */
+    static async getSupplierId(id) {
+        const connection = await pool.getConnection();
+        try {
+            const [rows] = await connection.execute('SELECT supplier_id FROM users WHERE id = ?', [id]);
+            return rows[0] ? rows[0].supplier_id : null;
         } finally {
             connection.release();
         }
@@ -119,8 +130,8 @@ class User {
             const hashedPassword = await bcrypt.hash(userData.password, 10);
 
             const [result] = await connection.execute(
-                `INSERT INTO users (username, email, password, full_name, role, phone, address, is_active) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO users (username, email, password, full_name, role, phone, address, is_active, supplier_id) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     userData.username || userData.email.split('@')[0],
                     userData.email,
@@ -129,7 +140,8 @@ class User {
                     userData.role || 'staff',
                     userData.phone || null,
                     userData.address || null,
-                    userData.is_active !== undefined ? userData.is_active : true
+                    userData.is_active !== undefined ? userData.is_active : true,
+                    userData.supplier_id || null
                 ]
             );
 
@@ -151,7 +163,7 @@ class User {
             const fields = [];
             const params = [];
             const allowedFields = [
-                'email', 'full_name', 'role', 'phone', 'address', 'is_active', 'avatar'
+                'email', 'full_name', 'role', 'phone', 'address', 'is_active', 'avatar', 'supplier_id'
             ];
 
             for (const field of allowedFields) {

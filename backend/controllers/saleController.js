@@ -57,6 +57,11 @@ exports.getSaleById = async (req, res) => {
             });
         }
 
+        // A till account can look up a sale only to reprint its own receipt.
+        if (req.user.role === 'cashier' && Number(sale.created_by) !== Number(req.user.id)) {
+            return res.status(403).json({ success: false, message: 'This account cannot do that.' });
+        }
+
         const items = await Sale.getSaleItems(id);
         res.status(200).json({
             success: true,

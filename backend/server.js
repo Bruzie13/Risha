@@ -84,6 +84,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+const { pageAllowed, homePage } = require('./utils/roles');
 function authPageGuard(req, res, next) {
     // track-delivery.html is opened by a supplier's driver, who has no account;
     // its unguessable, expiring token is the credential.
@@ -95,7 +96,11 @@ function authPageGuard(req, res, next) {
     const token = req.cookies?.token;
     if (token) {
         try {
-            jwt.verify(token, process.env.JWT_SECRET);
+            const claims = jwt.verify(token, process.env.JWT_SECRET);
+            // Send an account to its own screen rather than serving it a page
+            // it has no use for. This is navigation, not the security
+            // boundary: the data behind every page is guarded by the API.
+            if (!pageAllowed(claims.role, req.path)) return res.redirect(homePage(claims.role));
             return next();
         } catch (e) {}
     }
@@ -118,6 +123,8 @@ app.use('/api/predictions', predictionRoutes);
 
 const emailSettingsRoutes = require('./routes/emailSettings');
 app.use('/api/email-settings', emailSettingsRoutes);
+
+app.use('/api/supplier-portal', require('./routes/supplierPortal'));
 
 const assistantRoutes = require('./routes/assistant');
 app.use('/api/assistant', assistantRoutes);
@@ -243,6 +250,23 @@ async function ensureTokenVersionColumn() {
         console.log('[DB] token_version column ready');
     } catch (e) {
         console.error('[DB] token_version migration error:', e.message);
+    }
+}
+
+async function ensureAccountRoles() {
+    try {
+        const conn = await pool.getConnection();
+        // Two fenced-in account types: the till (cashier) and an outside
+        // supplier. A supplier login is tied to exactly one supplier record.
+        // MODIFY only widens the list, so existing rows are untouched.
+        try {
+            await conn.execute("ALTER TABLE users MODIFY role ENUM('admin','manager','staff','viewer','cashier','supplier') DEFAULT 'staff'");
+        } catch (e) { console.error('[DB] role list migration error:', e.message); }
+        try { await conn.execute('ALTER TABLE users ADD COLUMN supplier_id INT NULL'); } catch (e) { /* column exists */ }
+        conn.release();
+        console.log('[DB] cashier and supplier account roles ready');
+    } catch (e) {
+        console.error('[DB] account roles migration error:', e.message);
     }
 }
 
@@ -652,6 +676,7 @@ async function runMigrations() {
     await ensurePasswordResetColumns();
     await ensureEmailVerificationColumns();
     await ensureTokenVersionColumn();
+    await ensureAccountRoles();
     await ensureEmailCodesTable();
     await ensureEmailLogsTable();
     await ensureIndexes();

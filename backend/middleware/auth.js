@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
+const { apiAllowed } = require('../utils/roles');
 
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
@@ -48,6 +49,14 @@ const authenticateToken = (req, res, next) => {
             // Trust the database for the role, not the token: a demotion takes
             // effect immediately rather than at the next sign-in.
             user.role = rows[0].role;
+
+            // Till and supplier accounts are fenced in here, in the one place
+            // every protected route passes through, rather than route by
+            // route where a new endpoint could be left open by omission.
+            if (!apiAllowed(user.role, req.method, req.originalUrl.split('?')[0])) {
+                return res.status(403).json({ success: false, message: 'This account cannot do that.' });
+            }
+
             req.user = user;
             next();
         } catch (e) {

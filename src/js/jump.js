@@ -14,6 +14,8 @@
 
     var path = window.location.pathname;
     if (path.includes('login.html') || path.includes('reset-password.html')) return;
+    // Till and supplier accounts have one screen; there is nowhere to jump to.
+    if (typeof isFencedRole === 'function' && isFencedRole()) return;
 
     var RECENT_KEY = 'jumpRecents';
     var MAX_RECENT = 4;
@@ -64,7 +66,11 @@
         { label: 'Ask the assistant', sub: 'Questions about your shop, or how to do something', icon: 'smart_toy', tone: 'coral', run: function () { if (typeof openFetchAssistant === 'function') openFetchAssistant(); }, kw: 'help guide assistant ai how support' }
     ];
 
-    function allowed(item) { return !item.when || item.when(); }
+    function allowed(item) {
+        if (item.when && !item.when()) return false;
+        // never offer a screen this account cannot open
+        return !item.href || typeof canOpenPage !== 'function' || canOpenPage(item.href);
+    }
 
     // ── Deep-link handlers ─────────────────────────────────────────────────
     // A jump can land on a page *and* open something. Only known, already

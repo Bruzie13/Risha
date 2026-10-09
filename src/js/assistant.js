@@ -2,6 +2,9 @@
    Talks to /api/assistant, which answers questions about this shop only. */
 (function () {
     if (window.location.pathname.includes('login.html') || window.location.pathname === '/' || window.location.pathname.endsWith('/')) return;
+    // The assistant answers from shop-wide data, which till and supplier
+    // accounts are not given (the server refuses them as well).
+    if (typeof isFencedRole === 'function' && isFencedRole()) return;
 
     let open = false;
     let enabled = null; // unknown until /status

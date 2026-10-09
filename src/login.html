@@ -246,7 +246,7 @@
                     // the browser. Ticked, it persists. The server matches this
                     // for its own cookie, so the two cannot disagree.
                     setToken(data.token, remember, data.user);
-                    window.location.href = 'dashboard.html';
+                    window.location.href = roleHome(data.user && data.user.role);
                 } else if (data.code === 'EMAIL_NOT_VERIFIED') {
                     // Password was right — the only thing missing is the click,
                     // so offer to send the link again instead of a dead end.
@@ -326,7 +326,7 @@
     </script>
         <script src="js/format.js"></script>
 <script src="js/utils.js"></script>
-<script src="js/auth.js?v=20"></script>
+<script src="js/auth.js?v=22"></script>
 <script>/* login page is always light-themed, undo auth.js theme apply */document.documentElement.classList.remove('dark-mode');</script>
 <script src="js/motion.js?v=20"></script>
 </body>

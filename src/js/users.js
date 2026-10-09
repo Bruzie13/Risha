@@ -76,7 +76,7 @@ function displayUsers(users) {
                     ? '<span class="verify-badge verified" title="This address has been confirmed by the account holder"><span class="material-symbols-outlined">verified</span> Verified</span>'
                     : '<span class="verify-badge pending" title="Cannot sign in until the confirmation link is clicked"><span class="material-symbols-outlined">mark_email_unread</span> Unconfirmed</span>'}
             </td>
-            <td><span class="role-badge role-${u.role}">${escHtml(u.role)}</span></td>
+            <td><span class="role-badge role-${escHtml(u.role)}">${escHtml(u.role)}</span>${u.role === 'supplier' && u.supplier_name ? `<span style="display:block;font-size:12.5px;color:var(--text-muted);margin-top:2px;">${escHtml(u.supplier_name)}</span>` : ''}</td>
             <td>
                 <span class="status-badge ${isActive(u) ? 'status-in-stock' : 'status-expired'}">
                     ${isActive(u) ? 'Active' : 'Deactivated'}
@@ -300,10 +300,51 @@ function resetEmailCodeState() {
     if (el.sendBtn) { el.sendBtn.disabled = false; el.sendBtn.textContent = 'Send code'; }
 }
 
+/* ── Role-dependent fields ────────────────────────────────────────────────
+   A supplier account has to be tied to one supplier; nobody else is. */
+const ROLE_HINTS = {
+    staff: 'Can use the point of sale and record the end-of-day count. Sees the rest of the back office read-only.',
+    cashier: 'Opens straight to the point of sale and can use nothing else. Sales it records reduce stock in inventory as usual.',
+    manager: 'Manages inventory, suppliers and purchase orders. Does not use the point of sale.',
+    admin: 'Full control of the back office, including users. Does not use the point of sale.',
+    viewer: 'Can look at everything and change nothing.',
+    supplier: 'Signs in to a separate page showing only the purchase orders sent to them and the products they supply. They can confirm an order and mark it shipped.'
+};
+let supplierOptionsLoaded = false;
+
+async function loadSupplierOptions() {
+    if (supplierOptionsLoaded) return;
+    try {
+        const res = await fetch(`${API_BASE}/suppliers`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        const list = Array.isArray(data.data) ? data.data : [];
+        const sel = document.getElementById('userSupplier');
+        list.forEach(sup => {
+            const opt = document.createElement('option');
+            opt.value = sup.id;
+            opt.textContent = sup.name;
+            sel.appendChild(opt);
+        });
+        supplierOptionsLoaded = true;
+    } catch (e) {
+        console.error('Error loading suppliers:', e);
+    }
+}
+
+function refreshRoleFields() {
+    const role = document.getElementById('userRole').value;
+    const group = document.getElementById('supplierLinkGroup');
+    const hint = document.getElementById('roleHint');
+    if (hint) hint.textContent = ROLE_HINTS[role] || '';
+    if (group) group.hidden = role !== 'supplier';
+    if (role === 'supplier') loadSupplierOptions();
+}
+
 function openAddUserModal() {
     editingUserId = null;
     document.getElementById('userModalTitle').textContent = 'Add New User';
     document.getElementById('userForm').reset();
+    refreshRoleFields();
     resetEmailCodeState();
     document.getElementById('sendCodeBtn').style.display = '';
     document.getElementById('emailCodeRow').style.display = '';
@@ -335,6 +376,10 @@ function openEditUserModal(id) {
     document.getElementById('userFullName').value = user.full_name || '';
     document.getElementById('userEmail').value = user.email || '';
     document.getElementById('userRole').value = user.role || 'staff';
+    refreshRoleFields();
+    if (user.role === 'supplier') {
+        loadSupplierOptions().then(() => { document.getElementById('userSupplier').value = user.supplier_id || ''; });
+    }
     document.getElementById('userPassword').required = false;
     document.getElementById('userPassword').value = '';
     document.getElementById('passwordRequired').style.display = 'none';
@@ -377,6 +422,11 @@ async function handleUserSubmit(event) {
     // overwrite the account's real role on edit.
     const role = document.getElementById('userRole').value;
     if (role) userData.role = role;
+    if (role === 'supplier') {
+        const supplierId = document.getElementById('userSupplier').value;
+        if (!supplierId) { showErrorDialog('Supplier required', 'Choose which supplier this account belongs to.'); return; }
+        userData.supplier_id = Number(supplierId);
+    }
     const password = document.getElementById('userPassword').value;
     if (password) {
         const pwError = passwordPolicyError(password);

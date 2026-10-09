@@ -442,3 +442,14 @@
     flex-wrap: wrap;
 }
 
+
+/* ----- Label / value pairs (supplier details) ----- */
+.rp-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px 24px;
+  padding: 14px 18px 18px;
+}
+.rp-detail-item { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rp-detail-label { font-size: 12.5px; color: var(--text-muted); }
+.rp-detail-value { font-size: 14px; color: var(--text-primary); overflow-wrap: anywhere; }

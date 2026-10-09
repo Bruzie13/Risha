@@ -5,6 +5,7 @@ const pool = require('../config/database');
 const logAudit = require('../services/audit');
 const { notifyUserLogin } = require('../services/notifier');
 const { validatePassword } = require('../utils/passwordPolicy');
+const { ROLES } = require('../utils/roles');
 const { sendPasswordResetEmail, sendVerificationEmail, sendEmailCode, sendWelcomeEmail, isValidEmail } = require('../utils/mailer');
 
 // Brute-force protection: after 5 failed logins per IP+username within
@@ -414,6 +415,24 @@ exports.logout = (req, res) => {
     res.status(200).json({ success: true, message: 'Logged out' });
 };
 
+/* A supplier login must point at one real, active supplier; every other role
+   must point at none. Returns { supplier_id } to store, or { error }. */
+async function resolveSupplierLink(role, supplierId) {
+    if (role !== 'supplier') return { supplier_id: null };
+    const id = Number(supplierId);
+    if (!Number.isInteger(id) || id <= 0) {
+        return { error: 'Choose which supplier this account belongs to.' };
+    }
+    const conn = await pool.getConnection();
+    try {
+        const [rows] = await conn.execute('SELECT id FROM suppliers WHERE id = ? AND is_active = TRUE', [id]);
+        if (!rows.length) return { error: 'That supplier does not exist or is no longer active.' };
+    } finally {
+        conn.release();
+    }
+    return { supplier_id: id };
+}
+
 exports.register = async (req, res) => {
     try {
         if (!req.user || req.user.role !== 'admin') {
@@ -423,7 +442,7 @@ exports.register = async (req, res) => {
             });
         }
 
-        const { username, email, password, full_name, phone, address, role, emailCode } = req.body;
+        const { username, email, password, full_name, phone, address, role, emailCode, supplier_id } = req.body;
 
         if (!username || !password || !full_name) {
             return res.status(400).json({
@@ -458,8 +477,12 @@ exports.register = async (req, res) => {
             return res.status(400).json({ success: false, message: pwError });
         }
 
-        if (role && !['admin', 'manager', 'staff', 'viewer'].includes(role)) {
-            return res.status(400).json({ success: false, message: 'Invalid role. Must be one of: admin, manager, staff, viewer' });
+        if (role && !ROLES.includes(role)) {
+            return res.status(400).json({ success: false, message: 'Invalid role. Must be one of: ' + ROLES.join(', ') });
+        }
+        const link = await resolveSupplierLink(role || 'staff', supplier_id);
+        if (link.error) {
+            return res.status(400).json({ success: false, message: link.error });
         }
 
         // Deleting a user only flips is_active, but the UNIQUE index keeps
@@ -491,7 +514,8 @@ exports.register = async (req, res) => {
             full_name,
             phone,
             address,
-            role: role || 'staff'
+            role: role || 'staff',
+            supplier_id: link.supplier_id
         });
 
         // The code was the proof, so there is nothing left to confirm — the
@@ -764,6 +788,25 @@ exports.updateUser = async (req, res) => {
             }
         }
 
+        // Role and supplier link are decided together: a supplier account
+        // always carries a supplier, and no other role ever does.
+        let roleChanged = false;
+        if (oldUser && (updateData.role !== undefined || updateData.supplier_id !== undefined)) {
+            const finalRole = updateData.role !== undefined ? updateData.role : oldUser.role;
+            if (!ROLES.includes(finalRole)) {
+                return res.status(400).json({ success: false, message: 'Invalid role. Must be one of: ' + ROLES.join(', ') });
+            }
+            const wantedSupplier = updateData.supplier_id !== undefined
+                ? updateData.supplier_id
+                : await User.getSupplierId(id);
+            const link = await resolveSupplierLink(finalRole, wantedSupplier);
+            if (link.error) {
+                return res.status(400).json({ success: false, message: link.error });
+            }
+            updateData.supplier_id = link.supplier_id;
+            roleChanged = finalRole !== oldUser.role;
+        }
+
         const user = await User.update(id, updateData);
 
         if (!user) {
@@ -772,6 +815,9 @@ exports.updateUser = async (req, res) => {
                 message: 'User not found'
             });
         }
+
+        // A change of role has to bite now, not whenever their token expires.
+        if (roleChanged) await bumpTokenVersion(parseInt(id));
 
         // updateData is the raw request body: when an admin sets someone's
         // password it arrives here in the clear, and the audit row is kept
@@ -824,15 +870,19 @@ exports.updateUserRole = async (req, res) => {
             });
         }
 
-        const validRoles = ['admin', 'manager', 'staff', 'viewer'];
+        const validRoles = ROLES;
         if (!validRoles.includes(role)) {
             return res.status(400).json({
                 success: false,
                 message: 'Invalid role. Must be one of: ' + validRoles.join(', ')
             });
         }
+        const link = await resolveSupplierLink(role, req.body.supplier_id);
+        if (link.error) {
+            return res.status(400).json({ success: false, message: link.error });
+        }
 
-        const user = await User.update(id, { role });
+        const user = await User.update(id, { role, supplier_id: link.supplier_id });
 
         if (!user) {
             return res.status(404).json({

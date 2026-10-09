@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/images/favicon-192.png">
+    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
+    <meta name="description" content="Inventory, point of sale, and delivery tracking for Risha Pet Supplies.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="FETCH · Risha Pet Supplies">
+    <meta property="og:title" content="FETCH · Supplier">
+    <meta property="og:description" content="Inventory, point of sale, and delivery tracking for Risha Pet Supplies.">
+    <meta property="og:url" content="https://risha-pets.onrender.com/supplier.html">
+    <meta property="og:image" content="https://risha-pets.onrender.com/images/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Risha Pet Supplies logo">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FETCH · Supplier</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/global.css?v=21">
+    <link rel="stylesheet" href="css/reports.css?v=22">
+<script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');try{var _av=JSON.parse(localStorage.getItem('accentVars2')||'null');if(_av){for(var _k in _av)document.documentElement.style.setProperty(_k,_av[_k]);}}catch(e){}var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
+    </head>
+<body>
+    <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <div class="brand-icon" title="FETCH — Inventory Management for Risha Pet Supplies"><img src="images/logo.jpeg" alt="RISHA" title="FETCH — Inventory Management for Risha Pet Supplies"></div>
+                <div class="brand-text">
+                    <span>FETCH</span>
+                    <small>Risha Pet Supplies</small>
+                </div>
+            </div>
+            <button class="sidebar-collapse-btn" id="sidebarToggleBtn" onclick="toggleSidebarVisibility()" title="Collapse sidebar"><span class="material-symbols-outlined">chevron_left</span></button>
+        </div>
+        <div class="sidebar-nav">
+            <a href="supplier.html" class="nav-link active" title="Orders and products"><span class="nav-icon material-symbols-outlined">local_shipping</span><span class="nav-label">Orders and products</span></a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="sidebar-user" onclick="location.href='settings.html'" title="Your Profile">
+                <div class="avatar">
+                    <span class="avatar-initials">AD</span>
+                    <span class="avatar-status"></span>
+                </div>
+                <div class="user-info">
+                    <span id="userName">Loading...</span>
+                    <small id="sidebarUserRole">Staff</small>
+                </div>
+                <button class="user-settings-btn" onclick="event.stopPropagation();location.href='settings.html'" title="Settings">
+                    <span class="material-symbols-outlined">settings</span>
+                </button>
+            </div>
+            <div class="sidebar-actions">
+                <button class="sidebar-btn" id="themeToggleBtn" title="Toggle theme"><span class="material-symbols-outlined">dark_mode</span></button>
+                <button class="sidebar-btn sidebar-logout" onclick="logout()" title="Logout"><span class="material-symbols-outlined">logout</span></button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-wrapper">
+        <div class="page-header">
+            <div>
+                <h1 id="supplierName">Supplier</h1>
+                <div class="breadcrumb">Purchase orders from Risha Pet Supplies and the products you supply</div>
+            </div>
+        </div>
+
+        <div class="content rp">
+            <div class="rp-notice" id="portalNotice" hidden></div>
+
+            <div class="rp-figures">
+                <div class="rp-figure">
+                    <span class="rp-figure-label">Orders waiting for you</span>
+                    <span class="rp-figure-value" id="figWaiting">—</span>
+                    <span class="rp-figure-note">To confirm or to ship</span>
+                </div>
+                <div class="rp-figure">
+                    <span class="rp-figure-label">On the way</span>
+                    <span class="rp-figure-value" id="figShipped">—</span>
+                    <span class="rp-figure-note">Shipped, not yet received</span>
+                </div>
+                <div class="rp-figure">
+                    <span class="rp-figure-label">Products you supply</span>
+                    <span class="rp-figure-value" id="figProducts">—</span>
+                </div>
+                <div class="rp-figure">
+                    <span class="rp-figure-label">Running low at the shop</span>
+                    <span class="rp-figure-value" id="figLow">—</span>
+                    <span class="rp-figure-note">At or below the reorder level</span>
+                </div>
+            </div>
+
+            <div class="rp-card panel-card" data-jump-title="Open orders">
+                <div class="rp-card-head">
+                    <div>
+                        <h2>Open orders</h2>
+                        <span class="rp-card-sub">Confirm an order when you accept it, then mark it shipped when it leaves</span>
+                    </div>
+                </div>
+                <div class="rp-table-wrap">
+                    <table class="rp-table">
+                        <thead>
+                            <tr>
+                                <th>Order</th>
+                                <th>Items</th>
+                                <th class="num">Total</th>
+                                <th>Status</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="openOrdersBody">
+                            <tr><td colspan="5" class="rp-loading">Loading orders…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="rp-card panel-card" data-jump-title="Products you supply">
+                <div class="rp-card-head">
+                    <div>
+                        <h2>Products you supply</h2>
+                        <span class="rp-card-sub">How much of each the shop has on hand right now</span>
+                    </div>
+                </div>
+                <div class="rp-table-wrap">
+                    <table class="rp-table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Category</th>
+                                <th class="num">In stock at the shop</th>
+                                <th class="num">Reorder level</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsBody">
+                            <tr><td colspan="5" class="rp-loading">Loading products…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="rp-card panel-card" data-jump-title="Past orders">
+                <div class="rp-card-head">
+                    <div>
+                        <h2>Past orders</h2>
+                        <span class="rp-card-sub">Received and cancelled</span>
+                    </div>
+                </div>
+                <div class="rp-table-wrap">
+                    <table class="rp-table">
+                        <thead>
+                            <tr>
+                                <th>Order</th>
+                                <th>Items</th>
+                                <th class="num">Total</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pastOrdersBody">
+                            <tr><td colspan="4" class="rp-loading">Loading…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="rp-card panel-card" data-jump-title="Your details">
+                <div class="rp-card-head">
+                    <div>
+                        <h2>Your details on file</h2>
+                        <span class="rp-card-sub">Purchase orders are emailed to this address. Ask the shop to correct anything that is wrong.</span>
+                    </div>
+                </div>
+                <div class="rp-detail-grid" id="supplierDetails"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            if (document.documentElement.classList.contains('sidebar-hidden')) {
+                toggleSidebarVisibility();
+                if (window.innerWidth <= 768) document.getElementById('sidebar').classList.add('open');
+            } else if (window.innerWidth <= 768) {
+                document.getElementById('sidebar').classList.toggle('open');
+            }
+        }
+        document.addEventListener('click', function (e) {
+            var sidebar = document.getElementById('sidebar');
+            var hamburger = document.getElementById('hamburgerBtn');
+            if (window.innerWidth <= 768 && !sidebar.contains(e.target) && !hamburger.contains(e.target)) sidebar.classList.remove('open');
+        });
+    </script>
+    <script src="js/format.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js?v=22"></script>
+    <script src="js/supplier-portal.js?v=1"></script>
+</body>
+</html>

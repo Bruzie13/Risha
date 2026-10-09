@@ -63,6 +63,68 @@ function canManage() {
     return role === 'admin' || role === 'manager';
 }
 
+/* Which screens an account may open. This mirrors backend/utils/roles.js and
+   exists only to keep the interface honest — hiding links that would bounce
+   and sending each account to its own screen. The server enforces the same
+   rules on every page and every API call, so editing this in the browser
+   opens nothing. */
+const FENCED_ROLE_PAGES = {
+    cashier: ['pos.html', 'settings.html'],
+    supplier: ['supplier.html', 'settings.html']
+};
+const SELLING_ROLES = ['cashier', 'staff'];
+
+function isFencedRole(role) {
+    return Object.prototype.hasOwnProperty.call(FENCED_ROLE_PAGES, role || getUserRole());
+}
+
+function roleHome(role) {
+    role = role || getUserRole();
+    return role === 'cashier' ? 'pos.html' : role === 'supplier' ? 'supplier.html' : 'dashboard.html';
+}
+
+/** May the signed-in account open this link? Non-page links are always fine. */
+function canOpenPage(href) {
+    const m = /([a-z0-9-]+\.html)(?:[?#].*)?$/i.exec(String(href || ''));
+    if (!m) return true;
+    const page = m[1].toLowerCase();
+    const role = getUserRole();
+    if (isFencedRole(role)) return FENCED_ROLE_PAGES[role].includes(page);
+    if (page === 'pos.html') return SELLING_ROLES.includes(role);
+    if (page === 'supplier.html') return false;
+    return true;
+}
+
+// Wrong screen for this account: leave before anything renders.
+(function () {
+    const page = (window.location.pathname.split('/').pop() || '').toLowerCase();
+    const open = ['', 'login.html', 'reset-password.html', 'verify-email.html', 'track-delivery.html'];
+    if (open.includes(page) || !getToken() || !getUser()) return;
+    if (!canOpenPage(page)) window.location.replace(roleHome());
+})();
+
+/* Trim the interface to what this account can use: links to screens it cannot
+   open disappear, and a till or supplier account loses the shop-wide extras
+   (alerts bell, search palette). */
+function applyRoleInterface() {
+    const role = getUserRole();
+    if (!role) return;
+    document.querySelectorAll('a[href]').forEach(a => {
+        if (!canOpenPage(a.getAttribute('href'))) a.remove();
+    });
+    if (!isFencedRole(role)) return;
+    const nav = document.querySelector('.sidebar-nav');
+    if (nav && role === 'supplier' && !nav.querySelector('a[href="supplier.html"]')) {
+        const link = document.createElement('a');
+        link.href = 'supplier.html';
+        link.className = 'nav-link';
+        link.title = 'Orders and products';
+        link.innerHTML = '<span class="nav-icon material-symbols-outlined">local_shipping</span><span class="nav-label">Orders and products</span>';
+        nav.prepend(link);
+    }
+    document.querySelectorAll('#notifBellBtn, #jumpCta, .jump-cta, #alertChip').forEach(el => el.remove());
+}
+
 // After logout, the browser's Back button can resurrect a cached copy of an
 // authenticated page (back/forward cache). Re-check the session whenever a
 // page is restored that way and bounce to login if it's gone.
@@ -539,7 +601,7 @@ function getNotifBadge() {
 }
 
 async function refreshNotifCount() {
-    if (!isAuthenticated()) return;
+    if (!isAuthenticated() || isFencedRole()) return;
     try {
         const res = await fetch(`${API_BASE}/notifications/count`, { headers: getAuthHeaders() });
         const data = await res.json();
@@ -717,7 +779,7 @@ window.addEventListener('load', async () => {
                 const res = await fetch(`${API_BASE}/auth/verify`, { headers: getAuthHeaders() });
                 const data = await res.json();
                 if (data.success) {
-                    window.location.href = 'dashboard.html';
+                    window.location.href = roleHome(data.user && data.user.role);
                     return;
                 }
             } catch (e) {}
@@ -782,6 +844,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // users.html — getElementById would hand the form the wrong element.
         if (user && roleEl && user.role) roleEl.textContent = user.role.charAt(0).toUpperCase() + user.role.slice(1);
         applyUserIdentity();
+        applyRoleInterface();
     }
 
     var themeBtn = document.getElementById('themeToggleBtn');
