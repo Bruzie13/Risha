@@ -25,7 +25,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css?v=45">
-    <link rel="stylesheet" href="css/users.css?v=23">
+    <link rel="stylesheet" href="css/users.css?v=24">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
         <link rel="stylesheet" href="css/system.css?v=7">
 </head>
@@ -103,6 +103,18 @@
                 <span class="warning-icon">⚠️</span>
                 <span>You do not have admin privileges. Some management features are restricted.</span>
             </div>
+
+            <!-- Forgotten passwords wait here until an administrator decides. Hidden when there are none. -->
+            <section class="reset-requests" id="resetRequests" hidden aria-live="polite">
+                <div class="reset-requests-head">
+                    <span class="material-symbols-outlined" aria-hidden="true">key</span>
+                    <div>
+                        <h2>Password reset requests</h2>
+                        <p>These people said they forgot their password. Approve only if you know it was really them: approving emails a reset link to the address on their account.</p>
+                    </div>
+                </div>
+                <ul class="reset-requests-list" id="resetRequestsList"></ul>
+            </section>
 
             <div class="table-container">
                 <table class="data-table" id="usersTable">
@@ -232,7 +244,7 @@
 <script src="js/motion.js?v=21"></script>
 <script src="js/jump.js?v=29"></script>
 <script src="js/assistant.js?v=23"></script>
-    <script src="js/users.js?v=32"></script>
+    <script src="js/users.js?v=33"></script>
 </body>
 </html>
 

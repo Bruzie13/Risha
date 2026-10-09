@@ -54,6 +54,10 @@ router.put('/users/:id/status', authenticateToken, authorizeRole('admin'), authC
 router.post('/users/:id/resend-verification', authenticateToken, authorizeRole('admin'), authController.adminResendVerification);
 router.delete('/users/:id', authenticateToken, authorizeRole('admin'), authController.deleteUser);
 
+// Forgotten passwords wait here for an administrator's decision.
+router.get('/reset-requests', authenticateToken, authorizeRole('admin'), authController.listResetRequests);
+router.post('/reset-requests/:id/:decision', authenticateToken, authorizeRole('admin'), authController.decideResetRequest);
+
 router.put('/profile', authenticateToken, authController.updateProfile);
 router.put('/change-password', authenticateToken, authController.changePassword);
 

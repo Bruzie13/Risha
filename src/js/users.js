@@ -14,6 +14,7 @@ window.addEventListener('load', async () => {
         document.querySelector('.page-header-actions .btn-primary')?.remove();
         return;
     }
+    loadResetRequests();
     await loadUsers();
 });
 
@@ -493,3 +494,61 @@ async function deleteUser(id) {
 document.addEventListener('click', (e) => {
     if (e.target === document.getElementById('userModal')) closeUserModal();
 });
+
+
+/* ----- Forgotten passwords: approve or decline -----
+   Someone who forgets their password no longer gets a link straight away.
+   Their request lands here, and the link is only emailed when an
+   administrator approves it. */
+function resetText(v) {
+    const d = document.createElement('div');
+    d.textContent = v == null ? '' : String(v);
+    return d.innerHTML;
+}
+
+function resetAskedAgo(when) {
+    const mins = Math.max(0, Math.round((Date.now() - new Date(when).getTime()) / 60000));
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
+    const hours = Math.round(mins / 60);
+    return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+}
+
+async function loadResetRequests() {
+    const box = document.getElementById('resetRequests');
+    const list = document.getElementById('resetRequestsList');
+    if (!box || !list) return;
+    try {
+        const response = await fetch(`${API_BASE}/auth/reset-requests`, { headers: getAuthHeaders() });
+        const data = await response.json();
+        const rows = data.success && Array.isArray(data.data) ? data.data : [];
+        box.hidden = rows.length === 0;
+        list.innerHTML = rows.map(r => `
+            <li>
+                <div class="reset-who">
+                    <strong>${resetText(r.full_name || r.username)}</strong>
+                    <span>${resetText(r.username)} · ${resetText(roleLabel(r.role))} · asked ${resetAskedAgo(r.requested_at)}</span>
+                    <span>Link goes to ${resetText(r.email)}</span>
+                </div>
+                <div class="reset-actions">
+                    <button type="button" class="btn-secondary" onclick="decideResetRequest(${Number(r.id)}, 'decline', this)">Decline</button>
+                    <button type="button" class="btn-primary" onclick="decideResetRequest(${Number(r.id)}, 'approve', this)">Approve and email link</button>
+                </div>
+            </li>`).join('');
+    } catch (error) {
+        console.error('Error loading reset requests:', error);
+    }
+}
+
+async function decideResetRequest(id, decision, button) {
+    const row = button.closest('li');
+    row.querySelectorAll('button').forEach(b => { b.disabled = true; });
+    try {
+        const response = await fetch(`${API_BASE}/auth/reset-requests/${id}/${decision}`, { method: 'POST', headers: getAuthHeaders() });
+        const data = await response.json();
+        showToast(data.message || (data.success ? 'Done' : 'Could not update the request'), data.success ? 'success' : 'error');
+    } catch (error) {
+        showToast('Connection error. Please try again.', 'error');
+    }
+    loadResetRequests();
+}

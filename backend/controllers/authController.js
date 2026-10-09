@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const pool = require('../config/database');
 const logAudit = require('../services/audit');
-const { notifyUserLogin } = require('../services/notifier');
+const { notifyUserLogin, notifyPasswordResetRequested } = require('../services/notifier');
 const { validatePassword } = require('../utils/passwordPolicy');
 const { ROLES } = require('../utils/roles');
 const { sendPasswordResetEmail, sendVerificationEmail, sendEmailCode, sendWelcomeEmail, isValidEmail } = require('../utils/mailer');
@@ -312,13 +312,40 @@ exports.login = async (req, res) => {
 };
 
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
+// A link sent after an administrator's approval lasts longer: the person who
+// asked may not be looking at their inbox at the moment it is approved.
+const APPROVED_RESET_TTL_MS = 60 * 60 * 1000;
+// A request nobody acts on stops being offered for approval after a day.
+const RESET_REQUEST_LIFE_HOURS = 24;
 
-// Always answers with the same generic message so the endpoint can't be
-// used to probe which usernames/emails exist.
+async function issueResetLink(user, ttlMs) {
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const expires = new Date(Date.now() + ttlMs);
+    await pool.query(
+        'UPDATE users SET reset_token_hash = ?, reset_token_expires = ? WHERE id = ?',
+        [tokenHash, expires, user.id]
+    );
+    await sendPasswordResetEmail(user.email, user.full_name, token, Math.round(ttlMs / 60000));
+}
+
+/* Forgotten password.
+
+   Nobody gets a reset link just by typing a username any more. The request
+   goes to the administrators first; the link is only emailed once one of
+   them approves it on the Users page. The link still goes to the address on
+   the account, so approval is a second lock, not a replacement for the first.
+
+   The one exception is an administrator's own account: with a single admin
+   there would be nobody left to approve it, and the shop would be locked out
+   of its own system. Administrators keep the direct email link.
+
+   Always answers with the same generic message so the endpoint can't be used
+   to probe which usernames/emails exist. */
 exports.forgotPassword = async (req, res) => {
     const genericResponse = {
         success: true,
-        message: 'If that account exists, a reset link has been sent to its email address.'
+        message: 'If that account exists, the administrator has been asked to approve a password reset. Once it is approved, a reset link is sent to the email address on the account.'
     };
     try {
         const { username } = req.body;
@@ -326,7 +353,7 @@ exports.forgotPassword = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Username or email is required' });
         }
 
-        const input = String(username).trim();
+        const input = String(username).trim().slice(0, 150);
         let user = await User.findByUsername(input);
         if (!user && isValidEmail(input)) user = await User.findByEmail(input);
 
@@ -334,28 +361,118 @@ exports.forgotPassword = async (req, res) => {
             return res.status(200).json(genericResponse);
         }
 
-        const token = crypto.randomBytes(32).toString('hex');
-        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-        const expires = new Date(Date.now() + RESET_TOKEN_TTL_MS);
-
-        const conn = await pool.getConnection();
-        try {
-            await conn.execute(
-                'UPDATE users SET reset_token_hash = ?, reset_token_expires = ? WHERE id = ?',
-                [tokenHash, expires, user.id]
-            );
-        } finally {
-            conn.release();
+        if (user.role === 'admin') {
+            await issueResetLink(user, RESET_TOKEN_TTL_MS);
+            logAudit(user.id, 'password_reset_requested', 'users', user.id, null, null, req.ip);
+            return res.status(200).json(genericResponse);
         }
 
-        await sendPasswordResetEmail(user.email, user.full_name, token);
-        logAudit(user.id, 'password_reset_requested', 'users', user.id, null, null, req.ip);
+        // One open request per account: asking again does not stack them up
+        // or send the administrators a second notification.
+        const [open] = await pool.query(
+            `SELECT id FROM password_reset_requests
+              WHERE user_id = ? AND status = 'pending'
+                AND requested_at > NOW() - INTERVAL ${RESET_REQUEST_LIFE_HOURS} HOUR
+              LIMIT 1`,
+            [user.id]
+        );
+        if (!open.length) {
+            const [ins] = await pool.query(
+                'INSERT INTO password_reset_requests (user_id, requested_ip) VALUES (?, ?)',
+                [user.id, String(req.ip || '').slice(0, 64)]
+            );
+            await notifyPasswordResetRequested(user, ins.insertId);
+            logAudit(user.id, 'password_reset_requested', 'users', user.id, null, null, req.ip);
+        }
 
         res.status(200).json(genericResponse);
     } catch (error) {
         console.error('Forgot password error:', error.message);
-        // Same generic answer on send failure — details go to the server log only
+        // Same generic answer on failure — details go to the server log only
         res.status(200).json(genericResponse);
+    }
+};
+
+// Administrators: the requests waiting for a decision.
+exports.listResetRequests = async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT r.id, r.requested_at, u.id AS user_id, u.username, u.full_name, u.email, u.role
+               FROM password_reset_requests r
+               JOIN users u ON u.id = r.user_id
+              WHERE r.status = 'pending'
+                AND r.requested_at > NOW() - INTERVAL ${RESET_REQUEST_LIFE_HOURS} HOUR
+              ORDER BY r.requested_at ASC`
+        );
+        res.json({ success: true, data: rows });
+    } catch (error) {
+        console.error('List reset requests error:', error.message);
+        res.status(500).json({ success: false, message: 'Could not load password reset requests' });
+    }
+};
+
+// Administrators: approve (emails the link) or decline one request.
+exports.decideResetRequest = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const approve = req.params.decision === 'approve';
+        if (!Number.isInteger(id) || id <= 0 || !['approve', 'decline'].includes(req.params.decision)) {
+            return res.status(400).json({ success: false, message: 'Invalid request' });
+        }
+
+        const [rows] = await pool.query(
+            `SELECT r.id, r.status, u.id AS user_id, u.username, u.full_name, u.email, u.is_active, u.role
+               FROM password_reset_requests r
+               JOIN users u ON u.id = r.user_id
+              WHERE r.id = ?
+                AND r.requested_at > NOW() - INTERVAL ${RESET_REQUEST_LIFE_HOURS} HOUR`,
+            [id]
+        );
+        const request = rows[0];
+        if (!request || request.status !== 'pending') {
+            return res.status(404).json({ success: false, message: 'This request has already been dealt with or has expired.' });
+        }
+
+        if (!approve) {
+            await pool.query(
+                `UPDATE password_reset_requests SET status = 'declined', decided_by = ?, decided_at = NOW() WHERE id = ? AND status = 'pending'`,
+                [req.user.id, id]
+            );
+            logAudit(req.user.id, 'password_reset_declined', 'users', request.user_id, null, null, req.ip);
+            return res.json({ success: true, message: `Declined. ${request.full_name || request.username}'s password stays as it is.` });
+        }
+
+        if (!request.is_active || !isValidEmail(request.email)) {
+            return res.status(400).json({ success: false, message: 'This account is deactivated or has no valid email address, so a link cannot be sent.' });
+        }
+
+        // Claim the request first, so two administrators clicking at once
+        // cannot both send a link.
+        const [claim] = await pool.query(
+            `UPDATE password_reset_requests SET status = 'approved', decided_by = ?, decided_at = NOW() WHERE id = ? AND status = 'pending'`,
+            [req.user.id, id]
+        );
+        if (!claim.affectedRows) {
+            return res.status(404).json({ success: false, message: 'This request has already been dealt with.' });
+        }
+
+        try {
+            await issueResetLink({ id: request.user_id, email: request.email, full_name: request.full_name }, APPROVED_RESET_TTL_MS);
+        } catch (mailError) {
+            // The link never left: put the request back so it can be approved again.
+            console.error('Reset approval email error:', mailError.message);
+            await pool.query(
+                `UPDATE password_reset_requests SET status = 'pending', decided_by = NULL, decided_at = NULL WHERE id = ?`, [id]
+            );
+            await pool.query('UPDATE users SET reset_token_hash = NULL, reset_token_expires = NULL WHERE id = ?', [request.user_id]);
+            return res.status(502).json({ success: false, message: 'The reset email could not be sent. Check the email settings and try again.' });
+        }
+
+        logAudit(req.user.id, 'password_reset_approved', 'users', request.user_id, null, null, req.ip);
+        res.json({ success: true, message: `Approved. A reset link was emailed to ${request.full_name || request.username}; it works for 1 hour.` });
+    } catch (error) {
+        console.error('Decide reset request error:', error.message);
+        res.status(500).json({ success: false, message: 'Could not update the request' });
     }
 };
 

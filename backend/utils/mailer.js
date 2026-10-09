@@ -410,7 +410,10 @@ async function sendLowStockAlert(supplierId, supplierEmail, supplierName, items)
  * Password reset email: link is valid for 30 minutes. No tracking pixel —
  * this is an account-security email, not a supplier communication.
  */
-async function sendPasswordResetEmail(toEmail, fullName, resetToken) {
+async function sendPasswordResetEmail(toEmail, fullName, resetToken, ttlMinutes = 30) {
+    const lasts = ttlMinutes >= 60 && ttlMinutes % 60 === 0
+        ? `${ttlMinutes / 60} hour${ttlMinutes === 60 ? '' : 's'}`
+        : `${ttlMinutes} minutes`;
     const config = await getEmailConfig();
     if (!process.env.BREVO_API_KEY && !buildTransporter(config)) {
         throw new Error('Email credentials not configured');
@@ -422,7 +425,7 @@ async function sendPasswordResetEmail(toEmail, fullName, resetToken) {
         paragraph(`Hi <strong>${escapeAttr(fullName || 'there')}</strong>,`) +
         paragraph(`Someone asked to reset the password for your <strong>${BRAND.app}</strong> account at ${BRAND.org}. Choose a new one here:`) +
         ctaButton(resetUrl, 'Choose a new password') +
-        `<p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:${BRAND.body};text-align:center;">This link expires in <strong>30 minutes</strong>.</p>` +
+        `<p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:${BRAND.body};text-align:center;">This link expires in <strong>${lasts}</strong>.</p>` +
         `<p style="margin:14px 0 0;font-size:12px;line-height:1.6;color:${BRAND.muted};">If the button does not work, copy this into your browser:<br /><a href="${escapeAttr(resetUrl)}" style="color:${BRAND.primary};word-break:break-all;">${escapeAttr(resetUrl)}</a></p>`;
 
     const text = [
@@ -434,7 +437,7 @@ async function sendPasswordResetEmail(toEmail, fullName, resetToken) {
         '',
         resetUrl,
         '',
-        'This link expires in 30 minutes.',
+        `This link expires in ${lasts}.`,
         '',
         `If you didn't ask for this, ignore this email — your password will not change.`,
         '',

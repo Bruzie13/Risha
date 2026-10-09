@@ -121,7 +121,20 @@ async function notifyUserLogin(user, ip) {
     });
 }
 
+// Tells the administrators someone is waiting on them. Says who, never why:
+// the decision is made on the Users page.
+async function notifyPasswordResetRequested(user, requestId) {
+    await Notification.create({
+        title: 'Password reset request',
+        message: `${user.full_name || user.username} (${user.username}) asked to reset their password. Approve or decline it on the Users page.`,
+        type: 'info',
+        related_id: requestId,
+        related_type: 'password_reset_request'
+    });
+}
+
 module.exports = {
+    notifyPasswordResetRequested,
     notifySaleCreated,
     notifyStockAdjusted,
     notifyLowStock,

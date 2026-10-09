@@ -249,6 +249,29 @@ async function ensureTokenVersionColumn() {
     }
 }
 
+/* Forgotten-password requests waiting for an administrator. Additive: a new
+   table, nothing existing is altered. */
+async function ensureResetRequestTable() {
+    try {
+        await pool.execute(`
+            CREATE TABLE IF NOT EXISTS password_reset_requests (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                status ENUM('pending', 'approved', 'declined') NOT NULL DEFAULT 'pending',
+                requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                requested_ip VARCHAR(64) NULL,
+                decided_by INT NULL,
+                decided_at DATETIME NULL,
+                INDEX idx_prr_status (status, requested_at),
+                INDEX idx_prr_user (user_id),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )`);
+        console.log('[DB] password reset request table ready');
+    } catch (e) {
+        console.error('[DB] password reset request migration error:', e.message);
+    }
+}
+
 async function ensureAccountRoles() {
     try {
         const conn = await pool.getConnection();
@@ -677,6 +700,7 @@ async function runMigrations() {
     await ensureEmailVerificationColumns();
     await ensureTokenVersionColumn();
     await ensureAccountRoles();
+    await ensureResetRequestTable();
     await ensureTillTables();
     await ensureSupplyTables();
     await ensureEmailCodesTable();
