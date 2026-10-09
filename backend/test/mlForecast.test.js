@@ -52,6 +52,22 @@ test('warmMLCache: one Python run serves many products', () => {
     assert.equal(ml.forecastML(jobs[2].series, 30), null);
 });
 
+test('warmMLCacheAsync: fits without blocking the event loop', async () => {
+    ml.clearMLCache();
+    const jobs = [
+        { series: makeSeries(90), days: 30 },
+        { series: makeSeries(70), days: 14 },
+    ];
+    // A blocked loop cannot run timers; a free one ticks throughout the fit.
+    let ticks = 0;
+    const timer = setInterval(() => { ticks++; }, 20);
+    await ml.warmMLCacheAsync(jobs);
+    clearInterval(timer);
+    assert.ok(ticks >= 3, `event loop should keep turning during the fit (ticked ${ticks}x)`);
+    assert.ok(ml.forecastML(jobs[0].series, 30), 'warmed 30-day forecast');
+    assert.ok(ml.forecastML(jobs[1].series, 14), 'warmed 14-day backtest forecast');
+});
+
 test('the model really is scikit-learn, not a JavaScript reimplementation', () => {
     // The thesis claims Python does the machine learning. Assert that the
     // bridge holds no learner of its own and that the Python module fits with
