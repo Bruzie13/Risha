@@ -177,7 +177,13 @@ async function consumeEmailCode(email, code) {
     }
 }
 
-const generateToken = (user) => {
+/* How long a sign-in lasts. Without "Keep me signed in" the tab forgets the
+   token when the browser closes, and the token itself dies after a day. With
+   it, the browser keeps the session for a week. */
+const SESSION_HOURS = 24;
+const REMEMBER_DAYS = 7;
+
+const generateToken = (user, remember = false) => {
     return jwt.sign(
         {
             id: user.id,
@@ -189,7 +195,7 @@ const generateToken = (user) => {
             tv: Number(user.token_version) || 0
         },
         process.env.JWT_SECRET,
-        { expiresIn: '24h' }
+        { expiresIn: remember ? `${REMEMBER_DAYS}d` : `${SESSION_HOURS}h` }
     );
 };
 
@@ -267,7 +273,7 @@ exports.login = async (req, res) => {
 
         loginAttempts.delete(key);
 
-        const token = generateToken(user);
+        const token = generateToken(user, !!remember);
 
         logAudit(user.id, 'login', 'users', user.id, null, null, req.ip);
 
@@ -285,7 +291,7 @@ exports.login = async (req, res) => {
             secure: process.env.NODE_ENV === 'production',
             path: '/'
         };
-        if (remember) cookieOpts.maxAge = 24 * 60 * 60 * 1000;
+        if (remember) cookieOpts.maxAge = REMEMBER_DAYS * 24 * 60 * 60 * 1000;
         res.cookie('token', token, cookieOpts);
 
         res.status(200).json({

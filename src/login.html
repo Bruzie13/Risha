@@ -131,22 +131,22 @@
             <h1>Sign in</h1>
             <p class="login-lead">Use the account your administrator gave you.</p>
             <div id="loginError" class="login-error" role="alert"></div>
-            <form class="login-form" id="loginForm" onsubmit="handleLogin(event)">
+            <form class="login-form" id="loginForm" onsubmit="handleLogin(event)" autocomplete="off">
                 <div class="form-group">
                     <label class="field-label" for="username">Username</label>
-                    <input type="text" class="form-input" id="username" required autocomplete="username" autofocus>
+                    <input type="text" class="form-input" id="username" required autocomplete="off" autocapitalize="none" spellcheck="false" readonly>
                 </div>
                 <div class="form-group">
                     <label class="field-label" for="password">Password</label>
                     <div class="input-wrap">
-                        <input type="password" class="form-input" id="password" required autocomplete="current-password">
+                        <input type="password" class="form-input" id="password" required autocomplete="off" readonly>
                         <button type="button" class="toggle-password" id="togglePassword" aria-label="Show or hide password"><span class="material-symbols-outlined" style="font-size:18px;">visibility</span></button>
                     </div>
                 </div>
                 <label class="remember-row" for="rememberMe">
                     <input type="checkbox" id="rememberMe">
                     <span class="remember-text">Keep me signed in
-                        <small>Leave this off on a shared till. The session then ends when the browser closes.</small>
+                        <small>Stays signed in on this browser for 7 days. Leave it off on a shared till: the session then ends when the browser closes.</small>
                     </span>
                 </label>
                 <button type="submit" class="login-btn" id="loginBtn">Sign in</button>
@@ -197,6 +197,36 @@
                 errorEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">error</span> Connection error. Please try again.';
             }
         }
+
+        /* A sign-in page on a shared till must come up empty. Two things used
+           to put the last person's details back after signing out: the browser
+           restoring the form when you return to the page, and the browser's
+           own saved-password filler. So the fields start read-only (a filler
+           skips read-only fields) and unlock the moment someone clicks or
+           tabs into them, and the form is wiped every time the page is shown.
+           The one exception is a username remembered by "Keep me signed in". */
+        (function () {
+            var user = document.getElementById('username');
+            var pass = document.getElementById('password');
+            var touched = false;
+            function unlock() { user.removeAttribute('readonly'); pass.removeAttribute('readonly'); }
+            function wipe() {
+                if (touched) return;
+                var remembered = null;
+                try { remembered = localStorage.getItem('rememberUser'); } catch (e) {}
+                user.value = remembered || '';
+                pass.value = '';
+            }
+            [user, pass].forEach(function (el) {
+                el.addEventListener('focus', unlock);
+                el.addEventListener('pointerdown', unlock);
+                el.addEventListener('input', function () { touched = true; });
+            });
+            window.addEventListener('pageshow', function () { touched = false; wipe(); });
+            wipe();
+            // fillers act a moment after load; clear once more, then hand over the cursor
+            setTimeout(function () { wipe(); unlock(); if (!document.querySelector('.intro-stage')) (user.value ? pass : user).focus(); }, 400);
+        })();
 
         async function handleLogin(e) {
             e.preventDefault();
@@ -302,7 +332,7 @@
     </script>
         <script src="js/format.js"></script>
 <script src="js/utils.js"></script>
-<script src="js/auth.js?v=42"></script>
+<script src="js/auth.js?v=43"></script>
 <script>/* login page is always light-themed, undo auth.js theme apply */document.documentElement.classList.remove('dark-mode');</script>
 <script src="js/motion.js?v=22"></script>
     <script src="js/intro.js?v=3"></script>

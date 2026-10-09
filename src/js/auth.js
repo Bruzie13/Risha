@@ -793,7 +793,8 @@ window.addEventListener('load', async () => {
         if (rememberUser) {
             const usernameInput = document.getElementById('username');
             if (usernameInput) { usernameInput.value = rememberUser; }
-            const rememberCheck = document.getElementById('remember');
+            // the box is called rememberMe; looking for "remember" meant it never came back ticked
+            const rememberCheck = document.getElementById('rememberMe');
             if (rememberCheck) { rememberCheck.checked = true; }
         }
         if (isAuthenticated()) {
