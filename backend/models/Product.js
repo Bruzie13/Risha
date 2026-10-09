@@ -2,7 +2,14 @@ const pool = require('../config/database');
 
 // Stock/expiry status as SQL, mirroring the inventory page's statusMatches():
 // a product can be both low-stock AND expiring, so each filter is a plain fact.
+/* Can it be sold today? Not once its expiry date has passed (it can still be
+   sold on the date itself), and not with nothing in stock. The same rule the
+   point of sale applies tile by tile (unavailableReason in src/js/pos.js). */
+const UNSELLABLE_SQL = `((p.expiration_date IS NOT NULL AND DATEDIFF(DATE(p.expiration_date), DATE(CONVERT_TZ(NOW(),'+00:00','+08:00'))) < 0) OR p.stock_quantity <= 0)`;
+
 const STATUS_SQL = {
+    sellable: `NOT ${UNSELLABLE_SQL}`,
+    unsellable: UNSELLABLE_SQL,
     low: 'p.stock_quantity > 0 AND p.stock_quantity <= COALESCE(p.reorder_level, 10)',
     out: 'p.stock_quantity <= 0',
     reorder: 'p.stock_quantity <= COALESCE(p.reorder_level, 10)',
@@ -76,6 +83,9 @@ class Product {
                 // Products without an expiry date always sink to the bottom
                 const dir = filters.dir === 'desc' ? 'DESC' : 'ASC';
                 sql += ` ORDER BY p.expiration_date IS NULL ASC, DATE(p.expiration_date) ${dir}, p.id`;
+            } else if (filters.sort === 'sellable') {
+                // What can be sold first, then by name: the order a cashier wants
+                sql += ` ORDER BY ${UNSELLABLE_SQL} ASC, p.name, p.id`;
             } else if (filters.sort === 'status') {
                 const dir = filters.dir === 'desc' ? 'DESC' : 'ASC';
                 sql += ` ORDER BY ${STATUS_RANK_SQL} ${dir}, p.id`;

@@ -26,8 +26,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css?v=50">
     <link rel="stylesheet" href="css/pos.css?v=33">
+<script>/* the till has one page, so its sidebar starts as a narrow strip unless someone opened it */if(localStorage.getItem('sidebarHidden')!=='false')document.documentElement.classList.add('sidebar-hidden');</script>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=24">
+        <link rel="stylesheet" href="css/system.css?v=27">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -83,6 +84,10 @@
                 <div class="breadcrumb">Ring up a sale</div>
             </div>
             <div class="page-header-actions">
+                <button type="button" id="connectPrinterBtn" class="btn-secondary" style="display:none;" title="Connect a USB thermal printer for one-tap receipts (no print dialog)" onclick="connectThermalPrinter()">
+                            <span class="material-symbols-outlined">print</span>
+                            <span id="connectPrinterLabel">Connect printer</span>
+                        </button>
                 <button type="button" class="btn-secondary" onclick="openMySales()"><span class="material-symbols-outlined">receipt_long</span> My sales today</button>
                 <button type="button" class="btn-secondary" onclick="openPosEod()"><span class="material-symbols-outlined">savings</span> End of day</button>
             </div>
@@ -101,10 +106,6 @@
                             <span class="material-symbols-outlined search-icon">search</span>
                             <input type="text" class="pos-search" id="posSearchInput" placeholder="Search products..." oninput="filterProducts()">
                         </div>
-                        <button type="button" id="connectPrinterBtn" class="btn-secondary" style="display:none;white-space:nowrap;gap:6px;align-items:center;" title="Connect a USB thermal printer for one-tap receipts (no print dialog)" onclick="connectThermalPrinter()">
-                            <span class="material-symbols-outlined" style="font-size:18px;">print</span>
-                            <span id="connectPrinterLabel">Connect printer</span>
-                        </button>
                     </div>
                     <div class="pos-cats-bar" id="categoryFilters"></div>
                     <div class="pos-grid" id="productGrid">
@@ -303,7 +304,7 @@
 <script src="js/jump.js?v=30"></script>
 <script src="js/assistant.js?v=24"></script>
     <script src="js/escpos-print.js?v=3"></script>
-    <script src="js/pos.js?v=40"></script>
+    <script src="js/pos.js?v=41"></script>
 </body>
 </html>
 

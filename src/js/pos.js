@@ -100,11 +100,25 @@ let posTotal = 0;
 let posCatalogSize = null;
 let posSearchDebounce = null;
 
+const UNSELLABLE_VIEW = '__unsellable';
+
 function posQuery() {
     const params = new URLSearchParams();
     const q = (document.getElementById('posSearchInput')?.value || '').trim();
     if (q) params.set('search', q);
-    if (activeCategory) params.set('category', activeCategory);
+    /* The grid shows what can be sold, by name. Expired and sold-out products
+       used to be mixed in, and on some days filled the whole first screen.
+       They now sit behind their own "Can't be sold" button. A search still
+       looks through everything, sellable first, so a cashier who types a
+       name can see that it is expired rather than wonder where it went. */
+    if (activeCategory === UNSELLABLE_VIEW) {
+        params.set('status', 'unsellable');
+        params.set('sort', 'name');
+    } else {
+        if (activeCategory) params.set('category', activeCategory);
+        if (q) params.set('sort', 'sellable');
+        else { params.set('status', 'sellable'); params.set('sort', 'name'); }
+    }
     return params;
 }
 
@@ -176,6 +190,7 @@ async function renderCategoryFilters() {
     cats.forEach(c => {
         html += `<button class="pos-category-filter" data-cat="${c.id}" onclick="filterByCategory(this,'${c.id}')">${escHtml(c.name)}</button>`;
     });
+    html += `<button class="pos-category-filter pos-cat-unsellable" data-cat="${UNSELLABLE_VIEW}" onclick="filterByCategory(this,'${UNSELLABLE_VIEW}')" title="Expired or sold-out products. They cannot be added to a sale.">Can't be sold</button>`;
     container.innerHTML = html;
 }
 

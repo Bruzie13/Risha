@@ -618,6 +618,47 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); widt
 .pos-cart-actions .pos-pay-main { min-height: 48px; }
 .pos-cash-banner { display: none; }
 
+/* ----- Point of sale layout: room to work -----
+   The till was crowded: a full sidebar for one link, three controls and a
+   printer button on one line, small tiles packed tight, and a cart panel
+   built from boxes inside boxes. Now the sidebar starts as a narrow strip,
+   the printer button sits in the band with the other occasional actions,
+   tiles are larger with air between them, and the cart is plain lines and
+   space instead of bordered boxes. */
+.pos-toolbar { gap: 12px; padding: 18px 24px 12px; flex-wrap: nowrap; }
+.pos-scan-wrap { flex: 0 1 260px; }
+.pos-search-wrap { flex: 1 1 auto; }
+.pos-scan-wrap input, .pos-search-wrap input { min-height: 44px; font-size: 14.5px; border-width: 1.5px; box-shadow: none; }
+.pos-cats-bar { gap: 8px; padding: 2px 24px 14px; flex-wrap: wrap; overflow-x: visible; }
+.pos-cat-unsellable { margin-left: auto; }
+.pos-cat-unsellable:not(.active) { background: transparent; border-style: dashed; box-shadow: none; color: var(--text-muted); }
+.pos-grid { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 16px; padding: 4px 24px 24px; }
+.pos-product-card { padding: 14px 16px 14px; }
+.pos-product-card .p-name { font-size: 14px; line-height: 1.3; margin: 2px 0 0; min-height: 2.6em; }
+.pos-product-card .p-price { font-size: 18px; margin: 0; }
+.pos-product-card .p-stock { font-size: 12.5px; margin: 0; }
+#posPagination { padding: 10px 24px 14px; }
+
+@media (min-width: 1025px) { .pos-cart { width: 420px; } }
+.pos-cart { box-shadow: none; border-left: 1.5px solid var(--border-glass); }
+.pos-cart-header { padding: 16px 22px 12px; border-bottom: none; }
+.pos-cart-header h3 { font-size: 18px; font-weight: 700; }
+.pos-cart-header .icon-chip { display: none; }
+.pos-cart-items { padding: 0 16px; border-top: 1.5px solid var(--border-subtle); }
+.pos-cart-item { padding: 12px 6px; gap: 10px; }
+.pos-cart-customer { padding: 12px 22px 0; gap: 10px; border-top: 1.5px solid var(--border-subtle); }
+.pos-cart-customer input { background: var(--bg-raised); border-color: transparent; }
+.pos-cart-customer input:focus { background: var(--bg-card); border-color: var(--primary); }
+.pos-cart-summary { padding: 12px 22px 12px; border-top: none; }
+.pos-cart-summary .summary-row { padding: 3px 0; }
+.pos-cart-summary .summary-row.total { border-top: 1.5px solid var(--border-glass); padding-top: 10px; margin-top: 8px; font-size: 22px; }
+.pos-tender-section { margin-top: 12px; padding: 12px 0 0; background: transparent; border: none; border-top: 1.5px solid var(--border-subtle); border-radius: 0; }
+.pos-quick-cash { margin-top: 10px; gap: 6px; }
+.pos-quick-cash button { min-height: 36px; }
+.pos-change-row { margin-top: 10px; padding-top: 0; border-top: none; }
+.pos-cart-actions { padding: 12px 22px 18px; gap: 12px; }
+.pos-cart-actions .pos-pay-main { min-height: 52px; }
+
 /* ----- Outside the sign-in wall: the yellow of the sign, its paws and bones
    drifting slowly, and one white card ----- */
 body.auth-page {
