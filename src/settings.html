@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=30">
+    <link rel="stylesheet" href="css/global.css?v=40">
     <link rel="stylesheet" href="css/settings.css?v=20">
     <script>
         (function() {
@@ -33,7 +33,7 @@
                 document.documentElement.classList.add('sidebar-hidden');
             }
             try {
-                var av = JSON.parse(localStorage.getItem('accentVars2') || 'null');
+                var av = JSON.parse(localStorage.getItem('accentVars3') || 'null');
                 if (av) { for (var k in av) document.documentElement.style.setProperty(k, av[k]); }
             } catch (e) {}
             try {
@@ -44,6 +44,7 @@
             if (ts && ts !== '1') document.documentElement.style.zoom = ts;
         }());
     </script>
+    <link rel="stylesheet" href="css/system.css?v=2">
 </head>
 <body>
 
@@ -58,8 +59,8 @@
                     <img src="images/logo.jpeg" alt="RISHA" title="FETCH — Inventory Management for Risha Pet Supplies">
                 </div>
                 <div class="brand-text">
-                    <span>RISHA</span>
-                    <small>Pet Supplies</small>
+                    <span>FETCH</span>
+                    <small>Risha Pet Supplies</small>
                 </div>
             </div>
             <button class="sidebar-collapse-btn" id="sidebarToggleBtn" onclick="toggleSidebarVisibility()" title="Collapse sidebar"><span class="material-symbols-outlined">chevron_left</span></button>
@@ -293,7 +294,7 @@
                                     <div class="accent-picker-wrap">
                                         <div class="accent-swatches" id="accentSwatches"></div>
                                         <label class="accent-custom" title="Pick a custom color">
-                                            <input type="color" id="accentPicker" value="#1F5FAE">
+                                            <input type="color" id="accentPicker" value="#1D5ED8">
                                             <span class="material-symbols-outlined">colorize</span>
                                             Custom
                                         </label>
@@ -461,10 +462,10 @@
     </script>
     <script src="js/utils.js"></script>
     <script src="js/format.js"></script>
-    <script src="js/auth.js?v=31"></script>
+    <script src="js/auth.js?v=40"></script>
 <script src="js/motion.js?v=20"></script>
 <script src="js/jump.js?v=28"></script>
 <script src="js/assistant.js?v=22"></script>
-    <script src="js/settings.js?v=31"></script>
+    <script src="js/settings.js?v=40"></script>
 </body>
 </html>

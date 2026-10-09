@@ -27,16 +27,16 @@ document.addEventListener('DOMContentLoaded', function () {
 var ACCENTS = [
     // 'default' carries no values: it clears any override so the stylesheet's
     // own accent applies, including its lighter dark-mode variant.
-    { key: 'default', name: 'Blue',   primary: '#1F5FAE' },
-    { key: 'slate',   name: 'Slate',  primary: '#3E4957' },
-    { key: 'teal',    name: 'Teal',   primary: '#0F6B6B' },
-    { key: 'green',   name: 'Green',  primary: '#1F7A4D' },
-    { key: 'plum',    name: 'Plum',   primary: '#6A4A86' },
-    { key: 'brick',   name: 'Brick',  primary: '#AE4430' }
+    { key: 'default', name: 'Blue',   primary: '#1D5ED8' },
+    { key: 'indigo',  name: 'Indigo', primary: '#4B4FD6' },
+    { key: 'teal',    name: 'Teal',   primary: '#0E7A78' },
+    { key: 'green',   name: 'Green',  primary: '#17794A' },
+    { key: 'plum',    name: 'Plum',   primary: '#7A3FA8' },
+    { key: 'brick',   name: 'Brick',  primary: '#B5442E' }
 ];
 var DEFAULT_ACCENT = 'default';
 var DEFAULT_SCALE = '1';
-var ACCENT_PROPS = ['--primary', '--primary-dark', '--primary-light', '--primary-bg', '--primary-glow', '--chart-1', '--chart-1-soft'];
+var ACCENT_PROPS = ['--primary', '--primary-dark', '--primary-darker', '--primary-light', '--primary-bg', '--primary-glow', '--chart-1', '--chart-1-soft'];
 
 function hexToRgba(hex, alpha) {
     var h = hex.replace('#', '');
@@ -49,9 +49,10 @@ function hexToRgba(hex, alpha) {
 function accentVars(hex) {
     return {
         '--primary': hex,
-        '--primary-dark': mix(hex, '#000000', 0.2),
+        '--primary-dark': mix(hex, '#000000', 0.18),
+        '--primary-darker': mix(hex, '#000000', 0.34),
         '--primary-light': mix(hex, '#ffffff', 0.5),
-        '--primary-bg': hexToRgba(hex, 0.08),
+        '--primary-bg': hexToRgba(hex, 0.09),
         '--primary-glow': hexToRgba(hex, 0.22),
         '--chart-1': hex,
         '--chart-1-soft': mix(hex, '#ffffff', 0.68)
@@ -60,7 +61,7 @@ function accentVars(hex) {
 
 function clearAccent(persist) {
     ACCENT_PROPS.forEach(function (k) { document.documentElement.style.removeProperty(k); });
-    if (persist) localStorage.removeItem('accentVars2');
+    if (persist) localStorage.removeItem('accentVars3');
 }
 
 function applyAccent(key, persist) {
@@ -70,9 +71,9 @@ function applyAccent(key, persist) {
     } else {
         var vars = accentVars(a.primary);
         for (var k in vars) document.documentElement.style.setProperty(k, vars[k]);
-        if (persist) localStorage.setItem('accentVars2', JSON.stringify(vars));
+        if (persist) localStorage.setItem('accentVars3', JSON.stringify(vars));
     }
-    if (persist) localStorage.setItem('accentName2', a.key);
+    if (persist) localStorage.setItem('accentName3', a.key);
     // reflect selection in the swatch grid
     document.querySelectorAll('.accent-swatch').forEach(function (el) {
         el.classList.toggle('active', el.dataset.key === a.key);
@@ -101,9 +102,9 @@ function applyCustomAccent(hex, persist) {
     var vars = accentVars(hex);
     for (var k in vars) document.documentElement.style.setProperty(k, vars[k]);
     if (persist) {
-        localStorage.setItem('accentName2', 'custom');
-        localStorage.setItem('accentCustom2', hex);
-        localStorage.setItem('accentVars2', JSON.stringify(vars));
+        localStorage.setItem('accentName3', 'custom');
+        localStorage.setItem('accentCustom3', hex);
+        localStorage.setItem('accentVars3', JSON.stringify(vars));
     }
     document.querySelectorAll('.accent-swatch').forEach(function (el) { el.classList.remove('active'); });
     var picker = document.getElementById('accentPicker');
@@ -155,8 +156,8 @@ var appearanceDirty = false;
 
 function loadSavedAppearance() {
     return {
-        accentName: localStorage.getItem('accentName2') || DEFAULT_ACCENT,
-        accentCustom: localStorage.getItem('accentCustom2') || null,
+        accentName: localStorage.getItem('accentName3') || DEFAULT_ACCENT,
+        accentCustom: localStorage.getItem('accentCustom3') || null,
         uiFont: localStorage.getItem('uiFont2') || 'sans',
         textScale: localStorage.getItem('textScale') || DEFAULT_SCALE,
         theme: localStorage.getItem('theme') || 'system'
@@ -249,7 +250,7 @@ function setupAppearance() {
     // reset — previews defaults; user still confirms with Save
     var reset = document.getElementById('resetAppearanceBtn');
     if (reset) reset.addEventListener('click', function () {
-        localStorage.removeItem('accentCustom2');
+        localStorage.removeItem('accentCustom3');
         pendingAppearance = { accentName: DEFAULT_ACCENT, accentCustom: null, uiFont: 'sans', textScale: DEFAULT_SCALE, theme: 'system' };
         applyAppearanceState(pendingAppearance, false);
         markAppearanceDirty(true);

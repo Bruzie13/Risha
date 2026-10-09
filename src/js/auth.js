@@ -326,18 +326,22 @@ function buildDialogShell(overlayId, tone, iconName, title, message) {
 
     const overlay = document.createElement('div');
     overlay.id = overlayId;
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(21,24,28,0.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;';
+    overlay.className = 'app-dialog-backdrop';
 
     const dialog = document.createElement('div');
+    dialog.className = 'app-dialog';
     dialog.setAttribute('role', 'dialog');
     dialog.setAttribute('aria-modal', 'true');
-    dialog.style.cssText = 'background:var(--bg-card);border:1px solid var(--border-glass);border-radius:var(--radius-2xl);padding:22px 24px 20px;max-width:400px;width:100%;box-shadow:var(--shadow-lg);';
     dialog.innerHTML = `
-        <div style="width:36px;height:36px;border-radius:var(--radius-md);background:${t.bg};display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
-            <span class="material-symbols-outlined" style="font-size:20px;color:${t.color};">${iconName}</span>
+        <div class="app-dialog-main">
+            <div class="app-dialog-icon" style="background:${t.bg};color:${t.color};">
+                <span class="material-symbols-outlined">${iconName}</span>
+            </div>
+            <div style="min-width:0;">
+                <h3>${title}</h3>
+                <p>${message}</p>
+            </div>
         </div>
-        <h3 style="font-size:16px;color:var(--text-primary);margin-bottom:4px;font-weight:600;">${title}</h3>
-        <p style="font-size:14px;color:var(--text-secondary);margin-bottom:18px;line-height:1.5;">${message}</p>
         <div class="dialog-body"></div>
     `;
     overlay.appendChild(dialog);
@@ -345,9 +349,15 @@ function buildDialogShell(overlayId, tone, iconName, title, message) {
     return { overlay, dialog, tone: t };
 }
 
-const DIALOG_BTN_GHOST = 'padding:8px 14px;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);background:var(--bg-card);color:var(--text-primary);font-weight:500;font-size:13.5px;cursor:pointer;font-family:inherit;';
-function dialogBtnSolid(color) {
-    return `padding:8px 14px;border:1px solid ${color};border-radius:var(--radius-md);background:${color};color:#fff;font-weight:500;font-size:13.5px;cursor:pointer;font-family:inherit;`;
+/* Dialog buttons are the system's own buttons, so a "Confirm" here looks and
+   presses exactly like a button anywhere else. */
+const DIALOG_BTN_GHOST = '';
+function dialogBtnSolid() { return ''; }
+function dialogActions(cancelLabel, okLabel, okClass, okId) {
+    return `<div class="app-dialog-actions">
+        ${cancelLabel ? `<button type="button" id="confirmCancelBtn" class="btn-secondary">${cancelLabel}</button>` : ''}
+        <button type="button" id="${okId || 'confirmOkBtn'}" class="${okClass || 'btn-primary'}">${okLabel}</button>
+    </div>`;
 }
 
 /** For values placed inside an HTML attribute. */
@@ -370,37 +380,25 @@ function parseLegacyIcon(icon, fallbackIcon) {
 function showConfirmDialog(title, message, onConfirm, confirmText, icon) {
     const { name, tone } = parseLegacyIcon(icon, 'help');
     const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', tone, name, title, message);
-    const destructive = tone === 'danger';
-    const solid = destructive
-        ? dialogBtnSolid('var(--danger)')
-        : dialogBtnSolid('var(--primary)');
-
-    dialog.querySelector('.dialog-body').innerHTML = `
-        <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button id="confirmCancelBtn" style="${DIALOG_BTN_GHOST}">Cancel</button>
-            <button id="confirmOkBtn" style="${solid}">${confirmText || 'Confirm'}</button>
-        </div>
-    `;
+    const body = dialog.querySelector('.dialog-body');
+    body.insertAdjacentHTML('afterend', dialogActions('Cancel', confirmText || 'Confirm', tone === 'danger' ? 'btn-danger' : 'btn-primary'));
 
     const close = () => { document.removeEventListener('keydown', onKey); overlay.remove(); };
     const onKey = (e) => { if (e.key === 'Escape') close(); };
     document.addEventListener('keydown', onKey);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
     dialog.querySelector('#confirmCancelBtn').addEventListener('click', close);
-    dialog.querySelector('#confirmOkBtn').addEventListener('click', () => { close(); onConfirm(); });
+    const ok = dialog.querySelector('#confirmOkBtn');
+    ok.addEventListener('click', () => { close(); onConfirm(); });
+    setTimeout(() => ok.focus(), 30);
 }
 
 function showPromptDialog(title, message, onConfirm, confirmText, icon, inputType, defaultValue) {
     const { name, tone } = parseLegacyIcon(icon, 'edit_note');
     const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', tone, name, title, message);
-
-    dialog.querySelector('.dialog-body').innerHTML = `
-        <input id="promptInput" type="${escAttr(inputType || 'number')}" value="${escAttr(defaultValue)}" style="width:100%;padding:8px 10px;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);font-size:14px;font-family:inherit;outline:none;box-sizing:border-box;margin-bottom:16px;background:var(--bg-card);color:var(--text-primary);">
-        <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button id="confirmCancelBtn" style="${DIALOG_BTN_GHOST}">Cancel</button>
-            <button id="confirmOkBtn" style="${dialogBtnSolid('var(--primary)')}">${confirmText || 'Confirm'}</button>
-        </div>
-    `;
+    const body = dialog.querySelector('.dialog-body');
+    body.innerHTML = `<input id="promptInput" class="form-input" type="${escAttr(inputType || 'number')}" value="${escAttr(defaultValue)}">`;
+    body.insertAdjacentHTML('afterend', dialogActions('Cancel', confirmText || 'Confirm', 'btn-primary'));
 
     const input = dialog.querySelector('#promptInput');
     const close = () => { document.removeEventListener('keydown', onKey); overlay.remove(); };
@@ -420,11 +418,7 @@ function showSuccessDialog(title, message, opts) {
     const tone = o.tone || 'success';
     const iconName = o.icon || (tone === 'danger' ? 'delete' : tone === 'info' ? 'info' : 'check');
     const { overlay, dialog, tone: t } = buildDialogShell('successDialogOverlay', tone, iconName, title, message);
-    dialog.querySelector('.dialog-body').innerHTML = `
-        <div style="display:flex;justify-content:flex-end;">
-            <button id="successOkBtn" style="${dialogBtnSolid('var(--primary)')}">${o.button || 'Done'}</button>
-        </div>
-    `;
+    dialog.querySelector('.dialog-body').insertAdjacentHTML('afterend', dialogActions('', o.button || 'Done', 'btn-primary', 'successOkBtn'));
 
     const close = () => {
         clearTimeout(timer);

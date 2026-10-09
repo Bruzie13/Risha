@@ -22,124 +22,60 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=30">
+    <link rel="stylesheet" href="css/global.css?v=40">
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #FFF9F0 0%, #FFEFDD 45%, #FDE4CE 100%);
-            font-family: 'Inter', sans-serif;
+        /* The pages outside the sign-in wall share one look: the brand's deep
+           blue, and a single white card with the one thing to do. */
+        .auth-card { width: 100%; max-width: 420px; background: var(--bg-card); border-radius: var(--radius-2xl); box-shadow: var(--shadow-lg); padding: 30px; }
+        .auth-card h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-primary); }
+        .auth-card .lead, .auth-head p { font-size: 14px; color: var(--text-muted); margin: 4px 0 20px; line-height: 1.5; }
+        .auth-badge { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; background: var(--primary-bg); color: var(--primary); }
+        .auth-badge.ok, .auth-badge.success { background: var(--success-bg); color: var(--success); }
+        .auth-badge.err, .auth-badge.error { background: var(--danger-bg); color: var(--danger); }
+        .auth-card .form-group { margin-bottom: 16px; }
+        .auth-card label { display: block; font-size: 13.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
+        .auth-card .form-input { width: 100%; min-height: 44px; font-size: 15px; }
+        .auth-hint { font-size: 13px; color: var(--text-muted); line-height: 1.5; margin: -4px 0 18px; }
+        .auth-card .reset-btn, .auth-card .verify-btn {
+            display: flex; width: 100%; min-height: 46px; align-items: center; justify-content: center;
+            background: var(--primary); border: 1px solid var(--primary-dark); border-radius: var(--radius-md);
+            color: #fff; font: inherit; font-size: 15px; font-weight: 600; text-decoration: none; cursor: pointer;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), var(--control-shadow);
         }
-        .verify-card {
-            width: 90%;
-            max-width: 440px;
-            background: #FFFDF9;
-            border-radius: var(--radius-xl);
-            box-shadow: 0 24px 80px rgba(224, 101, 91, 0.14);
-            overflow: hidden;
-            position: relative;
-            animation: slideUp 0.6s ease;
-        }
-        .shop-awning {
-            position: relative;
-            height: 18px;
-            background: repeating-linear-gradient(90deg, #EE6A5F 0 40px, #FFF6EE 40px 80px);
-        }
-        .shop-awning::after {
-            content: '';
-            position: absolute;
-            top: 18px; left: 0; right: 0;
-            height: 13px;
-            background-image:
-                radial-gradient(circle at 20px 0px, #EE6A5F 12px, transparent 12.5px),
-                radial-gradient(circle at 60px 0px, #FFF6EE 12px, transparent 12.5px);
-            background-size: 80px 13px;
-            background-repeat: repeat-x;
-            filter: drop-shadow(0 2px 3px rgba(224, 101, 91, 0.18));
-            z-index: 2;
-        }
-        .verify-body { padding: 38px 34px 34px; text-align: center; }
-        .paw-badge {
-            width: 54px; height: 54px;
-            margin: 0 auto 14px;
-            border-radius: 16px;
-            background: linear-gradient(135deg, #FFB09E, #EE6A5F);
-            display: flex; align-items: center; justify-content: center;
-            color: white;
-            transition: background 0.3s ease;
-        }
-        .paw-badge.ok { background: linear-gradient(135deg, #63C08C, #2FA36B); }
-        .paw-badge.err { background: linear-gradient(135deg, #F0918A, #D0473C); }
-        .verify-body h1 {
-            font-family: 'Nunito', sans-serif;
-            font-size: 22px;
-            font-weight: 800;
-            color: var(--text-primary);
-            margin: 0;
-        }
-        .verify-body p.lead {
-            font-size: 14px;
-            color: var(--text-secondary);
-            margin: 8px 0 0;
-            line-height: 1.6;
-        }
-        .spinner {
-            width: 22px; height: 22px;
-            margin: 18px auto 0;
-            border: 2.5px solid var(--primary-bg);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-        .verify-btn {
-            display: inline-block;
-            width: 100%;
-            box-sizing: border-box;
-            margin-top: 22px;
-            padding: 12px;
-            background: linear-gradient(135deg, #F28B82, #E0655B);
-            color: white;
-            border: none;
-            border-radius: var(--radius-md);
-            font-size: 15px;
-            font-weight: 700;
-            cursor: pointer;
-            text-decoration: none;
-            font-family: 'Inter', sans-serif;
-            box-shadow: 0 4px 16px var(--primary-glow);
-        }
-        .verify-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255, 181, 167, 0.35); }
-        .back-link { margin-top: 18px; }
-        .back-link a {
-            color: var(--primary-dark, #E14C42);
-            font-size: 13px;
-            font-weight: 600;
-            text-decoration: none;
-        }
-        .back-link a:hover { text-decoration: underline; }
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(24px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .auth-card .reset-btn:hover, .auth-card .verify-btn:hover { background: var(--primary-dark); }
+        .auth-card .reset-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+        .auth-msg, .reset-msg { display: none; border-radius: var(--radius-md); padding: 10px 14px; font-size: 14px; line-height: 1.5; margin-bottom: 16px; }
+        .reset-msg.ok, .reset-msg.success { display: block; background: var(--success-bg); color: var(--success); }
+        .reset-msg.err, .reset-msg.error { display: block; background: var(--danger-bg); color: var(--danger); }
+        .back-link { margin-top: 18px; text-align: center; font-size: 14px; }
+        .back-link a { color: var(--primary); font-weight: 600; text-underline-offset: 3px; }
+        .spinner { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--bg-inset); border-top-color: var(--primary); animation: authSpin 0.8s linear infinite; margin: 4px 0 8px; }
+        @keyframes authSpin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
     </style>
     <script>/* standalone public page — always light-themed */document.documentElement.classList.remove('dark-mode');</script>
+    <link rel="stylesheet" href="css/system.css?v=2">
 </head>
-<body>
-    <div class="verify-card">
-        <div class="shop-awning" aria-hidden="true"></div>
+<body class="auth-page">
+    <div class="auth-wrap">
+        <div class="login-brand">
+            <img src="images/logo.jpeg" alt="Risha Pet Supplies">
+            <div>
+                <div class="login-brand-name">Risha Pet Supplies</div>
+                <div class="login-brand-sub">FETCH inventory and sales</div>
+            </div>
+        </div>
+
+    <main class="auth-card">
         <div class="verify-body">
-            <div class="paw-badge" id="verifyBadge"><span class="material-symbols-outlined" id="verifyIcon" style="font-size:28px;">mark_email_unread</span></div>
+            <div class="auth-badge" id="verifyBadge"><span class="material-symbols-outlined" id="verifyIcon" style="font-size:24px;">mark_email_unread</span></div>
             <h1 id="verifyTitle">Confirming your email…</h1>
             <p class="lead" id="verifyText">One moment while we check your confirmation link.</p>
             <div class="spinner" id="verifySpinner"></div>
             <a class="verify-btn" id="verifyAction" href="login.html" style="display:none;">Go to sign in</a>
             <div class="back-link" id="verifyBack" style="display:none;"><a href="login.html">&larr; Back to sign in</a></div>
         </div>
+    </main>
     </div>
     <script>
         var API_BASE = '/api';
@@ -154,7 +90,7 @@
 
         function settle(kind, iconName, heading, body, showButton) {
             spinner.style.display = 'none';
-            badge.className = 'paw-badge ' + kind;
+            badge.className = 'auth-badge ' + kind;
             icon.textContent = iconName;
             title.textContent = heading;
             text.textContent = body;

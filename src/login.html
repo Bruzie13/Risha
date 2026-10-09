@@ -21,53 +21,39 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=30">
+    <link rel="stylesheet" href="css/global.css?v=40">
     <style>
-        /* Sign-in. One card, the shop's own mark, nothing that moves. */
-        body { display: block; background: var(--bg-body); }
-
-        .login-page {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 32px 16px;
-        }
+        /* Sign-in. The shop's own deep blue fills the page, and the one white
+           card on it is the only thing to do here. */
 
         .login-container {
             width: 100%;
-            max-width: 380px;
+            max-width: 400px;
             background: var(--bg-card);
-            border: 1px solid var(--border-glass);
             border-radius: var(--radius-2xl);
-            padding: 28px 28px 24px;
+            box-shadow: var(--shadow-lg);
+            padding: 30px 30px 26px;
         }
 
-        .login-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
-        .login-brand img { width: 44px; height: 44px; border-radius: var(--radius-lg); display: block; }
-        .login-brand-name { font-size: 16px; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
-        .login-brand-sub { font-size: 13px; color: var(--text-muted); }
+        .login-container h1 { font-size: 24px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; }
+        .login-lead { font-size: 14px; color: var(--text-muted); margin: 4px 0 22px; }
 
-        .login-container h1 { font-size: 20px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.2px; }
-        .login-lead { font-size: 13.5px; color: var(--text-muted); margin: 2px 0 18px; }
-
-        .login-form .form-group { margin-bottom: 14px; }
-        .login-form label.field-label { display: block; font-size: 13px; font-weight: 500; color: var(--text-primary); margin-bottom: 5px; }
+        .login-form .form-group { margin-bottom: 16px; }
+        .login-form label.field-label { display: block; font-size: 13.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
 
         .input-wrap { position: relative; }
-        .login-form .form-input { height: 38px; padding: 0 10px; font-size: 14px; }
-        .input-wrap .form-input { padding-right: 38px; }
+        .login-form .form-input { min-height: 44px; font-size: 15px; }
+        .input-wrap .form-input { padding-right: 46px; }
 
         .toggle-password {
-            position: absolute; right: 4px; top: 4px;
-            width: 30px; height: 30px;
+            position: absolute; right: 5px; top: 5px;
+            width: 34px; height: 34px;
             border: none; background: none; cursor: pointer;
-            color: var(--text-muted);
+            color: var(--text-secondary);
             border-radius: var(--radius-md);
             display: flex; align-items: center; justify-content: center;
         }
-        .toggle-password:hover { background: var(--gray-100); color: var(--text-primary); }
+        .toggle-password:hover { background: var(--bg-inset); color: var(--text-primary); }
 
         .login-error {
             display: none;
@@ -88,36 +74,24 @@
         .remember-text { font-size: 13.5px; color: var(--text-primary); line-height: 1.4; }
         .remember-text small { display: block; font-size: 12.5px; color: var(--text-muted); }
 
-        .login-btn {
-            width: 100%;
-            height: 38px;
-            border: 1px solid var(--primary);
-            border-radius: var(--radius-md);
-            background: var(--primary);
-            color: #fff;
-            font: inherit;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-        }
-        .login-btn:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
-        .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .login-btn { width: 100%; min-height: 46px; font-size: 15px; }
 
         .forgot-row { text-align: center; margin-top: 14px; }
         .forgot-link, .fp-cancel {
             border: none; background: none; cursor: pointer;
-            font: inherit; font-size: 13.5px;
+            font: inherit; font-size: 14px; font-weight: 600;
             color: var(--primary);
+            text-decoration: underline; text-underline-offset: 3px;
         }
         .forgot-link:hover { text-decoration: underline; }
 
-        .login-foot { margin-top: 16px; font-size: 12.5px; color: var(--text-muted); text-align: center; }
+        .login-foot { margin-top: 18px; font-size: 13px; color: #B9C6DA; text-align: center; }
 
         /* Reset-password dialog */
         .fp-overlay {
             display: none;
             position: fixed; inset: 0;
-            background: rgba(21, 24, 28, 0.45);
+            background: rgba(14, 30, 54, 0.6);
             align-items: center; justify-content: center;
             padding: 16px;
             z-index: 100;
@@ -140,18 +114,19 @@
         .fp-actions .login-btn { width: auto; padding: 0 14px; }
         .fp-cancel { color: var(--text-secondary); }
     </style>
-<script>/* login page is always light-themed */document.documentElement.classList.remove('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');if(!sessionStorage.getItem('authToken')&&!localStorage.getItem('authToken'))document.cookie='token=;path=/;max-age=0';try{var _av=JSON.parse(localStorage.getItem('accentVars2')||'null');if(_av){for(var _k in _av)document.documentElement.style.setProperty(_k,_av[_k]);}}catch(e){}var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-    </head>
-<body>
+<script>/* login page is always light-themed */document.documentElement.classList.remove('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');if(!sessionStorage.getItem('authToken')&&!localStorage.getItem('authToken'))document.cookie='token=;path=/;max-age=0';try{var _av=JSON.parse(localStorage.getItem('accentVars3')||'null');if(_av){for(var _k in _av)document.documentElement.style.setProperty(_k,_av[_k]);}}catch(e){}var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
+        <link rel="stylesheet" href="css/system.css?v=2">
+</head>
+<body class="auth-page">
     <div class="login-page">
-        <main class="login-container">
-            <div class="login-brand">
-                <img src="images/logo.jpeg" alt="Risha Pet Supplies">
-                <div>
-                    <div class="login-brand-name">Risha Pet Supplies</div>
-                    <div class="login-brand-sub">FETCH inventory and sales</div>
-                </div>
+        <div class="login-brand">
+            <img src="images/logo.jpeg" alt="Risha Pet Supplies">
+            <div>
+                <div class="login-brand-name">Risha Pet Supplies</div>
+                <div class="login-brand-sub">FETCH inventory and sales</div>
             </div>
+        </div>
+        <main class="login-container">
             <h1>Sign in</h1>
             <p class="login-lead">Use the account your administrator gave you.</p>
             <div id="loginError" class="login-error" role="alert"></div>
@@ -326,7 +301,7 @@
     </script>
         <script src="js/format.js"></script>
 <script src="js/utils.js"></script>
-<script src="js/auth.js?v=31"></script>
+<script src="js/auth.js?v=40"></script>
 <script>/* login page is always light-themed, undo auth.js theme apply */document.documentElement.classList.remove('dark-mode');</script>
 <script src="js/motion.js?v=20"></script>
 </body>
