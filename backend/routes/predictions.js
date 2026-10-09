@@ -92,19 +92,31 @@ function computeConfidence(dataPoints, r2, cv) {
 }
 
 // Build a continuous calendar-day series (zero-filled for days without
-// sales) from the first sale (capped at maxDays) through today.
+// sales) from the first sale (capped at maxDays) through YESTERDAY.
 // Without zero-fill, a product selling weekly looks like a daily seller
 // and every downstream number (daily average, stockout, reorder) inflates.
-function buildDailySeries(rows, maxDays = HISTORY_WINDOW_DAYS) {
+//
+// Two things about "a day" here, both of which used to be wrong:
+//   - It is the shop's calendar day. Sales are stored in UTC, and bucketing
+//     them by UTC date put everything rung up before 8am on the day before.
+//   - Today is left out. It is not over yet, so counting it treats a morning's
+//     takings as a whole day's — the forecast reads it as a sudden slump, and
+//     the accuracy test, which grades the last two weeks, is marked against a
+//     day that is still being sold.
+function shopDay(offsetDays = 0) {
+    return new Date(Date.now() + 8 * 3600e3 + offsetDays * DAY_MS).toISOString().slice(0, 10);
+}
+
+function buildDailySeries(rows, maxDays = HISTORY_WINDOW_DAYS, lastDay = shopDay(-1)) {
     const dailyMap = {};
     rows.forEach(r => {
-        const date = new Date(r.sale_date).toISOString().split('T')[0];
+        const date = r.sale_day || new Date(r.sale_date).toISOString().split('T')[0];
+        if (date > lastDay) return;
         dailyMap[date] = (dailyMap[date] || 0) + Number(r.quantity);
     });
     const dates = Object.keys(dailyMap).sort();
     if (!dates.length) return [];
-    const now = new Date();
-    const endMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const endMs = Date.parse(lastDay + 'T00:00:00Z');
     const firstMs = Date.parse(dates[0] + 'T00:00:00Z');
     const startMs = Math.max(firstMs, endMs - (maxDays - 1) * DAY_MS);
     const series = [];
@@ -287,7 +299,8 @@ router.get('/product/:id', authenticateToken, async (req, res) => {
         const leadTime = parseInt(req.query.lead_time) || 7;
 
         const [rows] = await pool.query(`
-            SELECT si.product_id, p.name, si.quantity, s.created_at as sale_date
+            SELECT si.product_id, p.name, si.quantity, s.created_at as sale_date,
+                   DATE_FORMAT(CONVERT_TZ(s.created_at,'+00:00','+08:00'), '%Y-%m-%d') AS sale_day
             FROM sale_items si
             JOIN sales s ON si.sale_id = s.id
             JOIN products p ON si.product_id = p.id
@@ -300,6 +313,11 @@ router.get('/product/:id', authenticateToken, async (req, res) => {
         }
 
         const series = buildDailySeries(rows);
+        // The model is fitted on all products together, so this product's
+        // forecast should come from that same fit — otherwise the chart here
+        // and the figure in the list could disagree. Build it if it is not
+        // there yet; after that this product's series is already in the cache.
+        if (!allCache.payload) await rebuildAllPredictions().catch(() => {});
         await warmMLCacheAsync(mlJobsFor(series));
         const fc = forecastSeries(series);
 
@@ -318,7 +336,7 @@ router.get('/product/:id', authenticateToken, async (req, res) => {
             data: {
                 product_id: Number(req.params.id),
                 product_name: rows[0].name,
-                model: 'Random Forest + Gradient Boosting ensemble (scikit-learn, Python) over lag & calendar features, blended with a Holt/regression statistical baseline; validated by holdout backtest on a 90-day window',
+                model: 'Random Forest + Gradient Boosting ensemble (scikit-learn, Python), fitted on all products together over calendar and recent-sales features from up to 12 months of history, blended with a Holt/regression statistical baseline; validated by a holdout backtest on the most recent two weeks',
                 model_runtime: mlAvailable() ? 'python/scikit-learn' : 'statistical baseline only (Python model unavailable)',
                 historical_data: series,
                 predictions: fc.predictions,
@@ -369,7 +387,8 @@ function accuracyOf(predicted, actual) {
 async function computeAllPredictions() {
         const [rows] = await pool.query(`
             SELECT si.product_id, p.name, p.unit_price, p.stock_quantity, p.reorder_level,
-                   si.quantity, s.created_at as sale_date
+                   si.quantity, s.created_at as sale_date,
+                   DATE_FORMAT(CONVERT_TZ(s.created_at,'+00:00','+08:00'), '%Y-%m-%d') AS sale_day
             FROM sale_items si
             JOIN sales s ON si.sale_id = s.id
             JOIN products p ON si.product_id = p.id

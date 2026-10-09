@@ -45,7 +45,10 @@ const ASYNC_TIMEOUT_MS = 5 * 60 * 1000;
    trimmed the series and the lookup did not, every warm entry was filed under
    a key nobody ever asked for, and each product quietly fell back to fitting
    itself in its own Python process. */
-const FIT_WINDOW = 365;
+const FIT_WINDOW = Number(process.env.ML_FIT_WINDOW) || 365;
+// Recent days count for more in the fit; a day's weight halves every this
+// many days going back (see ml/forecast.py). 0 switches the weighting off.
+const HALF_LIFE = process.env.ML_HALF_LIFE !== undefined ? Number(process.env.ML_HALF_LIFE) : 0;
 function fitSlice(series) {
     return series.length > FIT_WINDOW ? series.slice(-FIT_WINDOW) : series;
 }
@@ -119,7 +122,7 @@ function runPython(jobs, days) {
     try {
         const started = Date.now();
         const stdout = execFileSync(PYTHON, [SCRIPT], {
-            input: JSON.stringify({ days, jobs }),
+            input: JSON.stringify({ days, jobs, half_life: HALF_LIFE }),
             encoding: 'utf8',
             maxBuffer: MAX_BUFFER,
             timeout: 120000,
@@ -146,7 +149,7 @@ function runPythonAsync(jobs, days) {
         // A Python that died early closes its stdin; without a listener that
         // EPIPE is an unhandled error and takes the server down with it.
         child.stdin.on('error', () => {});
-        child.stdin.end(JSON.stringify({ days, jobs }));
+        child.stdin.end(JSON.stringify({ days, jobs, half_life: HALF_LIFE }));
     });
 }
 

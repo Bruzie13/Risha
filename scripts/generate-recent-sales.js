@@ -73,10 +73,15 @@ async function main() {
         dateStrings: true,
     });
 
+    // The last day with sales BEFORE today. A sale rung up today (someone
+    // trying the till) used to make the whole gap behind it invisible: the
+    // newest sale was "today", so there was nothing to fill.
     const [[bounds]] = await conn.execute(`
-        SELECT MAX(DATE(CONVERT_TZ(created_at,'+00:00','+08:00'))) AS last_day,
+        SELECT MAX(CASE WHEN DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) < DATE(CONVERT_TZ(NOW(),'+00:00','+08:00'))
+                        THEN DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) END) AS last_day,
                DATE(CONVERT_TZ(NOW(),'+00:00','+08:00'))           AS today,
-               HOUR(CONVERT_TZ(NOW(),'+00:00','+08:00'))           AS hour_now
+               HOUR(CONVERT_TZ(NOW(),'+00:00','+08:00'))           AS hour_now,
+               SUM(DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) = DATE(CONVERT_TZ(NOW(),'+00:00','+08:00'))) AS sales_today
         FROM sales`);
 
     // Typical day, measured from the last 60 days of real trading.
@@ -110,7 +115,8 @@ async function main() {
     for (let t = start.getTime() + 86400000; t < today.getTime(); t += 86400000) {
         days.push(new Date(t));
     }
-    if (bounds.hour_now >= CLOSE_HOUR) days.push(today);   // shop has closed, today counts
+    // shop has closed and nothing was rung up today: today counts as a gap too
+    if (bounds.hour_now >= CLOSE_HOUR && !Number(bounds.sales_today)) days.push(today);
 
     console.log(`last day with sales : ${bounds.last_day}`);
     console.log(`today (Manila)      : ${bounds.today} ${bounds.hour_now}:00`);
