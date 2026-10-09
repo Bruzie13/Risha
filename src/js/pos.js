@@ -234,9 +234,11 @@ async function showMorePosProducts() {
     }
 }
 
+// Steps back one page at a time, mirroring Show more — it used to jump all
+// the way back to the first ten however many were open.
 function showLessPosProducts() {
-    posDisplayCount = 0;
-    showMorePosProducts();
+    posDisplayCount = Math.max(POS_PAGE_SIZE, posDisplayCount - POS_PAGE_SIZE);
+    renderProducts(allProducts);
 }
 
 // Find a product by scanned/typed code (barcode or SKU, case/space tolerant)
