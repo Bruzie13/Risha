@@ -609,25 +609,27 @@ app.get('/track/click/:trackingId', rateLimitTracking, async (req, res) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RISHA Pet Supplies — Confirmed</title>
+<title>Risha Pet Supplies: received</title>
 <style>
-    body { margin:0; font-family:-apple-system,'Segoe UI',Arial,sans-serif; background:#F4F6FB; display:flex; align-items:center; justify-content:center; min-height:100vh; }
-    .card { background:#fff; border:1px solid #E9EDF4; border-radius:20px; box-shadow:0 16px 48px rgba(16,24,40,.10); padding:40px 44px; max-width:420px; text-align:center; margin:20px; }
-    .tick { width:64px; height:64px; border-radius:50%; background:rgba(47,163,107,.12); color:#2FA36B; display:flex; align-items:center; justify-content:center; font-size:32px; margin:0 auto 18px; }
-    h1 { font-size:20px; color:#1B2437; margin:0 0 8px; }
-    p { font-size:14px; color:#5A6478; line-height:1.6; margin:0; }
-    .brand { margin-top:22px; font-size:12px; color:#8A94A8; font-weight:600; letter-spacing:.4px; }
-    .brand b { color:#E14C42; }
+    body { margin:0; font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; background:#FFD23F; color:#10283F; display:flex; align-items:center; justify-content:center; min-height:100vh; min-height:100dvh; }
+    .card { background:#fff; border-radius:20px; box-shadow:0 6px 0 rgba(16,40,63,.14); padding:34px 36px 30px; max-width:420px; text-align:center; margin:20px; }
+    .logo { width:84px; height:84px; border-radius:50%; border:4px solid #fff; box-shadow:0 0 0 2px #EDDDA2; display:block; margin:0 auto 16px; object-fit:cover; }
+    h1 { font-size:22px; line-height:1.3; margin:0 0 8px; }
+    p { font-size:15px; color:#37506A; line-height:1.6; margin:0; }
+    .go { display:inline-block; margin-top:20px; padding:12px 26px; border-radius:10px; background:#E3202B; border-bottom:3px solid #B5141D; color:#fff; font-size:15px; font-weight:700; text-decoration:none; }
+    .go:active { transform:translateY(2px); border-bottom-width:1px; }
+    .brand { margin-top:20px; font-size:13px; font-weight:700; color:#10283F; }
 </style>
 </head>
 <body>
     <div class="card">
-        <div class="tick">✓</div>
-        <h1>${known ? 'Thank you — received!' : 'Link acknowledged'}</h1>
+        <img class="logo" src="/images/logo.jpeg" alt="">
+        <h1>${known ? 'Thank you, received' : 'This link is no longer active'}</h1>
         <p>${known
-            ? 'Your confirmation has been recorded and RISHA Pet Supplies has been notified that you viewed this email. No further action is needed.'
-            : 'This confirmation link is no longer active, but you can reply to the original email if you have questions.'}</p>
-        <div class="brand"><b>RISHA</b> PET SUPPLIES</div>
+            ? 'Risha Pet Supplies now knows you have seen the email. To confirm quantities, set a delivery date or update your prices, sign in to the supplier portal.'
+            : 'It may have been used already or replaced by a newer email. You can still sign in to the supplier portal to see your orders.'}</p>
+        <a class="go" href="/supplier.html">Open the supplier portal</a>
+        <div class="brand">Risha Pet Supplies</div>
     </div>
     <script>
         // recorded only when a real browser runs this (bots don't)

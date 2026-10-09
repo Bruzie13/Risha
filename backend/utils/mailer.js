@@ -19,21 +19,48 @@ function isValidEmail(email) {
    Mail clients are not browsers: Gmail strips <style> blocks, Outlook has no
    flexbox or border-radius on containers, and images are blocked until the
    reader allows them. So everything below is table-based with inline styles,
-   and every message has to still read correctly with no images at all. */
+   and every message has to still read correctly with no images at all.
+
+   The colours are the shop sign's, the same as the system itself: the blue of
+   its disc across the top, a strip of its yellow under that, its red for the
+   one thing to press, on the pale-yellow paper the pages sit on.
+
+   Every email goes through emailShell(), has a preheader (the grey snippet
+   beside the subject in the inbox) and carries a plain-text twin: filters
+   score an HTML-only message as something a script threw together. Subjects
+   are plain sentences — no emoji, no capitals for emphasis. Anything that came
+   from a person or the database is escaped before it is put into HTML. */
 
 const BRAND = {
     app: 'FETCH',
     org: 'Risha Pet Supplies',
-    primary: '#E14C42',
-    ink: '#1B2437',
-    body: '#5A6478',
-    muted: '#8A94A8',
-    line: '#EDE4DA',
-    page: '#F7F2EC'
+    primary: '#E3202B',     // the button: the red of the R
+    primaryEdge: '#B5141D',
+    sky: '#0A78C5',         // the band across the top
+    sun: '#FFD23F',         // the strip under it, and notices
+    sunSoft: '#FFF0B8',
+    sunInk: '#4E3C00',
+    link: '#0969AD',
+    ink: '#10283F',
+    body: '#37506A',
+    muted: '#5A6E82',
+    line: '#EDDDA2',
+    lineSoft: '#F6ECC6',
+    raised: '#FFF9E3',
+    page: '#FFF5D1',
+    ok: '#107A45',
+    danger: '#D11A26'
 };
+const FONT = "-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
 function escapeAttr(s) {
-    return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+const esc = escapeAttr;
+
+/** ₱1,234.50 — the same on every email. */
+function money(n) {
+    return '₱' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 /**
@@ -41,55 +68,57 @@ function escapeAttr(s) {
  * `preheader` is the grey snippet Gmail shows beside the subject in the inbox
  * list — without one, clients scrape the first visible text, which reads badly.
  */
-function emailShell({ preheader, title, contentHtml, footerNote }) {
+function emailShell({ preheader, title, contentHtml, footerNote, trailer = '' }) {
     return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="color-scheme" content="light only" />
-<title>${escapeAttr(title)}</title>
+<title>${esc(title)}</title>
 </head>
 <body style="margin:0;padding:0;background:${BRAND.page};-webkit-text-size-adjust:100%;">
-<span style="display:none;font-size:1px;color:${BRAND.page};max-height:0;max-width:0;opacity:0;overflow:hidden;">${escapeAttr(preheader)}</span>
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${BRAND.page};padding:28px 12px;">
+<span style="display:none;font-size:1px;color:${BRAND.page};max-height:0;max-width:0;opacity:0;overflow:hidden;">${esc(preheader)}</span>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="${BRAND.page}" style="background:${BRAND.page};padding:28px 12px;">
   <tr>
     <td align="center">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:100%;background:#FFFFFF;border:1px solid ${BRAND.line};border-radius:16px;overflow:hidden;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:100%;background:#FFFFFF;border:1px solid ${BRAND.line};border-radius:16px;overflow:hidden;font-family:${FONT};">
         <tr>
-          <td style="background:${BRAND.primary};padding:22px 30px;">
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+          <td bgcolor="${BRAND.sky}" style="background:${BRAND.sky};padding:18px 28px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td style="vertical-align:middle;">
-                  <div style="font-size:20px;font-weight:bold;color:#FFFFFF;letter-spacing:0.3px;">${BRAND.app}</div>
-                  <div style="font-size:12px;color:rgba(255,255,255,0.85);margin-top:3px;">${BRAND.org}</div>
+                <td style="vertical-align:middle;padding-right:14px;">
+                  <img src="${BASE_URL}/images/favicon-192.png" width="48" height="48" alt=""
+                       style="display:block;border:3px solid #FFFFFF;border-radius:50%;background:#FFFFFF;" />
                 </td>
-                <td align="right" style="vertical-align:middle;">
-                  <img src="${BASE_URL}/images/favicon-192.png" width="40" height="40" alt=""
-                       style="display:block;border:0;border-radius:10px;background:#FFFFFF;" />
+                <td style="vertical-align:middle;">
+                  <div style="font-size:19px;line-height:1.2;font-weight:bold;color:#FFFFFF;">${BRAND.org}</div>
+                  <div style="font-size:13px;line-height:1.4;color:#FFFFFF;">${BRAND.app} inventory and sales</div>
                 </td>
               </tr>
             </table>
           </td>
         </tr>
+        <tr><td bgcolor="${BRAND.sun}" height="6" style="background:${BRAND.sun};height:6px;line-height:6px;font-size:0;">&nbsp;</td></tr>
         <tr>
-          <td style="padding:32px 30px 26px;">
+          <td style="padding:30px 28px 26px;">
             ${contentHtml}
           </td>
         </tr>
         <tr>
-          <td style="border-top:1px solid ${BRAND.line};padding:18px 30px 24px;">
-            <p style="margin:0;font-size:12px;line-height:1.6;color:${BRAND.muted};">${footerNote}</p>
-            <p style="margin:10px 0 0;font-size:12px;color:${BRAND.muted};">— ${BRAND.org}</p>
+          <td bgcolor="${BRAND.raised}" style="background:${BRAND.raised};border-top:1px solid ${BRAND.line};padding:16px 28px 20px;">
+            <p style="margin:0;font-size:13px;line-height:1.6;color:${BRAND.muted};">${footerNote}</p>
+            <p style="margin:8px 0 0;font-size:13px;font-weight:bold;color:${BRAND.ink};">${BRAND.org}</p>
           </td>
         </tr>
       </table>
-      <p style="margin:16px 0 0;font-size:11px;color:${BRAND.muted};font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-        This is an automated message from the ${BRAND.app} system. Please do not reply.
+      <p style="margin:14px 0 0;font-size:12px;color:${BRAND.muted};font-family:${FONT};">
+        Sent automatically by the ${BRAND.app} system. Replies to this address are not read.
       </p>
     </td>
   </tr>
 </table>
+${trailer}
 </body>
 </html>`;
 }
@@ -99,15 +128,62 @@ function paragraph(html) {
 }
 
 function heading(text) {
-    return `<h1 style="margin:0 0 14px;font-size:22px;line-height:1.35;font-weight:bold;color:${BRAND.ink};">${text}</h1>`;
+    return `<h1 style="margin:0 0 14px;font-size:23px;line-height:1.3;font-weight:bold;color:${BRAND.ink};">${text}</h1>`;
 }
 
+/** The one thing to press. A table cell, because Outlook ignores padding on links. */
 function ctaButton(url, label) {
     return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px auto 8px;">
-      <tr><td align="center" bgcolor="${BRAND.primary}" style="border-radius:10px;">
-        <a href="${escapeAttr(url)}" style="display:inline-block;padding:13px 34px;font-size:15px;font-weight:bold;color:#FFFFFF;text-decoration:none;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">${label}</a>
+      <tr><td align="center" bgcolor="${BRAND.primary}" style="background:${BRAND.primary};border-radius:10px;border-bottom:3px solid ${BRAND.primaryEdge};">
+        <a href="${esc(url)}" style="display:inline-block;padding:13px 32px;font-size:15px;font-weight:bold;color:#FFFFFF;text-decoration:none;font-family:${FONT};">${label}</a>
       </td></tr>
     </table>`;
+}
+
+/** Small print under a button. */
+function fine(html, align = 'center') {
+    return `<p style="margin:14px 0 0;font-size:13px;line-height:1.6;color:${BRAND.muted};text-align:${align};">${html}</p>`;
+}
+
+function fallbackLink(url) {
+    return fine(`If the button does not work, copy this into your browser:<br /><a href="${esc(url)}" style="color:${BRAND.link};word-break:break-all;">${esc(url)}</a>`, 'left');
+}
+
+/** A yellow panel for the one fact that must not be missed. */
+function notice(html) {
+    return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 16px;">
+      <tr><td bgcolor="${BRAND.sunSoft}" style="background:${BRAND.sunSoft};border:1px solid ${BRAND.sun};border-radius:12px;padding:12px 16px;font-size:14px;line-height:1.55;color:${BRAND.sunInk};">${html}</td></tr>
+    </table>`;
+}
+
+/** Label / value pairs in a ruled box: [['Username', 'ana'], ...]. Values are escaped here. */
+function facts(pairs) {
+    const rows = pairs.map(([k, v], i) => `<tr>
+        <td style="font-size:13px;color:${BRAND.muted};padding:${i ? 8 : 0}px 0 0;">${esc(k)}</td>
+        <td align="right" style="font-size:14px;font-weight:bold;color:${BRAND.ink};padding:${i ? 8 : 0}px 0 0;">${esc(v)}</td>
+      </tr>`).join('');
+    return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:18px 0;border:1px solid ${BRAND.line};border-radius:12px;">
+      <tr><td style="padding:16px 18px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">${rows}</table></td></tr>
+    </table>`;
+}
+
+/**
+ * A data table. columns: [{ label, align }]; rows: arrays of cells, each a
+ * string (escaped here) or { html } for a cell this file built itself.
+ */
+function dataTable(columns, rows) {
+    const th = columns.map(c => `<th align="${c.align || 'left'}" style="padding:9px 10px;font-size:12.5px;font-weight:bold;color:${BRAND.body};background:${BRAND.raised};border-bottom:1px solid ${BRAND.line};">${esc(c.label)}</th>`).join('');
+    const tr = rows.map(r => '<tr>' + r.map((cell, i) => {
+        const html = cell && typeof cell === 'object' ? cell.html : esc(cell);
+        return `<td align="${columns[i].align || 'left'}" style="padding:9px 10px;font-size:14px;line-height:1.45;color:${BRAND.ink};border-bottom:1px solid ${BRAND.lineSoft};">${html}</td>`;
+    }).join('') + '</tr>').join('');
+    return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:16px 0;border:1px solid ${BRAND.line};border-radius:12px;border-collapse:separate;overflow:hidden;">
+      <thead><tr>${th}</tr></thead><tbody>${tr}</tbody>
+    </table>`;
+}
+
+function tag(text, colour) {
+    return { html: `<span style="font-size:12.5px;font-weight:bold;color:${colour};">${esc(text)}</span>` };
 }
 
 /**
@@ -119,7 +195,7 @@ async function getEmailConfig(forceRefresh = false) {
     const config = {
         user: process.env.EMAIL_USER || '',
         pass: process.env.EMAIL_PASS || '',
-        fromName: 'RISHA Pet Supplies',
+        fromName: BRAND.org,
         enabled: true,
         source: 'env'
     };
@@ -259,20 +335,15 @@ function trackingPixel(trackingId) {
 }
 
 /**
- * Visible call-to-action button. Clicking it marks the email as read in
- * email_logs (works even when the recipient's mail client blocks images,
- * which would defeat the tracking pixel).
+ * The button in a supplier email. Pressing it marks the email as read in
+ * email_logs (which works even when the mail client blocks images and so
+ * defeats the tracking pixel) and lands on a page that points to the supplier
+ * portal.
  */
 function confirmButton(trackingId, label) {
     if (!trackingId) return '';
-    return `
-        <div style="text-align:center;margin:24px 0 8px;">
-            <a href="${BASE_URL}/track/click/${trackingId}"
-               style="display:inline-block;background:#E14C42;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 32px;border-radius:10px;">
-                ${label}
-            </a>
-            <div style="font-size:11px;color:#999;margin-top:8px;">Clicking lets RISHA Pet Supplies know you've seen this email.</div>
-        </div>`;
+    return ctaButton(`${BASE_URL}/track/click/${trackingId}`, label) +
+        fine(`Pressing it tells ${BRAND.org} you have seen this email.`);
 }
 
 /**
@@ -313,200 +384,225 @@ async function deliver(trackingId, recipientEmail, mailOptions, context) {
     }
 }
 
+/* ── The messages ────────────────────────────────────────────────────────
+   Each one is built by a pure function in `templates` that returns
+   { subject, html, text }, so it can be previewed and tested without sending. */
+const templates = {};
+
+templates.purchaseOrder = function ({ supplierName, poNumber, items, totalAmount, trackingId }) {
+    const list = Array.isArray(items) ? items : [];
+    const lineTotal = i => Number(i.total_price || i.subtotal || (Number(i.quantity || 0) * Number(i.unit_price || 0)) || 0);
+    const count = `${list.length} item${list.length === 1 ? '' : 's'}`;
+    const contentHtml =
+        heading(`Purchase order ${esc(poNumber)}`) +
+        paragraph(`Dear <strong>${esc(supplierName || 'supplier')}</strong>,`) +
+        paragraph(`${BRAND.org} would like to order the items below. Please confirm the quantities you can supply and when you can deliver.`) +
+        dataTable(
+            [{ label: 'Item' }, { label: 'Qty', align: 'right' }, { label: 'Unit price', align: 'right' }, { label: 'Amount', align: 'right' }],
+            list.map(i => [i.product_name || 'Product', String(i.quantity ?? ''), money(i.unit_price), money(lineTotal(i))])
+        ) +
+        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+           <td style="font-size:14px;color:${BRAND.muted};">${count}</td>
+           <td align="right" style="font-size:20px;font-weight:bold;color:${BRAND.ink};">Total ${money(totalAmount)}</td>
+         </tr></table>` +
+        confirmButton(trackingId, 'Confirm you received this order');
+    const text = [
+        `Purchase order ${poNumber}`, '',
+        `Dear ${supplierName || 'supplier'},`, '',
+        `${BRAND.org} would like to order the items below. Please confirm the quantities you can supply and when you can deliver.`, '',
+        ...list.map(i => `- ${i.product_name || 'Product'}: ${i.quantity} x ${money(i.unit_price)} = ${money(lineTotal(i))}`), '',
+        `Total: ${money(totalAmount)} (${count})`, '',
+        trackingId ? `Confirm you received this order: ${BASE_URL}/track/click/${trackingId}` : '',
+        '', BRAND.org
+    ].join('\n');
+    return {
+        subject: `Purchase order ${poNumber} from ${BRAND.org}`,
+        text,
+        html: emailShell({
+            preheader: `${count}, total ${money(totalAmount)}. Please confirm what you can supply and when.`,
+            title: `Purchase order ${poNumber}`,
+            contentHtml,
+            footerNote: `You received this because ${BRAND.org} lists you as the supplier for these products. If something in the order is wrong, contact the shop before delivering.`,
+            trailer: trackingPixel(trackingId)
+        })
+    };
+};
+
 async function sendPOEmail(supplierId, supplierEmail, supplierName, poNumber, items, totalAmount) {
     const trackingId = await logEmail(supplierId, supplierEmail, `PO ${poNumber}`, 'po');
-
-    const itemsHtml = items.map(i =>
-        `<tr><td style="padding:8px 10px;border-bottom:1px solid #eee;">${i.product_name || 'Product'}</td><td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center;">${i.quantity}</td><td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:right;">₱${Number(i.unit_price || 0).toFixed(2)}</td><td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:right;">₱${Number(i.total_price || i.subtotal || 0).toFixed(2)}</td></tr>`
-    ).join('');
-
-    const mailOptions = {
-        to: supplierEmail,
-        subject: `Purchase Order ${poNumber} from RISHA Pet Supplies`,
-        html: `
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
-                <div style="background:#E14C42;padding:22px 24px;border-radius:14px 14px 0 0;">
-                    <h1 style="color:white;margin:0;font-size:21px;">RISHA Pet Supplies</h1>
-                    <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:13px;">New Purchase Order</p>
-                </div>
-                <div style="padding:25px;border:1px solid #e6eaf2;border-top:0;border-radius:0 0 14px 14px;background:#ffffff;">
-                    <p style="font-size:16px;color:#1B2437;">Dear <strong>${supplierName}</strong>,</p>
-                    <p style="color:#5A6478;">We have generated a new purchase order. Please process at your earliest convenience.</p>
-                    <p style="font-size:14px;color:#1B2437;"><strong>PO Number:</strong> ${poNumber}</p>
-                    <table style="width:100%;border-collapse:collapse;margin:15px 0;">
-                        <thead>
-                            <tr style="background:#F7F9FC;">
-                                <th style="padding:10px;text-align:left;font-size:13px;color:#E14C42;">Item</th>
-                                <th style="padding:10px;text-align:center;font-size:13px;color:#E14C42;">Qty</th>
-                                <th style="padding:10px;text-align:right;font-size:13px;color:#E14C42;">Unit Price</th>
-                                <th style="padding:10px;text-align:right;font-size:13px;color:#E14C42;">Subtotal</th>
-                            </tr>
-                        </thead>
-                        <tbody>${itemsHtml}</tbody>
-                    </table>
-                    <div style="text-align:right;padding:15px;font-size:18px;font-weight:700;color:#E14C42;border-top:2px solid #E14C42;">
-                        Total: ₱${Number(totalAmount || 0).toFixed(2)}
-                    </div>
-                    ${confirmButton(trackingId, 'View & Confirm Order')}
-                    <p style="color:#8A94A8;font-size:12px;margin-top:20px;">This is an auto-generated email. Please contact us if you have any questions.</p>
-                </div>
-            </div>
-            ${trackingPixel(trackingId)}
-        `
-    };
-
-    return deliver(trackingId, supplierEmail, mailOptions, `PO ${poNumber}`);
+    const mail = templates.purchaseOrder({ supplierName, poNumber, items, totalAmount, trackingId });
+    return deliver(trackingId, supplierEmail, { to: supplierEmail, ...mail }, `PO ${poNumber}`);
 }
+
+templates.lowStock = function ({ supplierName, items, trackingId }) {
+    const list = Array.isArray(items) ? items : [];
+    const out = list.filter(i => Number(i.stock_quantity) <= 0).length;
+    const n = list.length;
+    const summary = `${n} product${n === 1 ? ' is' : 's are'} running low` + (out ? `, ${out} already sold out` : '');
+    const contentHtml =
+        heading(`${n} product${n === 1 ? '' : 's'} you supply ${n === 1 ? 'is' : 'are'} running low`) +
+        paragraph(`Dear <strong>${esc(supplierName || 'supplier')}</strong>,`) +
+        (out ? notice(`<strong>${out}</strong> of these ${out === 1 ? 'is' : 'are'} already sold out at the shop.`) : '') +
+        paragraph(`Stock of the products below has fallen to the level where ${BRAND.org} reorders. No order has been placed yet. This is advance notice so you can check what you have on hand.`) +
+        dataTable(
+            [{ label: 'Product' }, { label: 'SKU' }, { label: 'In stock', align: 'right' }, { label: 'Reorders at', align: 'right' }, { label: 'Status', align: 'right' }],
+            list.map(i => [
+                i.name || 'Product', i.sku || 'none', String(Number(i.stock_quantity) || 0), String(i.reorder_level ?? ''),
+                Number(i.stock_quantity) <= 0 ? tag('Sold out', BRAND.danger) : tag('Low', BRAND.sunInk)
+            ])
+        ) +
+        confirmButton(trackingId, 'Let the shop know you saw this');
+    const text = [
+        `${summary} at ${BRAND.org}`, '',
+        `Dear ${supplierName || 'supplier'},`, '',
+        `Stock of the products below has fallen to the level where ${BRAND.org} reorders. No order has been placed yet.`, '',
+        ...list.map(i => `- ${i.name || 'Product'} (${i.sku || 'no SKU'}): ${Number(i.stock_quantity) || 0} in stock, reorders at ${i.reorder_level}`), '',
+        trackingId ? `Let the shop know you saw this: ${BASE_URL}/track/click/${trackingId}` : '',
+        '', BRAND.org
+    ].join('\n');
+    return {
+        subject: `${summary} at ${BRAND.org}`,
+        text,
+        html: emailShell({
+            preheader: 'No order has been placed yet. This is advance notice of what the shop is likely to need.',
+            title: 'Products running low',
+            contentHtml,
+            footerNote: `You received this because ${BRAND.org} lists you as the supplier for these products.`,
+            trailer: trackingPixel(trackingId)
+        })
+    };
+};
 
 async function sendLowStockAlert(supplierId, supplierEmail, supplierName, items) {
-    const trackingId = await logEmail(supplierId, supplierEmail, `Low Stock Alert - ${items.length} products`, 'low_stock');
-
-    const itemsHtml = items.map(i =>
-        `<tr>
-            <td style="padding:8px 10px;border-bottom:1px solid #eee;">${i.name}</td>
-            <td style="padding:8px 10px;border-bottom:1px solid #eee;">${i.sku || 'N/A'}</td>
-            <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center;">${i.stock_quantity}</td>
-            <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center;">${i.reorder_level}</td>
-            <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center;color:${i.stock_quantity === 0 ? '#d32f2f' : '#e65100'};font-weight:700;">${i.stock_quantity === 0 ? 'OUT OF STOCK' : 'LOW'}</td>
-        </tr>`
-    ).join('');
-
-    const mailOptions = {
-        to: supplierEmail,
-        subject: `⚠️ LOW STOCK ALERT - ${items.length} product(s) need restocking`,
-        html: `
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
-                <div style="background:#E8930C;padding:22px 24px;border-radius:14px 14px 0 0;">
-                    <h1 style="color:white;margin:0;font-size:21px;">⚠️ Low Stock Alert</h1>
-                    <p style="color:rgba(255,255,255,0.9);margin:4px 0 0;font-size:13px;">RISHA Pet Supplies</p>
-                </div>
-                <div style="padding:25px;border:1px solid #e6eaf2;border-top:0;border-radius:0 0 14px 14px;background:#ffffff;">
-                    <p style="font-size:16px;color:#1B2437;">Dear <strong>${supplierName}</strong>,</p>
-                    <p style="color:#5A6478;">The following products from your supply are running low and need restocking:</p>
-                    <table style="width:100%;border-collapse:collapse;margin:15px 0;">
-                        <thead>
-                            <tr style="background:#FDF4E3;">
-                                <th style="padding:10px;text-align:left;font-size:13px;color:#B45309;">Product</th>
-                                <th style="padding:10px;text-align:left;font-size:13px;color:#B45309;">SKU</th>
-                                <th style="padding:10px;text-align:center;font-size:13px;color:#B45309;">Current Stock</th>
-                                <th style="padding:10px;text-align:center;font-size:13px;color:#B45309;">Reorder Level</th>
-                                <th style="padding:10px;text-align:center;font-size:13px;color:#B45309;">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>${itemsHtml}</tbody>
-                    </table>
-                    ${confirmButton(trackingId, 'Acknowledge Alert')}
-                    <p style="color:#8A94A8;font-size:12px;margin-top:20px;">This is an automated alert from RISHA Pet Supplies. Please arrange restock at your earliest convenience.</p>
-                </div>
-            </div>
-            ${trackingPixel(trackingId)}
-        `
-    };
-
-    return deliver(trackingId, supplierEmail, mailOptions, 'Low stock alert');
+    const trackingId = await logEmail(supplierId, supplierEmail, `Low stock: ${items.length} products`, 'low_stock');
+    const mail = templates.lowStock({ supplierName, items, trackingId });
+    return deliver(trackingId, supplierEmail, { to: supplierEmail, ...mail }, 'Low stock alert');
 }
 
+function requireSender(config) {
+    if (!process.env.BREVO_API_KEY && !buildTransporter(config)) {
+        throw new Error('Email credentials not configured');
+    }
+}
+const fromLine = config => `"${config.fromName}" <${config.user}>`;
+
+templates.passwordReset = function ({ fullName, resetUrl, lasts }) {
+    const contentHtml =
+        heading('Choose a new password') +
+        paragraph(`Hi <strong>${esc(fullName || 'there')}</strong>,`) +
+        paragraph(`A password reset was requested for your <strong>${BRAND.app}</strong> account at ${BRAND.org}. Press the button to choose a new one.`) +
+        ctaButton(resetUrl, 'Choose a new password') +
+        fine(`This link works for <strong>${esc(lasts)}</strong>, and only once.`) +
+        fallbackLink(resetUrl);
+    const text = [
+        'Choose a new password', '',
+        `Hi ${fullName || 'there'},`, '',
+        `A password reset was requested for your ${BRAND.app} account at ${BRAND.org}. Open this link to choose a new one:`, '',
+        resetUrl, '',
+        `The link works for ${lasts}, and only once.`, '',
+        `If you didn't ask for this, ignore this email. Your password will not change.`, '',
+        BRAND.org
+    ].join('\n');
+    return {
+        subject: `Reset your ${BRAND.app} password`,
+        text,
+        html: emailShell({
+            preheader: `Choose a new password for your ${BRAND.app} account. The link works for ${lasts}.`,
+            title: `Reset your ${BRAND.app} password`,
+            contentHtml,
+            footerNote: `You received this because a password reset was requested for the ${BRAND.app} account on this address. If that wasn't you, ignore this email. Your password will not change.`
+        })
+    };
+};
+
 /**
- * Password reset email: link is valid for 30 minutes. No tracking pixel —
- * this is an account-security email, not a supplier communication.
+ * Password reset email. `ttlMinutes` is how long the link works: 30 minutes
+ * for a direct link, longer when an administrator approved the request. No
+ * tracking pixel — this is an account-security email.
  */
 async function sendPasswordResetEmail(toEmail, fullName, resetToken, ttlMinutes = 30) {
     const lasts = ttlMinutes >= 60 && ttlMinutes % 60 === 0
         ? `${ttlMinutes / 60} hour${ttlMinutes === 60 ? '' : 's'}`
         : `${ttlMinutes} minutes`;
     const config = await getEmailConfig();
-    if (!process.env.BREVO_API_KEY && !buildTransporter(config)) {
-        throw new Error('Email credentials not configured');
-    }
-    const resetUrl = `${BASE_URL}/reset-password.html?token=${resetToken}`;
-
-    const content =
-        heading('Reset your password') +
-        paragraph(`Hi <strong>${escapeAttr(fullName || 'there')}</strong>,`) +
-        paragraph(`Someone asked to reset the password for your <strong>${BRAND.app}</strong> account at ${BRAND.org}. Choose a new one here:`) +
-        ctaButton(resetUrl, 'Choose a new password') +
-        `<p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:${BRAND.body};text-align:center;">This link expires in <strong>${lasts}</strong>.</p>` +
-        `<p style="margin:14px 0 0;font-size:12px;line-height:1.6;color:${BRAND.muted};">If the button does not work, copy this into your browser:<br /><a href="${escapeAttr(resetUrl)}" style="color:${BRAND.primary};word-break:break-all;">${escapeAttr(resetUrl)}</a></p>`;
-
-    const text = [
-        'Reset your password',
-        '',
-        `Hi ${fullName || 'there'},`,
-        '',
-        `Someone asked to reset the password for your ${BRAND.app} account at ${BRAND.org}. Choose a new one here:`,
-        '',
-        resetUrl,
-        '',
-        `This link expires in ${lasts}.`,
-        '',
-        `If you didn't ask for this, ignore this email — your password will not change.`,
-        '',
-        `— ${BRAND.org}`
-    ].join('\n');
-
-    await sendMessage(config, {
-        from: `"${config.fromName}" <${config.user}>`,
-        to: toEmail,
-        subject: `Reset your ${BRAND.app} password`,
-        text,
-        html: emailShell({
-            preheader: `Choose a new password for your ${BRAND.app} account. Link expires in 30 minutes.`,
-            title: `Reset your ${BRAND.app} password`,
-            contentHtml: content,
-            footerNote: `You received this because a password reset was requested for the ${BRAND.app} account on this address. If that wasn't you, ignore this email — your password will not change.`
-        })
-    });
+    requireSender(config);
+    const mail = templates.passwordReset({ fullName, resetUrl: `${BASE_URL}/reset-password.html?token=${resetToken}`, lasts });
+    await sendMessage(config, { from: fromLine(config), to: toEmail, ...mail });
 }
 
+templates.verifyAddress = function ({ fullName, verifyUrl }) {
+    const contentHtml =
+        heading('Confirm your email address') +
+        paragraph(`Hi <strong>${esc(fullName || 'there')}</strong>,`) +
+        paragraph(`This address was set on your <strong>${BRAND.app}</strong> account at ${BRAND.org}. Confirm it to switch your sign-in on.`) +
+        ctaButton(verifyUrl, 'Confirm this address') +
+        fine('This link works for <strong>24 hours</strong>.') +
+        fallbackLink(verifyUrl);
+    const text = [
+        'Confirm your email address', '',
+        `Hi ${fullName || 'there'},`, '',
+        `This address was set on your ${BRAND.app} account at ${BRAND.org}. Open this link to confirm it and switch your sign-in on:`, '',
+        verifyUrl, '',
+        'The link works for 24 hours.', '',
+        `If you weren't expecting this, ignore it. The account stays locked until someone confirms.`, '',
+        BRAND.org
+    ].join('\n');
+    return {
+        subject: `Confirm your email address for ${BRAND.app}`,
+        text,
+        html: emailShell({
+            preheader: `Confirm this address to switch your ${BRAND.app} sign-in on. The link works for 24 hours.`,
+            title: `Confirm your ${BRAND.app} email address`,
+            contentHtml,
+            footerNote: `You received this because this address was set on a ${BRAND.app} account at ${BRAND.org}. If that wasn't expected, ignore this email. The account stays locked until someone confirms it.`
+        })
+    };
+};
+
 /**
- * Confirm a new account's email address really exists and belongs to them.
+ * Confirm an account's email address really exists and belongs to them.
  * Until the link is clicked the account cannot sign in, so a typo'd or made-up
  * address is caught on day one instead of the day someone needs a reset.
  */
 async function sendVerificationEmail(toEmail, fullName, verifyToken) {
     const config = await getEmailConfig();
-    if (!process.env.BREVO_API_KEY && !buildTransporter(config)) {
-        throw new Error('Email credentials not configured');
-    }
-    const verifyUrl = `${BASE_URL}/verify-email.html?token=${verifyToken}`;
+    requireSender(config);
+    const mail = templates.verifyAddress({ fullName, verifyUrl: `${BASE_URL}/verify-email.html?token=${verifyToken}` });
+    await sendMessage(config, { from: fromLine(config), to: toEmail, ...mail });
+}
 
-    const content =
-        heading('Confirm your new email address') +
-        paragraph(`Hi <strong>${escapeAttr(fullName || 'there')}</strong>,`) +
-        paragraph(`The email address on your <strong>${BRAND.app}</strong> account at ${BRAND.org} was changed to this one. Confirm it to switch your sign-in back on.`) +
-        ctaButton(verifyUrl, 'Confirm this address') +
-        `<p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:${BRAND.body};text-align:center;">This link expires in <strong>24 hours</strong>.</p>` +
-        `<p style="margin:14px 0 0;font-size:12px;line-height:1.6;color:${BRAND.muted};">If the button does not work, copy this into your browser:<br /><a href="${escapeAttr(verifyUrl)}" style="color:${BRAND.primary};word-break:break-all;">${escapeAttr(verifyUrl)}</a></p>`;
-
+templates.emailCode = function ({ code }) {
+    const contentHtml =
+        heading('Your verification code') +
+        paragraph(`An account is being set up for you on <strong>${BRAND.app}</strong>, the inventory and sales system used at ${BRAND.org}.`) +
+        paragraph('Give this code to the person setting up your account:') +
+        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:20px 0;">
+          <tr><td align="center" bgcolor="${BRAND.sunSoft}" style="background:${BRAND.sunSoft};border:1px solid ${BRAND.sun};border-radius:14px;padding:20px 16px;">
+            <div style="font-family:'Courier New',Courier,monospace;font-size:38px;font-weight:bold;letter-spacing:10px;color:${BRAND.ink};">${esc(code)}</div>
+            <div style="font-size:13px;color:${BRAND.sunInk};margin-top:10px;">Works for 10 minutes</div>
+          </td></tr>
+        </table>` +
+        paragraph(`Until this code is entered, <strong>no account exists</strong>. It is asked for so that nobody can register an address they do not own.`);
     const text = [
-        'Confirm your new email address',
-        '',
-        `Hi ${fullName || 'there'},`,
-        '',
-        `The email address on your ${BRAND.app} account at ${BRAND.org} was changed to this one. Confirm it to switch your sign-in back on.`,
-        '',
-        verifyUrl,
-        '',
-        'This link expires in 24 hours.',
-        '',
-        `If you weren't expecting this, ignore it — the account stays locked until someone confirms.`,
-        '',
-        `— ${BRAND.org}`
+        'Your verification code', '',
+        `An account is being set up for you on ${BRAND.app}, the inventory and sales system used at ${BRAND.org}.`, '',
+        `Your code: ${code}`,
+        'It works for 10 minutes.', '',
+        'Give this code to the person setting up your account. Until it is entered, no account exists.', '',
+        `If you were not expecting this, ignore this email. Nothing was created, and nobody can use your address without the code.`, '',
+        BRAND.org
     ].join('\n');
-
-    await sendMessage(config, {
-        from: `"${config.fromName}" <${config.user}>`,
-        to: toEmail,
-        subject: `Confirm your email address for ${BRAND.app}`,
+    return {
+        subject: `${code} is your ${BRAND.app} verification code`,
         text,
         html: emailShell({
-            preheader: `Confirm this address to switch your ${BRAND.app} sign-in back on. Link expires in 24 hours.`,
-            title: `Confirm your ${BRAND.app} email address`,
-            contentHtml: content,
-            footerNote: `You received this because this address was set on a ${BRAND.app} account at ${BRAND.org}. If that wasn't expected, ignore this email — the account stays locked until someone confirms it.`
+            preheader: `${code} is your verification code for ${BRAND.app}. It works for 10 minutes.`,
+            title: `Your ${BRAND.app} verification code`,
+            contentHtml,
+            footerNote: `You received this because someone at ${BRAND.org} entered this address when setting up an account. If that wasn't expected, ignore this email. No account is created without the code.`
         })
-    });
-}
+    };
+};
 
 /**
  * Send the 6-digit code an admin must type back before an account is created.
@@ -514,117 +610,76 @@ async function sendVerificationEmail(toEmail, fullName, verifyToken) {
  */
 async function sendEmailCode(toEmail, code) {
     const config = await getEmailConfig();
-    if (!process.env.BREVO_API_KEY && !buildTransporter(config)) {
-        throw new Error('Email credentials not configured');
-    }
-
-    const content =
-        heading('Confirm your email address') +
-        paragraph(`A staff account is being set up for you on <strong>${BRAND.app}</strong>, the inventory and point-of-sale system used at ${BRAND.org}.`) +
-        paragraph('To finish, give this code to the person setting up your account:') +
-        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:22px 0;">
-          <tr><td align="center" bgcolor="#FFF3F1" style="border:1px solid #F8D7D2;border-radius:14px;padding:20px 16px;">
-            <div style="font-size:12px;font-weight:bold;letter-spacing:1.2px;text-transform:uppercase;color:${BRAND.muted};margin-bottom:10px;">Your verification code</div>
-            <div style="font-family:'Courier New',Courier,monospace;font-size:38px;font-weight:bold;letter-spacing:10px;color:${BRAND.primary};">${code}</div>
-            <div style="font-size:13px;color:${BRAND.body};margin-top:12px;">Expires in 10 minutes</div>
-          </td></tr>
-        </table>` +
-        paragraph(`Until this code is entered, <strong>no account exists</strong> — we ask for it so nobody can register an address they do not own.`);
-
-    const text = [
-        'Confirm your email address',
-        '',
-        `A staff account is being set up for you on ${BRAND.app}, the inventory and point-of-sale system used at ${BRAND.org}.`,
-        '',
-        `Your verification code: ${code}`,
-        'This code expires in 10 minutes.',
-        '',
-        'Give this code to the person setting up your account. Until it is entered, no account exists.',
-        '',
-        `If you were not expecting this, ignore this email — nothing was created and nobody can use your address without the code.`,
-        '',
-        `— ${BRAND.org}`
-    ].join('\n');
-
-    await sendMessage(config, {
-        from: `"${config.fromName}" <${config.user}>`,
-        to: toEmail,
-        subject: `${code} is your ${BRAND.app} verification code`,
-        text,
-        html: emailShell({
-            preheader: `${code} — your verification code for ${BRAND.app}. Expires in 10 minutes.`,
-            title: `Your ${BRAND.app} verification code`,
-            contentHtml: content,
-            footerNote: `You received this because someone at ${BRAND.org} entered this address when setting up a staff account. If that wasn't expected, ignore this email — no account is created without the code, and nobody else can use your address.`
-        })
-    });
+    requireSender(config);
+    await sendMessage(config, { from: fromLine(config), to: toEmail, ...templates.emailCode({ code }) });
 }
 
-/**
- * The "you're in" email a real signup sends once the account actually exists:
- * what it is, who they are on it, and where to sign in.
- */
-async function sendWelcomeEmail(toEmail, fullName, username, role) {
-    const config = await getEmailConfig();
-    if (!process.env.BREVO_API_KEY && !buildTransporter(config)) {
-        throw new Error('Email credentials not configured');
-    }
+const ROLE_LABELS = { admin: 'Administrator', manager: 'Manager', viewer: 'Viewer', cashier: 'Staff (point of sale)', supplier: 'Supplier' };
 
-    const roleLabel = { admin: 'Administrator', manager: 'Manager', viewer: 'Viewer', cashier: 'Staff (point of sale)', supplier: 'Supplier' }[role] || 'Staff (point of sale)';
+templates.welcome = function ({ toEmail, fullName, username, role }) {
+    const roleLabel = ROLE_LABELS[role] || ROLE_LABELS.cashier;
     const loginUrl = `${BASE_URL}/login.html`;
-
-    const content =
-        heading(`Welcome to ${BRAND.app}, ${escapeAttr((fullName || '').split(' ')[0] || 'there')}`) +
-        paragraph(`Your account at <strong>${BRAND.org}</strong> is ready. ${BRAND.app} is where the shop's stock, sales and suppliers are managed.`) +
-        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:22px 0;border:1px solid ${BRAND.line};border-radius:14px;">
-          <tr><td style="padding:18px 20px;">
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-              <tr>
-                <td style="font-size:13px;color:${BRAND.muted};padding-bottom:8px;">Username</td>
-                <td align="right" style="font-size:14px;font-weight:bold;color:${BRAND.ink};padding-bottom:8px;">${escapeAttr(username)}</td>
-              </tr>
-              <tr>
-                <td style="font-size:13px;color:${BRAND.muted};padding-bottom:8px;">Email</td>
-                <td align="right" style="font-size:14px;color:${BRAND.ink};padding-bottom:8px;">${escapeAttr(toEmail)}</td>
-              </tr>
-              <tr>
-                <td style="font-size:13px;color:${BRAND.muted};">Access level</td>
-                <td align="right" style="font-size:14px;color:${BRAND.ink};">${roleLabel}</td>
-              </tr>
-            </table>
-          </td></tr>
-        </table>` +
-        paragraph('Sign in with the password you agreed with your administrator. Change it once you are in, from Settings.') +
+    const first = (fullName || '').split(' ')[0] || 'there';
+    const contentHtml =
+        heading(`Welcome, ${esc(first)}`) +
+        paragraph(`Your account at <strong>${BRAND.org}</strong> is ready. ${BRAND.app} is where the shop's stock, sales and suppliers are kept.`) +
+        facts([['Username', username], ['Email', toEmail], ['Access', roleLabel]]) +
+        paragraph('Sign in with the password you agreed with your administrator, then change it from Settings.') +
         ctaButton(loginUrl, `Sign in to ${BRAND.app}`) +
-        `<p style="margin:16px 0 0;font-size:12px;line-height:1.6;color:${BRAND.muted};text-align:center;">Or open <a href="${escapeAttr(loginUrl)}" style="color:${BRAND.primary};">${escapeAttr(loginUrl)}</a></p>`;
-
+        fine(`Or open <a href="${esc(loginUrl)}" style="color:${BRAND.link};">${esc(loginUrl)}</a>`);
     const text = [
-        `Welcome to ${BRAND.app}`,
-        '',
-        `Your account at ${BRAND.org} is ready.`,
-        '',
+        `Welcome, ${first}`, '',
+        `Your account at ${BRAND.org} is ready.`, '',
         `Username: ${username}`,
         `Email: ${toEmail}`,
-        `Access level: ${roleLabel}`,
-        '',
-        `Sign in at ${loginUrl} with the password you agreed with your administrator, then change it from Settings.`,
-        '',
-        `— ${BRAND.org}`
+        `Access: ${roleLabel}`, '',
+        `Sign in at ${loginUrl} with the password you agreed with your administrator, then change it from Settings.`, '',
+        BRAND.org
     ].join('\n');
-
-    await sendMessage(config, {
-        from: `"${config.fromName}" <${config.user}>`,
-        to: toEmail,
+    return {
         subject: `Your ${BRAND.app} account is ready`,
         text,
         html: emailShell({
-            preheader: `Your account at ${BRAND.org} is ready — here is your username and where to sign in.`,
+            preheader: `Your account at ${BRAND.org} is ready. Here is your username and where to sign in.`,
             title: `Your ${BRAND.app} account is ready`,
-            contentHtml: content,
+            contentHtml,
             footerNote: `An administrator at ${BRAND.org} created this account after confirming your email address. If you did not expect it, contact them before signing in.`
         })
-    });
+    };
+};
+
+/**
+ * The "you're in" email sent once the account actually exists: what it is,
+ * who they are on it, and where to sign in.
+ */
+async function sendWelcomeEmail(toEmail, fullName, username, role) {
+    const config = await getEmailConfig();
+    requireSender(config);
+    await sendMessage(config, { from: fromLine(config), to: toEmail, ...templates.welcome({ toEmail, fullName, username, role }) });
 }
+
+templates.test = function ({ sender, sentAt }) {
+    const contentHtml =
+        heading('Your email settings work') +
+        paragraph(`This is a test from the ${BRAND.app} system at ${BRAND.org}. If you are reading it, the system can send email.`) +
+        facts([['Sent from', sender], ['Sent at', sentAt]]) +
+        paragraph('Purchase orders, password resets and low-stock notices will come from this address.');
+    const text = [
+        'Your email settings work', '',
+        `This is a test from the ${BRAND.app} system at ${BRAND.org}. If you are reading it, the system can send email.`, '',
+        `Sent from: ${sender}`, `Sent at: ${sentAt}`, '', BRAND.org
+    ].join('\n');
+    return {
+        subject: `Test email from ${BRAND.app}: your settings work`,
+        text,
+        html: emailShell({
+            preheader: 'If you are reading this, the system can send email.',
+            title: `${BRAND.app} test email`,
+            contentHtml,
+            footerNote: `An administrator pressed "Send test email" in ${BRAND.app} Settings.`
+        })
+    };
+};
 
 /**
  * Send a test email so admins can verify their configuration from Settings.
@@ -639,32 +694,43 @@ async function sendTestEmail(toEmail) {
         return { success: false, message: 'Email credentials are not configured yet' };
     }
 
-    const mailOptions = {
-        from: `"${config.fromName}" <${config.user}>`,
-        to: toEmail,
-        subject: '✅ RISHA Test Email — Configuration Works',
-        html: `
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
-                <div style="background:#2d6a4f;padding:20px;border-radius:10px 10px 0 0;">
-                    <h1 style="color:white;margin:0;font-size:22px;">RISHA Pet Supplies</h1>
-                </div>
-                <div style="padding:25px;border:1px solid #e0e0e0;border-top:0;">
-                    <p style="font-size:16px;color:#333;">This is a test email from your RISHA inventory system.</p>
-                    <p style="color:#555;">If you received this, your Gmail sender configuration is working correctly. Purchase orders and low-stock alerts will be delivered from <strong>${config.user}</strong>.</p>
-                    <p style="color:#888;font-size:12px;margin-top:20px;">Sent at ${new Date().toLocaleString()}</p>
-                </div>
-            </div>
-        `
-    };
-
+    const mail = templates.test({
+        sender: config.user,
+        sentAt: new Date().toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' })
+    });
     try {
-        await sendMessage(config, mailOptions);
+        await sendMessage(config, { from: fromLine(config), to: toEmail, ...mail });
         return { success: true, message: `Test email sent to ${toEmail}` };
     } catch (error) {
         console.error('[Email] Test email failed:', error.message);
         return { success: false, message: `Send failed: ${error.message}` };
     }
 }
+
+templates.backup = function ({ tables, rows, kb, day }) {
+    const contentHtml =
+        heading(`Database backup for ${esc(day)}`) +
+        paragraph(`Today's full backup of the ${BRAND.app} database is attached.`) +
+        facts([['Tables', String(tables)], ['Rows', Number(rows || 0).toLocaleString('en-PH')], ['Size', `${kb} KB (zipped)`]]) +
+        paragraph('Keep at least the last seven of these. To restore one, run <code>scripts/restore-backup.js</code> with the attached file.');
+    const text = [
+        `Database backup for ${day}`, '',
+        `Today's full backup of the ${BRAND.app} database is attached.`, '',
+        `Tables: ${tables}`, `Rows: ${rows}`, `Size: ${kb} KB (zipped)`, '',
+        'Keep at least the last seven of these. To restore one, run scripts/restore-backup.js with the attached file.', '',
+        BRAND.org
+    ].join('\n');
+    return {
+        subject: `${BRAND.app} backup, ${day}`,
+        text,
+        html: emailShell({
+            preheader: `${tables} tables, ${kb} KB. Keep at least the last seven.`,
+            title: `${BRAND.app} backup`,
+            contentHtml,
+            footerNote: 'Sent every day to the address the system sends from, so a copy of the data always exists outside the server.'
+        })
+    };
+};
 
 // Daily database backup, attached as a .zip. Sent to the configured sender
 // address (the shop's own inbox acts as offsite storage).
@@ -676,12 +742,9 @@ async function sendBackupEmail(zipBuffer, meta) {
     if (!config.enabled) return false;
     const to = config.user;
     const filename = meta.filename || ('risha-backup-' + new Date().toISOString().slice(0, 10) + '.zip');
-    const html = `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
-            <h2 style="color:#E14C42;">RISHA daily backup</h2>
-            <p>Attached is today's full database backup (${meta.tables} tables, ${meta.rows} rows, ${(zipBuffer.length / 1024).toFixed(0)} KB compressed).</p>
-            <p style="color:#888;font-size:12px;">Restore with <code>scripts/restore-backup.js</code>. Keep at least the last 7 of these.</p>
-        </div>`;
+    const day = new Date().toISOString().slice(0, 10);
+    const mail = templates.backup({ tables: meta.tables, rows: meta.rows, kb: (zipBuffer.length / 1024).toFixed(0), day });
+    const html = mail.html;
     try {
         if (process.env.BREVO_API_KEY) {
             const res = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -690,8 +753,9 @@ async function sendBackupEmail(zipBuffer, meta) {
                 body: JSON.stringify({
                     sender: { email: config.user, name: config.fromName },
                     to: [{ email: to }],
-                    subject: `RISHA Backup — ${new Date().toISOString().slice(0, 10)}`,
+                    subject: mail.subject,
                     htmlContent: html,
+                    textContent: mail.text,
                     attachment: [{ name: filename, content: zipBuffer.toString('base64') }]
                 })
             });
@@ -702,8 +766,9 @@ async function sendBackupEmail(zipBuffer, meta) {
             await transporter.sendMail({
                 from: `"${config.fromName}" <${config.user}>`,
                 to,
-                subject: `RISHA Backup — ${new Date().toISOString().slice(0, 10)}`,
+                subject: mail.subject,
                 html,
+                text: mail.text,
                 attachments: [{ filename, content: zipBuffer }]
             });
         }
@@ -727,5 +792,6 @@ module.exports = {
     verifyEmailConfig,
     getEmailConfig,
     invalidateEmailConfigCache,
-    isValidEmail
+    isValidEmail,
+    templates          // pure builders: { subject, html, text } — for previews and tests
 };
