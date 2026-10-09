@@ -397,7 +397,8 @@ exports.forgotPassword = async (req, res) => {
 exports.listResetRequests = async (req, res) => {
     try {
         const [rows] = await pool.query(
-            `SELECT r.id, r.requested_at, u.id AS user_id, u.username, u.full_name, u.email, u.role
+            `SELECT r.id, r.requested_at, TIMESTAMPDIFF(MINUTE, r.requested_at, NOW()) AS minutes_ago,
+                    u.id AS user_id, u.username, u.full_name, u.email, u.role
                FROM password_reset_requests r
                JOIN users u ON u.id = r.user_id
               WHERE r.status = 'pending'

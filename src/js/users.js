@@ -506,8 +506,10 @@ function resetText(v) {
     return d.innerHTML;
 }
 
-function resetAskedAgo(when) {
-    const mins = Math.max(0, Math.round((Date.now() - new Date(when).getTime()) / 60000));
+// The server works out how long ago it was asked, so the answer does not
+// depend on the time zone of the database or of this browser.
+function resetAskedAgo(minutesAgo) {
+    const mins = Math.max(0, Number(minutesAgo) || 0);
     if (mins < 1) return 'just now';
     if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
     const hours = Math.round(mins / 60);
@@ -527,7 +529,7 @@ async function loadResetRequests() {
             <li>
                 <div class="reset-who">
                     <strong>${resetText(r.full_name || r.username)}</strong>
-                    <span>${resetText(r.username)} · ${resetText(roleLabel(r.role))} · asked ${resetAskedAgo(r.requested_at)}</span>
+                    <span>${resetText(r.username)} · ${resetText(roleLabel(r.role))} · asked ${resetAskedAgo(r.minutes_ago)}</span>
                     <span>Link goes to ${resetText(r.email)}</span>
                 </div>
                 <div class="reset-actions">
