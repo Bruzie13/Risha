@@ -26,6 +26,11 @@
  * Deterministic: same seed in, same rows out.
  *
  * Usage:  node scripts/generate-recent-sales.js [--apply] [--seed=N]
+ *         node scripts/generate-recent-sales.js --from=2026-07-01 --to=2026-08-31 [--apply]
+ *
+ * With --from/--to it fills only the days in that range that have NO sales at
+ * all (holes in the middle of the history), at the pace the shop was trading
+ * around that time. Days that already have sales are never touched.
  * Without --apply it prints a plan and writes nothing.
  */
 const path = require('path');
@@ -36,6 +41,17 @@ const mysql = require(path.join(__dirname, '..', 'backend', 'node_modules', 'mys
 const APPLY = process.argv.includes('--apply');
 const seedArg = process.argv.find(a => a.startsWith('--seed='));
 const SEED = seedArg ? parseInt(seedArg.split('=')[1], 10) : 20260801;
+const argDay = name => {
+    const a = process.argv.find(x => x.startsWith(`--${name}=`));
+    if (!a) return null;
+    const v = a.split('=')[1];
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || isNaN(Date.parse(v + 'T00:00:00Z'))) { console.error(`--${name} must be YYYY-MM-DD`); process.exit(1); }
+    return v;
+};
+const FROM = argDay('from');
+const TO = argDay('to');
+if ((FROM && !TO) || (TO && !FROM)) { console.error('--from and --to go together'); process.exit(1); }
+if (FROM && FROM > TO) { console.error('--from must not be after --to'); process.exit(1); }
 
 const PH_OFFSET_MS = 8 * 60 * 60 * 1000;
 const OPEN_HOUR = 6;      // Risha Pet Supplies trades 6am-5pm
@@ -89,7 +105,30 @@ async function main() {
         SELECT COUNT(DISTINCT DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00'))) AS days,
                COUNT(*) AS sales
         FROM sales s WHERE s.created_at >= DATE_SUB(NOW(), INTERVAL 60 DAY)`);
-    const salesPerDay = Math.max(6, Math.round(rate.sales / Math.max(1, rate.days)));
+    let salesPerDay = Math.max(6, Math.round(rate.sales / Math.max(1, rate.days)));
+
+    // Filling a hole in the past: pace it by the 30 days either side of the
+    // hole, so the filled days sit level with their neighbours.
+    let emptyDaysInRange = null;
+    if (FROM) {
+        const [[near]] = await conn.execute(`
+            SELECT COUNT(DISTINCT DATE(CONVERT_TZ(created_at,'+00:00','+08:00'))) AS days, COUNT(*) AS sales
+            FROM sales
+            WHERE DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) BETWEEN DATE_SUB(?, INTERVAL 30 DAY) AND DATE_ADD(?, INTERVAL 30 DAY)`,
+            [FROM, TO]);
+        if (Number(near.days)) salesPerDay = Math.max(4, Math.round(near.sales / near.days));
+        const [have] = await conn.execute(`
+            SELECT DISTINCT DATE_FORMAT(CONVERT_TZ(created_at,'+00:00','+08:00'), '%Y-%m-%d') AS d
+            FROM sales
+            WHERE DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) BETWEEN ? AND ?`, [FROM, TO]);
+        const taken = new Set(have.map(r => r.d));
+        emptyDaysInRange = [];
+        for (let t = Date.parse(FROM + 'T00:00:00Z'); t <= Date.parse(TO + 'T00:00:00Z'); t += 86400000) {
+            const key = new Date(t).toISOString().slice(0, 10);
+            // never today or the future, never a day that already traded
+            if (key < bounds.today && !taken.has(key)) emptyDaysInRange.push(new Date(t));
+        }
+    }
 
     // Product mix, weighted by units actually sold. Only sellable stock.
     const [products] = await conn.execute(`
@@ -109,7 +148,7 @@ async function main() {
 
     // Days to fill: the morning after the last sale, up to yesterday. Today is
     // left alone — if the shop has not opened yet, an empty "today" is correct.
-    const days = [];
+    let days = [];
     const start = new Date(bounds.last_day + 'T00:00:00Z');
     const today = new Date(bounds.today + 'T00:00:00Z');
     for (let t = start.getTime() + 86400000; t < today.getTime(); t += 86400000) {
@@ -117,6 +156,7 @@ async function main() {
     }
     // shop has closed and nothing was rung up today: today counts as a gap too
     if (bounds.hour_now >= CLOSE_HOUR && !Number(bounds.sales_today)) days.push(today);
+    if (emptyDaysInRange) days = emptyDaysInRange;
 
     console.log(`last day with sales : ${bounds.last_day}`);
     console.log(`today (Manila)      : ${bounds.today} ${bounds.hour_now}:00`);
