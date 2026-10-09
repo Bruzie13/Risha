@@ -238,7 +238,7 @@
     font-family: var(--font-sans);
     color: var(--text-primary);
     outline: none;
-    transition: all var(--transition);
+    transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
     backdrop-filter: blur(8px);
     appearance: none;
     -webkit-appearance: none;
@@ -296,7 +296,7 @@
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-color);
     border-top: 4px solid var(--accent);
-    transition: all var(--transition);
+    transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
     flex-shrink: 0;
     min-width: 230px;
     scroll-snap-align: start;

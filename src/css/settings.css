@@ -28,7 +28,7 @@
     font-weight: 500;
     color: var(--text-secondary);
     font-family: var(--font-sans);
-    transition: all 0.2s ease;
+    transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
     text-align: left;
     width: 100%;
 }
@@ -221,7 +221,7 @@
     padding: 6px 12px;
     border-radius: 7px;
     cursor: pointer;
-    transition: all 0.12s ease;
+    transition: color 0.12s ease, background-color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease, transform 0.12s ease, visibility 0.12s ease;
 }
 .seg-btn .material-symbols-outlined { font-size: 15px; }
 .seg-btn:hover { color: var(--text-primary); }
@@ -251,7 +251,7 @@
     border-radius: 8px;
     padding: 5px 10px;
     cursor: pointer;
-    transition: all 0.12s ease;
+    transition: color 0.12s ease, background-color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease, transform 0.12s ease, visibility 0.12s ease;
 }
 .accent-custom:hover { color: var(--text-primary); border-color: var(--primary); }
 .accent-custom .material-symbols-outlined { font-size: 15px; color: var(--primary); }
@@ -318,7 +318,7 @@
     inset: 0;
     background: var(--gray-300);
     border-radius: 24px;
-    transition: all 0.3s ease;
+    transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease, visibility 0.3s ease;
 }
 .settings-toggle-slider::before {
     content: '';

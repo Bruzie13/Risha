@@ -102,7 +102,8 @@
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   --transition: 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --float-y: 0px;
 
   --sidebar-w: 244px;
@@ -273,7 +274,7 @@ body {
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
-  transition: all var(--transition);
+  transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 /* Floating toggle retired: the collapse button stays visible inside the rail header */
@@ -399,7 +400,7 @@ body {
   border-radius: var(--radius-lg);
   font-size: 13px;
   font-weight: 500;
-  transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: color 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), background-color 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), border-color 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), visibility 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   white-space: nowrap;
   position: relative;
 }
@@ -493,7 +494,7 @@ body {
   background: var(--primary-bg);
   margin-bottom: 8px;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: color 0.25s ease, background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease, transform 0.25s ease, visibility 0.25s ease;
   position: relative;
 }
 .sidebar-user:hover {
@@ -560,7 +561,7 @@ body {
   align-items: center;
   justify-content: center;
   font-size: 18px;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
   flex-shrink: 0;
 }
 .sidebar-user .user-settings-btn:hover {
@@ -582,7 +583,7 @@ body {
   cursor: pointer;
   font-size: 16px;
   color: var(--text-muted);
-  transition: all var(--transition);
+  transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1010,7 +1011,7 @@ a { color: var(--primary); }
   margin-left: 4px;
   font-size: 12px;
   opacity: 0.35;
-  transition: all 0.15s ease;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
 }
 .data-table th.th-sort.sorted { color: var(--primary-dark); }
 .data-table th.th-sort.sorted .sort-arrow { opacity: 1; color: var(--primary); }
@@ -1102,7 +1103,7 @@ a { color: var(--primary); }
   font-size: 18px;
   cursor: pointer;
   color: var(--text-muted);
-  transition: all 0.25s ease;
+  transition: color 0.25s ease, background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease, transform 0.25s ease, visibility 0.25s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1166,7 +1167,7 @@ input[type="datetime-local"] {
   font-family: var(--font-sans);
   background: var(--bg-card);
   color: var(--text-primary);
-  transition: all var(--transition);
+  transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
   outline: none;
 }
 
@@ -1220,7 +1221,7 @@ input[type="datetime-local"] {
   font-size: 12px;
   color: var(--text-secondary);
   font-family: inherit;
-  transition: all var(--transition);
+  transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
 }
 
 .pagination button:hover { background: var(--gray-50); border-color: var(--border-glass-strong); }
@@ -1257,7 +1258,7 @@ input[type="datetime-local"] {
   align-items: center;
   gap: 14px;
   padding: 14px 22px;
-  transition: all var(--transition);
+  transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
   position: relative;
   cursor: default;
 }
@@ -1289,7 +1290,7 @@ input[type="datetime-local"] {
   align-items: center;
   gap: 14px;
   padding: 12px 22px;
-  transition: all var(--transition);
+  transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
   cursor: default;
   position: relative;
 }
@@ -1333,7 +1334,7 @@ input[type="datetime-local"] {
   border-radius: var(--radius-lg);
   padding: 22px 24px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-  transition: all var(--transition);
+  transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
 }
 
 .metric-card:hover {
@@ -1396,7 +1397,7 @@ input[type="datetime-local"] {
   border-radius: var(--radius-xl);
   overflow: hidden;
   box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-  transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: color 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94), background-color 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94), border-color 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94), visibility 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   animation: fadeIn 0.6s ease;
 }
 
@@ -1475,7 +1476,7 @@ input[type="datetime-local"] {
   background: var(--bg-card);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  transition: all var(--transition);
+  transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
   outline: none;
 }
 
@@ -1618,7 +1619,7 @@ input[type="datetime-local"] {
   background: var(--bg-card);
   color: var(--text-primary);
   outline: none;
-  transition: all var(--transition);
+  transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
 }
 
 .filter-bar select:focus, .filter-bar input:focus {
@@ -1834,7 +1835,7 @@ input[type="datetime-local"] {
     font-size: 20px;
     color: var(--text-primary);
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    transition: all var(--transition);
+    transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
   }
   :root.dark-mode .sidebar-hamburger { background: var(--bg-card); }
   .sidebar-hamburger:hover { border-color: var(--primary); color: var(--primary); }
@@ -1869,7 +1870,7 @@ input[type="datetime-local"] {
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
-  transition: all var(--transition);
+  transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
   flex-shrink: 0;
   font-size: 16px;
 }
@@ -2115,7 +2116,7 @@ html.sidebar-hidden .toolbar {
   font-size: 12px;
   color: var(--text-muted);
   font-family: inherit;
-  transition: all var(--transition);
+  transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
 }
 .notif-dropdown-header .notif-dropdown-actions button:hover {
   background: var(--gray-50);
@@ -2245,7 +2246,7 @@ html.sidebar-hidden .toolbar {
   background: var(--bg-card);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-md);
-  transition: all var(--transition);
+  transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
   cursor: pointer;
 }
 .notif-list-item:hover {
@@ -2274,7 +2275,7 @@ html.sidebar-hidden .toolbar {
   font-size: 12px;
   color: var(--text-muted);
   font-family: inherit;
-  transition: all var(--transition);
+  transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
 }
 .notif-list-item .notif-actions button:hover {
   background: var(--gray-50);
@@ -2299,7 +2300,7 @@ html.sidebar-hidden .toolbar {
   border-radius: var(--radius-lg);
   padding: 18px 20px;
   text-align: center;
-  transition: all var(--transition);
+  transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 .notif-summary-card:hover {
@@ -2337,7 +2338,7 @@ html.sidebar-hidden .toolbar {
   font-size: 13px;
   font-family: var(--font-sans);
   cursor: pointer;
-  transition: all var(--transition);
+  transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2370,7 +2371,7 @@ html.sidebar-hidden .toolbar {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.25s ease;
+  transition: color 0.25s ease, background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease, transform 0.25s ease, visibility 0.25s ease;
   font-size: 22px;
   animation: help-pulse 3s ease-in-out infinite;
 }
@@ -2527,7 +2528,7 @@ body.help-guide-open::after {
   font-weight: 600;
   font-family: var(--font-sans);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
   white-space: nowrap;
   line-height: 1.4;
 }
@@ -2659,7 +2660,7 @@ body.help-guide-open::after {
   border-radius: var(--radius-lg);
   padding: 20px 22px;
   box-shadow: var(--shadow-sm);
-  transition: all var(--transition);
+  transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition), visibility var(--transition);
   position: relative;
   overflow: hidden;
   min-width: 0;
@@ -2795,7 +2796,7 @@ body.help-guide-open::after {
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-md);
   background: var(--bg-card);
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
 }
 
 .email-log-item:hover { border-color: var(--border-glass-strong); box-shadow: var(--shadow-sm); }
@@ -3185,7 +3186,7 @@ html.sidebar-hidden .sidebar-footer .sidebar-btn::after {
   color: var(--text-secondary);
   font-size: 12.5px; font-weight: 600; cursor: pointer;
   font-family: inherit;
-  transition: all 0.15s ease;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
 }
 .pcard-actions button .material-symbols-outlined { font-size: 15px; }
 .pcard-actions button:hover { border-color: var(--pc-color, var(--primary)); color: var(--pc-color, var(--primary)); background: var(--pc-accent, var(--primary-bg)); }
@@ -3250,7 +3251,7 @@ html.sidebar-hidden .sidebar-footer .sidebar-btn::after {
   color: var(--primary);
   font-size: 12px; font-weight: 600;
   cursor: pointer; font-family: inherit;
-  transition: all 0.15s ease;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
 }
 .po-advance-btn:hover { background: var(--primary); color: #fff; }
 
@@ -3264,7 +3265,7 @@ html.sidebar-hidden .sidebar-footer .sidebar-btn::after {
   color: var(--text-secondary);
   font-size: 12px; font-weight: 600;
   cursor: pointer; font-family: inherit;
-  transition: all 0.15s ease;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
 }
 .po-email-btn:hover { background: var(--text-primary); color: var(--bg-card); border-color: var(--text-primary); }
 
@@ -3320,7 +3321,7 @@ html.sidebar-hidden .sidebar-footer .sidebar-btn::after {
 .fa-msg strong { font-weight: 600; }
 
 .fa-suggests { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.fa-chip { font-size: 12.5px; font-weight: 600; padding: 5px 10px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent); background: var(--primary-bg); color: var(--primary); cursor: pointer; transition: all 0.15s ease; }
+.fa-chip { font-size: 12.5px; font-weight: 600; padding: 5px 10px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent); background: var(--primary-bg); color: var(--primary); cursor: pointer; transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease; }
 .fa-chip:hover { background: var(--primary); color: #fff; }
 
 .fa-input-row { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--border-glass); background: var(--bg-card); }
@@ -3505,7 +3506,7 @@ body.jump-open { overflow: hidden; }
   letter-spacing: 0.5px;
   padding: 5px 11px;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
 }
 .jump-esc:hover { color: var(--text-primary); border-color: var(--primary); }
 

@@ -416,7 +416,7 @@
     cursor: pointer;
     font-size: 13px;
     font-family: inherit;
-    transition: all 0.15s;
+    transition: color 0.15s, background-color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s, visibility 0.15s;
 }
 
 .pagination button:hover:not(:disabled) {

@@ -72,7 +72,7 @@ body {
     margin-bottom: 20px;
     font-size: 13px;
     line-height: 1.4;
-    transition: all 0.3s;
+    transition: color 0.3s, background-color 0.3s, border-color 0.3s, box-shadow 0.3s, opacity 0.3s, transform 0.3s, visibility 0.3s;
 }
 
 .alert.hidden {
@@ -110,7 +110,7 @@ body {
     border-radius: 8px;
     font-size: 14px;
     font-family: 'Inter', sans-serif;
-    transition: all 0.2s;
+    transition: color 0.2s, background-color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s, visibility 0.2s;
     background: var(--bg);
 }
 
@@ -180,7 +180,7 @@ body {
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: color 0.2s, background-color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s, visibility 0.2s;
     font-family: 'Inter', sans-serif;
     display: flex;
     align-items: center;

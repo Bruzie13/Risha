@@ -276,7 +276,7 @@ function baseChartOptions(t) {
     return {
         responsive: true,
         maintainAspectRatio: false,
-        animation: { duration: 700, easing: 'easeOutQuart' },
+        animation: { duration: 400, easing: 'easeOutQuart' },
         plugins: { legend: { display: false } },
         scales: {
             x: { grid: { display: false }, border: { color: t.grid }, ticks: { color: t.text, font: { family: t.font, size: 11 }, maxRotation: 0, autoSkipPadding: 12 } },

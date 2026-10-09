@@ -29,9 +29,8 @@ h1, h2, h3 { font-family: var(--font-display); }
   color: #fff;
 }
 .sidebar-header { padding: 16px 14px 14px; border-bottom: 1px solid var(--nav-border); }
-.sidebar-brand .brand-icon { width: 46px; height: 46px; border-radius: 50%; border: 3px solid #fff; background: #fff; padding: 0; overflow: hidden; transition: transform 0.5s var(--ease-out); }
+.sidebar-brand .brand-icon { width: 46px; height: 46px; border-radius: 50%; border: 3px solid #fff; background: #fff; padding: 0; overflow: hidden; transition: transform 200ms var(--ease-out); }
 .sidebar-brand .brand-icon img { border-radius: 50%; width: 100%; height: 100%; object-fit: cover; transform: scale(1.12); }
-.sidebar-brand:hover .brand-icon { transform: rotate(-10deg) scale(1.06); }
 .sidebar-brand .brand-text span { color: #fff; font-size: 19px; font-weight: 800; letter-spacing: 0.01em; }
 .sidebar-brand .brand-text small { color: #fff; opacity: 0.92; font-size: 12.5px; font-weight: 500; }
 .sidebar-collapse-btn { background: var(--brand-sky-2); border: none; color: #fff; border-radius: var(--radius-md); box-shadow: 0 2px 0 var(--brand-sky-3); }
@@ -47,9 +46,9 @@ h1, h2, h3 { font-family: var(--font-display); }
   font-weight: 600;
   transition: background var(--transition), color var(--transition), transform var(--transition), box-shadow var(--transition);
 }
-.sidebar-nav .nav-link .nav-icon.material-symbols-outlined { color: #fff; font-size: 21px; font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24; transition: transform 0.3s var(--ease-out); }
+.sidebar-nav .nav-link .nav-icon.material-symbols-outlined { color: #fff; font-size: 21px; font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24; transition: transform 160ms var(--ease-out); }
 .sidebar-nav .nav-link:hover { background: rgba(255, 255, 255, 0.18); color: #fff; transform: none; }
-.sidebar-nav .nav-link:hover .nav-icon.material-symbols-outlined { color: #fff; transform: translateX(2px) scale(1.08); }
+.sidebar-nav .nav-link:hover .nav-icon.material-symbols-outlined { color: #fff; }
 /* where you are: a white tab with the red of the R */
 .sidebar-nav .nav-link.active {
   background: #fff;
@@ -113,7 +112,7 @@ h1, h2, h3 { font-family: var(--font-display); }
   border-radius: var(--radius-md);
   font-size: 14.5px;
   font-weight: 600;
-  transition: background var(--transition), border-color var(--transition), color var(--transition), transform 0.09s ease, box-shadow 0.09s ease;
+  transition: background var(--transition), border-color var(--transition), color var(--transition), transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
 }
 .btn-primary:active, .btn-secondary:active, .btn-danger:active, .btn-warning:active,
 .btn-edit:active, .btn-view:active, .btn-delete:active, .btn-action:active,
@@ -177,7 +176,7 @@ h1, h2, h3 { font-family: var(--font-display); }
 .btn-action { color: var(--primary-dark); border-color: color-mix(in srgb, var(--primary) 55%, var(--bg-card)); box-shadow: 0 var(--edge) 0 color-mix(in srgb, var(--primary) 55%, var(--bg-card)); }
 .btn-delete { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 50%, var(--bg-card)); box-shadow: 0 var(--edge) 0 color-mix(in srgb, var(--danger) 50%, var(--bg-card)); }
 .btn-delete:hover { background: var(--danger-bg); border-color: var(--danger); box-shadow: 0 var(--edge) 0 var(--danger); }
-.btn-icon { border-width: 1.5px; border-radius: var(--radius-md); box-shadow: var(--control-shadow); transition: background var(--transition), color var(--transition), border-color var(--transition), transform 0.09s ease, box-shadow 0.09s ease; }
+.btn-icon { border-width: 1.5px; border-radius: var(--radius-md); box-shadow: var(--control-shadow); transition: background var(--transition), color var(--transition), border-color var(--transition), transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out); }
 .btn-primary:disabled, .btn-secondary:disabled, .btn-danger:disabled, .btn-warning:disabled,
 .btn-ghost:disabled, .login-btn:disabled, .btn-view:disabled, .btn-edit:disabled, .btn-delete:disabled {
   opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none;
@@ -201,7 +200,6 @@ a { color: var(--primary-dark); }
 
 /* headline figures */
 .stat-card, .kpi-card { padding: 16px 18px; transition: transform var(--transition), border-color var(--transition); }
-.stat-card:hover, .kpi-card:hover { transform: translateY(-2px); border-color: var(--gray-300); }
 .stat-label, .kpi-card .kpi-label, .rp-figure-label { font-size: 13.5px; font-weight: 500; color: var(--text-secondary); }
 .stat-value, .kpi-card .kpi-value, .rp-figure-value { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-primary); line-height: 1.15; }
 .rp-figure { padding: 16px 20px; }
@@ -292,7 +290,6 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); widt
   background: var(--primary);
   color: #fff;
   box-shadow: 0 var(--edge) 0 var(--primary-darker);
-  animation: sys-pop 0.28s var(--ease-out);
 }
 .report-tab.active .material-symbols-outlined, .settings-tab.active .material-symbols-outlined, .inv-view-btn.active .material-symbols-outlined { color: #fff; }
 .inv-view-btn .material-symbols-outlined, .settings-tab .material-symbols-outlined, .seg-btn .material-symbols-outlined { font-size: 18px; }
@@ -317,7 +314,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); widt
   white-space: nowrap;
   cursor: pointer;
   box-shadow: var(--control-shadow);
-  transition: background var(--transition), border-color var(--transition), color var(--transition), transform 0.09s ease, box-shadow 0.09s ease;
+  transition: background var(--transition), border-color var(--transition), color var(--transition), transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
 }
 .chip:hover, .rp-filters button:hover, .pos-category-filter:hover, .fa-chip:hover {
   background: var(--bg-card-hover);
@@ -417,13 +414,13 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); widt
   overflow: hidden;
 }
 .cell-stock .cs-track { width: 90px; }
-.cs-fill, .stock-bar-fill { border-radius: 0; height: 100%; transform-origin: left center; animation: sys-fill 0.7s var(--ease-out) backwards; }
+.cs-fill, .stock-bar-fill { border-radius: 0; height: 100%; }
 .rp-bar-track { height: 10px; border-radius: var(--radius-full); background: var(--bg-inset); overflow: hidden; }
-.rp-bar-fill { border-radius: var(--radius-full); height: 100%; transform-origin: left center; animation: sys-fill 0.7s var(--ease-out) backwards; }
+.rp-bar-fill { border-radius: var(--radius-full); height: 100%; transform-origin: left center; animation: sys-fill 400ms var(--ease-out) backwards; }
 
 /* ----- Dialogs ----- */
 .modal, .search-overlay, #helpGuideModal, .jump-overlay { background: rgba(16, 40, 63, 0.55); }
-.modal-content { border: none; border-radius: var(--radius-2xl); box-shadow: var(--shadow-lg); animation: sys-dialog 0.26s var(--ease-out) backwards; }
+.modal-content { border: none; border-radius: var(--radius-2xl); box-shadow: var(--shadow-lg); animation: sys-dialog 220ms var(--ease-out) backwards; }
 .modal-header { padding: 18px 22px; border-bottom: 1.5px solid var(--border-subtle); }
 .modal-header h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
 .modal-body { padding: 20px 22px; }
@@ -435,13 +432,14 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); widt
   border-radius: 50%;
   color: var(--text-secondary);
   box-shadow: var(--control-shadow);
-  transition: transform 0.25s var(--ease-out), background var(--transition), color var(--transition);
+  transition: background var(--transition), color var(--transition), transform 120ms var(--ease-out);
 }
-.close-btn:hover { background: var(--bg-card-hover); color: var(--brand-red); border-color: var(--gray-400); transform: rotate(90deg); }
+.close-btn:hover { background: var(--bg-card-hover); color: var(--brand-red); border-color: var(--gray-400); }
+.close-btn:active { transform: scale(0.94); }
 
 /* the shared confirm / prompt / done dialogs */
-.app-dialog-backdrop { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(16, 40, 63, 0.55); animation: sys-fade 0.18s ease backwards; }
-.app-dialog { width: 100%; max-width: 420px; background: var(--bg-card); border-radius: var(--radius-2xl); box-shadow: var(--shadow-lg); overflow: hidden; animation: sys-dialog 0.26s var(--ease-out) backwards; }
+.app-dialog-backdrop { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(16, 40, 63, 0.55); animation: sys-fade 160ms ease-out backwards; }
+.app-dialog { width: 100%; max-width: 420px; background: var(--bg-card); border-radius: var(--radius-2xl); box-shadow: var(--shadow-lg); overflow: hidden; animation: sys-dialog 220ms var(--ease-out) backwards; }
 .app-dialog-main { display: flex; gap: 14px; padding: 22px 22px 18px; }
 .app-dialog-icon { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .app-dialog-icon .material-symbols-outlined { font-size: 23px; }
@@ -463,11 +461,17 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); widt
 .pagination button.active, .pagination button.active:hover:not(:disabled) { background: var(--primary); border-color: var(--primary); color: #fff; box-shadow: none; }
 .pagination button:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
 .rp-how summary { font-weight: 600; }
-.fa-fab { border-radius: 50%; width: 54px; height: 54px; background: var(--brand-red); color: #fff; box-shadow: 0 3px 0 var(--brand-red-dark), var(--shadow-md); transition: transform 0.3s var(--ease-out), background var(--transition); }
-.fa-fab:hover, .fa-fab.active { background: var(--brand-red); transform: translateY(-2px) rotate(-8deg); }
+.fa-fab { border-radius: 50%; width: 54px; height: 54px; background: var(--brand-red); color: #fff; box-shadow: 0 3px 0 var(--brand-red-dark), var(--shadow-md); transition: transform 160ms var(--ease-out), background var(--transition); }
+.fa-fab:hover, .fa-fab.active { background: var(--brand-red); }
+.fa-fab:active { transform: scale(0.95); }
 .fa-msg.fa-user { background: var(--primary); }
 .fa-input-row button { background: var(--brand-red); }
-.toast { font-weight: 600; border-radius: var(--radius-full); box-shadow: var(--shadow-md); animation: sys-toast 0.32s var(--ease-out) backwards; }
+.toast {
+  font-weight: 600; border-radius: var(--radius-full); box-shadow: var(--shadow-md);
+  animation: none;
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+  @starting-style { opacity: 0; transform: translateY(-100%); }
+}
 .toast-info { background: var(--brand-ink); }
 .toast-success { background: var(--success); }
 .toast-error { background: var(--brand-red-dark); }
@@ -497,7 +501,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); widt
   border-radius: var(--radius-lg);
   background: var(--bg-card);
   box-shadow: var(--control-shadow);
-  transition: border-color var(--transition), box-shadow 0.09s ease, transform 0.09s ease;
+  transition: border-color var(--transition), box-shadow 120ms var(--ease-out), transform 120ms var(--ease-out);
 }
 .pos-product-card:not(.unavailable):hover { border-color: var(--primary); box-shadow: 0 var(--edge) 0 var(--primary); }
 .pos-product-card:not(.unavailable):active { transform: translateY(var(--edge)); box-shadow: none; }
@@ -518,9 +522,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); widt
   background: var(--brand-red);
   color: #fff;
   box-shadow: 0 2px 0 var(--brand-red-dark);
-  transition: transform 0.25s var(--ease-out);
 }
-.pos-product-card:not(.unavailable):hover::after { transform: rotate(90deg) scale(1.1); }
 .pos-product-card .p-name { font-weight: 600; color: var(--text-primary); }
 .pos-product-card .p-price { font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
 .pos-product-card .p-stock { padding-right: 30px; }
@@ -558,14 +560,14 @@ body.auth-page {
   padding: 32px 16px;
 }
 .login-brand { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 20px; text-align: center; }
-.login-brand img { width: 112px; height: 112px; border-radius: 50%; display: block; object-fit: cover; background: #fff; padding: 0; border: 5px solid #fff; box-shadow: 0 5px 0 rgba(16, 40, 63, 0.16); animation: sys-logo 0.7s var(--ease-out) backwards; }
+.login-brand img { width: 112px; height: 112px; border-radius: 50%; display: block; object-fit: cover; background: #fff; padding: 0; border: 5px solid #fff; box-shadow: 0 5px 0 rgba(16, 40, 63, 0.16); animation: sys-logo 400ms var(--ease-out) backwards; }
 .login-brand-name { font-size: 26px; font-weight: 800; color: var(--brand-ink); line-height: 1.15; letter-spacing: -0.01em; }
 .login-brand-sub { font-size: 14.5px; font-weight: 500; color: var(--brand-sun-ink); }
-.auth-page .login-container, .auth-page .auth-card { border: none; box-shadow: 0 6px 0 rgba(16, 40, 63, 0.14); animation: sys-rise 0.5s var(--ease-out) 0.12s backwards; }
+.auth-page .login-container, .auth-page .auth-card { border: none; box-shadow: 0 6px 0 rgba(16, 40, 63, 0.14); animation: sys-rise 300ms var(--ease-out) 60ms backwards; }
 .auth-page .login-foot { color: var(--brand-sun-ink); font-weight: 500; }
 .auth-page ::-webkit-scrollbar-thumb { border-color: var(--brand-sun); }
 .fp-overlay { background: rgba(16, 40, 63, 0.6); }
-.fp-modal { animation: sys-dialog 0.26s var(--ease-out) backwards; }
+.fp-modal { animation: sys-dialog 220ms var(--ease-out) backwards; }
 
 /* ----- Fixes from the inspection round ----- */
 .rp-table th { white-space: normal; vertical-align: bottom; line-height: 1.35; }
@@ -574,76 +576,70 @@ body.auth-page {
 .pos-product-card.unavailable .p-stock::before { display: none; }
 
 /* ===========================================================================
-   MOTION
-   Things arrive, they do not just appear: a page's panels rise into place one
-   after another, stock fills in, a dialog steps forward, a button goes down
-   under the finger. Every animation runs once and gets out of the way, and
-   none of it runs for someone who has asked their device for less motion.
-   The keyframes only describe where a thing comes FROM, so nothing is left
-   with a transform once it has landed (a leftover transform would trap the
-   dialogs that live inside these containers).
+   MOTION — after Emil Kowalski's design-engineering rules
+   (~/.agents/skills/emil-design-eng).
+
+   1. Does it need to move? Things seen once per visit may arrive (a page's
+      panels, a dialog, a chart). Things touched all day do not perform: the
+      sidebar, table rows, product tiles at the counter and stock meters redraw
+      on every search keystroke and every scan, so they simply appear.
+   2. Entrances ease OUT on a strong curve (--ease-out) so the first frame
+      already moves. Nothing uses ease-in.
+   3. Interface motion stays at or under 300ms; a press answers in 120ms.
+   4. Only transform and opacity are animated. Nothing starts from scale(0).
+   5. Groups stagger 50ms apart and never block a click.
+   6. Hover movement only where there is a real pointer.
+   7. With "reduce motion" on, movement goes and a short fade stays.
+
+   The keyframes describe only where a thing comes FROM, so nothing keeps a
+   transform after it lands (a leftover transform would trap the dialogs that
+   live inside these containers).
 =========================================================================== */
-@keyframes sys-rise { from { opacity: 0; transform: translateY(14px); } }
+:root { --ease-out: cubic-bezier(0.23, 1, 0.32, 1); --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1); }
+
+@keyframes sys-rise { from { opacity: 0; transform: translateY(8px); } }
 @keyframes sys-fade { from { opacity: 0; } }
-@keyframes sys-row { from { opacity: 0; transform: translateX(-8px); } }
 @keyframes sys-fill { from { transform: scaleX(0); } }
-@keyframes sys-pop { from { transform: scale(0.94); } }
-@keyframes sys-dialog { from { opacity: 0; transform: translateY(16px) scale(0.96); } }
-@keyframes sys-toast { from { opacity: 0; transform: translateY(-14px) scale(0.96); } }
-@keyframes sys-band { from { opacity: 0; transform: translateY(-10px); } }
-@keyframes sys-logo { from { opacity: 0; transform: scale(0.6) rotate(-25deg); } }
+@keyframes sys-dialog { from { opacity: 0; transform: translateY(8px) scale(0.96); } }
+@keyframes sys-logo { from { opacity: 0; transform: scale(0.92); } }
 @keyframes sys-drift { to { background-position: 220px 220px; } }
-@keyframes sys-nav { from { opacity: 0; transform: translateX(-10px); } }
 
 @media (prefers-reduced-motion: no-preference) {
-  /* the band's title and actions */
-  .page-header > * { animation: sys-band 0.4s var(--ease-out) backwards; }
-  .page-header > *:nth-child(2) { animation-delay: 0.06s; }
-
-  /* the sidebar's links, once, top to bottom */
-  .sidebar-nav .nav-link { animation: sys-nav 0.4s var(--ease-out) backwards; }
-  .sidebar-nav .nav-link:nth-child(1) { animation-delay: 0.02s; }
-  .sidebar-nav .nav-link:nth-child(2) { animation-delay: 0.05s; }
-  .sidebar-nav .nav-link:nth-child(3) { animation-delay: 0.08s; }
-  .sidebar-nav .nav-link:nth-child(4) { animation-delay: 0.11s; }
-  .sidebar-nav .nav-link:nth-child(5) { animation-delay: 0.14s; }
-  .sidebar-nav .nav-link:nth-child(6) { animation-delay: 0.17s; }
-  .sidebar-nav .nav-link:nth-child(7) { animation-delay: 0.20s; }
-  .sidebar-nav .nav-link:nth-child(8) { animation-delay: 0.23s; }
-  .sidebar-nav .nav-link:nth-child(n+9) { animation-delay: 0.26s; }
-
-  /* the page's own blocks rise in, one after another */
-  .content > * { animation: sys-rise 0.5s var(--ease-out) backwards; }
-  .content > *:nth-child(1) { animation-delay: 0.05s; }
-  .content > *:nth-child(2) { animation-delay: 0.12s; }
-  .content > *:nth-child(3) { animation-delay: 0.19s; }
-  .content > *:nth-child(4) { animation-delay: 0.26s; }
-  .content > *:nth-child(n+5) { animation-delay: 0.33s; }
+  /* a page's own blocks rise in, 50ms apart */
+  .content > * { animation: sys-rise 300ms var(--ease-out) backwards; }
+  .content > *:nth-child(2) { animation-delay: 50ms; }
+  .content > *:nth-child(3) { animation-delay: 100ms; }
+  .content > *:nth-child(4) { animation-delay: 150ms; }
+  .content > *:nth-child(n+5) { animation-delay: 200ms; }
   .content > .modal, .content > .app-dialog-backdrop, .content > [hidden] { animation: none; }
 
   /* headline figures, left to right */
-  .stat-card, .kpi-card, .rp-figure { animation: sys-rise 0.5s var(--ease-out) backwards; }
-  .stat-card:nth-child(2), .kpi-card:nth-child(2), .rp-figure:nth-child(2) { animation-delay: 0.07s; }
-  .stat-card:nth-child(3), .kpi-card:nth-child(3), .rp-figure:nth-child(3) { animation-delay: 0.14s; }
-  .stat-card:nth-child(4), .kpi-card:nth-child(4), .rp-figure:nth-child(4) { animation-delay: 0.21s; }
-  .stat-card:nth-child(n+5), .kpi-card:nth-child(n+5), .rp-figure:nth-child(n+5) { animation-delay: 0.28s; }
-
-  /* rows and tiles arrive in order when a list is drawn */
-  .data-table tbody tr, .rp-table tbody tr, .pos-product-card, .notif-list-item { animation: sys-row 0.32s var(--ease-out) backwards; }
-  .pos-product-card { animation-name: sys-rise; }
-  .data-table tbody tr:nth-child(2), .rp-table tbody tr:nth-child(2), .pos-product-card:nth-child(2), .notif-list-item:nth-child(2) { animation-delay: 0.03s; }
-  .data-table tbody tr:nth-child(3), .rp-table tbody tr:nth-child(3), .pos-product-card:nth-child(3), .notif-list-item:nth-child(3) { animation-delay: 0.06s; }
-  .data-table tbody tr:nth-child(4), .rp-table tbody tr:nth-child(4), .pos-product-card:nth-child(4), .notif-list-item:nth-child(4) { animation-delay: 0.09s; }
-  .data-table tbody tr:nth-child(5), .rp-table tbody tr:nth-child(5), .pos-product-card:nth-child(5), .notif-list-item:nth-child(5) { animation-delay: 0.12s; }
-  .data-table tbody tr:nth-child(6), .rp-table tbody tr:nth-child(6), .pos-product-card:nth-child(6), .notif-list-item:nth-child(6) { animation-delay: 0.15s; }
-  .data-table tbody tr:nth-child(7), .rp-table tbody tr:nth-child(7), .pos-product-card:nth-child(7), .notif-list-item:nth-child(7) { animation-delay: 0.18s; }
-  .data-table tbody tr:nth-child(n+8), .rp-table tbody tr:nth-child(n+8), .pos-product-card:nth-child(n+8), .notif-list-item:nth-child(n+8) { animation-delay: 0.21s; }
-}
+  .stat-card, .kpi-card, .rp-figure { animation: sys-rise 300ms var(--ease-out) backwards; }
+  .stat-card:nth-child(2), .kpi-card:nth-child(2), .rp-figure:nth-child(2) { animation-delay: 50ms; }
+  .stat-card:nth-child(3), .kpi-card:nth-child(3), .rp-figure:nth-child(3) { animation-delay: 100ms; }
+  .stat-card:nth-child(4), .kpi-card:nth-child(4), .rp-figure:nth-child(4) { animation-delay: 150ms; }
+  .stat-card:nth-child(n+5), .kpi-card:nth-child(n+5), .rp-figure:nth-child(n+5) { animation-delay: 200ms; }
 }
 
+/* movement on hover only where hovering is a real thing (a tap on a touch
+   screen fires a false hover and would leave the element stuck mid-move) */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .sidebar-brand:hover .brand-icon { transform: rotate(-8deg); }
+  .sidebar-nav .nav-link:not(.active):hover .nav-icon.material-symbols-outlined { transform: translateX(2px); }
+  .stat-card, .kpi-card { transition: transform 160ms var(--ease-out), border-color var(--transition); }
+  .stat-card:hover, .kpi-card:hover { transform: translateY(-2px); border-color: var(--gray-300); }
+}
+
+/* less motion asked for: nothing travels, things fade in briefly */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; transition-duration: 0.001s !important; }
+  .content > *, .stat-card, .kpi-card, .rp-figure, .modal-content, .app-dialog, .fp-modal,
+  .login-brand img, .auth-page .login-container, .auth-page .auth-card { animation: sys-fade 200ms ease backwards; }
+  .rp-bar-fill { animation: none; }
   body.auth-page { animation: none; }
+  .toast { transition: opacity 200ms ease; @starting-style { opacity: 0; transform: none; } }
+  .btn-primary:active, .btn-secondary:active, .btn-danger:active, .btn-warning:active, .btn-edit:active, .btn-view:active,
+  .btn-delete:active, .btn-action:active, .show-more-btn:active, .login-btn:active, .reset-btn:active, .btn-icon:active,
+  .chip:active, .pos-product-card:not(.unavailable):active, .sidebar-btn:active { transform: none; }
 }
 
 .pcard-status { font-size: 12px; padding: 1px 9px; }

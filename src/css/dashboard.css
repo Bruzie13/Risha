@@ -63,7 +63,7 @@ body {
     border-radius: 8px;
     font-size: 15px;
     font-weight: 500;
-    transition: all 0.3s;
+    transition: color 0.3s, background-color 0.3s, border-color 0.3s, box-shadow 0.3s, opacity 0.3s, transform 0.3s, visibility 0.3s;
     display: block;
 }
 
@@ -87,7 +87,7 @@ body {
     cursor: pointer;
     font-size: 15px;
     font-weight: 600;
-    transition: all 0.3s;
+    transition: color 0.3s, background-color 0.3s, border-color 0.3s, box-shadow 0.3s, opacity 0.3s, transform 0.3s, visibility 0.3s;
     font-family: inherit;
 }
 
@@ -188,7 +188,7 @@ body {
     gap: 20px;
     align-items: center;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    transition: all 0.3s;
+    transition: color 0.3s, background-color 0.3s, border-color 0.3s, box-shadow 0.3s, opacity 0.3s, transform 0.3s, visibility 0.3s;
     border: 1px solid var(--border-color);
 }
 
@@ -258,7 +258,7 @@ body {
     gap: 12px;
     font-weight: 600;
     color: var(--primary);
-    transition: all 0.3s;
+    transition: color 0.3s, background-color 0.3s, border-color 0.3s, box-shadow 0.3s, opacity 0.3s, transform 0.3s, visibility 0.3s;
     font-family: inherit;
     font-size: 14px;
 }
