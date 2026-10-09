@@ -146,28 +146,25 @@ class PurchaseOrder {
                 [status, id]
             );
 
-            // A delivered or cancelled order should stop broadcasting.
-            if (status === 'received' || status === 'cancelled') {
-                await connection.execute(
-                    'UPDATE delivery_tracking SET revoked = 1 WHERE po_id = ? AND revoked = 0',
-                    [id]
-                );
-            }
-
             if (status === 'received') {
                 const items = await this.getPOItems(id);
                 const newExpiry = /^\d{4}-\d{2}-\d{2}$/.test(options.expiration_date || '') ? options.expiration_date : null;
                 for (const item of items) {
+                    // If the supplier said they could only send part of a
+                    // line, that is what arrived — adding the full ordered
+                    // amount would put stock on the shelf that is not there.
+                    const qty = item.confirmed_quantity == null ? item.quantity : item.confirmed_quantity;
+                    if (qty <= 0) continue;
                     if (newExpiry) {
                         // fresh batch resets stock and expiry together
                         await connection.execute(
                             'UPDATE products SET stock_quantity = stock_quantity + ?, expiration_date = ? WHERE id = ?',
-                            [item.quantity, newExpiry, item.product_id]
+                            [qty, newExpiry, item.product_id]
                         );
                     } else {
                         await connection.execute(
                             'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?',
-                            [item.quantity, item.product_id]
+                            [qty, item.product_id]
                         );
                     }
 
@@ -177,7 +174,7 @@ class PurchaseOrder {
                                                    VALUES (?, 'purchase', ?, 'purchase_order', ?, ?)`,
                         [
                             item.product_id,
-                            item.quantity,
+                            qty,
                             id,
                             newExpiry
                                 ? `Purchase Order #${id} received (new batch, expires ${newExpiry})`

@@ -59,7 +59,7 @@ const CSP = [
     // that same path — both would be blocked by a self-only style/img policy.
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
     "font-src 'self' https://fonts.gstatic.com",
-    "img-src 'self' data: https://res.cloudinary.com https://cdn.jsdelivr.net https://*.tile.openstreetmap.org",
+    "img-src 'self' data: https://res.cloudinary.com https://cdn.jsdelivr.net",
     "connect-src 'self'"
 ].join('; ');
 
@@ -69,10 +69,9 @@ app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');   // no MIME sniffing
     res.setHeader('X-Frame-Options', 'DENY');             // no clickjacking via iframes
     res.setHeader('Referrer-Policy', 'same-origin');
-    // geolocation must stay enabled for our own origin: the driver's delivery
-    // tracking page calls navigator.geolocation. A bare geolocation=() blocks
-    // it for us too, and the browser rejects it before the driver is even asked.
-    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
+    // Nothing in the app asks for a device's location any more (live delivery
+    // tracking was removed), so no page — ours included — may request it.
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     if (process.env.NODE_ENV === 'production') {
         // force HTTPS for 180 days once a browser has seen the site over HTTPS
         res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
@@ -86,9 +85,7 @@ app.use(cookieParser());
 
 const { pageAllowed, homePage } = require('./utils/roles');
 function authPageGuard(req, res, next) {
-    // track-delivery.html is opened by a supplier's driver, who has no account;
-    // its unguessable, expiring token is the credential.
-    const publicPages = ['/login.html', '/reset-password.html', '/verify-email.html', '/track-delivery.html', '/', ''];
+    const publicPages = ['/login.html', '/reset-password.html', '/verify-email.html', '/', ''];
     if (publicPages.includes(req.path)) return next();
     if (!req.path.endsWith('.html')) return next();
 
@@ -308,6 +305,63 @@ async function ensureTillTables() {
     }
 }
 
+async function ensureSupplyTables() {
+    try {
+        const conn = await pool.getConnection();
+        const add = async sql => { try { await conn.execute(sql); } catch (e) { /* already there */ } };
+        // What the supplier tells the shop about an order, in place of the old
+        // live location link: when it will arrive, what is actually coming,
+        // and the paperwork number to check it against.
+        await add('ALTER TABLE purchase_orders ADD COLUMN promised_date DATE NULL');
+        await add('ALTER TABLE purchase_orders ADD COLUMN promise_note VARCHAR(300) NULL');
+        await add('ALTER TABLE purchase_orders ADD COLUMN delivery_ref VARCHAR(80) NULL');
+        await add('ALTER TABLE po_items ADD COLUMN confirmed_quantity INT NULL');
+        // Whether the shop has paid for it.
+        await add('ALTER TABLE purchase_orders ADD COLUMN paid_at DATETIME NULL');
+        // An order a supplier offered, waiting for the shop to accept.
+        await add('ALTER TABLE purchase_orders ADD COLUMN proposed_by_supplier TINYINT(1) NOT NULL DEFAULT 0');
+        try {
+            await conn.execute("ALTER TABLE purchase_orders MODIFY status ENUM('pending','confirmed','shipped','received','cancelled','proposed') DEFAULT 'pending'");
+        } catch (e) { console.error('[DB] order status list migration error:', e.message); }
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS po_messages (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                po_id INT NOT NULL,
+                user_id INT NOT NULL,
+                from_supplier TINYINT(1) NOT NULL DEFAULT 0,
+                body VARCHAR(1000) NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_pom_po (po_id, created_at)
+            )`);
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS price_proposals (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                supplier_id INT NOT NULL,
+                product_id INT NOT NULL,
+                current_price DECIMAL(10,2) NULL,
+                proposed_price DECIMAL(10,2) NOT NULL,
+                note VARCHAR(300) NULL,
+                status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+                proposed_by INT NULL,
+                decided_by INT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                decided_at DATETIME NULL,
+                INDEX idx_pp_supplier (supplier_id, status),
+                INDEX idx_pp_status (status)
+            )`);
+        // Payment tracking starts the day it is switched on. Orders received
+        // before then were never marked either way, and calling every one of
+        // them "unpaid" would put a wall of false overdue notices in front of
+        // the shop and its suppliers.
+        await conn.execute(
+            "INSERT IGNORE INTO app_settings (setting_key, setting_value) VALUES ('payment_tracking_since', DATE_FORMAT(CONVERT_TZ(NOW(),'+00:00','+08:00'), '%Y-%m-%d'))");
+        conn.release();
+        console.log('[DB] supplier portal tables ready (promises, confirmed quantities, payments, notes, price proposals)');
+    } catch (e) {
+        console.error('[DB] supplier portal migration error:', e.message);
+    }
+}
+
 async function ensureEmailCodesTable() {
     try {
         const conn = await pool.getConnection();
@@ -463,32 +517,6 @@ setInterval(() => {
     }
 }, 5 * 60000).unref();
 
-/* Rate limit for the delivery-tracking routes. A driver sharing their position
-   posts roughly every 15s, so the ceiling is higher than the pixel's — but it
-   still caps how much a leaked token could write. Replies in JSON, unlike the
-   pixel limiter above. */
-const posHits = new Map();
-function rateLimitPositions(req, res, next) {
-    const ip = req.ip || req.connection.remoteAddress;
-    const now = Date.now();
-    const rec = posHits.get(ip);
-    if (!rec || now - rec.windowStart > 60000) {
-        posHits.set(ip, { count: 1, windowStart: now });
-        return next();
-    }
-    if (rec.count >= 120) {
-        return res.status(429).json({ success: false, message: 'Too many updates — slow down.' });
-    }
-    rec.count++;
-    next();
-}
-setInterval(() => {
-    const now = Date.now();
-    for (const [ip, rec] of posHits) {
-        if (now - rec.windowStart > 60000) posHits.delete(ip);
-    }
-}, 5 * 60000).unref();
-
 // Tracking ids are crypto.randomBytes(32).toString('hex') — 64 hex characters,
 // nothing else. Checking the shape before use keeps unvalidated path input out
 // of both the database and the rendered page.
@@ -587,71 +615,6 @@ app.get('/track/click/:trackingId', rateLimitTracking, async (req, res) => {
 </html>`);
 });
 
-/* ── Public delivery-tracking endpoints ───────────────────────────────────
-   These are the only routes a supplier's driver touches. They are reachable
-   without a login because the driver has no account — the unguessable token
-   in the URL is the credential, and it expires on its own.
-
-   Nothing here reads a location. The driver's browser pushes a position only
-   after they tap "Allow", and only while they keep the page open.          */
-const DeliveryTrackingModel = require('./models/DeliveryTracking');
-
-// Serve the driver page for any live token. The page itself asks for consent.
-app.get('/track/delivery/:token', rateLimitPositions, (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'src', 'track-delivery.html'));
-});
-
-// What is this delivery? Shown to the driver so they know what they're sharing for.
-app.get('/api/public/delivery/:token', rateLimitPositions, async (req, res) => {
-    try {
-        const t = await DeliveryTrackingModel.findLiveByToken(req.params.token);
-        if (!t) return res.status(404).json({ success: false, message: 'This tracking link is no longer active.' });
-        res.json({
-            success: true,
-            data: {
-                po_number: t.po_number,
-                supplier_name: t.supplier_name,
-                expected_delivery_date: t.expected_delivery_date,
-                expires_at: t.expires_at,
-                already_sharing: !!t.first_shared_at
-            }
-        });
-    } catch (e) {
-        res.status(500).json({ success: false, message: 'Could not load this delivery.' });
-    }
-});
-
-app.post('/api/public/delivery/:token/position', rateLimitPositions, async (req, res) => {
-    try {
-        const t = await DeliveryTrackingModel.findLiveByToken(req.params.token);
-        if (!t) return res.status(404).json({ success: false, message: 'This tracking link is no longer active.' });
-
-        const lat = Number(req.body.latitude);
-        const lng = Number(req.body.longitude);
-        if (!Number.isFinite(lat) || Math.abs(lat) > 90 || !Number.isFinite(lng) || Math.abs(lng) > 180) {
-            return res.status(400).json({ success: false, message: 'Invalid position' });
-        }
-        const acc = Number(req.body.accuracy);
-
-        await DeliveryTrackingModel.addPosition(t.id, lat, lng, Number.isFinite(acc) ? acc : null);
-        res.json({ success: true });
-    } catch (e) {
-        console.error('Position update error:', e.message);
-        res.status(500).json({ success: false, message: 'Could not record the position.' });
-    }
-});
-
-// The driver can stop sharing from their own phone, not just the shop.
-app.post('/api/public/delivery/:token/stop', rateLimitPositions, async (req, res) => {
-    try {
-        const t = await DeliveryTrackingModel.findLiveByToken(req.params.token);
-        if (t) await DeliveryTrackingModel.revokeForPO(t.po_id);
-        res.json({ success: true });
-    } catch (e) {
-        res.json({ success: true });   // stopping should never fail loudly
-    }
-});
-
 // Get email logs for a supplier
 const { authenticateToken } = require('./middleware/auth');
 app.get('/api/email-logs/:supplierId', authenticateToken, async (req, res) => {
@@ -716,6 +679,7 @@ async function runMigrations() {
     await ensureTokenVersionColumn();
     await ensureAccountRoles();
     await ensureTillTables();
+    await ensureSupplyTables();
     await ensureEmailCodesTable();
     await ensureEmailLogsTable();
     await ensureIndexes();

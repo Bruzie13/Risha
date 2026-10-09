@@ -98,7 +98,7 @@ function canOpenPage(href) {
 // Wrong screen for this account: leave before anything renders.
 (function () {
     const page = (window.location.pathname.split('/').pop() || '').toLowerCase();
-    const open = ['', 'login.html', 'reset-password.html', 'verify-email.html', 'track-delivery.html'];
+    const open = ['', 'login.html', 'reset-password.html', 'verify-email.html'];
     if (open.includes(page) || !getToken() || !getUser()) return;
     if (canOpenPage(page)) { sessionStorage.removeItem('roleBounce'); return; }
 

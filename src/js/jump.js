@@ -57,7 +57,7 @@
         { label: 'Import products from CSV', sub: 'Bulk upload a product list', icon: 'upload_file', tone: 'purple', href: 'inventory.html?do=import', kw: 'csv import bulk upload excel spreadsheet', when: manages },
         { label: 'End of day cash count', sub: 'Record the drawer count for today', icon: 'savings', tone: 'green', href: 'sales.html?do=eod', kw: 'eod drawer cash reconcile close shift count' },
         { label: 'Add a supplier', sub: 'Save a new supplier contact', icon: 'person_add', tone: 'amber', href: 'suppliers.html?do=add', kw: 'new supplier vendor contact', when: manages },
-        { label: 'Supplier map', sub: 'See where your suppliers are and how far away', icon: 'pin_drop', tone: 'amber', href: 'suppliers.html?view=map', kw: 'map location where distance near far pin gps track' },
+        { label: 'Orders with suppliers', sub: 'On the way, offers, price changes and payments', icon: 'local_shipping', tone: 'amber', href: 'suppliers.html?view=orders', kw: 'purchase order po delivery deliveries arriving late pay supplier offer price' },
         { label: "Today's sales report", sub: 'Printable summary for the day', icon: 'print', tone: 'coral', href: 'reports.html', kw: 'print daily report summary today' },
         { label: 'Sales forecast', sub: 'Expected sales for the next 30 days', icon: 'query_stats', tone: 'purple', href: 'reports.html?tab=analytics', kw: 'forecast predict ml demand future analytics' },
         { label: 'Add a user', sub: 'Invite a staff member', icon: 'group_add', tone: 'blue', href: 'users.html?do=add', kw: 'new user staff account invite', when: isAdmin },

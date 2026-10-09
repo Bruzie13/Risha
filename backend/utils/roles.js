@@ -8,7 +8,9 @@
                for the day, ask for one to be voided, and open and count its
                own cash drawer.
      supplier  an outside company. Its own details, the products it supplies
-               and the purchase orders addressed to it — nothing of the shop's
+               and the purchase orders addressed to it: it can confirm one
+               with a delivery date and quantities, ship it, leave notes,
+               offer an order, and propose a price. Nothing of the shop's
                sales, other suppliers, or the rest of the stock.
 
    For these two the rule is deny-by-default: anything not listed here is
@@ -48,8 +50,14 @@ const API_ALLOW = {
         ...SELF
     ],
     supplier: [
-        ['GET', /^\/api\/supplier-portal\/(me|products|orders)$/],
-        ['PUT', /^\/api\/supplier-portal\/orders\/\d+\/status$/],
+        ['GET', /^\/api\/supplier-portal\/(me|products|orders|scorecard)$/],
+        ['PUT', /^\/api\/supplier-portal\/me$/],
+        ['POST', /^\/api\/supplier-portal\/products\/\d+\/price$/],
+        ['POST', /^\/api\/supplier-portal\/orders\/\d+\/(confirm|ship)$/],
+        ['PUT', /^\/api\/supplier-portal\/orders\/\d+\/promise$/],
+        ['GET', /^\/api\/supplier-portal\/orders\/\d+\/messages$/],
+        ['POST', /^\/api\/supplier-portal\/orders\/\d+\/messages$/],
+        ['POST', /^\/api\/supplier-portal\/offers$/],
         ...SELF
     ]
 };

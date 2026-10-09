@@ -39,12 +39,22 @@ test('supplier: only its own portal and its own profile', () => {
     assert.ok(apiAllowed('supplier', 'GET', '/api/supplier-portal/me'));
     assert.ok(apiAllowed('supplier', 'GET', '/api/supplier-portal/products'));
     assert.ok(apiAllowed('supplier', 'GET', '/api/supplier-portal/orders'));
-    assert.ok(apiAllowed('supplier', 'PUT', '/api/supplier-portal/orders/7/status'));
+    assert.ok(apiAllowed('supplier', 'GET', '/api/supplier-portal/scorecard'));
+    assert.ok(apiAllowed('supplier', 'PUT', '/api/supplier-portal/me'));
+    assert.ok(apiAllowed('supplier', 'POST', '/api/supplier-portal/orders/7/confirm'));
+    assert.ok(apiAllowed('supplier', 'POST', '/api/supplier-portal/orders/7/ship'));
+    assert.ok(apiAllowed('supplier', 'PUT', '/api/supplier-portal/orders/7/promise'));
+    assert.ok(apiAllowed('supplier', 'POST', '/api/supplier-portal/orders/7/messages'));
+    assert.ok(apiAllowed('supplier', 'POST', '/api/supplier-portal/offers'));
+    assert.ok(apiAllowed('supplier', 'POST', '/api/supplier-portal/products/3/price'));
     for (const [method, path] of [
         ['GET', '/api/products'], ['GET', '/api/suppliers'], ['GET', '/api/suppliers/2'],
         ['GET', '/api/purchase-orders'], ['GET', '/api/purchase-orders/7'], ['PUT', '/api/purchase-orders/7/status'],
         ['POST', '/api/sales'], ['GET', '/api/sales'], ['GET', '/api/dashboard/stats'],
-        ['GET', '/api/auth/users'], ['DELETE', '/api/supplier-portal/orders/7'], ['GET', '/api/backup']
+        ['GET', '/api/auth/users'], ['DELETE', '/api/supplier-portal/orders/7'], ['GET', '/api/backup'],
+        ['PUT', '/api/supplier-portal/orders/7/status'], ['PUT', '/api/purchase-orders/7/payment'],
+        ['POST', '/api/purchase-orders/price-proposals/1/decide'], ['GET', '/api/purchase-orders/deliveries'],
+        ['POST', '/api/purchase-orders/7/messages']
     ]) {
         assert.equal(apiAllowed('supplier', method, path), false, `${method} ${path} should be refused`);
     }
@@ -54,7 +64,7 @@ test('fenced roles: odd spellings of an allowed path do not slip through', () =>
     assert.equal(apiAllowed('cashier', 'GET', '/API/products'), false);
     assert.equal(apiAllowed('cashier', 'GET', '/api/products/../suppliers'), false);
     assert.equal(apiAllowed('cashier', 'GET', '/api/products%2f..%2fsuppliers'), false);
-    assert.equal(apiAllowed('supplier', 'GET', '/api/supplier-portal/orders/7/status/../../..'), false);
+    assert.equal(apiAllowed('supplier', 'GET', '/api/supplier-portal/orders/7/messages/../../..'), false);
     assert.ok(apiAllowed('cashier', 'GET', '/api/products/'), 'a trailing slash is the same route');
 });
 
