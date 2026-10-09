@@ -17,6 +17,9 @@ window.addEventListener('load', () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
     // the activity log API is admin-only — hide its tab from everyone else
     if (getUserRole() !== 'admin') document.querySelector('.report-tab[data-tab="audit"]')?.remove();
+    // deciding on a void is for those who can void
+    if (!canManage()) document.querySelector('.report-tab[data-tab="voids"]')?.remove();
+    else loadVoidRequests(false);
     setupTabs();
     setupSalesControls();
     const tabParam = new URLSearchParams(window.location.search).get('tab');
@@ -48,6 +51,8 @@ function setupTabs() {
             }
             if (currentTab === 'analytics') {
                 if (typeof loadStockPlanning === 'function') loadStockPlanning();
+            } else if (currentTab === 'voids') {
+                loadVoidRequests(false);
             } else if (currentTab === 'audit') {
                 if (typeof loadAuditLogs === 'function') loadAuditLogs();
             } else if (!currentReportData) {
@@ -371,6 +376,113 @@ function exportCSV() {
     }
     downloadCSV(`sales_by_${GROUP_WORD[currentGroup]}_${ymd(new Date())}.csv`, lines);
     showToast('Sales report exported', 'success');
+}
+
+/* ---------- Void requests ----------
+   A cashier cannot void a sale; they flag it and say why. The decision is
+   made here, away from the day-to-day sales list. */
+
+let voidData = { waiting: [], voided: [] };
+let voidedShown = PAGE_SIZE;
+
+function voidWhen(ms) {
+    return new Date(Number(ms)).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+async function loadVoidRequests(announce) {
+    try {
+        const res = await fetch(`${API_BASE}/sales/void-requests`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'failed');
+        voidData = data.data;
+        renderVoidRequests();
+        if (announce) showToast('Void requests refreshed', 'success');
+    } catch (error) {
+        console.error('Void requests failed to load:', error);
+        const body = document.getElementById('voidWaitingBody');
+        if (body) body.innerHTML = '<tr><td colspan="5" class="rp-loading">Void requests could not be loaded.</td></tr>';
+    }
+}
+
+function renderVoidRequests() {
+    const count = document.getElementById('voidTabCount');
+    if (count) { count.textContent = voidData.waiting.length; count.hidden = !voidData.waiting.length; }
+
+    const waiting = document.getElementById('voidWaitingBody');
+    if (!waiting) return;
+    waiting.innerHTML = voidData.waiting.length ? voidData.waiting.map(v => `
+        <tr>
+            <td><span class="rp-strong">#${Number(v.id)}</span>
+                <span class="rp-sub">${escHtml(v.cashier || 'Unknown cashier')} · sold ${escHtml(voidWhen(v.sold_at))}</span>
+                <span class="rp-sub">Customer: ${escHtml(v.customer_name || 'Walk-in')}</span></td>
+            <td class="rp-pre">${escHtml(v.items || '—')}</td>
+            <td>${escHtml(v.reason || '—')}<span class="rp-sub">Asked ${escHtml(voidWhen(v.requested_at))}</span></td>
+            <td class="num rp-strong">${formatCurrency(v.final_amount)}</td>
+            <td class="num rp-row-actions">
+                <button class="btn-delete" data-void-approve="${Number(v.id)}">Void sale</button>
+                <button class="btn-view" data-void-keep="${Number(v.id)}">Keep sale</button>
+            </td>
+        </tr>`).join('') : '<tr><td colspan="5" class="rp-loading">No void requests are waiting.</td></tr>';
+
+    renderVoided();
+}
+
+function renderVoided() {
+    const rows = voidData.voided;
+    const total = rows.reduce((sum, v) => sum + (Number(v.final_amount) || 0), 0);
+    document.getElementById('voidedSub').textContent = rows.length
+        ? `${rows.length} sale${rows.length === 1 ? '' : 's'} worth ${formatCurrency(total)} cancelled after being recorded`
+        : 'Sales that were cancelled after being recorded';
+    const body = document.getElementById('voidedBody');
+    if (!rows.length) { body.innerHTML = '<tr><td colspan="5" class="rp-loading">No sales have been voided in the last 90 days.</td></tr>'; document.getElementById('voidedPagination').innerHTML = ''; return; }
+    body.innerHTML = rows.slice(0, voidedShown).map(v => {
+        // the void reason is appended to the sale's notes as "VOIDED: …"
+        const reason = String(v.notes || '').split('VOIDED:').pop().trim();
+        return `<tr>
+            <td><span class="rp-strong">#${Number(v.id)}</span><span class="rp-sub">Sold ${escHtml(voidWhen(v.sold_at))}</span></td>
+            <td>${escHtml(v.cashier || '—')}</td>
+            <td>${escHtml(voidWhen(v.voided_at))}<span class="rp-sub">${v.was_requested ? 'Asked for by the cashier' : 'Voided directly by a manager'}</span></td>
+            <td>${escHtml(reason || '—')}</td>
+            <td class="num">${formatCurrency(v.final_amount)}</td>
+        </tr>`;
+    }).join('');
+    updatePagination('voidedPagination', rows, voidedShown, 'showMoreVoided', 'showLessVoided', PAGE_SIZE);
+}
+function showMoreVoided() { voidedShown += PAGE_SIZE; renderVoided(); }
+function showLessVoided() { voidedShown = Math.max(PAGE_SIZE, voidedShown - PAGE_SIZE); renderVoided(); }
+
+document.addEventListener('click', e => {
+    const approve = e.target.closest('[data-void-approve]');
+    const keep = e.target.closest('[data-void-keep]');
+    if (approve) decideVoid(Number(approve.dataset.voidApprove), true);
+    else if (keep) decideVoid(Number(keep.dataset.voidKeep), false);
+});
+
+function decideVoid(id, approve) {
+    const request = voidData.waiting.find(v => Number(v.id) === id);
+    if (!request) return;
+    const run = async () => {
+        try {
+            const res = await fetch(`${API_BASE}/sales/${id}/${approve ? 'void' : 'void-request/dismiss'}`, {
+                method: 'POST', headers: getAuthHeaders(),
+                body: JSON.stringify(approve ? { reason: 'Cashier request: ' + (request.reason || 'no reason given') } : {})
+            });
+            const data = await res.json();
+            if (!data.success) { showToast(data.message || 'That could not be completed', 'error'); return; }
+            showToast(approve ? 'Sale voided and its items returned to stock' : 'Request dismissed. The sale stands.', 'success');
+            loadVoidRequests(false);
+        } catch (error) {
+            console.error('Void decision failed:', error);
+            showToast('That could not be completed', 'error');
+        }
+    };
+    if (approve) {
+        showConfirmDialog('Void sale #' + id,
+            `This cancels the sale of ${formatCurrency(request.final_amount)} and returns its items to stock. It stays on record as voided.`,
+            run, 'Void sale', '<span class="material-symbols-outlined" style="color:var(--danger);">undo</span>');
+    } else {
+        showConfirmDialog('Keep sale #' + id, 'The request is dismissed and the sale stays as it is.', run, 'Keep sale');
+    }
 }
 
 // showToast comes from auth.js — one toast design everywhere

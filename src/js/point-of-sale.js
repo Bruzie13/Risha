@@ -268,8 +268,7 @@ async function refreshSalesLive() {
         const data = await response.json();
         if (!data.success || !Array.isArray(data.data)) return;
         const fresh = data.data;
-        // a void request has to show up without a reload, so it is part of what counts as a change
-        const fingerprint = list => list.map(s => `${s.id}:${s.payment_status}:${Number(s.void_requested) || 0}`).join(',');
+        const fingerprint = list => list.map(s => `${s.id}:${s.payment_status}`).join(',');
         if (fingerprint(fresh) === fingerprint(allSales)) return;
         allSales = fresh;
         salesTotal = data.total ?? allSales.length;
@@ -291,7 +290,6 @@ function displaySales(sales) {
         return;
     }
     const shown = sales.slice(0, displayCount);
-    renderVoidRequestNotice(sales);
     tbody.innerHTML = shown.map(s => `
         <tr>
             <td>#${s.id}</td>
@@ -301,9 +299,7 @@ function displaySales(sales) {
             <td>${s.item_count || 0}</td>
             <td>${formatCurrency(parseFloat(s.final_amount ?? s.total_amount ?? 0))}</td>
             <td>${escHtml(s.payment_method || 'N/A')}</td>
-            <td>${s.payment_status === 'completed' && Number(s.void_requested)
-                ? `<span class="status-badge status-low-stock" title="${escHtml(s.void_request_reason || '')}">Void requested</span><span class="void-reason">${escHtml(s.void_request_reason || '')}</span>`
-                : s.payment_status === 'completed'
+            <td>${s.payment_status === 'completed'
                 ? '<span class="status-badge status-in-stock">Completed</span>'
                 : s.payment_status === 'voided'
                     ? '<span class="status-badge status-expired" title="Voided — stock was restored">Voided</span>'
@@ -311,35 +307,10 @@ function displaySales(sales) {
             <td>
                 <button class="btn-view" onclick="viewSaleDetails(${s.id})">View</button>
                 ${viewer || s.payment_status === 'voided' ? '' : `<button class="btn-delete" onclick="voidSale(${s.id})">Void</button>`}
-                ${!viewer && s.payment_status === 'completed' && Number(s.void_requested) ? `<button class="btn-view" onclick="dismissVoidRequest(${s.id})">Keep sale</button>` : ''}
             </td>
         </tr>
     `).join('');
     updatePagination('salesPagination', { length: salesTotal }, displayCount, 'showMoreSales', 'showLessSales', PAGE_SIZE);
-}
-
-// Cashiers cannot void; they flag a sale and say why. Say so at the top of the
-// list so a manager does not have to hunt for the badge.
-function renderVoidRequestNotice(sales) {
-    const el = document.getElementById('voidRequestNotice');
-    if (!el) return;
-    const waiting = sales.filter(s => s.payment_status === 'completed' && Number(s.void_requested));
-    el.hidden = !waiting.length || !canManage();
-    if (!waiting.length) return;
-    el.textContent = (waiting.length === 1 ? 'A cashier has asked for 1 sale to be voided: ' : `Cashiers have asked for ${waiting.length} sales to be voided: `)
-        + waiting.map(s => '#' + s.id).join(', ') + '. Void each one, or choose Keep sale to dismiss the request.';
-}
-
-async function dismissVoidRequest(id) {
-    try {
-        const res = await fetch(`${API_BASE}/sales/${id}/void-request/dismiss`, { method: 'POST', headers: getAuthHeaders() });
-        const data = await res.json();
-        if (!data.success) { showToast(data.message || 'Could not dismiss the request', 'error'); return; }
-        showToast('Request dismissed. The sale stands.', 'success');
-        await loadSales();
-    } catch (e) {
-        showToast('Could not dismiss the request', 'error');
-    }
 }
 
 // Void: restores stock, keeps the record with a Voided badge (audit-friendly)

@@ -58,6 +58,7 @@
         { label: 'End of day cash count', sub: 'Record the drawer count for today', icon: 'savings', tone: 'green', href: 'sales.html?do=eod', kw: 'eod drawer cash reconcile close shift count' },
         { label: 'Add a supplier', sub: 'Save a new supplier contact', icon: 'person_add', tone: 'amber', href: 'suppliers.html?do=add', kw: 'new supplier vendor contact', when: manages },
         { label: 'Orders with suppliers', sub: 'On the way, offers, price changes and payments', icon: 'local_shipping', tone: 'amber', href: 'suppliers.html?view=orders', kw: 'purchase order po delivery deliveries arriving late pay supplier offer price' },
+        { label: 'Void requests', sub: 'Sales a cashier asked to have voided', icon: 'undo', tone: 'red', href: 'reports.html?tab=voids', kw: 'void cancel refund mistake cashier request wrong sale', when: manages },
         { label: "Today's sales report", sub: 'Printable summary for the day', icon: 'print', tone: 'coral', href: 'reports.html', kw: 'print daily report summary today' },
         { label: 'Sales forecast', sub: 'Expected sales for the next 30 days', icon: 'query_stats', tone: 'purple', href: 'reports.html?tab=analytics', kw: 'forecast predict ml demand future analytics' },
         { label: 'Add a user', sub: 'Invite a staff member', icon: 'group_add', tone: 'blue', href: 'users.html?do=add', kw: 'new user staff account invite', when: isAdmin },

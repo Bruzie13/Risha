@@ -484,3 +484,21 @@
 .sp-form-line input { width: 92px; flex-shrink: 0; text-align: right; }
 .sp-form-hint { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px; }
 @media (max-width: 560px) { .sp-orders { padding-left: 12px; padding-right: 12px; } }
+
+/* ----- A count on a tab: something in there is waiting ----- */
+.rp-tab-count {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: var(--radius-sm);
+  background: var(--danger);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+}
+.rp-pre { white-space: pre-line; }
+.rp-row-actions { white-space: nowrap; }
+.rp-row-actions button + button { margin-left: 6px; }

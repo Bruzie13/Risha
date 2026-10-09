@@ -17,6 +17,7 @@ router.get('/top-products', authenticateToken, saleController.getTopProducts);
 router.get('/till', authenticateToken, authorizeRole('cashier'), tillController.getTill);
 router.post('/till/open', authenticateToken, authorizeRole('cashier'), tillController.openTill);
 router.get('/mine', authenticateToken, authorizeRole('cashier'), tillController.getMySales);
+router.get('/void-requests', authenticateToken, authorizeRole('admin', 'manager'), tillController.getVoidRequests);
 router.get('/pos-settings', authenticateToken, authorizeRole('admin', 'manager'), tillController.getPosSettings);
 router.put('/pos-settings', authenticateToken, authorizeRole('admin'), tillController.savePosSettings);
 router.delete('/eod/:id', authenticateToken, authorizeRole('admin', 'manager'), tillController.reopenCount);

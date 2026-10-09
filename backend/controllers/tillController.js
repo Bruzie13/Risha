@@ -103,12 +103,39 @@ exports.requestVoid = async (req, res) => {
         Notification.create({
             title: 'Void requested',
             // the cashier's own words stay out of the alert; they are shown,
-            // escaped, beside the sale in Sales History
-            message: `A cashier asked for sale #${id} to be voided. Review it in Sales History.`,
+            // escaped, in the review list under Reports
+            message: `A cashier asked for sale #${id} to be voided. Review it under Reports, in Void requests.`,
             type: 'info', related_id: id, related_type: 'sale', user_id: req.user.id
         }).catch(e => console.error('Notif error:', e.message));
         res.json({ success: true, message: 'Sent to a manager for voiding.' });
     } catch (e) { fail(res, 'requestVoid', e); }
+};
+
+// The review list for managers: what cashiers have asked to be voided, and
+// what has been voided lately. Shown under Reports, apart from Sales History.
+exports.getVoidRequests = async (req, res) => {
+    try {
+        const ITEMS = `(SELECT GROUP_CONCAT(CONCAT(TRIM(si.quantity) + 0, ' × ', p.name) ORDER BY si.id SEPARATOR '\n')
+                        FROM sale_items si JOIN products p ON p.id = si.product_id WHERE si.sale_id = s.id)`;
+        const [waiting] = await pool.query(
+            `SELECT s.id, s.customer_name, s.final_amount, s.void_request_reason AS reason,
+                    UNIX_TIMESTAMP(s.created_at) * 1000 AS sold_at,
+                    UNIX_TIMESTAMP(s.void_requested_at) * 1000 AS requested_at,
+                    u.full_name AS cashier, ${ITEMS} AS items
+             FROM sales s LEFT JOIN users u ON u.id = s.created_by
+             WHERE s.void_requested_at IS NOT NULL AND s.payment_status = 'completed'
+             ORDER BY s.void_requested_at`);
+        const [voided] = await pool.query(
+            `SELECT s.id, s.customer_name, s.final_amount, s.notes,
+                    s.void_requested_at IS NOT NULL AS was_requested,
+                    UNIX_TIMESTAMP(s.created_at) * 1000 AS sold_at,
+                    UNIX_TIMESTAMP(s.updated_at) * 1000 AS voided_at,
+                    u.full_name AS cashier
+             FROM sales s LEFT JOIN users u ON u.id = s.created_by
+             WHERE s.payment_status = 'voided' AND s.updated_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)
+             ORDER BY s.updated_at DESC LIMIT 100`);
+        res.json({ success: true, data: { waiting, voided: voided.map(v => ({ ...v, was_requested: !!v.was_requested })) } });
+    } catch (e) { fail(res, 'getVoidRequests', e); }
 };
 
 // A manager decides the sale should stand.
