@@ -205,8 +205,9 @@
 .intro-skip {
     position: absolute;
     bottom: 34px;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0;
+    right: 0;
+    text-align: center;   /* centred by the box, not by a transform: the rise-in animation replaces any transform */
     font-family: var(--font-sans, 'Rubik', sans-serif);
     font-size: 13px;
     font-weight: 500;
