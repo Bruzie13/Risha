@@ -160,7 +160,7 @@
     <div class="fp-overlay" id="fpOverlay">
         <div class="fp-modal" role="dialog" aria-modal="true" aria-labelledby="fpTitle">
             <h3 id="fpTitle">Reset your password</h3>
-            <p class="fp-sub">Enter your username or email. The administrator is asked to approve it first; once approved, a reset link is sent to the email on your account.</p>
+            <p class="fp-sub">Enter your username or email. An administrator account is emailed a reset link straight away. Any other account waits for an administrator to approve it first, then gets the link by email.</p>
             <div class="fp-msg" id="fpMsg"></div>
             <form id="fpForm" class="login-form">
                 <div class="form-group">
@@ -277,7 +277,7 @@
                         body: JSON.stringify({ username: input.value.trim() })
                     });
                     var data = await res.json();
-                    msg.textContent = data.message || 'If that account exists, the administrator has been asked to approve a reset.';
+                    msg.textContent = data.message || 'If that account exists, a reset is on its way or waiting for approval.';
                     msg.className = 'fp-msg ' + (data.success ? 'ok' : 'err');
                 } catch (err) {
                     msg.textContent = 'Connection error. Please try again.';

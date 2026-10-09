@@ -133,7 +133,34 @@ async function notifyPasswordResetRequested(user, requestId) {
     });
 }
 
+// An administrator's reset is not approved by anyone, so it is announced instead.
+async function notifyAdminResetLinkSent(user) {
+    await Notification.create({
+        title: 'Administrator password reset',
+        message: `A reset link was emailed to the administrator account ${user.username}. If nobody at the shop asked for this, check the activity log.`,
+        type: 'info',
+        related_id: user.id,
+        related_type: 'admin_password_reset'
+    });
+}
+
+// Any password changed through an emailed link, whoever it belongs to.
+async function notifyPasswordChangedByLink(userId) {
+    const pool = require('../config/database');
+    const [rows] = await pool.query('SELECT username, full_name FROM users WHERE id = ?', [userId]);
+    if (!rows.length) return;
+    await Notification.create({
+        title: 'Password changed',
+        message: `${rows[0].full_name || rows[0].username} (${rows[0].username}) set a new password using an emailed reset link.`,
+        type: 'info',
+        related_id: userId,
+        related_type: 'password_changed'
+    });
+}
+
 module.exports = {
+    notifyAdminResetLinkSent,
+    notifyPasswordChangedByLink,
     notifyPasswordResetRequested,
     notifySaleCreated,
     notifyStockAdjusted,

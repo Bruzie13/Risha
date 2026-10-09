@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const pool = require('../config/database');
 const logAudit = require('../services/audit');
-const { notifyUserLogin, notifyPasswordResetRequested } = require('../services/notifier');
+const { notifyUserLogin, notifyPasswordResetRequested, notifyAdminResetLinkSent, notifyPasswordChangedByLink } = require('../services/notifier');
 const { validatePassword } = require('../utils/passwordPolicy');
 const { ROLES } = require('../utils/roles');
 const { sendPasswordResetEmail, sendVerificationEmail, sendEmailCode, sendWelcomeEmail, isValidEmail } = require('../utils/mailer');
@@ -338,14 +338,18 @@ async function issueResetLink(user, ttlMs) {
 
    The one exception is an administrator's own account: with a single admin
    there would be nobody left to approve it, and the shop would be locked out
-   of its own system. Administrators keep the direct email link.
+   of its own system. An administrator is emailed the link directly (it works
+   for 30 minutes), and every administrator gets a notification that it was
+   sent and another when the password is actually changed. If the
+   administrator has also lost the mailbox, scripts/reset-admin-password.js
+   resets it from the server.
 
    Always answers with the same generic message so the endpoint can't be used
    to probe which usernames/emails exist. */
 exports.forgotPassword = async (req, res) => {
     const genericResponse = {
         success: true,
-        message: 'If that account exists, the administrator has been asked to approve a password reset. Once it is approved, a reset link is sent to the email address on the account.'
+        message: 'If that account exists: an administrator account is emailed a reset link straight away. Any other account waits for an administrator to approve it, and is then emailed the link.'
     };
     try {
         const { username } = req.body;
@@ -363,6 +367,9 @@ exports.forgotPassword = async (req, res) => {
 
         if (user.role === 'admin') {
             await issueResetLink(user, RESET_TOKEN_TTL_MS);
+            // Nobody approves an administrator's reset, so the other
+            // administrators are at least told it happened.
+            await notifyAdminResetLinkSent(user).catch(() => {});
             logAudit(user.id, 'password_reset_requested', 'users', user.id, null, null, req.ip);
             return res.status(200).json(genericResponse);
         }
@@ -521,6 +528,7 @@ exports.resetPassword = async (req, res) => {
         // Whoever prompted the reset may already hold a live token — retire it.
         await bumpTokenVersion(userId);
         logAudit(userId, 'password_reset', 'users', userId, null, null, req.ip);
+        notifyPasswordChangedByLink(userId).catch(() => {});
         res.status(200).json({ success: true, message: 'Password has been reset. You can now sign in.' });
     } catch (error) {
         console.error('Reset password error:', error);
