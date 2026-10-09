@@ -317,11 +317,26 @@ async function ensureTillTables() {
         try { await conn.execute('ALTER TABLE cash_reconciliations ADD COLUMN opening_cash DECIMAL(12,2) NOT NULL DEFAULT 0'); } catch (e) { /* column exists */ }
         try { await conn.execute('ALTER TABLE cash_reconciliations ADD UNIQUE KEY uq_count_per_person (business_date, counted_by)'); } catch (e) { /* key exists */ }
         try { await conn.execute('ALTER TABLE cash_reconciliations DROP INDEX business_date'); } catch (e) { /* already dropped */ }
+        // Cash that goes into or comes out of a drawer other than through a
+        // sale (the owner collecting takings, paying a supplier, adding change).
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS till_cash_moves (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                business_date DATE NOT NULL,
+                cashier_id INT NOT NULL,
+                kind ENUM('out', 'in') NOT NULL,
+                amount DECIMAL(12,2) NOT NULL,
+                reason VARCHAR(200) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_tcm_day (business_date, cashier_id)
+            )`);
+        try { await conn.execute('ALTER TABLE cash_reconciliations ADD COLUMN cash_in DECIMAL(12,2) NOT NULL DEFAULT 0'); } catch (e) { /* column exists */ }
+        try { await conn.execute('ALTER TABLE cash_reconciliations ADD COLUMN cash_out DECIMAL(12,2) NOT NULL DEFAULT 0'); } catch (e) { /* column exists */ }
         // A cashier's request for a manager to void a sale.
         try { await conn.execute('ALTER TABLE sales ADD COLUMN void_requested_at DATETIME NULL'); } catch (e) { /* column exists */ }
         try { await conn.execute('ALTER TABLE sales ADD COLUMN void_request_reason VARCHAR(300) NULL'); } catch (e) { /* column exists */ }
         conn.release();
-        console.log('[DB] till tables ready (opening cash, per-cashier counts, void requests)');
+        console.log('[DB] till tables ready (opening cash, per-cashier counts, cash in and out, void requests)');
     } catch (e) {
         console.error('[DB] till migration error:', e.message);
     }

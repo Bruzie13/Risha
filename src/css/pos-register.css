@@ -66,6 +66,9 @@ body, .main-wrapper { background: var(--bg-card); }
 .till-act .material-symbols-outlined { font-size: 20px; }
 .till-act:hover { background: var(--till-line); }
 .till-act:active { transform: translateY(2px); box-shadow: none; }
+/* the printer is set up once, so its button is an icon; its name is the tooltip */
+#connectPrinterBtn { width: 42px; padding: 0; justify-content: center; }
+#connectPrinterBtn span:not(.material-symbols-outlined) { display: none; }
 
 /* one bar, two fields: scan on the left, search on the right */
 .till-find {

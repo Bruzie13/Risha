@@ -23,9 +23,27 @@ function checkDiscount(requested, maxPercent) {
     return { percent: Math.round(pct * 100) / 100 };
 }
 
-/** What a cashier's drawer should hold: what it started with plus the cash they took. */
-function drawerExpected(openingCash, cashSales) {
-    return Math.round(((Number(openingCash) || 0) + (Number(cashSales) || 0)) * 100) / 100;
+/** What a cashier's drawer should hold: what it started with, plus the cash
+    they took in sales, plus cash put in, minus cash taken out. */
+function drawerExpected(openingCash, cashSales, cashIn = 0, cashOut = 0) {
+    const n = v => Number(v) || 0;
+    return Math.round((n(openingCash) + n(cashSales) + n(cashIn) - n(cashOut)) * 100) / 100;
+}
+
+/* Cash that moves in or out of the drawer for a reason other than a sale:
+   the owner collecting the takings, paying a supplier, adding change. May
+   this one be recorded? `kind` is 'out' or 'in'; `inDrawer` is what the
+   drawer should hold right now. Returns the reason it may not, or null. */
+function cashMoveProblem(kind, amount, reason, inDrawer) {
+    if (kind !== 'out' && kind !== 'in') return 'Say whether the cash was taken out or put in.';
+    const n = Number(amount);
+    if (!isFinite(n) || n <= 0) return 'Enter the amount as a number above zero.';
+    if (n > 1000000) return 'That amount is too large.';
+    if (String(reason || '').trim().length < 3) {
+        return kind === 'out' ? 'Say who took the cash and what for.' : 'Say who put the cash in and why.';
+    }
+    if (kind === 'out' && n > (Number(inDrawer) || 0) + 0.004) return 'That is more cash than the drawer should hold.';
+    return null;
 }
 
 /** Counted minus expected, to the centavo. Positive is over, negative is short. */
@@ -45,4 +63,4 @@ function voidRequestProblem(sale, cashierId, saleDay, today) {
     return null;
 }
 
-module.exports = { DEFAULT_MAX_DISCOUNT, maxDiscountFrom, checkDiscount, drawerExpected, discrepancy, voidRequestProblem };
+module.exports = { DEFAULT_MAX_DISCOUNT, maxDiscountFrom, checkDiscount, drawerExpected, discrepancy, voidRequestProblem, cashMoveProblem };

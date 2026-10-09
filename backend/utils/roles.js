@@ -45,6 +45,8 @@ const API_ALLOW = {
         ['POST', /^\/api\/sales\/eod$/],
         ['GET', /^\/api\/sales\/till$/],
         ['POST', /^\/api\/sales\/till\/open$/],
+        ['GET', /^\/api\/sales\/till\/cash$/],    // cash put in or taken out of their own drawer today
+        ['POST', /^\/api\/sales\/till\/cash$/],
         ['GET', /^\/api\/sales\/mine$/],
         ['POST', /^\/api\/sales\/\d+\/void-request$/],
         ...SELF

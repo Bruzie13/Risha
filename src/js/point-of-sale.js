@@ -375,7 +375,10 @@ async function loadEod() {
         const d = data.data;
         eodExpected = d.expected_cash;
         document.getElementById('eodExpected').textContent = formatCurrency(d.expected_cash);
-        document.getElementById('eodTxns').textContent = `${d.transactions} cash sale${d.transactions === 1 ? '' : 's'}` + (d.voided_sales ? ` · ${d.voided_sales} voided` : '');
+        const cashIn = Number(d.cash_in) || 0, cashOut = Number(d.cash_out) || 0;
+        document.getElementById('eodTxns').textContent = `${d.transactions} cash sale${d.transactions === 1 ? '' : 's'}` + (d.voided_sales ? ` · ${d.voided_sales} voided` : '')
+            + (cashIn || cashOut ? ` · sales ${formatCurrency(d.cash_sales)}${cashIn ? ' + ' + formatCurrency(cashIn) + ' put in' : ''}${cashOut ? ' − ' + formatCurrency(cashOut) + ' taken out' : ''}` : '');
+        renderEodMoves(d.cash_moves || [], cashIn, cashOut);
         const counted = document.getElementById('eodCounted');
         const notes = document.getElementById('eodNotes');
         if (d.reconciliation) {
@@ -424,6 +427,27 @@ async function saveEod() {
     } catch (e) { showToast('Failed to save reconciliation', 'error'); }
 }
 
+// Cash put into or taken out of the drawers that day: who, when and why.
+function eodMoveRow(m, withName) {
+    const out = m.kind === 'out';
+    const time = new Date(Number(m.created_at)).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:7px 12px;border-top:1px solid var(--border-subtle);font-size:12.5px;">
+        <span style="min-width:0;overflow-wrap:anywhere;"><span style="color:var(--text-primary);font-weight:600;">${escHtml(m.reason)}</span>
+            <span style="display:block;color:var(--text-muted);">${time} · ${out ? 'Taken out' : 'Put in'}${withName && m.cashier_name ? ' · ' + escHtml(m.cashier_name) : ''}</span></span>
+        <span style="font-weight:700;white-space:nowrap;color:${out ? 'var(--danger)' : 'var(--success)'};">${out ? '−' : '+'}${formatCurrency(m.amount)}</span>
+    </div>`;
+}
+
+function renderEodMoves(moves, cashIn, cashOut) {
+    const box = document.getElementById('eodMoves');
+    if (!box) return;
+    box.hidden = !moves.length;
+    if (!moves.length) return;
+    document.getElementById('eodMovesHead').textContent = 'Cash in and out of the drawers: '
+        + formatCurrency(cashIn) + ' put in, ' + formatCurrency(cashOut) + ' taken out';
+    document.getElementById('eodMovesList').innerHTML = moves.map(m => eodMoveRow(m, true)).join('');
+}
+
 async function loadEodHistory() {
     const list = document.getElementById('eodHistory');
     if (!list) return;
@@ -447,7 +471,7 @@ async function loadEodHistory() {
                     <span style="font-weight:600;color:${color};">${label}</span>
                     ${canManage() ? `<button class="btn-view" onclick="reopenCount(${Number(r.id)})" title="Remove this count so it can be recorded again">Reopen</button>` : ''}
                 </span>
-            </div>`;
+            </div>${(r.cash_moves || []).length ? `<div style="background:var(--bg-raised);border-bottom:1px solid var(--border-subtle);">${r.cash_moves.map(m => eodMoveRow(m, false)).join('')}</div>` : ''}`;
         }).join('');
     } catch (e) { console.error(e); }
 }

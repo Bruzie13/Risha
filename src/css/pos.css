@@ -44,3 +44,20 @@
 .pos-suggest-item.unavailable { cursor: not-allowed; color: var(--text-muted); }
 .pos-suggest-item.unavailable:hover { background: none; }
 .pos-suggest-item.unavailable .pos-suggest-price { color: var(--danger); }
+
+/* ----- Cash in or out of the drawer ----- */
+.pos-cash-kind { display: flex; width: 100%; }
+.pos-cash-kind .seg-btn { flex: 1; justify-content: center; }
+.pos-cash-list-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 4px; padding-top: 12px; border-top: 1.5px solid var(--border-subtle); font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+.pos-cash-list-head span:last-child { font-size: 12.5px; font-weight: 500; color: var(--text-muted); }
+.pos-cash-list { max-height: 190px; overflow-y: auto; margin-top: 6px; }
+.pos-cash-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border-subtle); }
+.pos-cash-row:last-child { border-bottom: none; }
+.pos-cash-row .material-symbols-outlined { font-size: 19px; }
+.pos-cash-row.out .material-symbols-outlined, .pos-cash-row.out strong { color: var(--danger); }
+.pos-cash-row.in .material-symbols-outlined, .pos-cash-row.in strong { color: var(--success); }
+.pos-cash-row b { display: block; font-size: 14px; font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
+.pos-cash-row small { font-size: 12.5px; color: var(--text-muted); }
+.pos-cash-row strong { font-size: 14.5px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pos-cash-none { padding: 14px 0; font-size: 13.5px; color: var(--text-muted); text-align: center; }
+.pos-eod-figures + .pos-eod-figures { margin-top: -6px; }

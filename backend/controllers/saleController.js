@@ -234,6 +234,17 @@ function eodDate(req, requested) {
    it be done again.
 
    Admins and managers keep the shop-wide view from Sales History. */
+/* Cash put into or taken out of drawers on a day, other than through sales.
+   One cashier's when cashierId is given, the whole shop's otherwise. */
+async function cashMovesFor(conn, date, cashierId) {
+    const [rows] = await conn.execute(
+        `SELECT COALESCE(SUM(CASE WHEN kind = 'in' THEN amount END), 0) AS cash_in,
+                COALESCE(SUM(CASE WHEN kind = 'out' THEN amount END), 0) AS cash_out
+         FROM till_cash_moves WHERE business_date = ?` + (cashierId ? ' AND cashier_id = ?' : ''),
+        cashierId ? [date, cashierId] : [date]);
+    return { cash_in: parseFloat(rows[0].cash_in) || 0, cash_out: parseFloat(rows[0].cash_out) || 0 };
+}
+
 async function cashierDrawer(conn, cashierId, date) {
     const [sales] = await conn.execute(
         `SELECT COUNT(*) AS transactions, COALESCE(SUM(final_amount), 0) AS cash_sales
@@ -243,13 +254,17 @@ async function cashierDrawer(conn, cashierId, date) {
     const [opening] = await conn.execute(
         'SELECT opening_cash FROM till_openings WHERE business_date = ? AND cashier_id = ?', [date, cashierId]);
     const openingCash = opening.length ? parseFloat(opening[0].opening_cash) || 0 : 0;
+    const moves = await cashMovesFor(conn, date, cashierId);
     return {
         transactions: Number(sales[0].transactions) || 0,
         opening_set: opening.length > 0,
         opening_cash: openingCash,
-        expected: drawerExpected(openingCash, sales[0].cash_sales)
+        cash_in: moves.cash_in,
+        cash_out: moves.cash_out,
+        expected: drawerExpected(openingCash, sales[0].cash_sales, moves.cash_in, moves.cash_out)
     };
 }
+exports._cashierDrawer = cashierDrawer;
 
 exports.getEod = async (req, res) => {
     try {
@@ -259,7 +274,7 @@ exports.getEod = async (req, res) => {
             if (req.user.role === 'cashier') {
                 const drawer = await cashierDrawer(conn, req.user.id, date);
                 const [mine] = await conn.execute(
-                    `SELECT expected_cash, counted_cash, discrepancy, notes, opening_cash
+                    `SELECT expected_cash, counted_cash, discrepancy, notes, opening_cash, cash_in, cash_out
                      FROM cash_reconciliations WHERE business_date = ? AND counted_by = ?`, [date, req.user.id]);
                 const done = mine[0] || null;
                 return res.json({
@@ -269,10 +284,15 @@ exports.getEod = async (req, res) => {
                         transactions: drawer.transactions,
                         opening_set: drawer.opening_set,
                         opening_cash: drawer.opening_cash,
+                        // what the cashier recorded themselves, so not a secret
+                        cash_in: drawer.cash_in,
+                        cash_out: drawer.cash_out,
                         counted: !!done,
                         // only once the count is in
                         result: done ? {
                             expected_cash: parseFloat(done.expected_cash),
+                            cash_in: parseFloat(done.cash_in) || 0,
+                            cash_out: parseFloat(done.cash_out) || 0,
                             counted_cash: parseFloat(done.counted_cash),
                             discrepancy: parseFloat(done.discrepancy),
                             notes: done.notes || ''
@@ -282,7 +302,7 @@ exports.getEod = async (req, res) => {
             }
 
             const [sales] = await conn.execute(
-                `SELECT COUNT(*) as transactions, COALESCE(SUM(final_amount), 0) as expected_cash,
+                `SELECT COUNT(*) as transactions, COALESCE(SUM(final_amount), 0) as cash_sales,
                         MIN(created_at) as first_sale, MAX(created_at) as last_sale
                  FROM sales
                  WHERE DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) = ? AND payment_method = 'cash' AND payment_status = 'completed'`, [date]);
@@ -292,11 +312,23 @@ exports.getEod = async (req, res) => {
             const [existing] = await conn.execute(
                 `SELECT cr.*, u.full_name as counted_by_name FROM cash_reconciliations cr
                  LEFT JOIN users u ON cr.counted_by = u.id WHERE cr.business_date = ? AND cr.counted_by = ?`, [date, req.user.id]);
+            // Cash put in or taken out of any drawer that day, with who and why.
+            const moves = await cashMovesFor(conn, date);
+            const [moveRows] = await conn.execute(
+                `SELECT m.id, m.kind, m.amount, m.reason, UNIX_TIMESTAMP(m.created_at) * 1000 AS created_at,
+                        u.full_name AS cashier_name
+                 FROM till_cash_moves m LEFT JOIN users u ON u.id = m.cashier_id
+                 WHERE m.business_date = ? ORDER BY m.id`, [date]);
+            const cashSales = parseFloat(sales[0].cash_sales) || 0;
             res.json({
                 success: true,
                 data: {
                     date,
-                    expected_cash: parseFloat(sales[0].expected_cash) || 0,
+                    cash_sales: cashSales,
+                    cash_in: moves.cash_in,
+                    cash_out: moves.cash_out,
+                    cash_moves: moveRows.map(r => ({ ...r, amount: parseFloat(r.amount) })),
+                    expected_cash: drawerExpected(0, cashSales, moves.cash_in, moves.cash_out),
                     transactions: sales[0].transactions || 0,
                     voided_sales: voided[0].c || 0,
                     first_sale: sales[0].first_sale,
@@ -331,25 +363,28 @@ exports.saveEod = async (req, res) => {
                 const drawer = await cashierDrawer(conn, req.user.id, bizDate);
                 const diff = discrepancy(counted, drawer.expected);
                 await conn.execute(
-                    `INSERT INTO cash_reconciliations (business_date, expected_cash, counted_cash, discrepancy, notes, counted_by, opening_cash)
-                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                    [bizDate, drawer.expected, counted, diff, cleanNotes, req.user.id, drawer.opening_cash]);
+                    `INSERT INTO cash_reconciliations (business_date, expected_cash, counted_cash, discrepancy, notes, counted_by, opening_cash, cash_in, cash_out)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [bizDate, drawer.expected, counted, diff, cleanNotes, req.user.id, drawer.opening_cash, drawer.cash_in, drawer.cash_out]);
                 logAudit(req.user.id, 'create', 'cash_reconciliations', null, null,
-                    { date: bizDate, opening: drawer.opening_cash, expected: drawer.expected, counted, discrepancy: diff }, req.ip);
-                return res.json({ success: true, data: { date: bizDate, opening_cash: drawer.opening_cash, expected_cash: drawer.expected, counted_cash: counted, discrepancy: diff } });
+                    { date: bizDate, opening: drawer.opening_cash, cash_in: drawer.cash_in, cash_out: drawer.cash_out, expected: drawer.expected, counted, discrepancy: diff }, req.ip);
+                return res.json({ success: true, data: { date: bizDate, opening_cash: drawer.opening_cash, cash_in: drawer.cash_in, cash_out: drawer.cash_out, expected_cash: drawer.expected, counted_cash: counted, discrepancy: diff } });
             }
 
             const [sales] = await conn.execute(
                 `SELECT COALESCE(SUM(final_amount), 0) as expected FROM sales
                  WHERE DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) = ? AND payment_method = 'cash' AND payment_status = 'completed'`, [bizDate]);
-            const expected = parseFloat(sales[0].expected) || 0;
+            // the whole shop: every cashier's cash sales, plus cash put into the
+            // drawers, less cash taken out of them
+            const moves = await cashMovesFor(conn, bizDate);
+            const expected = drawerExpected(0, sales[0].expected, moves.cash_in, moves.cash_out);
             const diff = discrepancy(counted, expected);
             await conn.execute(
-                `INSERT INTO cash_reconciliations (business_date, expected_cash, counted_cash, discrepancy, notes, counted_by)
-                 VALUES (?, ?, ?, ?, ?, ?)
+                `INSERT INTO cash_reconciliations (business_date, expected_cash, counted_cash, discrepancy, notes, counted_by, cash_in, cash_out)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                  ON DUPLICATE KEY UPDATE expected_cash = VALUES(expected_cash), counted_cash = VALUES(counted_cash),
-                     discrepancy = VALUES(discrepancy), notes = VALUES(notes)`,
-                [bizDate, expected, counted, diff, cleanNotes, req.user.id]);
+                     discrepancy = VALUES(discrepancy), notes = VALUES(notes), cash_in = VALUES(cash_in), cash_out = VALUES(cash_out)`,
+                [bizDate, expected, counted, diff, cleanNotes, req.user.id, moves.cash_in, moves.cash_out]);
             logAudit(req.user.id, 'create', 'cash_reconciliations', null, null, { date: bizDate, expected, counted, discrepancy: diff }, req.ip);
             res.json({ success: true, data: { date: bizDate, expected_cash: expected, counted_cash: counted, discrepancy: diff } });
         } finally { conn.release(); }
@@ -367,6 +402,25 @@ exports.getEodHistory = async (req, res) => {
                 `SELECT cr.*, u.full_name as counted_by_name, u.role as counted_by_role FROM cash_reconciliations cr
                  LEFT JOIN users u ON cr.counted_by = u.id
                  ORDER BY cr.business_date DESC, cr.id DESC LIMIT 40`);
+            // Who put cash in or took it out on each of those days, and why.
+            if (rows.length) {
+                const days = [...new Set(rows.map(r => r.business_date instanceof Date
+                    ? new Date(r.business_date.getTime() - r.business_date.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+                    : String(r.business_date).slice(0, 10)))];
+                const [moves] = await conn.query(
+                    `SELECT DATE_FORMAT(business_date, '%Y-%m-%d') AS day, cashier_id, kind, amount, reason,
+                            UNIX_TIMESTAMP(created_at) * 1000 AS created_at
+                     FROM till_cash_moves WHERE business_date IN (?) ORDER BY id`, [days]);
+                rows.forEach(r => {
+                    const day = r.business_date instanceof Date
+                        ? new Date(r.business_date.getTime() - r.business_date.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+                        : String(r.business_date).slice(0, 10);
+                    // a cashier's count shows their own drawer; a whole-shop count shows everyone's
+                    r.cash_moves = moves
+                        .filter(m => m.day === day && (r.counted_by_role !== 'cashier' || Number(m.cashier_id) === Number(r.counted_by)))
+                        .map(m => ({ kind: m.kind, amount: parseFloat(m.amount), reason: m.reason, created_at: m.created_at }));
+                });
+            }
             res.json({ success: true, data: rows });
         } finally { conn.release(); }
     } catch (error) {

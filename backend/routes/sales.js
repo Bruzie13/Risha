@@ -16,6 +16,8 @@ router.get('/top-products', authenticateToken, saleController.getTopProducts);
 // Till (cashier) — static paths, so they sit above '/:id'
 router.get('/till', authenticateToken, authorizeRole('cashier'), tillController.getTill);
 router.post('/till/open', authenticateToken, authorizeRole('cashier'), tillController.openTill);
+router.get('/till/cash', authenticateToken, authorizeRole('cashier'), tillController.getCashMoves);
+router.post('/till/cash', authenticateToken, authorizeRole('cashier'), tillController.addCashMove);
 router.get('/mine', authenticateToken, authorizeRole('cashier'), tillController.getMySales);
 router.get('/void-requests', authenticateToken, authorizeRole('admin', 'manager'), tillController.getVoidRequests);
 router.get('/pos-settings', authenticateToken, authorizeRole('admin', 'manager'), tillController.getPosSettings);

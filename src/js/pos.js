@@ -983,7 +983,12 @@ async function openPosEod() {
         const d = data.data;
         document.getElementById('posEodOpening').textContent = d.opening_set ? formatCurrency(d.opening_cash) : 'Not entered';
         document.getElementById('posEodTxns').textContent = `${d.transactions} sale${Number(d.transactions) === 1 ? '' : 's'}`;
-        showPosEodResult(d.counted ? d.result : null);
+        // cash put in or taken out is what the cashier recorded, so it is shown; the expected total still is not
+        const moved = Number(d.cash_in) > 0 || Number(d.cash_out) > 0;
+        document.getElementById('posEodMoves').hidden = !moved;
+        document.getElementById('posEodCashIn').textContent = formatCurrency(d.cash_in || 0);
+        document.getElementById('posEodCashOut').textContent = formatCurrency(d.cash_out || 0);
+        showPosEodResult(d.counted ? { ...d.result, opening_cash: d.opening_cash } : null);
         if (!d.counted) document.getElementById('posEodCounted').focus();
     } catch (e) {
         console.error('End-of-day load failed:', e);
@@ -1005,6 +1010,111 @@ function showPosEodResult(result) {
     document.getElementById('posEodExpected').textContent = formatCurrency(result.expected_cash);
     document.getElementById('posEodCountedOut').textContent = formatCurrency(result.counted_cash);
     document.getElementById('posEodNotesOut').textContent = result.notes ? 'Notes: ' + result.notes : '';
+    // How the expected figure was reached, now that the count is in.
+    const how = document.getElementById('posEodHow');
+    if (how) {
+        const opening = Number(result.opening_cash) || 0, cashIn = Number(result.cash_in) || 0, cashOut = Number(result.cash_out) || 0;
+        const sales = Math.round((Number(result.expected_cash) - opening - cashIn + cashOut) * 100) / 100;
+        how.textContent = 'Expected = starting cash ' + formatCurrency(opening) + ' + cash sales ' + formatCurrency(sales)
+            + (cashIn ? ' + put in ' + formatCurrency(cashIn) : '')
+            + (cashOut ? ' − taken out ' + formatCurrency(cashOut) : '') + '.';
+    }
+}
+
+/* ---- Cash in or out of the drawer ----
+   Anything that changes the cash in the drawer other than a sale. Each entry
+   adjusts what the drawer should hold, so the count at the end of the day
+   still balances, and each one is reported to the administrator. */
+let posCashKind = 'out';
+
+function setPosCashKind(kind) {
+    posCashKind = kind === 'in' ? 'in' : 'out';
+    document.querySelectorAll('#posCashKind .seg-btn').forEach(b => {
+        const on = b.dataset.kind === posCashKind;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    const out = posCashKind === 'out';
+    document.getElementById('posCashReasonLabel').textContent = out ? 'Who took it, and what for' : 'Who put it in, and why';
+    document.getElementById('posCashReason').placeholder = out ? 'For example: Owner collected the afternoon sales' : 'For example: Owner added coins for change';
+    document.getElementById('posCashSave').textContent = out ? 'Record cash taken out' : 'Record cash put in';
+}
+
+function renderPosCash(d) {
+    const list = document.getElementById('posCashList');
+    const moves = d.moves || [];
+    document.getElementById('posCashTotals').textContent = moves.length
+        ? 'Put in ' + formatCurrency(d.cash_in || 0) + ' · Taken out ' + formatCurrency(d.cash_out || 0)
+        : '';
+    list.innerHTML = moves.length ? moves.map(m => {
+        const time = new Date(Number(m.created_at)).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        const out = m.kind === 'out';
+        return `<div class="pos-cash-row ${out ? 'out' : 'in'}">
+            <span class="material-symbols-outlined">${out ? 'north_east' : 'south_west'}</span>
+            <div><b>${escHtml(m.reason)}</b><small>${time} · ${out ? 'Taken out' : 'Put in'}</small></div>
+            <strong>${out ? '−' : '+'}${formatCurrency(m.amount)}</strong>
+        </div>`;
+    }).join('') : '<div class="pos-cash-none">No cash has been put in or taken out today.</div>';
+    // once today is counted the record is closed
+    const closed = !!d.counted;
+    document.getElementById('posCashEntry').hidden = closed;
+    document.getElementById('posCashSave').hidden = closed;
+    const status = document.getElementById('posCashStatus');
+    status.hidden = !closed;
+    status.textContent = closed ? "Today's cash count is already recorded, so nothing more can be added for today." : '';
+}
+
+async function openPosCash() {
+    const modal = document.getElementById('posCashModal');
+    if (!modal) return;
+    modal.classList.add('active');
+    setPosCashKind('out');
+    document.getElementById('posCashAmount').value = '';
+    document.getElementById('posCashReason').value = '';
+    try {
+        const res = await fetch(`${API_BASE}/sales/till/cash`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Could not load');
+        renderPosCash(data.data);
+        if (!data.data.counted) document.getElementById('posCashAmount').focus();
+    } catch (e) {
+        console.error('Cash in/out load failed:', e);
+        document.getElementById('posCashList').innerHTML = '<div class="pos-cash-none">Could not be loaded. Close this and try again.</div>';
+    }
+}
+
+function closePosCash() {
+    document.getElementById('posCashModal')?.classList.remove('active');
+}
+
+function savePosCash() {
+    const amount = parseFloat(document.getElementById('posCashAmount').value);
+    const reason = document.getElementById('posCashReason').value.trim();
+    const out = posCashKind === 'out';
+    if (isNaN(amount) || amount <= 0) { showToast('Enter the amount', 'warning'); document.getElementById('posCashAmount').focus(); return; }
+    if (reason.length < 3) { showToast(out ? 'Say who took the cash and what for' : 'Say who put the cash in and why', 'warning'); document.getElementById('posCashReason').focus(); return; }
+    showConfirmDialog(out ? 'Record cash taken out?' : 'Record cash put in?',
+        formatCurrency(amount) + (out ? ' taken out of the drawer. ' : ' put into the drawer. ') + 'This cannot be removed afterwards, and the administrator is told.',
+        async () => {
+            const btn = document.getElementById('posCashSave');
+            btn.disabled = true;
+            try {
+                const res = await fetch(`${API_BASE}/sales/till/cash`, {
+                    method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ kind: posCashKind, amount, reason })
+                });
+                const data = await res.json();
+                if (!data.success) { showToast(data.message || 'That could not be recorded', 'error'); return; }
+                showToast(data.message || 'Recorded', 'success');
+                document.getElementById('posCashAmount').value = '';
+                document.getElementById('posCashReason').value = '';
+                renderPosCash({ ...data.data, counted: false });
+            } catch (e) {
+                console.error('Cash in/out save failed:', e);
+                showToast('That could not be recorded', 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }, out ? 'Record it' : 'Record it');
 }
 
 function closePosEod() {

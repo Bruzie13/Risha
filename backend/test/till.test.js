@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-const { maxDiscountFrom, checkDiscount, drawerExpected, discrepancy, voidRequestProblem, DEFAULT_MAX_DISCOUNT } = require('../utils/till');
+const { maxDiscountFrom, checkDiscount, drawerExpected, discrepancy, voidRequestProblem, cashMoveProblem, DEFAULT_MAX_DISCOUNT } = require('../utils/till');
 
 test('discount limit: falls back to the default until an admin sets one', () => {
     assert.equal(maxDiscountFrom(null), DEFAULT_MAX_DISCOUNT);
@@ -54,4 +54,30 @@ test('void request: not for a voided sale, an old sale, or twice', () => {
     assert.match(voidRequestProblem(sale({ payment_status: 'voided' }), 2, '2026-10-09', '2026-10-09'), /already been voided/);
     assert.match(voidRequestProblem(sale(), 2, '2026-10-08', '2026-10-09'), /Only today/);
     assert.match(voidRequestProblem(sale({ void_requested_at: new Date() }), 2, '2026-10-09', '2026-10-09'), /already been requested/);
+});
+
+test('drawer: cash put in is added and cash taken out is subtracted', () => {
+    assert.equal(drawerExpected(2000, 3000, 0, 3000), 2000, 'the owner collected the takings; the float is what is left');
+    assert.equal(drawerExpected(5000, 0, 5000, 0), 10000, 'no sales, but 5,000 was added for change');
+    assert.equal(drawerExpected(1000, 500.5, 200, 100.25), 1600.25);
+    assert.equal(drawerExpected(1000, 500), 1500, 'with nothing moved it is unchanged');
+});
+
+test('cash in or out: needs a kind, a real amount and a reason', () => {
+    assert.ok(cashMoveProblem('sideways', 100, 'owner', 5000));
+    assert.ok(cashMoveProblem('out', 0, 'owner collected', 5000));
+    assert.ok(cashMoveProblem('out', -50, 'owner collected', 5000));
+    assert.ok(cashMoveProblem('out', 'abc', 'owner collected', 5000));
+    assert.ok(cashMoveProblem('in', 2000000, 'change fund', 5000));
+    assert.ok(cashMoveProblem('out', 100, '', 5000), 'no reason');
+    assert.ok(cashMoveProblem('in', 100, '  x ', 5000), 'a one-letter reason is not a reason');
+    assert.equal(cashMoveProblem('out', 100, 'Owner collected', 5000), null);
+    assert.equal(cashMoveProblem('in', 100, 'Coins for change', 0), null);
+});
+
+test('cash out: cannot take out more than the drawer should hold; putting in has no such limit', () => {
+    assert.equal(cashMoveProblem('out', 5000, 'Owner collected', 5000), null, 'all of it is allowed');
+    assert.ok(cashMoveProblem('out', 5000.01, 'Owner collected', 5000));
+    assert.ok(cashMoveProblem('out', 1, 'Owner collected', 0), 'an empty drawer has nothing to take');
+    assert.equal(cashMoveProblem('in', 99999, 'Owner added cash', 0), null);
 });

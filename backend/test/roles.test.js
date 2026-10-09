@@ -12,6 +12,9 @@ test('cashier: can reach exactly what the till needs', () => {
     assert.ok(apiAllowed('cashier', 'PUT', '/api/auth/change-password'));
     assert.ok(apiAllowed('cashier', 'GET', '/api/sales/eod'), "today's expected cash");
     assert.ok(apiAllowed('cashier', 'POST', '/api/sales/eod'), 'record the count');
+    assert.ok(apiAllowed('cashier', 'GET', '/api/sales/till/cash'), 'see cash put in or taken out today');
+    assert.ok(apiAllowed('cashier', 'POST', '/api/sales/till/cash'), 'record cash put in or taken out');
+    assert.ok(!apiAllowed('cashier', 'DELETE', '/api/sales/till/cash'), 'but not remove a record of it');
     assert.ok(apiAllowed('cashier', 'GET', '/api/sales/till'));
     assert.ok(apiAllowed('cashier', 'POST', '/api/sales/till/open'), 'starting cash');
     assert.ok(apiAllowed('cashier', 'GET', '/api/sales/mine'), 'own sales today');
