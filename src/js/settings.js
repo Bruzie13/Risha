@@ -24,15 +24,17 @@ document.addEventListener('DOMContentLoaded', function () {
 // Each preset carries the full set of "primary" values so the look stays
 // balanced. Values are stored resolved in localStorage so the early inline
 // script on every page can apply them before first paint (no colour flash).
+// Colour combinations. The colours themselves live in css/system.css under
+// :root[data-theme="key"]; the values here only draw the preview cards.
+// 'default' sets no data-theme, so the stylesheet's own Risha colours apply.
 var ACCENTS = [
-    // 'default' carries no values: it clears any override so the stylesheet's
-    // own accent applies, including its lighter dark-mode variant.
-    { key: 'default', name: 'Risha blue', primary: '#0A74BF' },
-    { key: 'indigo',  name: 'Indigo', primary: '#4B4FD6' },
-    { key: 'teal',    name: 'Teal',   primary: '#0E7A78' },
-    { key: 'green',   name: 'Green',  primary: '#17794A' },
-    { key: 'plum',    name: 'Plum',   primary: '#7A3FA8' },
-    { key: 'brick',   name: 'Brick',  primary: '#B5442E' }
+    { key: 'default', name: 'Risha', rail: '#0A78C5', band: '#FFD23F', act: '#E3202B', paper: '#FFF5D1' },
+    { key: 'navy', name: 'Navy & Sky', rail: '#12314F', band: '#BEE3FA', act: '#E3202B', paper: '#EEF6FC' },
+    { key: 'cherry', name: 'Red & Sunshine', rail: '#C71C27', band: '#FFD23F', act: '#0A74BF', paper: '#FFF5D1' },
+    { key: 'forest', name: 'Green & Gold', rail: '#12704A', band: '#FFD23F', act: '#D9500B', paper: '#FFF5D1' },
+    { key: 'teal', name: 'Teal & Orange', rail: '#0E7C86', band: '#FFE1B8', act: '#E2560A', paper: '#FFF7EC' },
+    { key: 'grape', name: 'Purple & Pink', rail: '#5B3FA8', band: '#E9DDFF', act: '#D0216A', paper: '#F7F3FF' },
+    { key: 'slate', name: 'Charcoal & Blue', rail: '#25303B', band: '#FFFFFF', act: '#0A74BF', paper: '#F2F4F6' }
 ];
 var DEFAULT_ACCENT = 'default';
 var DEFAULT_SCALE = '1';
@@ -66,20 +68,21 @@ function clearAccent(persist) {
 
 function applyAccent(key, persist) {
     var a = ACCENTS.filter(function (x) { return x.key === key; })[0] || ACCENTS[0];
-    if (a.key === DEFAULT_ACCENT) {
-        clearAccent(persist);
-    } else {
-        var vars = accentVars(a.primary);
-        for (var k in vars) document.documentElement.style.setProperty(k, vars[k]);
-        if (persist) localStorage.setItem('accentVars3', JSON.stringify(vars));
+    clearAccent(false);                       // drop any single-colour override from an older version
+    if (a.key === DEFAULT_ACCENT) document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', a.key);
+    if (persist) {
+        localStorage.removeItem('accentVars3');
+        localStorage.removeItem('accentCustom3');
+        localStorage.setItem('accentName3', a.key);
+        if (a.key === DEFAULT_ACCENT) localStorage.removeItem('colorTheme');
+        else localStorage.setItem('colorTheme', a.key);
     }
-    if (persist) localStorage.setItem('accentName3', a.key);
-    // reflect selection in the swatch grid
-    document.querySelectorAll('.accent-swatch').forEach(function (el) {
-        el.classList.toggle('active', el.dataset.key === a.key);
+    document.querySelectorAll('.theme-card').forEach(function (el) {
+        var on = el.dataset.key === a.key;
+        el.classList.toggle('active', on);
+        el.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
-    var picker = document.getElementById('accentPicker');
-    if (picker) picker.classList.remove('active');
 }
 
 function applyTextScale(scale, persist) {
@@ -166,8 +169,7 @@ function loadSavedAppearance() {
 
 // Apply a whole appearance state live; persist=true writes it to localStorage.
 function applyAppearanceState(s, persist) {
-    if (s.accentName === 'custom' && s.accentCustom) applyCustomAccent(s.accentCustom, persist);
-    else applyAccent(s.accentName, persist);
+    applyAccent(s.accentName, persist);
     applyFont(s.uiFont, persist);
     applyTextScale(s.textScale, persist);
     applyThemeMode(s.theme, persist);
@@ -206,10 +208,14 @@ function setupAppearance() {
     var grid = document.getElementById('accentSwatches');
     if (grid) {
         grid.innerHTML = ACCENTS.map(function (a) {
-            return '<button type="button" class="accent-swatch" data-key="' + a.key + '" title="' + a.name +
-                '" style="background:' + a.primary + ';"></button>';
+            return '<button type="button" class="theme-card" data-key="' + a.key + '" aria-pressed="false">' +
+                '<span class="theme-preview" style="background:' + a.paper + ';">' +
+                    '<span class="tp-rail" style="background:' + a.rail + ';"><i></i><i></i><i></i></span>' +
+                    '<span class="tp-main"><span class="tp-band" style="background:' + a.band + ';"></span>' +
+                    '<span class="tp-body"><span class="tp-panel"></span><span class="tp-btn" style="background:' + a.act + ';"></span></span></span>' +
+                '</span><span class="theme-name">' + a.name + '</span></button>';
         }).join('');
-        grid.querySelectorAll('.accent-swatch').forEach(function (el) {
+        grid.querySelectorAll('.theme-card').forEach(function (el) {
             el.addEventListener('click', function () {
                 pendingAppearance.accentName = el.dataset.key;
                 pendingAppearance.accentCustom = null;
@@ -218,14 +224,6 @@ function setupAppearance() {
             });
         });
     }
-    // custom color picker
-    var picker = document.getElementById('accentPicker');
-    if (picker) picker.addEventListener('input', function () {
-        pendingAppearance.accentName = 'custom';
-        pendingAppearance.accentCustom = picker.value;
-        applyCustomAccent(picker.value, false);
-        markAppearanceDirty(true);
-    });
 
     // font family
     var fontSeg = document.getElementById('fontSeg');

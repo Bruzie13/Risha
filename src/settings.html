@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css?v=41">
-    <link rel="stylesheet" href="css/settings.css?v=20">
+    <link rel="stylesheet" href="css/settings.css?v=21">
     <script>
         (function() {
             var saved = localStorage.getItem('theme');
@@ -32,6 +32,8 @@
             if (localStorage.getItem('sidebarHidden') === 'true') {
                 document.documentElement.classList.add('sidebar-hidden');
             }
+            var ct = localStorage.getItem('colorTheme');
+            if (ct) document.documentElement.setAttribute('data-theme', ct);
             try {
                 var av = JSON.parse(localStorage.getItem('accentVars3') || 'null');
                 if (av) { for (var k in av) document.documentElement.style.setProperty(k, av[k]); }
@@ -44,7 +46,7 @@
             if (ts && ts !== '1') document.documentElement.style.zoom = ts;
         }());
     </script>
-    <link rel="stylesheet" href="css/system.css?v=3">
+    <link rel="stylesheet" href="css/system.css?v=4">
 </head>
 <body>
 
@@ -286,19 +288,12 @@
                                     </div>
                                 </div>
                                 <div class="settings-divider"></div>
-                                <div class="settings-toggle-row" style="align-items:flex-start;">
+                                <div class="theme-row">
                                     <div>
-                                        <div class="settings-toggle-label">Accent Color</div>
-                                        <div class="settings-toggle-desc">Used for buttons, links and the selected item</div>
+                                        <div class="settings-toggle-label">Colours</div>
+                                        <div class="settings-toggle-desc">Pick a combination. It recolours the sidebar, the top band, the buttons and the background together.</div>
                                     </div>
-                                    <div class="accent-picker-wrap">
-                                        <div class="accent-swatches" id="accentSwatches"></div>
-                                        <label class="accent-custom" title="Pick a custom color">
-                                            <input type="color" id="accentPicker" value="#1D5ED8">
-                                            <span class="material-symbols-outlined">colorize</span>
-                                            Custom
-                                        </label>
-                                    </div>
+                                    <div class="theme-grid" id="accentSwatches"></div>
                                 </div>
                                 <div class="settings-divider"></div>
                                 <div class="settings-toggle-row" style="align-items:flex-start;">
@@ -466,6 +461,6 @@
 <script src="js/motion.js?v=20"></script>
 <script src="js/jump.js?v=28"></script>
 <script src="js/assistant.js?v=22"></script>
-    <script src="js/settings.js?v=40"></script>
+    <script src="js/settings.js?v=41"></script>
 </body>
 </html>

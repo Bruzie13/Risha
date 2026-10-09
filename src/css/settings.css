@@ -388,3 +388,30 @@
     .appearance-save-bar { flex-direction: column; align-items: stretch; }
     .appearance-save-bar .asb-actions { justify-content: flex-end; }
 }
+
+/* Appearance: colour combinations. Each card is a small picture of the system
+   in those colours, so the choice is made by looking, not by reading. */
+.theme-row { display: flex; flex-direction: column; gap: 14px; padding: 14px 0; }
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.theme-card {
+    appearance: none; font: inherit; text-align: left; cursor: pointer;
+    display: flex; flex-direction: column; gap: 8px; padding: 8px;
+    background: var(--bg-card); color: var(--text-primary);
+    border: 1.5px solid var(--border-glass-strong); border-radius: var(--radius-lg);
+    box-shadow: var(--control-shadow);
+    transition: border-color var(--transition), transform 0.09s ease, box-shadow 0.09s ease;
+}
+.theme-card:hover { border-color: var(--gray-400); }
+.theme-card:active { transform: translateY(var(--edge)); box-shadow: none; }
+.theme-card.active { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary); }
+.theme-preview { display: flex; height: 78px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(16, 40, 63, 0.12); }
+.tp-rail { width: 26%; display: flex; flex-direction: column; gap: 4px; padding: 8px 5px; }
+.tp-rail i { display: block; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.55); }
+.tp-rail i:first-child { background: #fff; }
+.tp-main { flex: 1; display: flex; flex-direction: column; }
+.tp-band { height: 30%; }
+.tp-body { flex: 1; display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; padding: 7px; }
+.tp-panel { flex: 1; height: 100%; border-radius: 4px; background: #fff; border: 1px solid rgba(16, 40, 63, 0.10); }
+.tp-btn { width: 30px; height: 12px; border-radius: 4px; }
+.theme-name { font-size: 13.5px; font-weight: 600; padding: 0 2px 2px; }
+.theme-card.active .theme-name::after { content: ' ✓'; color: var(--primary); }

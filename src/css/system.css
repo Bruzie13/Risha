@@ -647,3 +647,92 @@ body.auth-page {
 }
 
 .pcard-status { font-size: 12px; padding: 1px 9px; }
+
+/* ===========================================================================
+   COLOUR COMBINATIONS (Settings > Appearance)
+   Each one recolours the whole system together: the sidebar, the band across
+   the top, the main button, links and charts, and the paper behind the
+   panels. The default, with no data-theme set, is the Risha sign itself.
+   The token names keep the words of the default (--brand-sky is "the sidebar
+   colour", --brand-red is "the main action") whatever colour they hold.
+=========================================================================== */
+.page-header { border-bottom: 1.5px solid var(--band-line, transparent); }
+
+/* Navy & Sky */
+:root[data-theme="navy"]:not(.dark-mode) {
+  --brand-sky: #12314F; --brand-sky-2: #1D4468; --brand-sky-3: #0A2238; --nav-text-active: #B5141D;
+  --brand-red: #E3202B; --brand-red-dark: #B5141D;
+  --band-bg: #BEE3FA; --band-text: #10283F; --band-sub: #27506F; --band-line: transparent;
+  --primary: #0A74BF; --primary-dark: #086199; --primary-darker: #064F7E; --primary-light: #9AD2F4; --chart-1: #0D96E6; --chart-1-soft: #B4DEF7;
+  --bg-body: #EEF6FC; --bg-deep: #EEF6FC; --bg-raised: #F5FAFE; --bg-secondary: #F5FAFE; --bg-card-hover: #F5FAFE; --bg-glass-hover: #F5FAFE; --gray-50: #F5FAFE;
+  --bg-inset: #DDECF7; --bg-glass-strong: #DDECF7; --border-glass: #CBE0F0; --border-color: #CBE0F0; --border-default: #CBE0F0; --gray-200: #CBE0F0;
+  --border-subtle: #E1EEF7; --gray-100: #E9F3FA; --gray-300: #A9C8E0;
+}
+:root.dark-mode[data-theme="navy"] {
+  --brand-sky: #0A2238; --brand-sky-2: #1D4468; --brand-sky-3: color-mix(in srgb, #0A2238 60%, #000); --nav-text-active: #B5141D;
+  --brand-red: #E3202B; --brand-red-dark: #B5141D;
+}
+/* Red & Sunshine */
+:root[data-theme="cherry"]:not(.dark-mode) {
+  --brand-sky: #C71C27; --brand-sky-2: #A9141E; --brand-sky-3: #8A0E17; --nav-text-active: #C71C27;
+  --brand-red: #0A74BF; --brand-red-dark: #064F7E;
+  --band-bg: #FFD23F; --band-text: #10283F; --band-sub: #4E3C00; --band-line: transparent;
+  --primary: #0A74BF; --primary-dark: #086199; --primary-darker: #064F7E; --primary-light: #9AD2F4; --chart-1: #E3202B; --chart-1-soft: #F7C2C5;
+}
+:root.dark-mode[data-theme="cherry"] {
+  --brand-sky: #8A0E17; --brand-sky-2: #A9141E; --brand-sky-3: color-mix(in srgb, #8A0E17 60%, #000); --nav-text-active: #C71C27;
+  --brand-red: #0A74BF; --brand-red-dark: #064F7E;
+}
+/* Green & Gold */
+:root[data-theme="forest"]:not(.dark-mode) {
+  --brand-sky: #12704A; --brand-sky-2: #0D5C3C; --brand-sky-3: #094A30; --nav-text-active: #0D5C3C;
+  --brand-red: #D9500B; --brand-red-dark: #A83C06;
+  --band-bg: #FFD23F; --band-text: #10283F; --band-sub: #4E3C00; --band-line: transparent;
+  --primary: #0F7A4F; --primary-dark: #0B6240; --primary-darker: #084C32; --primary-light: #9BD6BC; --chart-1: #17965F; --chart-1-soft: #BFE6D4;
+}
+:root.dark-mode[data-theme="forest"] {
+  --brand-sky: #094A30; --brand-sky-2: #0D5C3C; --brand-sky-3: color-mix(in srgb, #094A30 60%, #000); --nav-text-active: #0D5C3C;
+  --brand-red: #D9500B; --brand-red-dark: #A83C06;
+}
+/* Teal & Orange */
+:root[data-theme="teal"]:not(.dark-mode) {
+  --brand-sky: #0E7C86; --brand-sky-2: #0B6770; --brand-sky-3: #08535A; --nav-text-active: #0B6770;
+  --brand-red: #E2560A; --brand-red-dark: #B24205;
+  --band-bg: #FFE1B8; --band-text: #10283F; --band-sub: #6B3F00; --band-line: transparent;
+  --primary: #0B6F78; --primary-dark: #095B63; --primary-darker: #07474D; --primary-light: #9AD3D9; --chart-1: #0E8E99; --chart-1-soft: #BEE4E8;
+  --bg-body: #FFF7EC; --bg-deep: #FFF7EC; --bg-raised: #FFFBF4; --bg-secondary: #FFFBF4; --bg-card-hover: #FFFBF4; --bg-glass-hover: #FFFBF4; --gray-50: #FFFBF4;
+  --bg-inset: #FBE9D0; --bg-glass-strong: #FBE9D0; --border-glass: #F1D9B5; --border-color: #F1D9B5; --border-default: #F1D9B5; --gray-200: #F1D9B5;
+  --border-subtle: #F8EAD5; --gray-100: #FCF0DF; --gray-300: #E2C596;
+}
+:root.dark-mode[data-theme="teal"] {
+  --brand-sky: #08535A; --brand-sky-2: #0B6770; --brand-sky-3: color-mix(in srgb, #08535A 60%, #000); --nav-text-active: #0B6770;
+  --brand-red: #E2560A; --brand-red-dark: #B24205;
+}
+/* Purple & Pink */
+:root[data-theme="grape"]:not(.dark-mode) {
+  --brand-sky: #5B3FA8; --brand-sky-2: #4C3391; --brand-sky-3: #3D2877; --nav-text-active: #A31652;
+  --brand-red: #D0216A; --brand-red-dark: #A31652;
+  --band-bg: #E9DDFF; --band-text: #10283F; --band-sub: #4C3391; --band-line: transparent;
+  --primary: #5B3FA8; --primary-dark: #4C3391; --primary-darker: #3D2877; --primary-light: #C3B2EE; --chart-1: #7A5BD0; --chart-1-soft: #D9CEF5;
+  --bg-body: #F7F3FF; --bg-deep: #F7F3FF; --bg-raised: #FBF9FF; --bg-secondary: #FBF9FF; --bg-card-hover: #FBF9FF; --bg-glass-hover: #FBF9FF; --gray-50: #FBF9FF;
+  --bg-inset: #EBE3FB; --bg-glass-strong: #EBE3FB; --border-glass: #DDD0F5; --border-color: #DDD0F5; --border-default: #DDD0F5; --gray-200: #DDD0F5;
+  --border-subtle: #EEE7FA; --gray-100: #F3EDFD; --gray-300: #C2B0E8;
+}
+:root.dark-mode[data-theme="grape"] {
+  --brand-sky: #3D2877; --brand-sky-2: #4C3391; --brand-sky-3: color-mix(in srgb, #3D2877 60%, #000); --nav-text-active: #A31652;
+  --brand-red: #D0216A; --brand-red-dark: #A31652;
+}
+/* Charcoal & Blue */
+:root[data-theme="slate"]:not(.dark-mode) {
+  --brand-sky: #25303B; --brand-sky-2: #33414F; --brand-sky-3: #18212A; --nav-text-active: #25303B;
+  --brand-red: #0A74BF; --brand-red-dark: #064F7E;
+  --band-bg: #FFFFFF; --band-text: #10283F; --band-sub: #5A6E82; --band-line: #D8DDE3;
+  --primary: #0A74BF; --primary-dark: #086199; --primary-darker: #064F7E; --primary-light: #9AD2F4; --chart-1: #0A74BF; --chart-1-soft: #B4DEF7;
+  --bg-body: #F2F4F6; --bg-deep: #F2F4F6; --bg-raised: #F8F9FA; --bg-secondary: #F8F9FA; --bg-card-hover: #F8F9FA; --bg-glass-hover: #F8F9FA; --gray-50: #F8F9FA;
+  --bg-inset: #E6E9ED; --bg-glass-strong: #E6E9ED; --border-glass: #D8DDE3; --border-color: #D8DDE3; --border-default: #D8DDE3; --gray-200: #D8DDE3;
+  --border-subtle: #E8EBEF; --gray-100: #EDEFF2; --gray-300: #BCC4CD;
+}
+:root.dark-mode[data-theme="slate"] {
+  --brand-sky: #18212A; --brand-sky-2: #33414F; --brand-sky-3: color-mix(in srgb, #18212A 60%, #000); --nav-text-active: #25303B;
+  --brand-red: #0A74BF; --brand-red-dark: #064F7E;
+}
