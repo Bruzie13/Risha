@@ -292,7 +292,8 @@ function showMoreDashSales() {
 }
 
 function showLessDashSales() {
-    dashSalesDisplayCount = 0;
+    // one page back, mirroring Show more (it used to jump to the first page)
+    dashSalesDisplayCount = Math.max(0, dashSalesDisplayCount - 10);
     showMoreDashSales();
 }
 

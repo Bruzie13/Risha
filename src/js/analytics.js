@@ -373,7 +373,7 @@ function renderAllProducts() {
 }
 
 function showMorePredictions() { predDisplayCount += PRED_PAGE_SIZE; renderAllProducts(); }
-function showLessPredictions() { predDisplayCount = PRED_PAGE_SIZE; renderAllProducts(); }
+function showLessPredictions() { predDisplayCount = Math.max(PRED_PAGE_SIZE, predDisplayCount - PRED_PAGE_SIZE); renderAllProducts(); }
 
 /* ---------- One product ---------- */
 

@@ -433,7 +433,8 @@ async function showMoreProducts() {
 }
 
 function showLessProducts() {
-    displayCount = 0;
+    // one page back, mirroring Show more (it used to jump to the first page)
+    displayCount = Math.max(0, displayCount - 2 * invPageSize());
     showMoreProducts();
 }
 
@@ -1021,7 +1022,7 @@ async function autoReorder() {
             overlay.remove();
         }
         if (e.target.id === 'reorderLoadMore' || e.target.id === 'reorderShowLess') {
-            displayed = e.target.id === 'reorderLoadMore' ? displayed + REORDER_PAGE_SIZE : REORDER_PAGE_SIZE;
+            displayed = e.target.id === 'reorderLoadMore' ? displayed + REORDER_PAGE_SIZE : Math.max(REORDER_PAGE_SIZE, displayed - REORDER_PAGE_SIZE);
             render();
             // Re-check selected items after re-render
             selected.forEach(id => {

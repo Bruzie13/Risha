@@ -255,7 +255,7 @@ function renderSalesTable() {
 }
 
 function showMoreReport() { displayCount += PAGE_SIZE; renderSalesTable(); }
-function showLessReport() { displayCount = PAGE_SIZE; renderSalesTable(); }
+function showLessReport() { displayCount = Math.max(PAGE_SIZE, displayCount - PAGE_SIZE); renderSalesTable(); }
 
 /* ---------- Charts ---------- */
 

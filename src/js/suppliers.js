@@ -40,7 +40,8 @@ function showMoreSuppliers() {
 }
 
 function showLessSuppliers() {
-    displayCount = 0;
+    // one page back, mirroring Show more (it used to jump to the first page)
+    displayCount = Math.max(0, displayCount - 2 * PAGE_SIZE);
     showMoreSuppliers();
 }
 
