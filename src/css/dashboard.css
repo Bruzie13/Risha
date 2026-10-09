@@ -46,7 +46,7 @@ body {
 
 .logo-text {
     font-size: 22px;
-    letter-spacing: 1px;
+    letter-spacing: 0;
 }
 
 .sidebar-nav {
@@ -117,7 +117,7 @@ body {
 .header h1 {
     font-size: 28px;
     color: var(--primary);
-    font-weight: 700;
+    font-weight: 600;
 }
 
 .header-user {
@@ -135,7 +135,7 @@ body {
 .avatar {
     width: 42px;
     height: 42px;
-    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    background: var(--gray-200);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -164,7 +164,7 @@ body {
 .welcome-card h2 {
     font-size: 32px;
     margin-bottom: 10px;
-    font-weight: 700;
+    font-weight: 600;
 }
 
 .welcome-card p {
@@ -193,7 +193,6 @@ body {
 }
 
 .stat-box:hover {
-    transform: translateY(-5px);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
 }
 
@@ -211,14 +210,14 @@ body {
     font-size: 13px;
     color: var(--text-muted);
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    text-transform: none;
+    letter-spacing: 0;
     margin-bottom: 8px;
 }
 
 .stat-number {
     font-size: 28px;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--primary);
     overflow-wrap: break-word;
     word-break: break-word;
@@ -238,7 +237,7 @@ body {
     font-size: 20px;
     color: var(--text-primary);
     margin-bottom: 25px;
-    font-weight: 700;
+    font-weight: 600;
 }
 
 .actions-grid {
@@ -267,7 +266,6 @@ body {
 .action-card:hover {
     background: var(--gray-100);
     border-color: var(--primary);
-    transform: translateY(-3px);
     box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
 }
 

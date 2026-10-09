@@ -386,9 +386,14 @@ exports.getTotalSales = async (req, res) => {
 exports.getSalesReport = async (req, res) => {
     try {
         const { period, date_from, date_to } = req.query;
-        const startDate = date_from || null;
-        const endDate = date_to || null;
-        const report = await Sale.getSalesReport(period || 'daily', startDate, endDate);
+        // Only real calendar dates reach the query; anything else is ignored
+        // rather than passed along.
+        const isDate = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(Date.parse(v));
+        const ranged = isDate(date_from) && isDate(date_to);
+        const startDate = ranged ? date_from : null;
+        const endDate = ranged ? date_to : null;
+        const grouping = ['daily', 'weekly', 'monthly'].includes(period) ? period : 'daily';
+        const report = await Sale.getSalesReport(grouping, startDate, endDate);
         res.status(200).json({
             success: true,
             data: report

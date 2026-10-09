@@ -41,7 +41,7 @@
 }
 .form-section h3 {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 14px;
 }
@@ -80,7 +80,7 @@
   margin-top: 2px;
 }
 .item-price {
-  font-weight: 700;
+  font-weight: 600;
   color: var(--accent);
   min-width: 80px;
   text-align: right;
@@ -91,7 +91,7 @@
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   font-family: inherit;
   background: var(--danger-bg);
@@ -121,7 +121,7 @@
   padding-top: 14px;
   margin-top: 12px;
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--accent);
 }
 
@@ -132,7 +132,7 @@
 }
 .details-items h4 {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   margin-bottom: 12px;
   color: var(--text-primary);
 }

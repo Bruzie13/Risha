@@ -140,21 +140,9 @@ function hashName(name) {
     return h;
 }
 
-// Curated, evenly-bright gradient pairs (top-left → bottom-right).
-const AVATAR_GRADIENTS = [
-    ['#6366f1', '#8b5cf6'], // indigo → violet
-    ['#0ea5e9', '#2563eb'], // sky → blue
-    ['#10b981', '#059669'], // emerald
-    ['#f59e0b', '#ea580c'], // amber → orange
-    ['#ec4899', '#db2777'], // pink
-    ['#14b8a6', '#0891b2'], // teal → cyan
-    ['#f43f5e', '#e11d48'], // rose
-    ['#8b5cf6', '#6d28d9'], // violet → purple
-    ['#22c55e', '#16a34a'], // green
-    ['#3b82f6', '#1d4ed8'], // blue
-    ['#a855f7', '#7c3aed'], // purple
-    ['#0d9488', '#0f766e']  // deep teal
-];
+// Muted, evenly-weighted tones: enough to tell two people apart at a glance
+// without the avatar becoming the loudest thing on the page.
+const AVATAR_COLORS = ['#4A6FA5', '#5B7A66', '#8A6A4F', '#6E5A8A', '#4F7D85', '#8A5A5A', '#5F6B7A', '#7A6F4A'];
 
 // First letters of the first and last name; falls back to the first two
 // characters of a single-word name / username.
@@ -167,20 +155,15 @@ function initialsOf(name) {
 }
 
 function identiconURI(name) {
-    const h = hashName(name);
-    const [c1, c2] = AVATAR_GRADIENTS[h % AVATAR_GRADIENTS.length];
+    const color = AVATAR_COLORS[hashName(name) % AVATAR_COLORS.length];
     const ini = initialsOf(name);
-    const gid = 'ag' + (h % 99999);
     const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>` +
-        `<defs><linearGradient id='${gid}' x1='0' y1='0' x2='1' y2='1'>` +
-        `<stop offset='0' stop-color='${c1}'/><stop offset='1' stop-color='${c2}'/>` +
-        `</linearGradient></defs>` +
-        `<rect width='100' height='100' fill='url(#${gid})'/>` +
+        `<rect width='100' height='100' fill='${color}'/>` +
         `<text x='50' y='50' dy='0.35em' text-anchor='middle' ` +
         `font-family='Inter, Segoe UI, system-ui, -apple-system, sans-serif' ` +
-        `font-size='42' font-weight='600' letter-spacing='0.5' fill='#ffffff'>${ini}</text>` +
+        `font-size='40' font-weight='500' fill='#ffffff'>${ini}</text>` +
         `</svg>`;
-    return { uri: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`, bg: c1 };
+    return { uri: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`, bg: color };
 }
 
 // Paint every user avatar (sidebar, hero, settings) with the identicon
@@ -235,43 +218,36 @@ function logout() {
 
 /* ===== ONE DIALOG DESIGN =====
    Every centered popup in the app (confirm, prompt, success, error) is built
-   from this shell so they all look identical: tinted icon circle, display
-   title, muted message, rounded buttons. */
+   from this shell so they all look identical: a small status icon, a plain
+   title, the message, and the buttons. */
 
 const DIALOG_TONES = {
-    primary: { color: 'var(--primary,#EE6A5F)', bg: 'var(--primary-bg,rgba(238,106,95,0.12))' },
-    success: { color: 'var(--success,#2FA36B)', bg: 'var(--success-bg,rgba(47,163,107,0.12))' },
-    danger: { color: 'var(--danger,#E5484D)', bg: 'var(--danger-bg,rgba(229,72,77,0.12))' },
-    info: { color: 'var(--info,#3E9BD6)', bg: 'var(--info-bg,rgba(62,155,214,0.12))' },
-    warning: { color: 'var(--warning,#E8930C)', bg: 'var(--warning-bg,rgba(232,147,12,0.12))' }
+    primary: { color: 'var(--primary)', bg: 'var(--primary-bg)' },
+    success: { color: 'var(--success)', bg: 'var(--success-bg)' },
+    danger: { color: 'var(--danger)', bg: 'var(--danger-bg)' },
+    info: { color: 'var(--info)', bg: 'var(--info-bg)' },
+    warning: { color: 'var(--warning)', bg: 'var(--warning-bg)' }
 };
 
-function ensureDialogKeyframes() {
-    if (document.getElementById('dialogKeyframes')) return;
-    const style = document.createElement('style');
-    style.id = 'dialogKeyframes';
-    style.textContent = '@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}@keyframes successPop{0%{transform:scale(0.4);opacity:0}100%{transform:scale(1);opacity:1}}@keyframes successDrain{from{transform:scaleX(1)}to{transform:scaleX(0)}}';
-    document.head.appendChild(style);
-}
-
 function buildDialogShell(overlayId, tone, iconName, title, message) {
-    ensureDialogKeyframes();
     const existing = document.getElementById(overlayId);
     if (existing) existing.remove();
     const t = DIALOG_TONES[tone] || DIALOG_TONES.primary;
 
     const overlay = document.createElement('div');
     overlay.id = overlayId;
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.45);backdrop-filter:blur(2px);z-index:10000;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s ease;';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(21,24,28,0.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;';
 
     const dialog = document.createElement('div');
-    dialog.style.cssText = 'background:var(--bg-card,#fff);border-radius:18px;padding:32px 34px 26px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp 0.25s ease;text-align:center;';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.style.cssText = 'background:var(--bg-card);border:1px solid var(--border-glass);border-radius:var(--radius-2xl);padding:22px 24px 20px;max-width:400px;width:100%;box-shadow:var(--shadow-lg);';
     dialog.innerHTML = `
-        <div style="width:66px;height:66px;border-radius:50%;background:${t.bg};display:flex;align-items:center;justify-content:center;margin:0 auto 16px;animation:successPop 0.45s cubic-bezier(0.34,1.56,0.64,1);">
-            <span class="material-symbols-outlined" style="font-size:36px;color:${t.color};font-variation-settings:'wght' 600;">${iconName}</span>
+        <div style="width:36px;height:36px;border-radius:var(--radius-md);background:${t.bg};display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
+            <span class="material-symbols-outlined" style="font-size:20px;color:${t.color};">${iconName}</span>
         </div>
-        <h3 style="font-family:var(--font-display,inherit);font-size:19px;color:var(--text-primary,#1c1c1c);margin-bottom:8px;font-weight:800;letter-spacing:-0.3px;">${title}</h3>
-        <p style="font-size:14px;color:var(--text-muted,#888);margin-bottom:22px;line-height:1.55;">${message}</p>
+        <h3 style="font-size:16px;color:var(--text-primary);margin-bottom:4px;font-weight:600;">${title}</h3>
+        <p style="font-size:14px;color:var(--text-secondary);margin-bottom:18px;line-height:1.5;">${message}</p>
         <div class="dialog-body"></div>
     `;
     overlay.appendChild(dialog);
@@ -279,9 +255,14 @@ function buildDialogShell(overlayId, tone, iconName, title, message) {
     return { overlay, dialog, tone: t };
 }
 
-const DIALOG_BTN_GHOST = 'padding:11px 24px;border:1px solid var(--border-glass-strong,#ddd);border-radius:10px;background:transparent;color:var(--text-secondary,#555);font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;';
-function dialogBtnSolid(color, shadow) {
-    return `padding:11px 28px;border:none;border-radius:10px;background:${color};color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;transition:all 0.2s;box-shadow:0 4px 12px ${shadow};`;
+const DIALOG_BTN_GHOST = 'padding:8px 14px;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);background:var(--bg-card);color:var(--text-primary);font-weight:500;font-size:13.5px;cursor:pointer;font-family:inherit;';
+function dialogBtnSolid(color) {
+    return `padding:8px 14px;border:1px solid ${color};border-radius:var(--radius-md);background:${color};color:#fff;font-weight:500;font-size:13.5px;cursor:pointer;font-family:inherit;`;
+}
+
+/** For values placed inside an HTML attribute. */
+function escAttr(v) {
+    return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // Legacy call sites pass raw icon HTML — recover the icon name and tone from it
@@ -301,11 +282,11 @@ function showConfirmDialog(title, message, onConfirm, confirmText, icon) {
     const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', tone, name, title, message);
     const destructive = tone === 'danger';
     const solid = destructive
-        ? dialogBtnSolid('var(--danger,#E5484D)', 'rgba(229,72,77,0.3)')
-        : dialogBtnSolid('var(--primary,#EE6A5F)', 'rgba(238,106,95,0.3)');
+        ? dialogBtnSolid('var(--danger)')
+        : dialogBtnSolid('var(--primary)');
 
     dialog.querySelector('.dialog-body').innerHTML = `
-        <div style="display:flex;gap:12px;justify-content:center;">
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button id="confirmCancelBtn" style="${DIALOG_BTN_GHOST}">Cancel</button>
             <button id="confirmOkBtn" style="${solid}">${confirmText || 'Confirm'}</button>
         </div>
@@ -324,10 +305,10 @@ function showPromptDialog(title, message, onConfirm, confirmText, icon, inputTyp
     const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', tone, name, title, message);
 
     dialog.querySelector('.dialog-body').innerHTML = `
-        <input id="promptInput" type="${inputType || 'number'}" value="${defaultValue || ''}" style="width:100%;padding:12px 16px;border:1px solid var(--border-glass-strong,#ddd);border-radius:10px;font-size:16px;text-align:center;font-family:inherit;outline:none;box-sizing:border-box;margin-bottom:18px;background:var(--bg-raised,#fafafa);color:var(--text-primary,#1c1c1c);">
-        <div style="display:flex;gap:12px;justify-content:center;">
+        <input id="promptInput" type="${escAttr(inputType || 'number')}" value="${escAttr(defaultValue)}" style="width:100%;padding:8px 10px;border:1px solid var(--border-glass-strong);border-radius:var(--radius-md);font-size:14px;font-family:inherit;outline:none;box-sizing:border-box;margin-bottom:16px;background:var(--bg-card);color:var(--text-primary);">
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button id="confirmCancelBtn" style="${DIALOG_BTN_GHOST}">Cancel</button>
-            <button id="confirmOkBtn" style="${dialogBtnSolid('var(--primary,#EE6A5F)', 'rgba(238,106,95,0.3)')}">${confirmText || 'Confirm'}</button>
+            <button id="confirmOkBtn" style="${dialogBtnSolid('var(--primary)')}">${confirmText || 'Confirm'}</button>
         </div>
     `;
 
@@ -349,15 +330,10 @@ function showSuccessDialog(title, message, opts) {
     const tone = o.tone || 'success';
     const iconName = o.icon || (tone === 'danger' ? 'delete' : tone === 'info' ? 'info' : 'check');
     const { overlay, dialog, tone: t } = buildDialogShell('successDialogOverlay', tone, iconName, title, message);
-    // success checkmarks draw themselves in — clearer "it worked" signal
-    if (iconName === 'check' && window.fetchMotion) {
-        const iconWrap = dialog.querySelector('.material-symbols-outlined')?.parentElement;
-        if (iconWrap) iconWrap.innerHTML = fetchMotion.checkmarkSVG(t.color);
-    }
-
     dialog.querySelector('.dialog-body').innerHTML = `
-        <button id="successOkBtn" style="${dialogBtnSolid('var(--primary,#EE6A5F)', 'rgba(238,106,95,0.3)')}">${o.button || 'Done'}</button>
-        <div style="margin-top:14px;height:3px;border-radius:2px;background:var(--gray-100,#f0f0f0);overflow:hidden;"><div style="height:100%;width:100%;background:${t.color};transform-origin:left;animation:successDrain 4s linear forwards;"></div></div>
+        <div style="display:flex;justify-content:flex-end;">
+            <button id="successOkBtn" style="${dialogBtnSolid('var(--primary)')}">${o.button || 'Done'}</button>
+        </div>
     `;
 
     const close = () => {

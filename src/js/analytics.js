@@ -1,592 +1,365 @@
+/* Reports → Stock planning.
+
+   One request (/predictions/overview) returns every product already classified
+   by the server: how much it is expected to sell, how long its stock will last,
+   whether to reorder and how much. This file only presents that — it makes no
+   decisions of its own, so the numbers on screen always agree with each other. */
+
 const PRED_API = `${API_BASE}/predictions`;
 let forecastChart = null;
 let seasonalChart = null;
 let dowChart = null;
-let allProducts = [];
-let allPredictions = [];
-let predictionsMeta = null;   // totals + backtested accuracy from /predictions/all
-let currentSegments = null;   // fast / slow / risk / steady product lists
+let plan = null;                 // the overview payload
+let planFilter = 'all';
+let planSearch = '';
+let planLoading = false;
 const PRED_PAGE_SIZE = 10;
 let predDisplayCount = PRED_PAGE_SIZE;
+let reorderDisplayCount = PRED_PAGE_SIZE;
 
-// load is triggered by reports.js when the Analytics tab is clicked
-
-async function loadProductList() {
-    try {
-        // light = no image payloads; the selector only needs ids and names
-        const response = await fetch(`${API_BASE}/products?fields=light`, { headers: getAuthHeaders() });
-        const data = await response.json();
-        if (data.success) {
-            allProducts = Array.isArray(data.data) ? data.data : [];
-            const sel = document.getElementById('productSelector');
-            if (!sel) return;
-            sel.innerHTML = '<option value="">Select a product for detailed forecast</option>';
-            allProducts.forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p.id;
-                opt.textContent = `${p.name} (SKU: ${p.sku || 'N/A'})`;
-                sel.appendChild(opt);
-            });
-        }
-    } catch (error) {
-        console.error('Error loading products:', error);
-    }
-}
-
-function onProductChange() {
-    const sel = document.getElementById('productSelector');
-    const metricsGrid = document.getElementById('metricsGrid');
-    const chartsSection = document.getElementById('chartsSection');
-    const advice = document.getElementById('forecastAdvice');
-    if (sel && sel.value) {
-        metricsGrid.style.display = 'grid';
-        chartsSection.style.display = 'grid';
-        loadProductPrediction(sel.value);
-    } else {
-        metricsGrid.style.display = 'none';
-        chartsSection.style.display = 'none';
-        if (advice) advice.style.display = 'none';
-    }
-}
-
-async function loadProductPrediction(productId) {
-    try {
-        const product = allProducts.find(p => p.id == productId);
-        const stock = product ? (product.stock_quantity || 0) : 0;
-        const reorderLevel = product ? (product.reorder_level || 10) : 10;
-        const url = `${PRED_API}/product/${productId}?stock=${stock}&reorder_level=${reorderLevel}&lead_time=7`;
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
-        const response = await fetch(url, { headers: getAuthHeaders(), signal: controller.signal });
-        clearTimeout(timeout);
-        const data = await response.json();
-        if (data.success) {
-            renderForecastChart(data.data);
-            renderPredictionMetrics(data.data);
-        } else {
-            clearCharts();
-            showToast(data.error || 'Insufficient sales data for this product', 'warning');
-        }
-    } catch (error) {
-        console.error('Error loading prediction:', error);
-        clearCharts();
-        if (error.name === 'AbortError') {
-            showToast('Prediction request timed out. Please try again.', 'warning');
-        } else {
-            showToast('Prediction service unavailable. Try again later.', 'error');
-        }
-    }
-}
-
-function clearCharts() {
-    if (forecastChart) { forecastChart.destroy(); forecastChart = null; }
-    document.getElementById('predictedSales').textContent = '--';
-    document.getElementById('confidenceScore').textContent = '--';
-    document.getElementById('reorderPoint').textContent = '--';
-    document.getElementById('trendIndicator').innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">trending_flat</span> --';
-    const advice = document.getElementById('forecastAdvice');
-    if (advice) advice.style.display = 'none';
-}
-
-function renderForecastChart(data) {
-    const canvas = document.getElementById('demandForecastChart');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (forecastChart) forecastChart.destroy();
-
-    const historical = data.historical_data || [];
-    const predicted = data.predictions || [];
-
-    if (historical.length === 0 && predicted.length === 0) return;
-
-    const labels = [];
-    const histValues = [];
-    const predValues = [];
-    const lowerValues = [];
-    const upperValues = [];
-
-    if (historical.length > 0) {
-        const recentHistorical = historical.slice(-60);
-        recentHistorical.forEach(h => {
-            labels.push(h.date || '');
-            histValues.push(parseFloat(h.quantity || 0));
-        });
-    }
-
-    const gap = historical.length > 0 ? 1 : 0;
-    if (gap) {
-        labels.push('');
-        histValues.push(null);
-        predValues.push(null);
-    }
-
-    while (lowerValues.length < labels.length) { lowerValues.push(null); upperValues.push(null); }
-
-    if (predicted.length > 0) {
-        predicted.forEach(p => {
-            labels.push(p.date || `Day ${p.day || ''}`);
-            predValues.push(parseFloat(p.predicted_quantity || 0));
-            lowerValues.push(p.lower_bound != null ? parseFloat(p.lower_bound) : null);
-            upperValues.push(p.upper_bound != null ? parseFloat(p.upper_bound) : null);
-        });
-    }
-
-    while (histValues.length < labels.length) histValues.push(null);
-
-    const hasBand = upperValues.some(v => v != null);
-    const datasets = [
-        {
-            label: 'Historical Sales',
-            data: histValues,
-            borderColor: '#6FB3DF',
-            backgroundColor: 'rgba(111, 179, 223, 0.1)',
-            fill: true,
-            tension: 0.3,
-            pointRadius: 2
-        },
-        {
-            label: 'Predicted Sales',
-            data: predValues,
-            borderColor: '#F0B95A',
-            backgroundColor: 'rgba(240, 185, 90, 0.08)',
-            borderDash: [5, 5],
-            fill: false,
-            tension: 0.3,
-            pointRadius: 2
-        }
-    ];
-
-    if (hasBand) {
-        datasets.push({
-            label: 'Forecast Range (upper)',
-            data: upperValues,
-            borderColor: 'rgba(240, 185, 90, 0)',
-            backgroundColor: 'rgba(240, 185, 90, 0.15)',
-            fill: false,
-            pointRadius: 0,
-            tension: 0.3
-        });
-        datasets.push({
-            label: 'Forecast Range',
-            data: lowerValues,
-            borderColor: 'rgba(240, 185, 90, 0)',
-            backgroundColor: 'rgba(240, 185, 90, 0.15)',
-            fill: '-1',
-            pointRadius: 0,
-            tension: 0.3
-        });
-    }
-
-    forecastChart = new Chart(ctx, {
-        type: 'line',
-        data: { labels, datasets },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'top',
-                    labels: {
-                        filter: (item) => item.text !== 'Forecast Range (upper)'
-                    }
-                },
-                tooltip: {
-                    filter: (item) => item.dataset.label !== 'Forecast Range (upper)' && item.dataset.label !== 'Forecast Range'
-                }
-            },
-            scales: { y: { beginAtZero: true, title: { display: true, text: 'Units Sold' } } }
-        }
-    });
-}
-
-function renderPredictionMetrics(data) {
-    const nextMonth = data.next_month_prediction;
-    const confidence = data.confidence_score;
-    const trend = data.trend || 'stable';
-    const reorder = data.reorder_recommendation || {};
-
-    document.getElementById('predictedSales').textContent = nextMonth != null ? formatDecimal(nextMonth, 1) : '--';
-    document.getElementById('confidenceScore').textContent = confidence != null ? formatDecimal(confidence, 1) + '%' : '--';
-
-    const reorderPoint = reorder.recommended_reorder_point;
-    document.getElementById('reorderPoint').textContent = reorderPoint != null ? reorderPoint : '--';
-
-    const trendEl = document.getElementById('trendIndicator');
-    const t = (trend || '').toLowerCase();
-    let trendAdvice = '';
-    if (trendEl) {
-        if (t.includes('up')) {
-            trendEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">trending_up</span> Increasing';
-            trendEl.style.color = '#7FC98F';
-            trendAdvice = 'Demand is rising — consider increasing stock';
-        } else if (t.includes('down')) {
-            trendEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">trending_down</span> Decreasing';
-            trendEl.style.color = '#E8746C';
-            trendAdvice = 'Demand is declining — avoid overstocking';
-        } else {
-            trendEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">trending_flat</span> Stable';
-            trendEl.style.color = '#F0B95A';
-            trendAdvice = 'Demand is steady — maintain current levels';
-        }
-    }
-
-    // Merge long recommendation text into a single full-width advice banner
-    // (previously crammed into the small Trend card, causing overflow)
-    const adviceEl = document.getElementById('forecastAdvice');
-    const chipsEl = document.getElementById('forecastAdviceChips');
-    if (adviceEl && chipsEl) {
-        const chips = [];
-        if (trendAdvice) {
-            const cls = t.includes('up') ? 'good' : t.includes('down') ? 'bad' : 'neutral';
-            chips.push({ text: trendAdvice, cls: cls, icon: t.includes('up') ? 'trending_up' : t.includes('down') ? 'trending_down' : 'trending_flat' });
-        }
-        if (reorder.days_until_stockout != null && reorder.days_until_stockout < 999) {
-            chips.push({ text: 'Estimated stockout in ~' + reorder.days_until_stockout + ' days', cls: reorder.days_until_stockout <= 14 ? 'bad' : 'neutral', icon: 'schedule' });
-        }
-        if (reorder.reorder_triggered && reorder.recommended_order_quantity > 0) {
-            chips.push({ text: 'Suggest ordering ~' + reorder.recommended_order_quantity + ' units', cls: 'warn', icon: 'shopping_cart' });
-        }
-        if (reorder.safety_stock != null && reorder.safety_stock > 0) {
-            chips.push({ text: 'Keep ' + reorder.safety_stock + ' units as safety stock', cls: 'neutral', icon: 'shield' });
-        }
-        chipsEl.innerHTML = chips.map(function (c) {
-            return '<span class="advice-chip ' + c.cls + '"><span class="material-symbols-outlined" style="font-size:14px;">' + c.icon + '</span> ' + c.text + '</span>';
-        }).join('');
-        adviceEl.style.display = chips.length ? 'flex' : 'none';
-    }
-}
-
-async function loadAllPredictions() {
-    const tableBody = document.getElementById('predictionsTableBody');
-    if (tableBody) tableBody.innerHTML = '<tr><td colspan="8" class="text-center"><span class="material-symbols-outlined" style="font-size:16px;">hourglass_top</span> Analyzing sales history and computing forecasts...</td></tr>';
-
-    // the segment cards & table need the product list too; with /all now cached
-    // it can return before loadProductList(), so guarantee products are here
-    if (!allProducts.length) await loadProductList();
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
-
-    const allPromise = fetch(`${PRED_API}/all`, { headers: getAuthHeaders(), signal: controller.signal })
-        .then(r => r.json())
-        .then(d => { if (d.success) { allPredictions = d.data.predictions || []; predictionsMeta = d.data; } })
-        .catch(e => { if (e.name !== 'AbortError') console.error('Error loading all predictions:', e); });
-
-    const summaryPromise = fetch(`${PRED_API}/summary`, { headers: getAuthHeaders(), signal: controller.signal })
-        .then(r => r.json())
-        .then(d => { if (d.success) renderSeasonalChart(d.data.seasonal_trends || []); })
-        .catch(e => { if (e.name !== 'AbortError') console.error('Error loading summary:', e); });
-
-    const trendsPromise = fetch(`${PRED_API}/trends`, { headers: getAuthHeaders(), signal: controller.signal })
-        .then(r => r.json())
-        .then(d => { if (d.success) renderDowChart((d.data.seasonality && d.data.seasonality.day_of_week_patterns) || []); })
-        .catch(e => { if (e.name !== 'AbortError') console.error('Error loading trends:', e); });
-
-    await Promise.all([allPromise, summaryPromise, trendsPromise]);
-    clearTimeout(timeout);
-
-    if (allPredictions.length === 0) {
-        if (tableBody) tableBody.innerHTML = '<tr><td colspan="8" class="text-center"><span class="material-symbols-outlined" style="font-size:16px;">warning_amber</span> No sales history yet — forecasts will appear once products have recorded sales.</td></tr>';
-    } else {
-        renderPerformanceAnalysis();
-        mergeAndRenderTable();
-    }
-}
-
-function renderPerformanceAnalysis() {
-    const enabled = allProducts.length > 0 && allPredictions.length > 0;
-    document.getElementById('fastMoversCount').textContent = '—';
-    document.getElementById('slowMoversCount').textContent = '—';
-    document.getElementById('atRiskCount').textContent = '—';
-    document.getElementById('steadyCount').textContent = '—';
-    if (!enabled) return;
-
-    // Quartile thresholds: retail demand is long-tailed, so a mean split
-    // dumps nearly everything into "slow". Top quartile = fast, bottom
-    // quartile = slow, stockout-risk overrides, the rest are steady.
-    const demands = allPredictions.map(p => p.next_month_prediction || 0).sort((a, b) => a - b);
-    const q = (arr, f) => arr.length ? arr[Math.min(arr.length - 1, Math.floor(arr.length * f))] : 0;
-    const q75 = q(demands, 0.75);
-    const q25 = q(demands, 0.25);
-
-    const analyzed = allProducts.map(product => {
-        const pred = allPredictions.find(p => p.product_id === product.id);
-        const predictedDemand = pred ? (pred.next_month_prediction || 0) : 0;
-        const stock = product.stock_quantity || 0;
-        const dailyAvg = predictedDemand / 30;
-        const daysUntilStockout = dailyAvg > 0 ? Math.floor(stock / dailyAvg) : 999;
-        return {
-            product, pred, predictedDemand, stock, dailyAvg, daysUntilStockout,
-            trend: pred ? pred.trend : null,
-            momentum: pred ? pred.trend_momentum : null,
-            confidence: pred ? pred.confidence_score : null,
-            atRisk: daysUntilStockout <= 14,
-            highDemand: predictedDemand > 0 && predictedDemand >= q75,
-            lowDemand: predictedDemand <= q25
-        };
-    });
-
-    currentSegments = {
-        fast: analyzed.filter(a => a.highDemand).sort((a, b) => b.predictedDemand - a.predictedDemand),
-        risk: analyzed.filter(a => a.atRisk).sort((a, b) => a.daysUntilStockout - b.daysUntilStockout),
-        slow: analyzed.filter(a => a.lowDemand && !a.highDemand).sort((a, b) => a.predictedDemand - b.predictedDemand),
-        steady: analyzed.filter(a => !a.highDemand && !a.lowDemand && !a.atRisk).sort((a, b) => b.predictedDemand - a.predictedDemand)
-    };
-
-    document.getElementById('fastMoversCount').textContent = currentSegments.fast.length;
-    document.getElementById('slowMoversCount').textContent = currentSegments.slow.length;
-    document.getElementById('atRiskCount').textContent = currentSegments.risk.length;
-    document.getElementById('steadyCount').textContent = currentSegments.steady.length;
-
-    renderAnalyticsKpis(analyzed);
-    showSegment('fast');
-    renderNeedsAttentionList(currentSegments.risk, currentSegments.slow);
-}
-
-function renderNeedsAttentionList(atRisk, slowMovers) {
-    const container = document.getElementById('needsAttentionList');
-    if (!container) return;
-    const combined = [
-        ...atRisk.map(a => ({ ...a, attentionReason: 'stockout' })),
-        ...slowMovers.filter(s => !atRisk.find(a => a.product.id === s.product.id)).map(s => ({ ...s, attentionReason: 'declining' }))
-    ].sort((a, b) => {
-        if (a.attentionReason === 'stockout' && b.attentionReason !== 'stockout') return -1;
-        if (a.attentionReason !== 'stockout' && b.attentionReason === 'stockout') return 1;
-        return a.daysUntilStockout - b.daysUntilStockout;
-    });
-    if (combined.length === 0) {
-        container.innerHTML = '<div class="perf-placeholder">All products are in good shape</div>';
-        return;
-    }
-    container.innerHTML = combined.slice(0, 8).map((item, i) => `
-        <div class="perf-item">
-            <div class="perf-item-rank rank-risk">#${i + 1}</div>
-            <div class="perf-item-info">
-                <div class="perf-item-name">${escHtml(item.product.name)}</div>
-                <div class="perf-item-detail">Stock: ${formatNumber(item.stock)} · ${formatDecimal(item.dailyAvg, 1)}/day avg</div>
-            </div>
-            <div class="perf-item-stats">
-                <div class="perf-stat-value">${formatNumber(item.predictedDemand)}</div>
-                <div class="perf-stat-label">demand</div>
-            </div>
-            <div class="perf-item-badge ${item.attentionReason === 'stockout' ? 'perf-badge-risk' : 'perf-badge-slow'}">${item.attentionReason === 'stockout' ? `<span class="material-symbols-outlined" style="font-size:14px;">warning_amber</span> ${item.daysUntilStockout}d` : '<span class="material-symbols-outlined" style="font-size:14px;">speed</span> Slow'}</div>
-        </div>
-    `).join('');
-}
-
-function renderAnalyticsKpis(analyzed) {
-    const meta = predictionsMeta || {};
-    const setKpi = (id, val, title) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.textContent = val;
-        if (title) el.title = title;
-    };
-    setKpi('kpiForecastUnits', meta.total_predicted_units != null ? formatNumber(meta.total_predicted_units) + ' units' : '--');
-    setKpi('kpiForecastRevenue', meta.total_predicted_revenue != null ? formatCompactCurrency(meta.total_predicted_revenue) : '--',
-        meta.total_predicted_revenue != null ? formatCurrency(meta.total_predicted_revenue) : '');
-    setKpi('kpiAccuracy', meta.overall_accuracy != null ? formatDecimal(meta.overall_accuracy, 1) + '%' : 'n/a',
-        meta.overall_accuracy != null ? 'Validated on ' + (meta.backtested_products || 0) + ' products with enough history' : 'Needs 3+ weeks of history to validate');
-    const risky = analyzed.filter(a => a.daysUntilStockout <= 30 && a.predictedDemand > 0).length;
-    setKpi('kpiAtRisk', risky + ' product' + (risky === 1 ? '' : 's'));
-    if (window.fetchMotion) {
-        fetchMotion.stagger('#analyticsKpis .stat-card, .perf-card', 50);
-        fetchMotion.countUpAll('#analyticsKpis .stat-value');
-        fetchMotion.countUpAll('.perf-card .perf-value');
-    }
-}
-
-const SEGMENT_META = {
-    fast: { title: 'Top Fast Movers', sub: 'Highest predicted demand — keep these shelves full', icon: 'emoji_events', color: 'var(--accent)' },
-    slow: { title: 'Slow Movers', sub: 'Below-average demand — avoid over-ordering, consider promos', icon: 'hourglass_bottom', color: 'var(--warning)' },
-    risk: { title: 'Stockout Risk', sub: 'Projected to run out within 14 days at forecast demand', icon: 'warning', color: 'var(--danger)' },
-    steady: { title: 'Steady Sellers', sub: 'Stable demand with healthy cover — the backbone of revenue', icon: 'check_circle', color: 'var(--success)' }
+const STOCK_LABEL = {
+    out: { text: 'Out of stock', tone: 'danger' },
+    reorder_now: { text: 'Reorder now', tone: 'danger' },
+    reorder_soon: { text: 'Reorder soon', tone: 'warning' },
+    ok: { text: 'Enough stock', tone: 'ok' }
 };
+const TREND_LABEL = { up: 'Rising', down: 'Falling', stable: 'Steady' };
 
-function showSegment(name) {
-    if (!currentSegments) return;
-    const meta = SEGMENT_META[name] || SEGMENT_META.fast;
-    const items = currentSegments[name] || [];
-    const titleEl = document.getElementById('spotlightTitle');
-    const subEl = document.getElementById('spotlightSub');
-    if (titleEl) titleEl.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;color:${meta.color};">${meta.icon}</span> ${meta.title} (${items.length})`;
-    if (subEl) subEl.textContent = meta.sub;
-    document.querySelectorAll('.perf-card.perf-clickable').forEach(c => c.classList.remove('perf-active'));
-    document.querySelector(`.perf-card[onclick*="${name}"]`)?.classList.add('perf-active');
+/* ---------- Loading ---------- */
 
-    const container = document.getElementById('spotlightList');
-    if (!container) return;
-    if (items.length === 0) {
-        container.innerHTML = '<div class="perf-placeholder">No products in this segment right now</div>';
-        return;
+async function loadStockPlanning(force) {
+    if (planLoading || (plan && !force)) return;
+    planLoading = true;
+    wirePlanControls();
+    const controller = new AbortController();
+    // The first forecast after the server starts can take a while to compute.
+    const timeout = setTimeout(() => controller.abort(), 90000);
+    try {
+        const [overview, trends] = await Promise.all([
+            fetch(`${PRED_API}/overview`, { headers: getAuthHeaders(), signal: controller.signal }).then(r => r.json()),
+            fetch(`${PRED_API}/trends`, { headers: getAuthHeaders(), signal: controller.signal }).then(r => r.json()).catch(() => null)
+        ]);
+        if (!overview.success) throw new Error(overview.error || 'Stock planning failed');
+        plan = overview.data;
+        renderPlan();
+        if (trends && trends.success) renderPatterns(trends.data.seasonality || {});
+    } catch (error) {
+        console.error('Error loading stock planning:', error);
+        const msg = error.name === 'AbortError'
+            ? 'The forecast is taking longer than usual. Press Refresh in a minute.'
+            : 'Stock planning could not be loaded. Press Refresh to try again.';
+        setRow('reorderTableBody', 5, msg);
+        setRow('predictionsTableBody', 7, msg);
+    } finally {
+        clearTimeout(timeout);
+        planLoading = false;
     }
-    const badge = {
-        fast: (it) => '<div class="perf-item-badge perf-badge-fast"><span class="material-symbols-outlined" style="font-size:14px;">rocket_launch</span> Fast</div>',
-        slow: () => '<div class="perf-item-badge perf-badge-slow"><span class="material-symbols-outlined" style="font-size:14px;">speed</span> Slow</div>',
-        risk: (it) => `<div class="perf-item-badge perf-badge-risk"><span class="material-symbols-outlined" style="font-size:14px;">warning_amber</span> ${it.daysUntilStockout}d</div>`,
-        steady: () => '<div class="perf-item-badge perf-badge-steady"><span class="material-symbols-outlined" style="font-size:14px;">check</span> Stable</div>'
-    }[name];
-    container.innerHTML = items.slice(0, 8).map((item, i) => {
-        const cover = item.daysUntilStockout >= 999 ? 'No demand' : `${item.daysUntilStockout}d of cover`;
-        const conf = item.confidence != null ? ` · ${item.confidence}% conf.` : '';
-        return `
-        <div class="perf-item">
-            <div class="perf-item-rank${name === 'risk' ? ' rank-risk' : ''}">#${i + 1}</div>
-            <div class="perf-item-info">
-                <div class="perf-item-name">${escHtml(item.product.name)}</div>
-                <div class="perf-item-detail">Stock: ${formatNumber(item.stock)} · ${formatDecimal(item.dailyAvg, 1)}/day · ${cover}${conf}</div>
-            </div>
-            <div class="perf-item-stats">
-                <div class="perf-stat-value">${formatNumber(item.predictedDemand)}</div>
-                <div class="perf-stat-label">next mo.</div>
-            </div>
-            ${badge(item)}
-        </div>`;
-    }).join('');
-}
-
-function mergeAndRenderTable() {
-    const tbody = document.getElementById('predictionsTableBody');
-    if (!tbody) return;
-
-    if (allProducts.length === 0 || allPredictions.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center">Loading predictions...</td></tr>';
-        return;
-    }
-
-    const rows = allProducts.map(product => {
-        const pred = allPredictions.find(p => p.product_id === product.id);
-        const predictedDemand = pred ? (pred.next_month_prediction || 0) : 0;
-        const trend = pred ? (pred.trend || 'stable') : 'stable';
-        const momentum = pred ? parseFloat(pred.trend_momentum) : null;
-        const confidence = pred ? (pred.confidence_score || 0) : null;
-        const stock = product.stock_quantity || 0;
-        const dailyAvg = predictedDemand / 30;
-        const daysUntilStockout = dailyAvg > 0 ? Math.floor(stock / dailyAvg) : 999;
-        const reorderRecommended = daysUntilStockout <= 30;
-        return { product, predictedDemand, trend, momentum, confidence, stock, dailyAvg, daysUntilStockout, reorderRecommended };
-    });
-
-    rows.sort((a, b) => {
-        const aRisk = a.daysUntilStockout <= 30 ? 0 : 1;
-        const bRisk = b.daysUntilStockout <= 30 ? 0 : 1;
-        if (aRisk !== bRisk) return aRisk - bRisk;
-        return a.daysUntilStockout - b.daysUntilStockout;
-    });
-
-    const limited = rows.slice(0, predDisplayCount);
-    tbody.innerHTML = limited.map(r => {
-        const stockoutDisplay = r.daysUntilStockout >= 999 ? '—' : r.daysUntilStockout + 'd';
-        const trendIcon = r.trend === 'up' ? 'trending_up' : r.trend === 'down' ? 'trending_down' : 'trending_flat';
-        const trendColor = r.trend === 'up' ? 'var(--success)' : r.trend === 'down' ? 'var(--danger)' : 'var(--text-muted)';
-        const trendLabel = r.trend === 'up' ? 'Rising' : r.trend === 'down' ? 'Falling' : 'Stable';
-        const momentumChip = (r.momentum != null && isFinite(r.momentum) && r.momentum !== 0)
-            ? ` <span style="font-size:11px;color:${r.momentum > 0 ? 'var(--success)' : 'var(--danger)'};font-weight:700;">${r.momentum > 0 ? '+' : ''}${formatDecimal(r.momentum, 1)}%</span>`
-            : '';
-        const confCell = r.confidence != null
-            ? `<div style="display:flex;align-items:center;gap:8px;min-width:110px;">
-                   <div style="flex:1;height:5px;border-radius:3px;background:var(--gray-100,#eee);overflow:hidden;"><div style="height:100%;width:${r.confidence}%;border-radius:3px;background:${r.confidence >= 70 ? 'var(--success)' : r.confidence >= 45 ? 'var(--warning)' : 'var(--danger)'};"></div></div>
-                   <span style="font-size:12px;font-weight:700;color:var(--text-secondary);">${r.confidence}%</span>
-               </div>`
-            : '—';
-        return `
-            <tr>
-                <td><strong>${escHtml(r.product.name)}</strong></td>
-                <td>${formatNumber(r.stock)}</td>
-                <td>${r.predictedDemand > 0 ? formatDecimal(r.predictedDemand, 1) : '—'}</td>
-                <td>${r.dailyAvg > 0 ? formatDecimal(r.dailyAvg, 1) : '—'}</td>
-                <td${r.daysUntilStockout <= 14 ? ' style="color:var(--danger);font-weight:700;"' : ''}>${stockoutDisplay}</td>
-                <td><span style="color:${trendColor};display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:16px;">${trendIcon}</span> ${trendLabel}</span>${momentumChip}</td>
-                <td>${confCell}</td>
-                <td>
-                    ${r.reorderRecommended
-                        ? '<span class="reorder-badge yes">Yes</span>'
-                        : '<span class="reorder-badge no">No</span>'
-                    }
-                </td>
-            </tr>
-        `;
-    }).join('');
-
-    updatePagination('predictionsPagination', rows, predDisplayCount, 'showMorePredictions', 'showLessPredictions', PRED_PAGE_SIZE);
-}
-
-function showMorePredictions() {
-    predDisplayCount += PRED_PAGE_SIZE;
-    mergeAndRenderTable();
-}
-
-function showLessPredictions() {
-    predDisplayCount = 0;
-    showMorePredictions();
-}
-
-function renderSeasonalChart(seasonalTrends) {
-    const canvas = document.getElementById('seasonalTrendsChart');
-    if (!canvas) return;
-    if (!Array.isArray(seasonalTrends) || seasonalTrends.length === 0) return;
-    const ctx = canvas.getContext('2d');
-    if (seasonalChart) seasonalChart.destroy();
-    const labels = seasonalTrends.map(s => s.month_name || s.month || '');
-    const values = seasonalTrends.map(s => parseFloat(s.avg_quantity || s.avg_sales || 0));
-    const colors = ['#6FB3DF', '#7FC98F', '#F0B95A', '#E8746C', '#B78FD6', '#F49AC1', '#66C2B5', '#F5A25F', '#7FA8E8', '#A8CE6A', '#6EC6DC', '#D48AE0'];
-    seasonalChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels,
-            datasets: [{
-                label: 'Avg Daily Sales',
-                data: values,
-                backgroundColor: colors.slice(0, labels.length),
-                borderRadius: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, title: { display: true, text: 'Avg Units Sold' } } }
-        }
-    });
-}
-
-function renderDowChart(patterns) {
-    const canvas = document.getElementById('dowTrendsChart');
-    if (!canvas) return;
-    if (!Array.isArray(patterns) || patterns.length === 0) return;
-    const ctx = canvas.getContext('2d');
-    if (dowChart) dowChart.destroy();
-    const order = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const sorted = [...patterns].sort((a, b) => order.indexOf(a.day) - order.indexOf(b.day));
-    const labels = sorted.map(p => p.day || '');
-    const values = sorted.map(p => parseFloat(p.avg_daily_sales || 0));
-    const maxVal = Math.max(...values);
-    dowChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels,
-            datasets: [{
-                label: 'Avg Daily Sales',
-                data: values,
-                backgroundColor: values.map(v => v === maxVal ? '#6FB3DF' : 'rgba(111, 179, 223, 0.45)'),
-                borderRadius: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, title: { display: true, text: 'Avg Units Sold' } } }
-        }
-    });
 }
 
 function refreshAnalytics() {
     predDisplayCount = PRED_PAGE_SIZE;
-    const sel = document.getElementById('productSelector');
-    if (sel && sel.value) loadProductPrediction(sel.value);
-    loadAllPredictions();
-    showToast('Analytics refreshed!', 'success');
+    reorderDisplayCount = PRED_PAGE_SIZE;
+    setRow('reorderTableBody', 5, 'Working out what to reorder…');
+    setRow('predictionsTableBody', 7, 'Loading products…');
+    loadStockPlanning(true);
 }
 
-// showToast comes from auth.js — one toast design everywhere
+function setRow(id, cols, text) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = `<tr><td colspan="${cols}" class="rp-loading">${escHtml(text)}</td></tr>`;
+}
+
+let planControlsWired = false;
+function wirePlanControls() {
+    if (planControlsWired) return;
+    planControlsWired = true;
+    document.querySelectorAll('#demandFilters button').forEach(b => b.addEventListener('click', () => {
+        planFilter = b.dataset.demand;
+        document.querySelectorAll('#demandFilters button').forEach(x => x.classList.toggle('active', x === b));
+        predDisplayCount = PRED_PAGE_SIZE;
+        renderAllProducts();
+    }));
+    const search = document.getElementById('planSearch');
+    if (search) search.addEventListener('input', () => {
+        planSearch = search.value.trim().toLowerCase();
+        predDisplayCount = PRED_PAGE_SIZE;
+        renderAllProducts();
+    });
+    document.getElementById('predictionsTableBody').addEventListener('click', e => {
+        const row = e.target.closest('tr[data-id]');
+        if (row) openProductDetail(Number(row.dataset.id));
+    });
+    document.getElementById('reorderTableBody').addEventListener('click', e => {
+        const row = e.target.closest('tr[data-id]');
+        if (row) openProductDetail(Number(row.dataset.id));
+    });
+}
+
+/* ---------- Words ---------- */
+
+function planDate(s) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || ''));
+    if (!m) return '';
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+        .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function lastsText(p) {
+    if (p.stock <= 0) return 'None left';
+    if (p.days_left == null) return 'No recent sales';
+    if (p.days_left > 180) return 'Over 6 months';
+    if (p.days_left >= 60) return `About ${Math.round(p.days_left / 30)} months`;
+    if (p.days_left >= 14) return `About ${Math.round(p.days_left / 7)} weeks`;
+    return p.days_left === 1 ? '1 day' : `${p.days_left} days`;
+}
+
+/** Why a product is on the reorder list, in one plain sentence. */
+function reorderReason(p) {
+    if (p.stock_status === 'out') return `Nothing left; reorder level is ${formatQty(p.reorder_level)}`;
+    const below = p.stock <= p.reorder_level;
+    if (p.days_left != null && p.days_left <= plan.lead_time_days) {
+        return `Runs out in ${lastsText(p).toLowerCase()} — sooner than a delivery arrives`;
+    }
+    if (below) return `At or below its reorder level of ${formatQty(p.reorder_level)}`;
+    return `Runs out in ${lastsText(p).toLowerCase()}`;
+}
+
+function badge(status) {
+    const s = STOCK_LABEL[status] || STOCK_LABEL.ok;
+    return `<span class="rp-badge rp-badge-${s.tone}">${s.text}</span>`;
+}
+
+/* ---------- Rendering ---------- */
+
+function renderPlan() {
+    const t = plan.totals;
+    const stale = plan.days_since_last_sale != null && plan.days_since_last_sale > 7;
+
+    // Stale sales are the single most common reason this page looks empty, so
+    // say so in words instead of leaving a row of zeros to be puzzled over.
+    showNotice('planNotice', plan.last_sale_date == null
+        ? 'No sales have been recorded yet. Forecasts will appear once the shop starts recording sales.'
+        : stale
+            ? `The last sale on record was ${planDate(plan.last_sale_date)}, ${plan.days_since_last_sale} days ago. `
+              + 'Forecasts are based on recent sales, so they will stay low until new sales are recorded. Stock levels and reorder levels below are still current.'
+            : '');
+    document.getElementById('planCaption').textContent =
+        `Based on sales from the last ${plan.window_days} days. Forecasts cover the next ${plan.forecast_days} days.`
+        + (plan.last_sale_date && !stale ? ` Last sale recorded ${planDate(plan.last_sale_date)}.` : '');
+    const lead = document.getElementById('howLead');
+    if (lead) lead.textContent = plan.lead_time_days;
+
+    document.getElementById('kpiForecastUnits').textContent = formatNumber(t.expected_units) + (t.expected_units === 1 ? ' item' : ' items');
+    document.getElementById('kpiForecastRevenue').textContent = formatCurrency(t.expected_revenue);
+    document.getElementById('kpiToReorder').textContent = formatNumber(t.to_reorder);
+    document.getElementById('kpiToReorderNote').textContent = t.to_reorder
+        ? (t.out_of_stock ? `${t.out_of_stock} already out of stock` : `of ${t.products} products`)
+        : 'Nothing needs ordering';
+    document.getElementById('kpiAccuracy').textContent = t.accuracy != null ? formatDecimal(t.accuracy, 0) + '%' : 'Not available';
+    document.getElementById('kpiAccuracyNote').textContent = t.accuracy != null
+        ? 'How close the forecast came in a test on the last two weeks'
+        : 'Needs recent sales to test against';
+
+    renderReorder();
+    renderAllProducts();
+}
+
+function renderReorder() {
+    const tbody = document.getElementById('reorderTableBody');
+    const rows = plan.products.filter(p => p.stock_status !== 'ok');
+    if (!rows.length) {
+        setRow('reorderTableBody', 5, 'Nothing needs reordering right now.');
+        document.getElementById('reorderPagination').innerHTML = '';
+        return;
+    }
+    tbody.innerHTML = rows.slice(0, reorderDisplayCount).map(p => `
+        <tr data-id="${p.product_id}" tabindex="0">
+            <td><span class="rp-strong">${escHtml(p.name)}</span>${p.sku ? `<span class="rp-sub">${escHtml(p.sku)}</span>` : ''}</td>
+            <td>${badge(p.stock_status)}<span class="rp-sub">${escHtml(reorderReason(p))}</span></td>
+            <td class="num">${formatQty(p.stock)}</td>
+            <td class="num">${p.per_week > 0 ? formatDecimal(p.per_week, 1) : '—'}</td>
+            <td class="num rp-strong">${formatNumber(p.suggested_order)}</td>
+        </tr>`).join('');
+    updatePagination('reorderPagination', rows, reorderDisplayCount, 'showMoreReorder', 'showLessReorder', PRED_PAGE_SIZE);
+}
+
+function showMoreReorder() { reorderDisplayCount += PRED_PAGE_SIZE; renderReorder(); }
+function showLessReorder() { reorderDisplayCount = PRED_PAGE_SIZE; renderReorder(); }
+
+function renderAllProducts() {
+    const all = plan.products;
+    const count = d => all.filter(p => p.demand === d).length;
+    document.getElementById('countAll').textContent = all.length;
+    document.getElementById('countFast').textContent = count('fast');
+    document.getElementById('countSteady').textContent = count('steady');
+    document.getElementById('countSlow').textContent = count('slow');
+    document.getElementById('countNone').textContent = count('none');
+
+    const rows = all
+        .filter(p => planFilter === 'all' || p.demand === planFilter)
+        .filter(p => !planSearch || p.name.toLowerCase().includes(planSearch) || (p.sku || '').toLowerCase().includes(planSearch))
+        .sort((a, b) => b.expected_30d - a.expected_30d || b.sold_30d - a.sold_30d || a.name.localeCompare(b.name));
+
+    const tbody = document.getElementById('predictionsTableBody');
+    if (!rows.length) {
+        setRow('predictionsTableBody', 7, planSearch ? 'No products match that search.' : 'No products in this group.');
+        document.getElementById('predictionsPagination').innerHTML = '';
+        return;
+    }
+    tbody.innerHTML = rows.slice(0, predDisplayCount).map(p => `
+        <tr data-id="${p.product_id}" tabindex="0">
+            <td><span class="rp-strong">${escHtml(p.name)}</span>${p.sku ? `<span class="rp-sub">${escHtml(p.sku)}</span>` : ''}</td>
+            <td class="num">${formatQty(p.stock)}</td>
+            <td class="num">${p.sold_30d > 0 ? formatQty(p.sold_30d) : '—'}</td>
+            <td class="num">${p.expected_30d >= 0.5 ? formatNumber(Math.round(p.expected_30d)) : '—'}</td>
+            <td>${escHtml(lastsText(p))}</td>
+            <td>${p.expected_30d >= 0.5 ? TREND_LABEL[p.trend] || 'Steady' : '—'}</td>
+            <td>${badge(p.stock_status)}</td>
+        </tr>`).join('');
+    updatePagination('predictionsPagination', rows, predDisplayCount, 'showMorePredictions', 'showLessPredictions', PRED_PAGE_SIZE);
+}
+
+function showMorePredictions() { predDisplayCount += PRED_PAGE_SIZE; renderAllProducts(); }
+function showLessPredictions() { predDisplayCount = PRED_PAGE_SIZE; renderAllProducts(); }
+
+/* ---------- One product ---------- */
+
+async function openProductDetail(productId) {
+    const p = plan && plan.products.find(x => x.product_id === productId);
+    if (!p) return;
+    const card = document.getElementById('productDetail');
+    card.hidden = false;
+    document.getElementById('detailTitle').textContent = p.name;
+    document.getElementById('detailSub').textContent = p.sku ? `SKU ${p.sku}` : '';
+    document.getElementById('detailSummary').textContent = 'Loading forecast…';
+    if (forecastChart) { forecastChart.destroy(); forecastChart = null; }
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+    try {
+        const params = new URLSearchParams({ stock: Math.round(p.stock), reorder_level: p.reorder_level, lead_time: plan.lead_time_days });
+        const response = await fetch(`${PRED_API}/product/${encodeURIComponent(productId)}?${params}`, { headers: getAuthHeaders(), signal: controller.signal });
+        const data = await response.json();
+        if (!data.success) {
+            document.getElementById('detailSummary').textContent =
+                `${formatQty(p.stock)} in stock. This product has no sales on record yet, so there is nothing to forecast.`;
+            return;
+        }
+        document.getElementById('detailSummary').textContent = detailSentence(p);
+        renderForecastChart(data.data);
+    } catch (error) {
+        console.error('Error loading product forecast:', error);
+        document.getElementById('detailSummary').textContent = error.name === 'AbortError'
+            ? 'This forecast is taking longer than usual. Try again in a minute.'
+            : 'The forecast for this product could not be loaded.';
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+function detailSentence(p) {
+    const parts = [`${formatQty(p.stock)} in stock.`];
+    parts.push(p.expected_30d >= 0.5
+        ? `Expected to sell about ${formatNumber(Math.round(p.expected_30d))} in the next 30 days (around ${formatDecimal(p.per_week, 1)} a week).`
+        : 'Little or nothing is expected to sell in the next 30 days.');
+    if (p.stock > 0 && p.days_left != null) parts.push(`At that rate the stock lasts ${lastsText(p).toLowerCase()}.`);
+    if (p.stock_status !== 'ok') parts.push(`${STOCK_LABEL[p.stock_status].text}: suggested order ${formatNumber(p.suggested_order)}.`);
+    if (p.confidence && p.expected_30d >= 0.5) {
+        parts.push({ high: 'Sales have been regular, so this estimate is fairly reliable.',
+                     medium: 'Sales have been somewhat uneven, so treat this as a guide.',
+                     low: 'Sales have been irregular, so this is a rough estimate.' }[p.confidence]);
+    }
+    return parts.join(' ');
+}
+
+function closeProductDetail() {
+    document.getElementById('productDetail').hidden = true;
+    if (forecastChart) { forecastChart.destroy(); forecastChart = null; }
+}
+
+function renderForecastChart(data) {
+    const canvas = document.getElementById('demandForecastChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+    if (forecastChart) forecastChart.destroy();
+
+    const history = (data.historical_data || []).slice(-60);
+    const predicted = data.predictions || [];
+    const labels = [], actual = [], forecast = [], lower = [], upper = [];
+    const short = s => { const d = planDate(s); return d ? d.replace(/, \d{4}$/, '') : ''; };
+
+    history.forEach(h => { labels.push(short(h.date)); actual.push(Number(h.quantity) || 0); forecast.push(null); lower.push(null); upper.push(null); });
+    predicted.forEach(pt => {
+        labels.push(short(pt.date));
+        actual.push(null);
+        forecast.push(Number(pt.predicted_quantity) || 0);
+        lower.push(pt.lower_bound != null ? Number(pt.lower_bound) : null);
+        upper.push(pt.upper_bound != null ? Number(pt.upper_bound) : null);
+    });
+
+    const t = chartTheme();
+    const options = baseChartOptions(t);
+    options.interaction = { mode: 'index', intersect: false };
+    options.plugins.tooltip = {
+        filter: item => item.dataset.label !== 'range' && item.raw != null,
+        callbacks: { label: item => `${item.dataset.label}: ${formatDecimal(item.raw, 1)}` }
+    };
+    options.scales.x.ticks.maxTicksLimit = 10;
+    forecastChart = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                { label: 'range', data: upper, borderWidth: 0, pointRadius: 0, fill: false, tension: 0.25 },
+                { label: 'range', data: lower, borderWidth: 0, pointRadius: 0, fill: '-1', backgroundColor: t.barSoft + '55', tension: 0.25 },
+                { label: 'Sold', data: actual, borderColor: t.bar, borderWidth: 1.75, pointRadius: 0, tension: 0.2 },
+                { label: 'Forecast', data: forecast, borderColor: t.bar, borderWidth: 1.75, borderDash: [5, 4], pointRadius: 0, tension: 0.25 }
+            ]
+        },
+        options
+    });
+}
+
+/* ---------- Patterns ---------- */
+
+function renderPatterns(seasonality) {
+    if (typeof Chart === 'undefined') return;
+    const t = chartTheme();
+
+    const order = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const dow = [...(seasonality.day_of_week_patterns || [])].sort((a, b) => order.indexOf(a.day) - order.indexOf(b.day));
+    const dowCanvas = document.getElementById('dowTrendsChart');
+    if (dowChart) { dowChart.destroy(); dowChart = null; }
+    if (dowCanvas && dow.length) {
+        const values = dow.map(d => Number(d.avg_daily_sales) || 0);
+        const peak = Math.max(...values);
+        dowChart = new Chart(dowCanvas.getContext('2d'), {
+            type: 'bar',
+            data: { labels: dow.map(d => d.day), datasets: [{ label: 'Items per day', data: values, backgroundColor: values.map(v => v === peak ? t.bar : t.barSoft), borderRadius: 2, maxBarThickness: 44 }] },
+            options: baseChartOptions(t)
+        });
+    }
+
+    const months = seasonality.monthly_patterns || [];
+    const monthCanvas = document.getElementById('seasonalTrendsChart');
+    if (seasonalChart) { seasonalChart.destroy(); seasonalChart = null; }
+    if (monthCanvas && months.length) {
+        seasonalChart = new Chart(monthCanvas.getContext('2d'), {
+            type: 'bar',
+            data: { labels: months.map(m => m.month), datasets: [{ label: 'Items sold', data: months.map(m => Number(m.total_sales) || 0), backgroundColor: t.bar, borderRadius: 2, maxBarThickness: 44 }] },
+            options: baseChartOptions(t)
+        });
+    }
+}
+
+/* ---------- Export ---------- */
+
+function exportReorderCSV() {
+    const rows = plan ? plan.products.filter(p => p.stock_status !== 'ok') : [];
+    if (!rows.length) { showToast('Nothing needs reordering right now', 'warning'); return; }
+    const lines = [['Product', 'SKU', 'Status', 'Why', 'In stock', 'Reorder level', 'Sells per week', 'Suggested order'].map(csvCell).join(',')];
+    rows.forEach(p => lines.push([p.name, p.sku || '', STOCK_LABEL[p.stock_status].text, reorderReason(p),
+        p.stock, p.reorder_level, p.per_week, p.suggested_order].map(csvCell).join(',')));
+    downloadCSV(`reorder_list_${ymd(new Date())}.csv`, lines);
+    showToast('Reorder list exported', 'success');
+}

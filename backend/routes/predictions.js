@@ -327,7 +327,8 @@ router.get('/product/:id', authenticateToken, async (req, res) => {
             }
         });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[Predictions] request failed:', err.message);
+        res.status(500).json({ success: false, error: 'Could not load forecast data' });
     }
 });
 
@@ -453,7 +454,149 @@ router.get('/all', authenticateToken, async (req, res) => {
         }
         res.json(await rebuildAllPredictions());
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[Predictions] request failed:', err.message);
+        res.status(500).json({ success: false, error: 'Could not load forecast data' });
+    }
+});
+
+/* ---------- Stock planning overview ----------
+
+   Everything the Reports → Stock planning screen shows, decided in one place.
+   The page used to pull three endpoints and classify products itself, with
+   quartiles and thresholds that disagreed between cards (14 days in one, 30 in
+   another). The rules are now here, few, and written so they can be read out
+   loud to the shop owner:
+
+     Stock      out          nothing left
+                reorder_now  at or below its reorder level, or will run out
+                             before a new delivery could arrive (lead time)
+                reorder_soon will run out within three weeks
+                ok           otherwise
+     Demand     fast / steady / slow by expected sales, none when nothing sold
+                in the last 30 days and nothing is expected
+
+   The forecast itself is unchanged — it is still the scikit-learn ensemble
+   blended with the statistical baseline, read from the same cache as /all. */
+const LEAD_TIME_DAYS = 7;
+const REORDER_SOON_DAYS = 21;
+
+function confidenceWord(score) {
+    if (score == null) return null;
+    return score >= 70 ? 'high' : score >= 45 ? 'medium' : 'low';
+}
+
+/** Pure: (active products, forecast rows, units sold per product in 30 days) → rows for the page. */
+function planStock(products, forecasts, sold30) {
+    const byId = new Map(forecasts.map(f => [Number(f.product_id), f]));
+    const rows = products.map(p => {
+        const id = Number(p.id);
+        const f = byId.get(id);
+        const stock = Number(p.stock_quantity) || 0;
+        const reorderLevel = Number(p.reorder_level) || 0;
+        const expected = f ? Number(f.next_month_prediction) || 0 : 0;
+        const daily = expected / FORECAST_DAYS;
+        const daysLeft = daily > 0 ? Math.floor(stock / daily) : null;
+        const sold = Number(sold30.get(id)) || 0;
+
+        let stockStatus = 'ok';
+        if (stock <= 0) stockStatus = 'out';
+        else if (stock <= reorderLevel || (daysLeft !== null && daysLeft <= LEAD_TIME_DAYS)) stockStatus = 'reorder_now';
+        else if (daysLeft !== null && daysLeft <= REORDER_SOON_DAYS) stockStatus = 'reorder_soon';
+
+        // Enough for the coming month plus the wait for delivery, and never
+        // less than what brings the shelf back to twice its reorder level.
+        const suggested = stockStatus === 'ok' ? 0
+            : Math.max(0, Math.ceil(Math.max(expected + daily * LEAD_TIME_DAYS - stock, reorderLevel * 2 - stock)));
+
+        return {
+            product_id: id,
+            name: p.name,
+            sku: p.sku || null,
+            unit_price: Number(p.unit_price) || 0,
+            stock,
+            reorder_level: reorderLevel,
+            sold_30d: sold,
+            expected_30d: Math.round(expected * 10) / 10,
+            per_week: Math.round(daily * 7 * 10) / 10,
+            days_left: daysLeft,
+            stock_status: stockStatus,
+            suggested_order: suggested,
+            demand: 'none',
+            trend: f ? f.trend : 'stable',
+            confidence: f ? confidenceWord(f.confidence_score) : null
+        };
+    });
+
+    // Fast / slow are relative to the shop's own range: top and bottom quarter
+    // of the products that are actually expected to sell.
+    const selling = rows.filter(r => r.expected_30d >= 0.5).map(r => r.expected_30d).sort((a, b) => a - b);
+    const at = f => selling.length ? selling[Math.min(selling.length - 1, Math.floor(selling.length * f))] : 0;
+    const fastFrom = at(0.75), slowUpTo = at(0.25);
+    rows.forEach(r => {
+        if (r.expected_30d < 0.5) r.demand = r.sold_30d > 0 ? 'slow' : 'none';
+        else if (selling.length >= 4 && r.expected_30d >= fastFrom) r.demand = 'fast';
+        else if (selling.length >= 4 && r.expected_30d <= slowUpTo) r.demand = 'slow';
+        else r.demand = 'steady';
+    });
+
+    const urgency = { out: 0, reorder_now: 1, reorder_soon: 2, ok: 3 };
+    rows.sort((a, b) => urgency[a.stock_status] - urgency[b.stock_status]
+        || (a.days_left ?? 9999) - (b.days_left ?? 9999)
+        || b.expected_30d - a.expected_30d
+        || a.name.localeCompare(b.name));
+    return rows;
+}
+
+router.get('/overview', authenticateToken, async (req, res) => {
+    try {
+        // Serve a cached forecast when there is one (refreshing it behind the
+        // reply if it has expired); stock levels below are always read live.
+        let all = allCache.payload;
+        if (!all) all = await rebuildAllPredictions();
+        else if (Date.now() - allCache.at >= ALL_TTL_MS) rebuildAllPredictions().catch(() => {});
+
+        const [products] = await pool.query(`
+            SELECT id, name, sku, unit_price, stock_quantity, reorder_level
+            FROM products WHERE is_active = TRUE`);
+        const [soldRows] = await pool.query(`
+            SELECT si.product_id, SUM(si.quantity) AS qty
+            FROM sale_items si JOIN sales s ON si.sale_id = s.id
+            WHERE s.payment_status = 'completed'
+              AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            GROUP BY si.product_id`);
+        const [lastRows] = await pool.query(`
+            SELECT DATE_FORMAT(CONVERT_TZ(MAX(created_at),'+00:00','+08:00'), '%Y-%m-%d') AS last_sale,
+                   DATEDIFF(DATE(CONVERT_TZ(NOW(),'+00:00','+08:00')),
+                            DATE(CONVERT_TZ(MAX(created_at),'+00:00','+08:00'))) AS days_since
+            FROM sales WHERE payment_status = 'completed'`);
+
+        const sold30 = new Map(soldRows.map(r => [Number(r.product_id), Number(r.qty)]));
+        const rows = planStock(products, all.data.predictions, sold30);
+        const needOrder = rows.filter(r => r.stock_status !== 'ok');
+
+        res.json({
+            success: true,
+            data: {
+                window_days: HISTORY_WINDOW_DAYS,
+                forecast_days: FORECAST_DAYS,
+                lead_time_days: LEAD_TIME_DAYS,
+                last_sale_date: lastRows[0].last_sale || null,
+                days_since_last_sale: lastRows[0].days_since == null ? null : Number(lastRows[0].days_since),
+                totals: {
+                    products: rows.length,
+                    expected_units: Math.round(rows.reduce((a, r) => a + r.expected_30d, 0)),
+                    expected_revenue: Math.round(rows.reduce((a, r) => a + r.expected_30d * r.unit_price, 0) * 100) / 100,
+                    to_reorder: needOrder.length,
+                    out_of_stock: rows.filter(r => r.stock_status === 'out').length,
+                    accuracy: all.data.overall_accuracy,
+                    accuracy_products: all.data.backtested_products
+                },
+                products: rows
+            }
+        });
+    } catch (err) {
+        console.error('[Predictions] overview failed:', err.message);
+        res.status(500).json({ success: false, error: 'Could not load stock planning data' });
     }
 });
 
@@ -523,7 +666,8 @@ router.get('/summary', authenticateToken, async (req, res) => {
 
         res.json({ success: true, data: { seasonal_trends, reorder_recommendations: recommendations.slice(0, 20) } });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[Predictions] request failed:', err.message);
+        res.status(500).json({ success: false, error: 'Could not load forecast data' });
     }
 });
 
@@ -591,12 +735,13 @@ router.get('/trends', authenticateToken, async (req, res) => {
             data: { product_id: req.query.product_id || null, seasonality: { monthly_patterns, day_of_week_patterns, seasonal_peaks }, trend_summary }
         });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[Predictions] request failed:', err.message);
+        res.status(500).json({ success: false, error: 'Could not load forecast data' });
     }
 });
 
 // exposed for offline evaluation scripts / tests
-router._internals = { forecastSeries, backtestAccuracy, buildDailySeries, winsorize };
+router._internals = { forecastSeries, backtestAccuracy, buildDailySeries, winsorize, planStock };
 // server.js warms this on boot and on a timer so Analytics opens instantly
 router.warmAllPredictions = warmAllPredictions;
 

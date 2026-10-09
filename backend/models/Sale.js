@@ -438,7 +438,10 @@ class Sale {
                 // item_count comes from a correlated subquery, NOT a join:
                 // joining sale_items repeats each sale once per line, which
                 // multiplies COUNT(*) and SUM(total_amount) by the basket size.
-                sql = `SELECT DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00')) as date,
+                // The day is returned as plain 'YYYY-MM-DD' text. A DATE column
+                // comes back as a JS Date at the server's midnight, which a
+                // browser in another timezone can read as the day before.
+                sql = `SELECT DATE_FORMAT(CONVERT_TZ(s.created_at,'+00:00','+08:00'), '%Y-%m-%d') as date,
                               COUNT(*) as total_sales,
                               SUM(s.final_amount) as total_amount,
                               COALESCE(SUM((SELECT SUM(si.quantity)
@@ -446,7 +449,7 @@ class Sale {
                                             WHERE si.sale_id = s.id)), 0) as item_count
                        FROM sales s
                        ${dateFilter}
-                       GROUP BY DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00'))
+                       GROUP BY DATE_FORMAT(CONVERT_TZ(s.created_at,'+00:00','+08:00'), '%Y-%m-%d')
                        ORDER BY date DESC`;
                 params.push(...dateParams);
                 topSql = `SELECT p.name, SUM(si.quantity) as quantity
@@ -462,8 +465,13 @@ class Sale {
                 sql = `SELECT ANY_VALUE(CONCAT(YEAR(CONVERT_TZ(s.created_at,'+00:00','+08:00')), '-W', LPAD(WEEK(CONVERT_TZ(s.created_at,'+00:00','+08:00')), 2, '0'))) as week,
                               YEAR(CONVERT_TZ(s.created_at,'+00:00','+08:00')) as year,
                               WEEK(CONVERT_TZ(s.created_at,'+00:00','+08:00')) as week_number,
+                              DATE_FORMAT(MIN(CONVERT_TZ(s.created_at,'+00:00','+08:00')), '%Y-%m-%d') as first_day,
+                              DATE_FORMAT(MAX(CONVERT_TZ(s.created_at,'+00:00','+08:00')), '%Y-%m-%d') as last_day,
                               COUNT(*) as total_sales,
-                              SUM(s.final_amount) as total_amount
+                              SUM(s.final_amount) as total_amount,
+                              COALESCE(SUM((SELECT SUM(si.quantity)
+                                            FROM sale_items si
+                                            WHERE si.sale_id = s.id)), 0) as item_count
                        FROM sales s
                        ${dateFilter}
                        GROUP BY YEAR(CONVERT_TZ(s.created_at,'+00:00','+08:00')), WEEK(CONVERT_TZ(s.created_at,'+00:00','+08:00'))
@@ -484,7 +492,10 @@ class Sale {
                               YEAR(CONVERT_TZ(s.created_at,'+00:00','+08:00')) as year,
                               MONTH(CONVERT_TZ(s.created_at,'+00:00','+08:00')) as month_number,
                               COUNT(*) as total_transactions,
-                              SUM(s.final_amount) as total_amount
+                              SUM(s.final_amount) as total_amount,
+                              COALESCE(SUM((SELECT SUM(si.quantity)
+                                            FROM sale_items si
+                                            WHERE si.sale_id = s.id)), 0) as item_count
                        FROM sales s
                        ${dateFilter}
                        GROUP BY YEAR(CONVERT_TZ(s.created_at,'+00:00','+08:00')), MONTH(CONVERT_TZ(s.created_at,'+00:00','+08:00'))

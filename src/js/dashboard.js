@@ -316,7 +316,7 @@ function advancePO(id, nextStatus, poNumber) {
     if (nextStatus === 'received') {
         const today = new Date().toISOString().slice(0, 10);
         showPromptDialog(
-            `Receive ${poNumber}`,
+            `Receive ${escHtml(poNumber)}`,
             'Stock will be added. Enter the new batch\'s expiration date (leave blank to keep the current date):',
             (dateVal) => sendPOAdvance(id, 'received', poNumber, dateVal),
             'Mark Received',
@@ -443,11 +443,15 @@ function chartTheme() {
     return {
         text: css.getPropertyValue('--text-muted').trim() || '#8A94A8',
         grid: css.getPropertyValue('--border-subtle').trim() || '#F0F3F8',
-        card: css.getPropertyValue('--bg-card').trim() || '#FFFFFF'
+        card: css.getPropertyValue('--bg-card').trim() || '#FFFFFF',
+        line: css.getPropertyValue('--chart-1').trim() || '#2A63AD',
+        fill: (css.getPropertyValue('--chart-1-soft').trim() || '#BCCCE4') + '40'
     };
 }
 
-const CHART_PALETTE = ['#F1867B', '#61B6E7', '#F3B950', '#57BE8C', '#9F86DC', '#94A3B8', '#E88BB5', '#6BC6BD'];
+// Categories need distinct hues, but muted ones: the chart should not
+// out-shout the figures beside it.
+const CHART_PALETTE = ['#2A63AD', '#7FA3D4', '#B9853A', '#4C8A6B', '#8A7AA8', '#9AA3AE', '#B5696A', '#5E9AA0'];
 
 async function loadCharts() {
     try {
@@ -476,9 +480,6 @@ function renderSalesTrendChart(data) {
         return isNaN(dt.getTime()) ? (d.label || '') : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     });
     const values = items.map(d => parseFloat(d.daily_total || d.total_amount || d.total || d.value || 0));
-    const gradient = ctx.createLinearGradient(0, 0, 0, 260);
-    gradient.addColorStop(0, 'rgba(238, 106, 95, 0.22)');
-    gradient.addColorStop(1, 'rgba(238, 106, 95, 0)');
     salesChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
@@ -486,14 +487,14 @@ function renderSalesTrendChart(data) {
             datasets: [{
                 label: 'Revenue (₱)',
                 data: values.length ? values : [0],
-                borderColor: '#EE6A5F',
-                backgroundColor: gradient,
+                borderColor: theme.line,
+                backgroundColor: theme.fill,
                 fill: true,
-                tension: 0.42,
-                borderWidth: 2.5,
+                tension: 0.2,
+                borderWidth: 1.75,
                 pointRadius: 0,
-                pointHoverRadius: 5,
-                pointBackgroundColor: '#EE6A5F',
+                pointHoverRadius: 4,
+                pointBackgroundColor: theme.line,
                 pointBorderColor: theme.card,
                 pointBorderWidth: 2
             }]
@@ -592,15 +593,15 @@ async function loadExpirationRisk() {
             grid.innerHTML = `
                 <div class="expiry-radar-card critical" onclick="showExpirationProducts('critical')">
                     <div class="radar-num">${data.data.critical.count}</div>
-                    <div class="radar-label">Critical ≤30d</div>
+                    <div class="radar-label">Within 30 days</div>
                 </div>
                 <div class="expiry-radar-card warning" onclick="showExpirationProducts('warning')">
                     <div class="radar-num">${data.data.warning.count}</div>
-                    <div class="radar-label">Warning 31-60d</div>
+                    <div class="radar-label">In 31 to 60 days</div>
                 </div>
                 <div class="expiry-radar-card notice" onclick="showExpirationProducts('notice')">
                     <div class="radar-num">${data.data.notice.count}</div>
-                    <div class="radar-label">Notice 61-90d</div>
+                    <div class="radar-label">In 61 to 90 days</div>
                 </div>
             `;
             const productList = document.getElementById('expiryProductList');
@@ -660,7 +661,7 @@ async function autoReorderDashboard() {
 function showExpirationProducts(riskLevel) {
     if (!expirationData || !expirationData[riskLevel]) return;
     const group = expirationData[riskLevel];
-    const labels = { critical: 'Critical (≤30 days)', warning: 'Warning (31–60 days)', notice: 'Notice (61–90 days)' };
+    const labels = { critical: 'Expiring within 30 days', warning: 'Expiring in 31 to 60 days', notice: 'Expiring in 61 to 90 days' };
     document.getElementById('expirationModalTitle').innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">schedule</span> ' + labels[riskLevel] + ' (' + group.count + ' product(s))';
     const body = document.getElementById('expirationModalBody');
     if (!group.products.length) {

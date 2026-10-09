@@ -218,7 +218,7 @@ function renderProducts(products) {
         return `<div class="pos-product-card" onclick="addToCart(${p.id})" title="${escHtml(p.name)}">
             <div class="p-img">${p.image_url ? `<img class="p-img-photo" src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.remove()">` : ''}<span class="material-symbols-outlined" style="font-size:22px;">${icon}</span></div>
             <div class="p-name">${escHtml(p.name)}</div>
-            <div class="p-price">₱${parseFloat(p.unit_price || 0).toFixed(2)}</div>
+            <div class="p-price">${formatCurrency(parseFloat(p.unit_price || 0))}</div>
             <div class="p-stock ${stockClass}">${stockText}</div>
         </div>`;
     }).join('');
@@ -430,14 +430,14 @@ function renderCart() {
         return `<div class="pos-cart-item">
             <div class="pos-ci-info">
                 <div class="pos-ci-name">${escHtml(item.product_name)}</div>
-                <div class="pos-ci-meta">₱${item.unit_price.toFixed(2)} / ${ul}</div>
+                <div class="pos-ci-meta">${formatCurrency(item.unit_price)} / ${ul}</div>
             </div>
             <div class="pos-ci-qty">
                 <button onclick="updateCartQty(${idx}, -1)" title="Decrease"><span class="material-symbols-outlined" style="font-size:14px;">remove</span></button>
                 <input type="number" class="qty-val" value="${item.quantity}" min="0" step="${getQtyStep(item.unit_type)}" onchange="setCartQty(${idx}, this.value)" onclick="this.select()">
                 <button onclick="updateCartQty(${idx}, 1)" title="Increase"><span class="material-symbols-outlined" style="font-size:14px;">add</span></button>
             </div>
-            <div class="pos-ci-total">₱${item.total_price.toFixed(2)}</div>
+            <div class="pos-ci-total">${formatCurrency(item.total_price)}</div>
             <button class="pos-ci-remove" onclick="removeFromCart(${idx})" title="Remove"><span class="material-symbols-outlined">close</span></button>
         </div>`;
     }).join('');
@@ -467,11 +467,11 @@ function updateCartTotals() {
     const discPct = getDiscountPercent();
     const discAmt = subtotal * (discPct / 100);
     const total = subtotal - discAmt;
-    document.getElementById('posSubtotal').textContent = '₱' + subtotal.toFixed(2);
-    document.getElementById('posDiscountAmount').textContent = '-₱' + discAmt.toFixed(2);
-    document.getElementById('posTotal').textContent = '₱' + total.toFixed(2);
+    document.getElementById('posSubtotal').textContent = formatCurrency(subtotal);
+    document.getElementById('posDiscountAmount').textContent = '-' + formatCurrency(discAmt);
+    document.getElementById('posTotal').textContent = formatCurrency(total);
     const payTotal = document.getElementById('posPayTotal');
-    if (payTotal) payTotal.textContent = '₱' + total.toFixed(2);
+    if (payTotal) payTotal.textContent = formatCurrency(total);
     updateChange();
 }
 
@@ -493,7 +493,7 @@ function updateChange() {
         changeRow.classList.remove('insufficient', 'sufficient');
         return;
     }
-    changeEl.textContent = (change < 0 ? '-₱' : '₱') + Math.abs(change).toFixed(2);
+    changeEl.textContent = (change < 0 ? '-' : '') + formatCurrency(Math.abs(change));
     changeRow.classList.toggle('insufficient', change < 0);
     changeRow.classList.toggle('sufficient', change >= 0);
 }
@@ -525,12 +525,12 @@ async function completeSale() {
     const change = tendered - total;
     const msg = `<div style="text-align:left;font-size:13px;line-height:1.7;">
         <div style="margin-bottom:10px;"><strong>Items:</strong><br>${itemSummary}</div>
-        <div><strong>Subtotal:</strong> ₱${subtotal.toFixed(2)}</div>
-        ${discount > 0 ? `<div><strong>Discount:</strong> ${discount}% (-₱${discAmt.toFixed(2)})</div>` : ''}
-        <div style="font-size:16px;font-weight:800;margin-top:6px;padding-top:8px;border-top:2px solid var(--border-glass);"><strong>Total:</strong> ₱${total.toFixed(2)}</div>
+        <div><strong>Subtotal:</strong> ${formatCurrency(subtotal)}</div>
+        ${discount > 0 ? `<div><strong>Discount:</strong> ${discount}% (-${formatCurrency(discAmt)})</div>` : ''}
+        <div style="font-size:16px;font-weight:800;margin-top:6px;padding-top:8px;border-top:2px solid var(--border-glass);"><strong>Total:</strong> ${formatCurrency(total)}</div>
         <div style="margin-top:6px;"><strong>Payment:</strong> CASH</div>
-        <div><strong>Cash received:</strong> ₱${tendered.toFixed(2)}</div>
-        <div><strong>Change:</strong> <span style="font-weight:800;color:var(--success);">₱${change.toFixed(2)}</span></div>
+        <div><strong>Cash received:</strong> ${formatCurrency(tendered)}</div>
+        <div><strong>Change:</strong> <span style="font-weight:800;color:var(--success);">${formatCurrency(change)}</span></div>
         <div><strong>Customer:</strong> ${escHtml(customer)}</div>
     </div>`;
     showConfirmDialog('Confirm Cash Sale', msg, async () => {
@@ -597,7 +597,7 @@ async function printReceipt(saleId, tendered, change) {
 
         const itemsHTML = (sale.items || []).map(item => {
             const ul = getUnitLabel(item.unit_type);
-            return `<tr><td style="padding:3px 4px;border-bottom:1px dashed #ccc;">${item.product_name}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:center;">${parseFloat(item.quantity)}${ul}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.unit_price).toFixed(2)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.subtotal || item.quantity * item.unit_price).toFixed(2)}</td></tr>`;
+            return `<tr><td style="padding:3px 4px;border-bottom:1px dashed #ccc;">${escHtml(item.product_name)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:center;">${parseFloat(item.quantity)}${ul}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">${formatCurrency(parseFloat(item.unit_price))}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">${formatCurrency(parseFloat(item.subtotal || item.quantity * item.unit_price))}</td></tr>`;
         }).join('');
         const total = parseFloat(sale.total_amount || 0).toFixed(2);
         const disc = parseFloat(sale.discount_percent || 0).toFixed(2);
@@ -628,9 +628,9 @@ async function printReceipt(saleId, tendered, change) {
                 <div style="text-align:left;font-size:11px;line-height:1.6;">
                     <div>Receipt #: <strong>${String(sale.sale_number || sale.id).padStart(6, '0')}</strong></div>
                     <div>Date: ${date}</div>
-                    <div>Cashier: ${sale.staff_name || 'N/A'}</div>
-                    <div>Customer: ${sale.customer_name || 'Walk-in'}${sale.customer_phone ? ' (' + sale.customer_phone + ')' : ''}</div>
-                    <div>Payment: ${(sale.payment_method || 'cash').toUpperCase()}</div>
+                    <div>Cashier: ${escHtml(sale.staff_name || 'N/A')}</div>
+                    <div>Customer: ${escHtml(sale.customer_name || 'Walk-in')}${sale.customer_phone ? ' (' + escHtml(sale.customer_phone) + ')' : ''}</div>
+                    <div>Payment: ${escHtml((sale.payment_method || 'cash').toUpperCase())}</div>
                 </div>
                 <hr>
                 <table>
@@ -639,11 +639,11 @@ async function printReceipt(saleId, tendered, change) {
                 </table>
                 <hr>
                 <div class="total-row"><span>Subtotal:</span><span>₱${subtotal}</span></div>
-                ${disc > 0 ? `<div class="total-row"><span>Discount (${disc}%):</span><span>-₱${(parseFloat(subtotal) * disc / 100).toFixed(2)}</span></div>` : ''}
+                ${disc > 0 ? `<div class="total-row"><span>Discount (${disc}%):</span><span>-${formatCurrency((parseFloat(subtotal) * disc / 100))}</span></div>` : ''}
                 <div class="grand-total">TOTAL: ₱${total}</div>
                 <div class="footer">
-                    <div>Payment: ${(sale.payment_method || 'cash').toUpperCase()}</div>
-                    ${typeof tendered === 'number' && tendered > 0 ? `<div>Cash: ₱${tendered.toFixed(2)}</div><div>Change: ₱${(change || 0).toFixed(2)}</div>` : ''}
+                    <div>Payment: ${escHtml((sale.payment_method || 'cash').toUpperCase())}</div>
+                    ${typeof tendered === 'number' && tendered > 0 ? `<div>Cash: ${formatCurrency(tendered)}</div><div>Change: ${formatCurrency((change || 0))}</div>` : ''}
                     <div style="margin-top:8px;">Thank you for your purchase!</div>
                     <div style="margin-top:4px;">Items are non-returnable</div>
                     <div class="barcode">${String(sale.sale_number || sale.id).padStart(6, '0')}</div>
@@ -707,7 +707,7 @@ function setupAutocomplete() {
                   onclick="addToCart(${p.id});document.getElementById('posSearchSuggest').style.display='none'">
                 <span style="font-size:18px;">${p.category?.toLowerCase().includes('food') ? '🍖' : p.category?.toLowerCase().includes('toy') ? '🧸' : '📦'}</span>
                 <span style="flex:1;font-weight:600;">${escHtml(p.name)}</span>
-                <span style="font-weight:700;color:var(--nav-text-active);">₱${parseFloat(p.unit_price || 0).toFixed(2)}</span>
+                <span style="font-weight:700;color:var(--nav-text-active);">${formatCurrency(parseFloat(p.unit_price || 0))}</span>
             </div>`
         ).join('');
         suggest.style.display = 'block';

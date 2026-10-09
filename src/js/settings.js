@@ -25,17 +25,18 @@ document.addEventListener('DOMContentLoaded', function () {
 // balanced. Values are stored resolved in localStorage so the early inline
 // script on every page can apply them before first paint (no colour flash).
 var ACCENTS = [
-    { key: 'coral',   name: 'Coral',   primary: '#EE6A5F', dark: '#E14C42', light: '#FFA79E', gradA: '#F88070', gradB: '#E5504A' },
-    { key: 'blue',    name: 'Blue',    primary: '#3B82F6', dark: '#2563EB', light: '#93C5FD', gradA: '#60A5FA', gradB: '#2563EB' },
-    { key: 'indigo',  name: 'Indigo',  primary: '#6366F1', dark: '#4F46E5', light: '#A5B4FC', gradA: '#818CF8', gradB: '#4F46E5' },
-    { key: 'violet',  name: 'Violet',  primary: '#8B5CF6', dark: '#7C3AED', light: '#C4B5FD', gradA: '#A78BFA', gradB: '#7C3AED' },
-    { key: 'emerald', name: 'Emerald', primary: '#10B981', dark: '#059669', light: '#6EE7B7', gradA: '#34D399', gradB: '#059669' },
-    { key: 'teal',    name: 'Teal',    primary: '#14B8A6', dark: '#0D9488', light: '#5EEAD4', gradA: '#2DD4BF', gradB: '#0D9488' },
-    { key: 'amber',   name: 'Amber',   primary: '#F59E0B', dark: '#D97706', light: '#FCD34D', gradA: '#FBBF24', gradB: '#D97706' },
-    { key: 'rose',    name: 'Rose',    primary: '#F43F5E', dark: '#E11D48', light: '#FDA4AF', gradA: '#FB7185', gradB: '#E11D48' }
+    // 'default' carries no values: it clears any override so the stylesheet's
+    // own accent applies, including its lighter dark-mode variant.
+    { key: 'default', name: 'Blue',   primary: '#1F5FAE' },
+    { key: 'slate',   name: 'Slate',  primary: '#3E4957' },
+    { key: 'teal',    name: 'Teal',   primary: '#0F6B6B' },
+    { key: 'green',   name: 'Green',  primary: '#1F7A4D' },
+    { key: 'plum',    name: 'Plum',   primary: '#6A4A86' },
+    { key: 'brick',   name: 'Brick',  primary: '#AE4430' }
 ];
-var DEFAULT_ACCENT = 'coral';
+var DEFAULT_ACCENT = 'default';
 var DEFAULT_SCALE = '1';
+var ACCENT_PROPS = ['--primary', '--primary-dark', '--primary-light', '--primary-bg', '--primary-glow', '--chart-1', '--chart-1-soft'];
 
 function hexToRgba(hex, alpha) {
     var h = hex.replace('#', '');
@@ -45,31 +46,39 @@ function hexToRgba(hex, alpha) {
     return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
 }
 
-function accentVars(a) {
+function accentVars(hex) {
     return {
-        '--primary': a.primary,
-        '--primary-dark': a.dark,
-        '--primary-light': a.light,
-        '--primary-bg': hexToRgba(a.primary, 0.10),
-        '--primary-glow': hexToRgba(a.primary, 0.24),
-        '--primary-gradient': 'linear-gradient(135deg, ' + a.gradA + ', ' + a.gradB + ')',
-        // subtle full-page background tint in the accent colour
-        '--accent-wash': hexToRgba(a.primary, 0.07)
+        '--primary': hex,
+        '--primary-dark': mix(hex, '#000000', 0.2),
+        '--primary-light': mix(hex, '#ffffff', 0.5),
+        '--primary-bg': hexToRgba(hex, 0.08),
+        '--primary-glow': hexToRgba(hex, 0.22),
+        '--chart-1': hex,
+        '--chart-1-soft': mix(hex, '#ffffff', 0.68)
     };
+}
+
+function clearAccent(persist) {
+    ACCENT_PROPS.forEach(function (k) { document.documentElement.style.removeProperty(k); });
+    if (persist) localStorage.removeItem('accentVars2');
 }
 
 function applyAccent(key, persist) {
     var a = ACCENTS.filter(function (x) { return x.key === key; })[0] || ACCENTS[0];
-    var vars = accentVars(a);
-    for (var k in vars) document.documentElement.style.setProperty(k, vars[k]);
-    if (persist) {
-        localStorage.setItem('accentName', a.key);
-        localStorage.setItem('accentVars', JSON.stringify(vars));
+    if (a.key === DEFAULT_ACCENT) {
+        clearAccent(persist);
+    } else {
+        var vars = accentVars(a.primary);
+        for (var k in vars) document.documentElement.style.setProperty(k, vars[k]);
+        if (persist) localStorage.setItem('accentVars2', JSON.stringify(vars));
     }
+    if (persist) localStorage.setItem('accentName2', a.key);
     // reflect selection in the swatch grid
     document.querySelectorAll('.accent-swatch').forEach(function (el) {
         el.classList.toggle('active', el.dataset.key === a.key);
     });
+    var picker = document.getElementById('accentPicker');
+    if (picker) picker.classList.remove('active');
 }
 
 function applyTextScale(scale, persist) {
@@ -88,19 +97,13 @@ function mix(hex1, hex2, t) {
 }
 
 function applyCustomAccent(hex, persist) {
-    var a = {
-        key: 'custom', primary: hex,
-        dark: mix(hex, '#000000', 0.18),
-        light: mix(hex, '#ffffff', 0.42),
-        gradA: mix(hex, '#ffffff', 0.10),
-        gradB: mix(hex, '#000000', 0.10)
-    };
-    var vars = accentVars(a);
+    if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return;
+    var vars = accentVars(hex);
     for (var k in vars) document.documentElement.style.setProperty(k, vars[k]);
     if (persist) {
-        localStorage.setItem('accentName', 'custom');
-        localStorage.setItem('accentCustom', hex);
-        localStorage.setItem('accentVars', JSON.stringify(vars));
+        localStorage.setItem('accentName2', 'custom');
+        localStorage.setItem('accentCustom2', hex);
+        localStorage.setItem('accentVars2', JSON.stringify(vars));
     }
     document.querySelectorAll('.accent-swatch').forEach(function (el) { el.classList.remove('active'); });
     var picker = document.getElementById('accentPicker');
@@ -122,18 +125,20 @@ function applyThemeMode(mode, persist) {
 
 /* --- UI font family --- */
 var FONTS = {
-    sans: { '--font-sans': "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", '--font-display': "'Plus Jakarta Sans', 'Nunito', 'Inter', sans-serif" },
-    serif: { '--font-sans': "Georgia, 'Iowan Old Style', 'Times New Roman', serif", '--font-display': "Georgia, 'Iowan Old Style', 'Times New Roman', serif" },
-    mono: { '--font-sans': "'SF Mono', 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace", '--font-display': "'SF Mono', 'JetBrains Mono', 'Fira Code', Menlo, monospace" }
+    sans: null,   // the stylesheet's own typeface — no override stored
+    serif: { '--font-sans': "Georgia, 'Iowan Old Style', 'Times New Roman', serif" },
+    mono: { '--font-sans': "ui-monospace, 'SF Mono', Menlo, Consolas, monospace" }
 };
 function applyFont(name, persist) {
-    var f = FONTS[name] || FONTS.sans;
-    for (var k in f) document.documentElement.style.setProperty(k, f[k]);
+    var f = FONTS[name] || null;
+    if (f) for (var k in f) document.documentElement.style.setProperty(k, f[k]);
+    else document.documentElement.style.removeProperty('--font-sans');
     if (persist) {
-        localStorage.setItem('uiFont', name);
-        localStorage.setItem('fontVars', JSON.stringify(f));
+        localStorage.setItem('uiFont2', f ? name : 'sans');
+        if (f) localStorage.setItem('fontVars2', JSON.stringify(f));
+        else localStorage.removeItem('fontVars2');
     }
-    reflectSeg('fontSeg', 'font', name);
+    reflectSeg('fontSeg', 'font', f ? name : 'sans');
 }
 
 function reflectSeg(segId, attr, value) {
@@ -150,23 +155,14 @@ var appearanceDirty = false;
 
 function loadSavedAppearance() {
     return {
-        accentName: localStorage.getItem('accentName') || DEFAULT_ACCENT,
-        accentCustom: localStorage.getItem('accentCustom') || null,
-        uiFont: localStorage.getItem('uiFont') || 'sans',
+        accentName: localStorage.getItem('accentName2') || DEFAULT_ACCENT,
+        accentCustom: localStorage.getItem('accentCustom2') || null,
+        uiFont: localStorage.getItem('uiFont2') || 'sans',
         textScale: localStorage.getItem('textScale') || DEFAULT_SCALE,
-        theme: localStorage.getItem('theme') || 'system',
-        backdrop: localStorage.getItem('ambientBackdrop') === 'off' ? 'off' : 'on'
+        theme: localStorage.getItem('theme') || 'system'
     };
 }
 
-// The WebGL ambient backdrop. Persisting is deferred to Save, like the rest
-// of this panel, so previewing it costs nothing.
-function applyBackdrop(mode, persist) {
-    var on = mode !== 'off';
-    if (typeof setAmbientBackdrop === 'function') setAmbientBackdrop(on, !!persist);
-    else if (persist) localStorage.setItem('ambientBackdrop', on ? 'on' : 'off');
-    reflectSeg('backdropSeg', 'backdrop', on ? 'on' : 'off');
-}
 // Apply a whole appearance state live; persist=true writes it to localStorage.
 function applyAppearanceState(s, persist) {
     if (s.accentName === 'custom' && s.accentCustom) applyCustomAccent(s.accentCustom, persist);
@@ -174,7 +170,6 @@ function applyAppearanceState(s, persist) {
     applyFont(s.uiFont, persist);
     applyTextScale(s.textScale, persist);
     applyThemeMode(s.theme, persist);
-    applyBackdrop(s.backdrop, persist);
 }
 function markAppearanceDirty(on) {
     appearanceDirty = on;
@@ -211,7 +206,7 @@ function setupAppearance() {
     if (grid) {
         grid.innerHTML = ACCENTS.map(function (a) {
             return '<button type="button" class="accent-swatch" data-key="' + a.key + '" title="' + a.name +
-                '" style="background:linear-gradient(135deg,' + a.gradA + ',' + a.gradB + ');"></button>';
+                '" style="background:' + a.primary + ';"></button>';
         }).join('');
         grid.querySelectorAll('.accent-swatch').forEach(function (el) {
             el.addEventListener('click', function () {
@@ -251,21 +246,11 @@ function setupAppearance() {
         });
     });
 
-    // animated backdrop
-    var bdSeg = document.getElementById('backdropSeg');
-    if (bdSeg) bdSeg.querySelectorAll('.seg-btn').forEach(function (el) {
-        el.addEventListener('click', function () {
-            pendingAppearance.backdrop = el.dataset.backdrop;
-            applyBackdrop(el.dataset.backdrop, false);
-            markAppearanceDirty(true);
-        });
-    });
-
     // reset — previews defaults; user still confirms with Save
     var reset = document.getElementById('resetAppearanceBtn');
     if (reset) reset.addEventListener('click', function () {
-        localStorage.removeItem('accentCustom');
-        pendingAppearance = { accentName: DEFAULT_ACCENT, accentCustom: null, uiFont: 'sans', textScale: DEFAULT_SCALE, theme: 'system', backdrop: 'on' };
+        localStorage.removeItem('accentCustom2');
+        pendingAppearance = { accentName: DEFAULT_ACCENT, accentCustom: null, uiFont: 'sans', textScale: DEFAULT_SCALE, theme: 'system' };
         applyAppearanceState(pendingAppearance, false);
         markAppearanceDirty(true);
     });

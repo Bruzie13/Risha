@@ -1,46 +1,14 @@
-/* FETCH motion system — animation helpers that make state changes legible:
-   cards enter in reading order, numbers count up to their value, the cart
-   visibly reacts. Everything no-ops for users who prefer reduced motion. */
+/* Motion helpers. Only feedback for something the user just did survives:
+   the cart reacting to an added item, and the tick on a completed action. */
 (function () {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // Staggered entrance: children appear in sequence so the eye follows the layout
-    function stagger(selector, step = 45, cap = 420) {
-        if (reduced) return;
-        document.querySelectorAll(selector).forEach((el, i) => {
-            if (el.classList.contains('anim-in')) return;
-            el.classList.add('anim-in');
-            el.style.animationDelay = Math.min(i * step, cap) + 'ms';
-        });
-    }
-
-    // Count-up: animates the number inside an element while keeping its
-    // prefix/suffix (₱, %, "units", K/M) exactly as rendered
-    function countUp(el, duration = 850) {
-        if (!el || el.dataset.counted) return;
-        const text = el.textContent.trim();
-        const m = text.match(/^([^\d\-]*)([\d,]+(?:\.\d+)?)(.*)$/);
-        if (!m) return;
-        const target = parseFloat(m[2].replace(/,/g, ''));
-        if (!isFinite(target) || target === 0) return;
-        el.dataset.counted = '1';
-        if (reduced) return;
-        const decimals = (m[2].split('.')[1] || '').length;
-        const grouped = m[2].includes(',');
-        const start = performance.now();
-        const fmt = v => grouped ? v.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) : v.toFixed(decimals);
-        function tick(now) {
-            const t = Math.min(1, (now - start) / duration);
-            const eased = 1 - Math.pow(1 - t, 3);
-            el.textContent = m[1] + fmt(target * eased) + m[3];
-            if (t < 1) requestAnimationFrame(tick);
-        }
-        requestAnimationFrame(tick);
-    }
-
-    function countUpAll(selector) {
-        document.querySelectorAll(selector).forEach(el => countUp(el));
-    }
+    // Entrance staggering and number count-ups were removed: a figure that
+    // animates to its value makes the reader wait to read it. The functions
+    // stay as no-ops so existing callers need no changes.
+    function stagger() {}
+    function countUp() {}
+    function countUpAll() {}
 
     // Cart feedback: pop the badge and slide in the newest line
     function cartPulse(badgeEl, lastItemEl) {
@@ -66,9 +34,4 @@
 
     window.fetchMotion = { stagger, countUp, countUpAll, cartPulse, checkmarkSVG, reduced };
 
-    // Default entrance choreography on every page
-    window.addEventListener('load', () => {
-        stagger('.stat-card, .perf-card', 50);
-        stagger('.panel-card, .analytics-chart-card, .settings-card', 60);
-    });
 })();

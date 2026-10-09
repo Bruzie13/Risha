@@ -20,9 +20,9 @@
     <title>FETCH · Settings</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=10">
-    <link rel="stylesheet" href="css/settings.css?v=5">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/global.css?v=21">
+    <link rel="stylesheet" href="css/settings.css?v=20">
     <script>
         (function() {
             var saved = localStorage.getItem('theme');
@@ -33,11 +33,11 @@
                 document.documentElement.classList.add('sidebar-hidden');
             }
             try {
-                var av = JSON.parse(localStorage.getItem('accentVars') || 'null');
+                var av = JSON.parse(localStorage.getItem('accentVars2') || 'null');
                 if (av) { for (var k in av) document.documentElement.style.setProperty(k, av[k]); }
             } catch (e) {}
             try {
-                var fv = JSON.parse(localStorage.getItem('fontVars') || 'null');
+                var fv = JSON.parse(localStorage.getItem('fontVars2') || 'null');
                 if (fv) { for (var fk in fv) document.documentElement.style.setProperty(fk, fv[fk]); }
             } catch (e) {}
             var ts = localStorage.getItem('textScale');
@@ -102,7 +102,7 @@
         <div class="page-header">
             <div>
                 <h1>Settings</h1>
-                <div class="breadcrumb"><span>Preferences</span> · Manage your account and preferences</div>
+                <div class="breadcrumb">Your account and how the system looks</div>
             </div>
             <div class="page-header-actions">
                 <span style="padding:6px 14px;border:1px solid var(--border-glass);border-radius:var(--radius-md);font-size:12px;color:var(--text-muted);font-weight:500;" id="settingsDateDisplay"></span>
@@ -274,12 +274,12 @@
                                 <div class="settings-toggle-row" style="align-items:flex-start;">
                                     <div>
                                         <div class="settings-toggle-label">Accent Color</div>
-                                        <div class="settings-toggle-desc">Used across buttons, links, highlights and the page tint</div>
+                                        <div class="settings-toggle-desc">Used for buttons, links and the selected item</div>
                                     </div>
                                     <div class="accent-picker-wrap">
                                         <div class="accent-swatches" id="accentSwatches"></div>
                                         <label class="accent-custom" title="Pick a custom color">
-                                            <input type="color" id="accentPicker" value="#EE6A5F">
+                                            <input type="color" id="accentPicker" value="#1F5FAE">
                                             <span class="material-symbols-outlined">colorize</span>
                                             Custom
                                         </label>
@@ -308,17 +308,6 @@
                                         <button type="button" class="seg-btn" data-scale="1">Default</button>
                                         <button type="button" class="seg-btn" data-scale="1.1">Large</button>
                                         <button type="button" class="seg-btn" data-scale="1.2">Larger</button>
-                                    </div>
-                                </div>
-                                <div class="settings-divider"></div>
-                                <div class="settings-toggle-row" style="align-items:flex-start;">
-                                    <div>
-                                        <div class="settings-toggle-label">Animated Backdrop</div>
-                                        <div class="settings-toggle-desc">The soft moving colour behind the pages. Switch it off on older computers.</div>
-                                    </div>
-                                    <div class="seg" id="backdropSeg">
-                                        <button type="button" class="seg-btn" data-backdrop="on"><span class="material-symbols-outlined">blur_on</span> On</button>
-                                        <button type="button" class="seg-btn" data-backdrop="off"><span class="material-symbols-outlined">block</span> Off</button>
                                     </div>
                                 </div>
                                 <div class="settings-divider"></div>
@@ -458,12 +447,10 @@
     </script>
     <script src="js/utils.js"></script>
     <script src="js/format.js"></script>
-    <script src="js/auth.js?v=5"></script>
-<script src="js/motion.js"></script>
-<script src="js/tilt3d.js?v=1"></script>
-<script src="js/webgl-bg.js?v=1"></script>
-<script src="js/jump.js?v=1"></script>
+    <script src="js/auth.js?v=20"></script>
+<script src="js/motion.js?v=20"></script>
+<script src="js/jump.js?v=20"></script>
 <script src="js/assistant.js?v=4"></script>
-    <script src="js/settings.js?v=7"></script>
+    <script src="js/settings.js?v=20"></script>
 </body>
 </html>

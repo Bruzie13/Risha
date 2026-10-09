@@ -70,8 +70,8 @@
   right: 11px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-muted);
   background: var(--gray-100);
   border: 1px solid var(--border-glass);
@@ -94,7 +94,7 @@
 .pos-category-filter {
   padding: 7px 16px;
   border: 1px solid var(--border-glass-strong);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-md);
   background: var(--bg-card);
   color: var(--text-secondary);
   font-size: 12px;
@@ -153,11 +153,9 @@
 .pos-product-card:hover {
   border-color: var(--primary-light);
   box-shadow: 0 8px 24px var(--primary-bg);
-  transform: translateY(-3px);
 }
 
 .pos-product-card:active {
-  transform: translateY(-1px) scale(0.99);
 }
 
 .pos-product-card .p-img {
@@ -191,13 +189,13 @@
 .pos-product-card .p-price {
   font-family: var(--font-display);
   font-size: 15.5px;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--text-primary);
   letter-spacing: -0.3px;
 }
 
 .pos-product-card .p-stock {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--success);
   font-weight: 600;
   display: inline-flex;
@@ -239,7 +237,7 @@
 .pos-cart-header h3 {
   font-family: var(--font-display);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-primary);
   display: flex;
   align-items: center;
@@ -247,9 +245,9 @@
 }
 
 .pos-cart-header .cart-count {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--primary-dark);
-  font-weight: 700;
+  font-weight: 600;
   background: var(--primary-bg);
   min-width: 24px;
   height: 24px;
@@ -257,7 +255,7 @@
   align-items: center;
   justify-content: center;
   padding: 0 8px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
 }
 
 .pos-cart-items {
@@ -304,7 +302,7 @@
 }
 
 .pos-ci-meta {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   margin-top: 3px;
 }
@@ -337,7 +335,7 @@
 
 .pos-ci-qty .qty-val {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-primary);
   width: 44px;
   text-align: center;
@@ -360,7 +358,7 @@
 
 .pos-ci-total {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-primary);
   min-width: 68px;
   text-align: right;
@@ -431,7 +429,7 @@
 .pos-cart-summary .summary-row.total {
   font-family: var(--font-display);
   font-size: 19px;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--text-primary);
   border-top: 2px dashed var(--border-glass-strong);
   padding-top: 10px;
@@ -477,7 +475,7 @@
   border: 1px dashed color-mix(in srgb, var(--success) 40%, transparent);
   color: var(--success);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.2px;
 }
 
@@ -499,7 +497,7 @@
 
 .pos-tender-row label {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-secondary);
   white-space: nowrap;
 }
@@ -511,7 +509,7 @@
   border: 1.5px solid var(--border-glass-strong);
   border-radius: var(--radius-md);
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 600;
   text-align: right;
   font-family: var(--font-sans);
   background: var(--bg-card);
@@ -535,11 +533,11 @@
   flex: 1;
   padding: 6px 2px;
   border: 1px solid var(--border-glass-strong);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-md);
   background: var(--bg-card);
   color: var(--text-secondary);
-  font-size: 10.5px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
   font-family: var(--font-sans);
   cursor: pointer;
   transition: all 0.15s ease;
@@ -567,14 +565,14 @@
   padding-top: 9px;
   border-top: 1px dashed var(--border-glass-strong);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-secondary);
 }
 
 .pos-change-row span:last-child {
   font-family: var(--font-display);
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -600,14 +598,14 @@
   flex: 1;
   padding: 13px 16px !important;
   font-size: 14.5px !important;
-  font-weight: 700;
+  font-weight: 600;
   border-radius: var(--radius-md) !important;
   box-shadow: 0 6px 20px var(--primary-glow);
 }
 
 .pos-cart-actions .pos-pay-main #posPayTotal {
   font-variant-numeric: tabular-nums;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 /* Keep the floating help button clear of the docked cart / Charge button */

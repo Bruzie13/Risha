@@ -77,7 +77,7 @@
 
 .actions-cell button {
   padding: 4px 10px;
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -95,7 +95,7 @@
 
 @media (max-width: 768px) {
   .data-table { min-width: 820px; }
-  .data-table th, .data-table td { padding: 9px 8px; font-size: 11px; }
+  .data-table th, .data-table td { padding: 9px 8px; font-size: 12px; }
   .inv-search-wrap { max-width: none; }
 }
 

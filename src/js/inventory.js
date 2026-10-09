@@ -843,7 +843,7 @@ async function handleProductSubmit(event) {
         if (data.success) {
             showSuccessDialog(
                 editingProductId ? 'Product updated' : 'Product added',
-                editingProductId ? `${productData.name} has been saved with the new details.` : `${productData.name} is now in your inventory.`,
+                editingProductId ? `${escHtml(productData.name)} has been saved with the new details.` : `${escHtml(productData.name)} is now in your inventory.`,
                 { icon: 'inventory_2' }
             );
             closeProductModal();

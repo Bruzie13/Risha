@@ -23,9 +23,9 @@
     <title>FETCH · Notifications</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=10">
-<script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');try{var _av=JSON.parse(localStorage.getItem('accentVars')||'null');if(_av){for(var _k in _av)document.documentElement.style.setProperty(_k,_av[_k]);}}catch(e){}var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/global.css?v=21">
+<script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');try{var _av=JSON.parse(localStorage.getItem('accentVars2')||'null');if(_av){for(var _k in _av)document.documentElement.style.setProperty(_k,_av[_k]);}}catch(e){}var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
     </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -78,7 +78,7 @@
         <div class="page-header">
             <div>
                 <h1>Notifications</h1>
-                <div class="breadcrumb"><span>System</span> · Notification center</div>
+                <div class="breadcrumb">Low-stock, out-of-stock and expiry alerts</div>
             </div>
             <div class="notif-center-actions">
                 <button class="btn-secondary" onclick="markAllRead()"><span class="material-symbols-outlined" style="font-size:16px;">check</span> Mark All Read</button>
@@ -156,13 +156,11 @@
     </script>
     <script src="js/utils.js"></script>
     <script src="js/format.js"></script>
-    <script src="js/auth.js?v=5"></script>
-<script src="js/motion.js"></script>
-<script src="js/tilt3d.js?v=1"></script>
-<script src="js/webgl-bg.js?v=1"></script>
-<script src="js/jump.js?v=1"></script>
+    <script src="js/auth.js?v=20"></script>
+<script src="js/motion.js?v=20"></script>
+<script src="js/jump.js?v=20"></script>
 <script src="js/assistant.js?v=4"></script>
-    <script src="js/notifications.js"></script>
+    <script src="js/notifications.js?v=20"></script>
 </body>
 </html>
 
@@ -175,7 +173,7 @@
         <div class="help-guide-content">
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">dashboard</span> Dashboard</h3>
-                <p>Your daily command center: sales KPIs, the live day brief (today's sales and items needing attention), Sales Trend chart, Expiry Radar, and Supply Chain status. The <strong>Live</strong> chip turns red if the connection drops.</p>
+                <p>The state of the shop today: headline figures, today's sales and the items needing attention, the last 30 days of sales, products close to expiry, and open purchase orders. The <strong>Live</strong> chip turns red if the connection drops.</p>
             </div>
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">point_of_sale</span> Point of Sale (POS)</h3>
@@ -210,13 +208,12 @@
                 <p>Switch to the <strong>Deliveries</strong> view (the truck icon beside the search box) to see every order on its way: <strong>Ordered → Confirmed → Shipped → Received</strong>, how long it has sat at its current step, and whether it is running late. Use <strong>Ask supplier to share location</strong> to email the supplier a private tracking link; if their driver opens it and allows location sharing, <strong>Track live</strong> opens a full map following them to the shop, with distance and an estimated arrival. Nothing is tracked unless the driver agrees, and sharing stops the moment they close the page.</p>
             </div>
             <div class="help-section">
-                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">assessment</span> Reports &amp; Analytics</h3>
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">assessment</span> Reports</h3>
                 <ul>
-                    <li><strong>Daily / Weekly / Monthly</strong> tabs show printable sales summaries with category and payment breakdowns.</li>
-                    <li><strong>Analytics</strong> is the forecasting hub: 30-day demand and revenue projections, and a <strong>Model Accuracy</strong> score that is backtested — the system hides recent sales from itself, forecasts them, and grades the result against what really sold.</li>
-                    <li>Click the <strong>Fast Movers / Slow Movers / At Risk / Steady</strong> cards to list the products in each segment with stock, daily rate, and days of cover.</li>
-                    <li>Pick any product for its detailed forecast chart with confidence range and reorder advice.</li>
-                    <li><strong>Audit Logs</strong> (admins) show who did what, when, from which address.</li>
+                    <li><strong>Sales</strong> — pick a period (last 7 days, last 30 days, this month, all time, or your own dates) and view it by day, week or month. Shows revenue, number of sales, average per sale, items sold, best-selling products and sales by category. <strong>Export CSV</strong> saves the table.</li>
+                    <li><strong>Stock planning</strong> — estimates what each product will sell over the next 30 days from its recent sales. <strong>What to reorder</strong> lists products that are out of stock, at or below their reorder level, or expected to run out within three weeks, with a suggested order quantity.</li>
+                    <li>Under <strong>All products</strong>, filter by how each product is selling and select any product to see its sales history and forecast. <strong>How these numbers are worked out</strong> at the bottom explains every figure.</li>
+                    <li><strong>Activity log</strong> (admins) shows who did what, and when.</li>
                 </ul>
             </div>
             <div class="help-section">

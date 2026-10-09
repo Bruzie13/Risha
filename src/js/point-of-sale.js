@@ -104,10 +104,17 @@ function setupAutocomplete() {
             if (matches.length === 0) { list.innerHTML = ''; list.style.display = 'none'; return; }
             list.innerHTML = matches.map(p => {
                 const unitLabel = getUnitLabel(p.unit_type);
-                return `<div class="ac-item" onclick="selectAutocomplete(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${p.unit_price}, ${p.stock_quantity}, '${(p.expiration_date || '').replace(/'/g, "\\'")}', '${p.unit_type || 'piece'}')">
-                    ${p.name} <small>Stock: ${formatQty(p.stock_quantity)}${unitLabel} | ₱${parseFloat(p.unit_price).toFixed(2)}${unitLabel ? '/' + unitLabel.trim() : ''}</small>
+                // Names go in as text and the click handler looks the product up
+                // by id: a product name can no longer end up inside an inline
+                // handler or be read as markup.
+                return `<div class="ac-item" data-ac-id="${Number(p.id)}">
+                    ${escHtml(p.name)} <small>Stock: ${formatQty(p.stock_quantity)}${escHtml(unitLabel)} | ${formatCurrency(parseFloat(p.unit_price))}${unitLabel ? '/' + escHtml(unitLabel.trim()) : ''}</small>
                 </div>`;
             }).join('');
+            list.querySelectorAll('.ac-item').forEach(el => el.addEventListener('click', () => {
+                const p = allProducts.find(x => Number(x.id) === Number(el.dataset.acId));
+                if (p) selectAutocomplete(p.id, p.name, p.unit_price, p.stock_quantity, p.expiration_date || '', p.unit_type || 'piece');
+            }));
             list.style.display = 'block';
         }, 200);
     });
@@ -185,7 +192,7 @@ function updateItemTotal() {
     const price = parseFloat(document.getElementById('unit_price')?.value) || 0;
     const total = qty * price;
     const el = document.getElementById('itemTotal');
-    if (el) el.textContent = '₱' + total.toFixed(2);
+    if (el) el.textContent = formatCurrency(total);
     // Validate against stock
     const maxStockText = document.getElementById('maxStock')?.textContent || '0';
     const maxStock = parseFloat(maxStockText.replace(/[^0-9.]/g, ''));
@@ -290,7 +297,7 @@ function displaySales(sales) {
             <td>${escHtml(s.customer_name || 'Walk-in')}</td>
             <td>${escHtml(s.staff_name || 'N/A')}</td>
             <td>${s.item_count || 0}</td>
-            <td>₱${parseFloat(s.final_amount ?? s.total_amount ?? 0).toFixed(2)}</td>
+            <td>${formatCurrency(parseFloat(s.final_amount ?? s.total_amount ?? 0))}</td>
             <td>${escHtml(s.payment_method || 'N/A')}</td>
             <td>${s.payment_status === 'completed'
                 ? '<span class="status-badge status-in-stock">Completed</span>'
@@ -447,7 +454,7 @@ async function updateStats() {
         const el = document.getElementById('totalSalesAmount');
         if (el) el.title = formatCurrency(revenue);
         setText('totalTransactions', Number(s.transactions) || 0);
-        setText('todaysSales', '₱' + (parseFloat(s.today_revenue) || 0).toFixed(2));
+        setText('todaysSales', formatCurrency((parseFloat(s.today_revenue) || 0)));
     } catch (error) {
         console.error('Error updating stats:', error);
     }
@@ -558,9 +565,9 @@ function updateItemsList() {
         <div class="item-row">
             <div class="item-info">
                 <div class="item-name">${escHtml(item.product_name)}</div>
-                <div class="item-detail">Qty: ${item.quantity}${unitLabel} × ₱${item.unit_price.toFixed(2)}${unitLabel ? '/' + unitLabel.trim() : ''}</div>
+                <div class="item-detail">Qty: ${item.quantity}${unitLabel} × ${formatCurrency(item.unit_price)}${unitLabel ? '/' + unitLabel.trim() : ''}</div>
             </div>
-            <div class="item-price">₱${item.total_price.toFixed(2)}</div>
+            <div class="item-price">${formatCurrency(item.total_price)}</div>
             <button type="button" class="btn-remove" onclick="removeItemFromSale(${idx})">Remove</button>
         </div>`;
     }).join('');
@@ -571,9 +578,9 @@ function updateTotals() {
     const discount = parseFloat(document.getElementById('discount')?.value) || 0;
     const discountAmt = discount > 0 ? subtotal * (discount / 100) : 0;
     const total = subtotal - discountAmt;
-    document.getElementById('subtotal').textContent = '₱' + subtotal.toFixed(2);
-    document.getElementById('discountAmount').textContent = '-' + (discount > 0 ? '₱' + discountAmt.toFixed(2) : '₱0.00');
-    document.getElementById('totalAmount').textContent = '₱' + total.toFixed(2);
+    document.getElementById('subtotal').textContent = formatCurrency(subtotal);
+    document.getElementById('discountAmount').textContent = '-' + (discount > 0 ? formatCurrency(discountAmt) : '₱0.00');
+    document.getElementById('totalAmount').textContent = formatCurrency(total);
 }
 
 document.getElementById('discount')?.addEventListener('input', updateTotals);
@@ -642,14 +649,14 @@ async function viewSaleDetails(id) {
                         <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
                         <tbody>${(sale.items || []).map(item => {
                             const ul = getUnitLabel(item.unit_type);
-                            return `<tr><td>${escHtml(item.product_name)}</td><td>${parseFloat(item.quantity)}${ul}</td><td>₱${parseFloat(item.unit_price).toFixed(2)}</td><td>₱${parseFloat(item.subtotal).toFixed(2)}</td></tr>`;
+                            return `<tr><td>${escHtml(item.product_name)}</td><td>${parseFloat(item.quantity)}${ul}</td><td>${formatCurrency(parseFloat(item.unit_price))}</td><td>${formatCurrency(parseFloat(item.subtotal))}</td></tr>`;
                         }).join('')}</tbody>
                     </table>
                 </div>
                 <div class="total-section" style="margin-top:20px;">
-                    <div class="total-row"><span>Subtotal:</span><span>₱${parseFloat(sale.total_amount || 0).toFixed(2)}</span></div>
-                    ${parseFloat(sale.discount || 0) > 0 ? `<div class="total-row"><span>Discount (${parseFloat(sale.discount).toFixed(2)}%):</span><span>-₱${(parseFloat(sale.total_amount || 0) - parseFloat(sale.final_amount || 0)).toFixed(2)}</span></div>` : ''}
-                    <div class="total-row highlight"><span>Total Amount:</span><span>₱${parseFloat(sale.final_amount ?? sale.total_amount ?? 0).toFixed(2)}</span></div>
+                    <div class="total-row"><span>Subtotal:</span><span>${formatCurrency(parseFloat(sale.total_amount || 0))}</span></div>
+                    ${parseFloat(sale.discount || 0) > 0 ? `<div class="total-row"><span>Discount (${parseFloat(sale.discount).toFixed(2)}%):</span><span>-${formatCurrency((parseFloat(sale.total_amount || 0) - parseFloat(sale.final_amount || 0)))}</span></div>` : ''}
+                    <div class="total-row highlight"><span>Total Amount:</span><span>${formatCurrency(parseFloat(sale.final_amount ?? sale.total_amount ?? 0))}</span></div>
                 </div>
                 <button class="btn-primary" onclick="printReceipt(${sale.id})" style="margin-top:15px;">Print Receipt</button>
             `;
@@ -709,7 +716,7 @@ async function printReceipt(saleId) {
     if (!sale) { receiptWindow.close(); showToast('Sale data not available', 'error'); return; }
     const itemsHTML = (sale.items || []).map(item => {
         const ul = getUnitLabel(item.unit_type);
-        return `<tr><td style="padding:3px 4px;border-bottom:1px dashed #ccc;">${escHtml(item.product_name)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:center;">${parseFloat(item.quantity)}${ul}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.unit_price).toFixed(2)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.subtotal || item.quantity * item.unit_price).toFixed(2)}</td></tr>`;
+        return `<tr><td style="padding:3px 4px;border-bottom:1px dashed #ccc;">${escHtml(item.product_name)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:center;">${parseFloat(item.quantity)}${ul}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">${formatCurrency(parseFloat(item.unit_price))}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">${formatCurrency(parseFloat(item.subtotal || item.quantity * item.unit_price))}</td></tr>`;
     }).join('');
     // What the customer actually paid — final_amount is net of any discount.
     const total = parseFloat(sale.final_amount ?? sale.total_amount ?? 0).toFixed(2);
@@ -749,7 +756,7 @@ async function printReceipt(saleId) {
             <table><thead><tr><th style="text-align:left;">Item</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Price</th><th style="text-align:right;">Total</th></tr></thead><tbody>${itemsHTML}</tbody></table>
             <hr>
             <div class="total-row"><span>Subtotal:</span><span>₱${subtotal}</span></div>
-            <div class="total-row"><span>Discount (${disc}%):</span><span>-₱${(subtotal * disc / 100).toFixed(2)}</span></div>
+            <div class="total-row"><span>Discount (${disc}%):</span><span>-${formatCurrency((subtotal * disc / 100))}</span></div>
             <div class="grand-total">TOTAL: ₱${total}</div>
             <div class="barcode">*${String(sale.sale_number || sale.id).padStart(6, '0')}*</div>
             <div class="footer">
@@ -768,7 +775,7 @@ function printCurrentReceipt() {
     if (currentSaleItems.length === 0) { showToast('No items in sale', 'error'); return; }
     const itemsHTML = currentSaleItems.map(item => {
         const ul = getUnitLabel(item.unit_type);
-        return `<tr><td style="padding:3px 4px;border-bottom:1px dashed #ccc;">${escHtml(item.product_name)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:center;">${parseFloat(item.quantity)}${ul}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.unit_price).toFixed(2)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">₱${parseFloat(item.total_price).toFixed(2)}</td></tr>`;
+        return `<tr><td style="padding:3px 4px;border-bottom:1px dashed #ccc;">${escHtml(item.product_name)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:center;">${parseFloat(item.quantity)}${ul}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">${formatCurrency(parseFloat(item.unit_price))}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">${formatCurrency(parseFloat(item.total_price))}</td></tr>`;
     }).join('');
     const subtotal = currentSaleItems.reduce((sum, i) => sum + i.total_price, 0);
     const discPct = parseFloat(document.getElementById('discount')?.value || 0);
@@ -805,16 +812,16 @@ function printCurrentReceipt() {
             <div style="text-align:left;font-size:11px;line-height:1.6;">
                 <div>Receipt #: <strong>${receiptNum}</strong></div>
                 <div>Date: ${now}</div>
-                <div>Cashier: ${user ? user.full_name || user.username : 'N/A'}</div>
-                <div>Customer: ${customer}</div>
+                <div>Cashier: ${escHtml(user ? user.full_name || user.username : 'N/A')}</div>
+                <div>Customer: ${escHtml(customer)}</div>
                 <div>Payment: ${payment.toUpperCase()}</div>
             </div>
             <hr>
             <table><thead><tr><th style="text-align:left;">Item</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Price</th><th style="text-align:right;">Total</th></tr></thead><tbody>${itemsHTML}</tbody></table>
             <hr>
-            <div class="total-row"><span>Subtotal:</span><span>₱${subtotal.toFixed(2)}</span></div>
-            <div class="total-row"><span>Discount (${discPct}%):</span><span>-₱${discAmt.toFixed(2)}</span></div>
-            <div class="grand-total">TOTAL: ₱${total.toFixed(2)}</div>
+            <div class="total-row"><span>Subtotal:</span><span>${formatCurrency(subtotal)}</span></div>
+            <div class="total-row"><span>Discount (${discPct}%):</span><span>-${formatCurrency(discAmt)}</span></div>
+            <div class="grand-total">TOTAL: ${formatCurrency(total)}</div>
             <div class="footer">
                 Thank you for your purchase!<br>
                 Visit us again at RISHA Pet Supplies

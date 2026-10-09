@@ -98,7 +98,7 @@
 .user-avatar.avatar-sm {
   width: 28px;
   height: 28px;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .user-avatar.avatar-lg {
@@ -133,31 +133,17 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
-  border-radius: 100px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.role-badge.role-admin {
-  background: var(--purple-bg);
-  color: var(--purple);
-}
-
-.role-badge.role-manager {
-  background: var(--primary-bg);
-  color: var(--primary);
-}
-
-.role-badge.role-staff {
-  background: var(--info-bg);
-  color: var(--info);
-}
-
-.role-badge.role-viewer {
+  padding: 1px 7px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: capitalize;
   background: var(--gray-100);
-  color: var(--gray-500);
+  color: var(--text-secondary);
 }
+
+/* Only the role with full control is called out. */
+.role-badge.role-admin { background: var(--primary-bg); color: var(--primary); }
 
 /* Email field and its "Send code" button share a row so the two read as one
    step: prove the address, then create the account. */
@@ -172,7 +158,7 @@
 .code-hint {
   display: block;
   margin-top: 5px;
-  font-size: 11.5px;
+  font-size: 12.5px;
   line-height: 1.5;
   color: var(--text-muted);
 }
@@ -187,7 +173,7 @@
 
 .submit-blocked-hint {
   flex: 1;
-  font-size: 11.5px;
+  font-size: 12.5px;
   line-height: 1.4;
   color: var(--text-muted);
   text-align: left;
@@ -218,8 +204,8 @@
   margin-top: 4px;
   padding: 2px 8px;
   border-radius: 100px;
-  font-size: 10.5px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -309,21 +295,22 @@
 }
 
 .invite-card {
-  background: linear-gradient(135deg, var(--accent) 0%, var(--primary-light) 100%);
+  background: var(--bg-card);
   border-radius: var(--radius);
   padding: 24px;
-  color: var(--white);
+  color: var(--text-primary);
+  border: 1px solid var(--border-glass);
   margin-bottom: 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  box-shadow: 0 4px 16px var(--primary-glow);
+  box-shadow: none;
 }
 
 .invite-card .invite-text h4 {
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
   margin-bottom: 2px;
 }
 
@@ -389,7 +376,7 @@
 }
 
 .activity-item .activity-time {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--gray-400);
   margin-top: 2px;
 }

@@ -2,10 +2,8 @@ let currentPage = 1;
 const perPage = 20;
 let totalLogs = 0;
 
-window.addEventListener('load', async () => {
-    if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
-    await loadAuditLogs();
-});
+// Loaded by reports.js when the Activity log tab is opened. It is admin-only,
+// so fetching it on every page load only produced 403s for everyone else.
 
 async function loadAuditLogs() {
     const actionFilter = document.getElementById('actionFilter').value;

@@ -245,7 +245,7 @@ async function restoreUser(id) {
     const user = allUsers.find(u => u.id === id);
     showConfirmDialog(
         'Restore account',
-        `Reactivate ${user?.full_name || 'this account'} (${user?.username || ''})? They will be able to sign in again with their existing password.`,
+        `Reactivate ${escHtml(user?.full_name || 'this account')} (${escHtml(user?.username || '')})? They will be able to sign in again with their existing password.`,
         async () => {
             try {
                 const res = await fetch(`${API_BASE}/auth/users/${id}/status`, {

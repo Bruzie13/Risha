@@ -1,27 +1,31 @@
+/* Reports → Sales tab, and the tab switching for the whole page.
+   Stock planning lives in analytics.js, the activity log in audit.js. */
+
 let salesChart = null;
-let topProductsChart = null;
-let paymentChart = null;
-let categoryChart = null;
 let currentReportData = null;
-let currentPeriod = 'daily';
+let currentRange = '30';        // '7' | '30' | 'month' | 'all' | 'custom'
+let currentGroup = 'daily';     // 'daily' | 'weekly' | 'monthly'
+let currentTab = 'sales';
+let firstSalesLoad = true;
 const PAGE_SIZE = 10;
 let displayCount = PAGE_SIZE;
 
-window.addEventListener('load', async () => {
+const GROUP_WORD = { daily: 'day', weekly: 'week', monthly: 'month' };
+const GROUP_HEAD = { daily: 'Date', weekly: 'Week', monthly: 'Month' };
+
+window.addEventListener('load', () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
-    // the audit API is admin-only — hide its tab from everyone else
+    // the activity log API is admin-only — hide its tab from everyone else
     if (getUserRole() !== 'admin') document.querySelector('.report-tab[data-tab="audit"]')?.remove();
     setupTabs();
-    setupDateRange();
-    const params = new URLSearchParams(window.location.search);
-    const tabParam = params.get('tab');
-    if (tabParam === 'analytics' || tabParam === 'audit') {
-        const btn = document.querySelector(`.report-tab[data-tab="${tabParam}"]`);
-        if (btn) btn.click();
-    } else {
-        await loadReport('daily');
-    }
+    setupSalesControls();
+    const tabParam = new URLSearchParams(window.location.search).get('tab');
+    const wanted = tabParam && document.querySelector(`.report-tab[data-tab="${CSS.escape(tabParam)}"]`);
+    if (wanted) wanted.click();
+    else loadSales();
 });
+
+/* ---------- Tabs ---------- */
 
 function setupTabs() {
     document.querySelectorAll('.report-tab').forEach(btn => {
@@ -32,377 +36,341 @@ function setupTabs() {
             });
             btn.classList.add('active');
             btn.setAttribute('aria-selected', 'true');
-            const period = btn.dataset.tab || 'daily';
-            currentPeriod = period;
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            const tabEl = document.getElementById(`tab-${period}`);
+            currentTab = btn.dataset.tab || 'sales';
+            document.querySelectorAll('.tab-content').forEach(t => {
+                t.classList.remove('active');
+                t.style.display = 'none';
+            });
+            const tabEl = document.getElementById(`tab-${currentTab}`);
             if (tabEl) {
                 tabEl.classList.add('active');
                 tabEl.style.removeProperty('display');
             }
-            if (period === 'analytics') {
-                if (typeof loadAllPredictions === 'function') {
-                    if (typeof predDisplayCount !== 'undefined') predDisplayCount = 10;
-                    loadProductList();
-                    loadAllPredictions();
-                }
-            } else if (period === 'audit') {
+            if (currentTab === 'analytics') {
+                if (typeof loadStockPlanning === 'function') loadStockPlanning();
+            } else if (currentTab === 'audit') {
                 if (typeof loadAuditLogs === 'function') loadAuditLogs();
-            } else {
-                displayCount = PAGE_SIZE;
-                const startDate = document.getElementById('startDate')?.value;
-                const endDate = document.getElementById('endDate')?.value;
-                if (startDate && endDate) {
-                    loadReport(period, startDate, endDate);
-                } else {
-                    loadReport(period);
-                }
+            } else if (!currentReportData) {
+                loadSales();
             }
         });
     });
 }
 
-function setupDateRange() {
-    const startDate = document.getElementById('startDate');
-    const endDate = document.getElementById('endDate');
-    if (startDate && endDate) {
-        const today = new Date();
-        endDate.value = today.toISOString().split('T')[0];
-        const thirtyAgo = new Date(today);
-        thirtyAgo.setDate(thirtyAgo.getDate() - 30);
-        startDate.value = thirtyAgo.toISOString().split('T')[0];
+/* ---------- Dates ----------
+   All dates are the shop's calendar days. They are built from local date
+   parts: toISOString() converts to UTC first and hands back yesterday for
+   anyone working before 8am Philippine time. */
+
+function ymd(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function parseYmd(s) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || ''));
+    return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+}
+
+function niceDate(d, withYear) {
+    return d.toLocaleDateString('en-US', withYear === false
+        ? { month: 'short', day: 'numeric' }
+        : { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/** The { from, to } the current period buttons stand for; nulls mean all time. */
+function rangeDates() {
+    const today = new Date();
+    if (currentRange === 'all') return { from: null, to: null };
+    if (currentRange === 'custom') {
+        return { from: document.getElementById('startDate').value || null, to: document.getElementById('endDate').value || null };
     }
+    const from = new Date(today);
+    if (currentRange === 'month') from.setDate(1);
+    else from.setDate(from.getDate() - (Number(currentRange) - 1));
+    return { from: ymd(from), to: ymd(today) };
+}
+
+/* ---------- Controls ---------- */
+
+function setSeg(id, attr, value) {
+    document.querySelectorAll(`#${id} button`).forEach(b => b.classList.toggle('active', b.dataset[attr] === value));
+}
+
+function setupSalesControls() {
+    const today = new Date();
+    const monthAgo = new Date(today);
+    monthAgo.setDate(monthAgo.getDate() - 29);
+    document.getElementById('endDate').value = ymd(today);
+    document.getElementById('startDate').value = ymd(monthAgo);
+
+    document.querySelectorAll('#rangeSeg button').forEach(b => b.addEventListener('click', () => {
+        currentRange = b.dataset.range;
+        setSeg('rangeSeg', 'range', currentRange);
+        document.getElementById('customRange').hidden = currentRange !== 'custom';
+        if (currentRange !== 'custom') loadSales();
+    }));
+    document.querySelectorAll('#groupSeg button').forEach(b => b.addEventListener('click', () => {
+        currentGroup = b.dataset.group;
+        setSeg('groupSeg', 'group', currentGroup);
+        loadSales();
+    }));
 }
 
 function applyDateRange() {
-    const startDate = document.getElementById('startDate')?.value;
-    const endDate = document.getElementById('endDate')?.value;
-    if (startDate && endDate && currentPeriod !== 'analytics' && currentPeriod !== 'audit') {
-        loadReport(currentPeriod, startDate, endDate);
-    }
+    const from = document.getElementById('startDate').value;
+    const to = document.getElementById('endDate').value;
+    if (!from || !to) { showToast('Choose both a start and an end date', 'warning'); return; }
+    if (from > to) { showToast('The start date is after the end date', 'warning'); return; }
+    loadSales();
 }
 
-function resetDateRange() {
-    const today = new Date();
-    document.getElementById('endDate').value = today.toISOString().split('T')[0];
-    const thirtyAgo = new Date(today);
-    thirtyAgo.setDate(thirtyAgo.getDate() - 30);
-    document.getElementById('startDate').value = thirtyAgo.toISOString().split('T')[0];
-    currentPeriod = 'daily';
+/* ---------- Loading ---------- */
+
+async function loadSales() {
+    const { from, to } = rangeDates();
     displayCount = PAGE_SIZE;
-    document.querySelectorAll('.report-tab').forEach(b => {
-        b.classList.remove('active');
-        b.setAttribute('aria-selected', 'false');
-    });
-    document.querySelector('.report-tab[data-tab="daily"]')?.classList.add('active');
-    document.querySelector('.report-tab[data-tab="daily"]')?.setAttribute('aria-selected', 'true');
-    document.querySelectorAll('.tab-content').forEach(t => {
-        t.classList.remove('active');
-        t.style.removeProperty('display');
-    });
-    document.getElementById('tab-daily')?.classList.add('active');
-    loadReport('daily');
-}
-
-async function loadReport(period, dateFrom, dateTo) {
     try {
-        let url = `${API_BASE}/sales/report?period=${period}`;
-        if (dateFrom && dateTo) {
-            url += `&date_from=${dateFrom}&date_to=${dateTo}`;
-        }
-        const response = await fetch(url, { headers: getAuthHeaders() });
+        const params = new URLSearchParams({ period: currentGroup });
+        if (from && to) { params.set('date_from', from); params.set('date_to', to); }
+        const response = await fetch(`${API_BASE}/sales/report?${params}`, { headers: getAuthHeaders() });
         const data = await response.json();
-        if (data.success) {
-            currentReportData = data.data;
-            renderSummary(data.data.summary);
-            renderReportTable(period, data.data);
-            renderReportCharts(data.data);
-        } else {
-            showToast('Failed to load report', 'error');
+        if (!data.success) throw new Error(data.message || 'Report failed');
+
+        const empty = !Number(data.data.summary?.total_transactions);
+        // First visit only: an empty default period tells the owner nothing,
+        // so fall back to everything on record and say that is what happened.
+        if (empty && firstSalesLoad && currentRange === '30') {
+            firstSalesLoad = false;
+            currentRange = 'all';
+            setSeg('rangeSeg', 'range', 'all');
+            await loadSales();
+            showNotice('salesNotice', 'No sales were recorded in the last 30 days, so this shows all sales on record.');
+            return;
         }
+        firstSalesLoad = false;
+        currentReportData = data.data;
+        renderCaption(from, to);
+        showNotice('salesNotice', empty ? 'No sales were recorded in this period.' : '');
+        renderSummary(data.data.summary || {});
+        renderSalesTable();
+        renderSalesChart(data.data.rows || []);
+        renderBars('topProductsList', (data.data.top_products || []).map(p => ({
+            label: p.name, value: Number(p.quantity) || 0, text: formatQty(p.quantity) + ' sold'
+        })));
+        renderBars('categoryList', (data.data.summary?.category_breakdown || []).map(c => ({
+            label: c.category_name || 'Uncategorised', value: Number(c.total_revenue) || 0, text: formatCurrency(c.total_revenue)
+        })));
+        renderPaymentNote(data.data.summary?.payment_breakdown || []);
     } catch (error) {
         console.error('Error loading report:', error);
-        showToast('Failed to load report', 'error');
+        showToast('Could not load the sales report', 'error');
     }
+}
+
+function showNotice(id, text) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text || '';
+    el.hidden = !text;
+}
+
+function renderCaption(from, to) {
+    const el = document.getElementById('rangeCaption');
+    const a = parseYmd(from), b = parseYmd(to);
+    el.textContent = a && b
+        ? (from === to ? niceDate(a) : `${niceDate(a, a.getFullYear() !== b.getFullYear())} – ${niceDate(b)}`)
+        : 'All sales on record';
+    const word = GROUP_WORD[currentGroup];
+    document.getElementById('salesChartTitle').textContent = `Revenue by ${word}`;
+    document.getElementById('salesTableTitle').textContent = `Breakdown by ${word}`;
+    document.getElementById('salesTablePeriodHead').textContent = GROUP_HEAD[currentGroup];
 }
 
 function renderSummary(summary) {
-    if (!summary) return;
     document.getElementById('summaryRevenue').textContent = formatCurrency(summary.total_revenue || 0);
-    document.getElementById('summaryTransactions').textContent = (Number(summary.total_transactions) || 0).toLocaleString();
+    document.getElementById('summaryTransactions').textContent = formatNumber(summary.total_transactions || 0);
     document.getElementById('summaryAvg').textContent = formatCurrency(summary.avg_transaction_value || 0);
-    document.getElementById('summaryItems').textContent = (Number(summary.total_items_sold) || 0).toLocaleString();
+    document.getElementById('summaryItems').textContent = formatQty(summary.total_items_sold || 0);
 }
 
-function renderReportTable(period, data) {
-    const tableBodyIds = {
-        'daily': 'dailyTableBody',
-        'weekly': 'weeklyTableBody',
-        'monthly': 'monthlyTableBody'
-    };
-    const paginationIds = {
-        'daily': 'dailyPagination',
-        'weekly': 'weeklyPagination',
-        'monthly': 'monthlyPagination'
-    };
-    const tbody = document.getElementById(tableBodyIds[period]);
-    if (!tbody) return;
+/* ---------- Rows ---------- */
 
-    const rows = data.rows || [];
-    if (!Array.isArray(rows) || rows.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-center">No data for this period</td></tr>`;
+/** One readable label per row, whatever the grouping. */
+function periodLabel(r) {
+    if (currentGroup === 'daily') {
+        const d = parseYmd(r.date);
+        return d ? d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    }
+    if (currentGroup === 'weekly') {
+        // Weeks run Sunday to Saturday, matching how the report groups them.
+        const first = parseYmd(r.first_day);
+        if (!first) return r.week || '—';
+        const start = new Date(first);
+        start.setDate(start.getDate() - start.getDay());
+        const end = new Date(start);
+        end.setDate(end.getDate() + 6);
+        return `${niceDate(start, start.getFullYear() !== end.getFullYear())} – ${niceDate(end)}`;
+    }
+    const d = parseYmd((r.month || '') + '-01');
+    return d ? d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : (r.month_name || '—');
+}
+
+function shortLabel(r) {
+    if (currentGroup === 'daily') { const d = parseYmd(r.date); return d ? niceDate(d, false) : ''; }
+    if (currentGroup === 'weekly') {
+        const first = parseYmd(r.first_day);
+        if (!first) return r.week || '';
+        first.setDate(first.getDate() - first.getDay());
+        return niceDate(first, false);
+    }
+    const d = parseYmd((r.month || '') + '-01');
+    return d ? d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) : '';
+}
+
+const rowSales = r => Number(r.total_sales ?? r.total_transactions) || 0;
+const rowRevenue = r => Number(r.total_amount) || 0;
+const rowItems = r => Number(r.item_count) || 0;
+
+function renderSalesTable() {
+    const tbody = document.getElementById('salesTableBody');
+    const rows = currentReportData?.rows || [];
+    if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="rp-loading">No sales in this period.</td></tr>';
+        document.getElementById('salesPagination').innerHTML = '';
         return;
     }
-
-    const limited = rows.slice(0, displayCount);
-    const paginationId = paginationIds[period];
-
-    if (period === 'daily') {
-        tbody.innerHTML = limited.map(r => `
-            <tr>
-                <td class="rt-label">${r.date ? new Date(r.date).toLocaleDateString() : 'N/A'}</td>
-                <td class="rt-num">${r.total_sales ?? 0}</td>
-                <td class="rt-amount">${formatCurrency(r.total_amount ?? 0)}</td>
-                <td class="rt-num">${formatNumber(parseFloat(r.item_count ?? r.total_items) || 0)}</td>
-            </tr>
-        `).join('');
-    } else if (period === 'weekly') {
-        tbody.innerHTML = limited.map(r => `
-            <tr>
-                <td class="rt-label">${escHtml(r.week || 'N/A')}</td>
-                <td class="rt-num">${escHtml(r.week_number || 'N/A')}</td>
-                <td class="rt-amount">${formatCurrency(r.total_amount ?? 0)}</td>
-                <td class="rt-num">${r.total_sales ?? 0}</td>
-            </tr>
-        `).join('');
-    } else if (period === 'monthly') {
-        tbody.innerHTML = limited.map(r => `
-            <tr>
-                <td class="rt-label">${escHtml(r.month_name || r.month || 'N/A')}</td>
-                <td class="rt-num">${r.total_transactions ?? 0}</td>
-                <td class="rt-amount">${formatCurrency(r.total_amount ?? 0)}</td>
-                <td class="rt-num">${r.total_sales ?? '-'}</td>
-            </tr>
-        `).join('');
-    }
-
-    updatePagination(paginationId, rows, displayCount, 'showMoreReport', 'showLessReport', PAGE_SIZE);
+    tbody.innerHTML = rows.slice(0, displayCount).map(r => `
+        <tr>
+            <td>${escHtml(periodLabel(r))}</td>
+            <td class="num">${formatNumber(rowSales(r))}</td>
+            <td class="num">${formatQty(rowItems(r))}</td>
+            <td class="num rp-strong">${formatCurrency(rowRevenue(r))}</td>
+        </tr>`).join('');
+    updatePagination('salesPagination', rows, displayCount, 'showMoreReport', 'showLessReport', PAGE_SIZE);
 }
 
-function showMoreReport() {
-    displayCount += PAGE_SIZE;
-    const data = currentReportData;
-    if (data) renderReportTable(currentPeriod, data);
+function showMoreReport() { displayCount += PAGE_SIZE; renderSalesTable(); }
+function showLessReport() { displayCount = PAGE_SIZE; renderSalesTable(); }
+
+/* ---------- Charts ---------- */
+
+/** Chart colours come from the theme so light and dark mode both read well. */
+function chartTheme() {
+    const css = getComputedStyle(document.documentElement);
+    const v = (name, fallback) => (css.getPropertyValue(name) || '').trim() || fallback;
+    return {
+        bar: v('--chart-1', '#2F5DA8'),
+        barSoft: v('--chart-1-soft', '#B9C8E3'),
+        text: v('--text-muted', '#6B7280'),
+        grid: v('--border-subtle', '#EEF0F2'),
+        font: v('--font-sans', 'Inter, sans-serif')
+    };
 }
 
-function showLessReport() {
-    displayCount = 0;
-    showMoreReport();
-}
-
-function renderReportCharts(data) {
-    renderSalesChart(data.rows || []);
-    renderTopProductsChart(data.top_products || []);
-    renderPaymentChart(data.summary?.payment_breakdown || []);
-    renderCategoryChart(data.summary?.category_breakdown || []);
+function baseChartOptions(t) {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { display: false }, border: { color: t.grid }, ticks: { color: t.text, font: { family: t.font, size: 11 }, maxRotation: 0, autoSkipPadding: 12 } },
+            y: { beginAtZero: true, border: { display: false }, grid: { color: t.grid }, ticks: { color: t.text, font: { family: t.font, size: 11 }, maxTicksLimit: 5 } }
+        }
+    };
 }
 
 function renderSalesChart(rows) {
     const canvas = document.getElementById('salesChart');
-    if (!canvas) return;
-    if (!Array.isArray(rows) || rows.length === 0) return;
-    const ctx = canvas.getContext('2d');
-    if (salesChart) salesChart.destroy();
-    // API returns rows newest-first; the time axis should read left → right
-    rows = [...rows];
-    const firstDate = new Date(rows[0]?.date);
-    const lastDate = new Date(rows[rows.length - 1]?.date);
-    if (!isNaN(firstDate) && !isNaN(lastDate)) {
-        rows.sort((a, b) => new Date(a.date) - new Date(b.date));
-    } else {
-        rows.reverse();
-    }
-    const labels = rows.map(r => {
-        const d = new Date(r.date);
-        return isNaN(d.getTime()) ? (r.week || r.month || '') : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    });
-    const salesCount = rows.map(r => r.total_sales ?? r.total ?? r.transaction_count ?? 0);
-    const revenue = rows.map(r => parseFloat(r.total_amount ?? r.amount ?? r.revenue ?? 0));
-    salesChart = new Chart(ctx, {
+    const empty = document.getElementById('salesChartEmpty');
+    if (salesChart) { salesChart.destroy(); salesChart = null; }
+    const has = Array.isArray(rows) && rows.length > 0;
+    canvas.parentElement.hidden = !has;
+    empty.hidden = has;
+    if (!has || typeof Chart === 'undefined') return;
+
+    // the API returns newest first; a time axis reads left to right
+    const ordered = [...rows].reverse();
+    const t = chartTheme();
+    const options = baseChartOptions(t);
+    options.scales.y.ticks.callback = v => formatCompactCurrency(v);
+    options.plugins.tooltip = {
+        displayColors: false,
+        callbacks: {
+            title: items => periodLabel(ordered[items[0].dataIndex]),
+            label: item => {
+                const r = ordered[item.dataIndex];
+                return [formatCurrency(rowRevenue(r)), `${formatNumber(rowSales(r))} sales · ${formatQty(rowItems(r))} items`];
+            }
+        }
+    };
+    salesChart = new Chart(canvas.getContext('2d'), {
         type: 'bar',
         data: {
-            labels,
-            datasets: [
-                { label: 'Sales Count', data: salesCount, backgroundColor: '#61B6E7', borderRadius: 5, yAxisID: 'y' },
-                { label: 'Revenue (₱)', data: revenue, backgroundColor: '#F1867B', borderRadius: 5, yAxisID: 'y1' }
-            ]
+            labels: ordered.map(shortLabel),
+            datasets: [{ data: ordered.map(rowRevenue), backgroundColor: t.bar, borderRadius: 2, maxBarThickness: 36 }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
-            plugins: { legend: { position: 'top', labels: { boxWidth: 10, boxHeight: 10, usePointStyle: true, pointStyle: 'circle' } } },
-            scales: {
-                y: { beginAtZero: true, position: 'left', title: { display: true, text: 'Sales Count' } },
-                y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Revenue (₱)' } }
-            }
-        }
+        options
     });
 }
 
-function renderTopProductsChart(products) {
-    const canvas = document.getElementById('topProductsChart');
-    if (!canvas) return;
-    if (!Array.isArray(products) || products.length === 0) return;
-    const ctx = canvas.getContext('2d');
-    if (topProductsChart) topProductsChart.destroy();
-    const labels = products.map(p => p.name || p.label || '');
-    const values = products.map(p => parseInt(p.quantity || p.count || 0));
-    const colors = ['#61B6E7', '#F3B950', '#57BE8C', '#F1867B', '#9F86DC'];
-    topProductsChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels,
-            datasets: [{ label: 'Units Sold', data: values, backgroundColor: colors.slice(0, labels.length), borderRadius: 5 }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { x: { beginAtZero: true } }
-        }
-    });
+/** Ranked list with a proportional bar — easier to read than a doughnut. */
+function renderBars(containerId, items) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    if (!items.length) { el.innerHTML = '<p class="rp-empty">Nothing to show for this period.</p>'; return; }
+    const max = Math.max(...items.map(i => i.value), 1);
+    el.innerHTML = items.map(i => `
+        <div class="rp-bar-row">
+            <div class="rp-bar-top"><span class="rp-bar-label">${escHtml(i.label)}</span><span class="rp-bar-value">${escHtml(i.text)}</span></div>
+            <div class="rp-bar-track"><div class="rp-bar-fill" style="width:${Math.max(2, Math.round(i.value / max * 100))}%"></div></div>
+        </div>`).join('');
 }
 
-function renderPaymentChart(payments) {
-    const canvas = document.getElementById('paymentChart');
-    if (!canvas) return;
-    if (!Array.isArray(payments) || payments.length === 0) return;
-    const ctx = canvas.getContext('2d');
-    if (paymentChart) paymentChart.destroy();
-    const labels = payments.map(p => (p.payment_method || 'unknown').charAt(0).toUpperCase() + (p.payment_method || 'unknown').slice(1));
-    const values = payments.map(p => parseFloat(p.total || 0));
-    const colors = ['#57BE8C', '#61B6E7', '#F3B950', '#F1867B'];
-    paymentChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels,
-            datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length), borderWidth: 2, hoverOffset: 6 }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '62%',
-            plugins: {
-                legend: { position: 'bottom', labels: { boxWidth: 9, boxHeight: 9, usePointStyle: true, pointStyle: 'circle', padding: 12 } },
-                tooltip: {
-                    callbacks: {
-                        label: ctx => ` ${ctx.label}: ${formatCurrency(ctx.raw)}`
-                    }
-                }
-            }
-        }
-    });
+function renderPaymentNote(payments) {
+    const el = document.getElementById('paymentNote');
+    if (!el) return;
+    const named = payments.filter(p => Number(p.total) > 0);
+    if (!named.length) { el.textContent = ''; return; }
+    const cap = s => String(s || 'other').charAt(0).toUpperCase() + String(s || 'other').slice(1);
+    el.textContent = named.length === 1
+        ? `All sales in this period were paid in ${String(named[0].payment_method || 'cash').toLowerCase()}.`
+        : 'Paid by: ' + named.map(p => `${cap(p.payment_method)} ${formatCurrency(p.total)}`).join(' · ');
 }
 
-function renderCategoryChart(categories) {
-    const canvas = document.getElementById('categoryChart');
-    if (!canvas) return;
-    if (!Array.isArray(categories) || categories.length === 0) return;
-    const ctx = canvas.getContext('2d');
-    if (categoryChart) categoryChart.destroy();
-    const labels = categories.map(c => c.category_name || 'Unknown');
-    const values = categories.map(c => parseFloat(c.total_revenue || 0));
-    const colors = ['#61B6E7', '#57BE8C', '#F3B950', '#F1867B', '#9F86DC', '#E88BB5', '#6BC6BD', '#F5A25F'];
-    categoryChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels,
-            datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length), borderWidth: 2, hoverOffset: 6 }]
-        },
-        options: {
-            // maintainAspectRatio:false keeps the doughnut inside the fixed-height
-            // .chart-wrapper — without it the canvas grows square and overflows the card
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '62%',
-            plugins: {
-                legend: { position: 'bottom', labels: { boxWidth: 9, boxHeight: 9, usePointStyle: true, pointStyle: 'circle', padding: 12 } },
-                tooltip: {
-                    callbacks: {
-                        label: ctx => ` ${ctx.label}: ${formatCurrency(ctx.raw)}`
-                    }
-                }
-            }
-        }
-    });
+/* ---------- Export ---------- */
+
+/** One CSV cell: quoted, and never able to run as a spreadsheet formula. */
+function csvCell(v) {
+    let s = v == null ? '' : String(v);
+    if (/^[=+\-@\t\r]/.test(s) && isNaN(Number(s))) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
 }
 
-function exportCSV() {
-    if (!currentReportData) { showToast('No data to export', 'error'); return; }
-    const rows = currentReportData.rows || [];
-    if (!Array.isArray(rows) || rows.length === 0) { showToast('No data to export', 'error'); return; }
-
-    let headers, csvRows;
-    if (currentPeriod === 'daily') {
-        headers = ['Date', 'Transactions', 'Total Amount', 'Items Sold'];
-        csvRows = [headers.join(',')];
-        rows.forEach(r => {
-            csvRows.push([
-                r.date || '',
-                r.total_sales ?? 0,
-                r.total_amount ?? 0,
-                r.item_count ?? ''
-            ].join(','));
-        });
-    } else if (currentPeriod === 'weekly') {
-        headers = ['Week', 'Week Number', 'Total Amount', 'Transactions'];
-        csvRows = [headers.join(',')];
-        rows.forEach(r => {
-            csvRows.push([
-                r.week || '',
-                r.week_number || '',
-                r.total_amount ?? 0,
-                r.total_sales ?? 0
-            ].join(','));
-        });
-    } else {
-        headers = ['Month', 'Total Transactions', 'Total Amount', 'Transactions'];
-        csvRows = [headers.join(',')];
-        rows.forEach(r => {
-            csvRows.push([
-                r.month || r.month_name || '',
-                r.total_transactions ?? 0,
-                r.total_amount ?? 0,
-                r.total_sales ?? ''
-            ].join(','));
-        });
-    }
-
-    if (currentReportData.summary) {
-        csvRows.push('');
-        csvRows.push('=== SUMMARY ===');
-        csvRows.push(`Total Revenue,${currentReportData.summary.total_revenue ?? 0}`);
-        csvRows.push(`Total Transactions,${currentReportData.summary.total_transactions ?? 0}`);
-        csvRows.push(`Avg Per Transaction,${currentReportData.summary.avg_transaction_value ?? 0}`);
-        csvRows.push(`Total Items Sold,${currentReportData.summary.total_items_sold ?? 0}`);
-    }
-
-    const csvContent = csvRows.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+function downloadCSV(filename, lines) {
+    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `sales_report_${currentPeriod}_${new Date().toISOString().split('T')[0]}.csv`;
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(link.href);
-    showToast('CSV exported!', 'success');
+    URL.revokeObjectURL(url);
 }
 
-function formatCurrency(val) {
-    return '₱' + Number(val || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+function exportCSV() {
+    const rows = currentReportData?.rows || [];
+    if (!rows.length) { showToast('There is nothing to export for this period', 'warning'); return; }
+    const lines = [[GROUP_HEAD[currentGroup], 'Sales made', 'Items sold', 'Revenue'].map(csvCell).join(',')];
+    rows.forEach(r => lines.push([periodLabel(r), rowSales(r), rowItems(r), rowRevenue(r).toFixed(2)].map(csvCell).join(',')));
+    const s = currentReportData.summary;
+    if (s) {
+        lines.push('');
+        lines.push(['Total', s.total_transactions ?? 0, Number(s.total_items_sold) || 0, Number(s.total_revenue || 0).toFixed(2)].map(csvCell).join(','));
+    }
+    downloadCSV(`sales_by_${GROUP_WORD[currentGroup]}_${ymd(new Date())}.csv`, lines);
+    showToast('Sales report exported', 'success');
 }
 
 // showToast comes from auth.js — one toast design everywhere
