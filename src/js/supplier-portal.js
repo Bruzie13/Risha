@@ -94,7 +94,7 @@ async function loadPortal() {
             : 'This page could not be loaded. Please try again in a moment.';
         notice.hidden = false;
         document.getElementById('openOrders').innerHTML = '<p class="rp-loading">Nothing to show.</p>';
-        portalRow('productsBody', 6, 'Nothing to show.');
+        portalRow('productsBody', 7, 'Nothing to show.');
         portalRow('pastOrdersBody', 4, 'Nothing to show.');
         portalRow('paymentsBody', 4, 'Nothing to show.');
     }
@@ -143,7 +143,7 @@ function renderProducts() {
     const products = portal.products;
     const low = products.filter(p => Number(p.stock_quantity) <= Number(p.reorder_level));
     document.getElementById('figLow').textContent = formatNumber(low.length);
-    if (!products.length) { portalRow('productsBody', 6, 'No products are assigned to you yet.'); return; }
+    if (!products.length) { portalRow('productsBody', 7, 'No products are assigned to you yet.'); return; }
     const status = p => {
         const stock = Number(p.stock_quantity), level = Number(p.reorder_level);
         if (stock <= 0) return '<span class="rp-badge rp-badge-danger">Out of stock</span>';
@@ -159,6 +159,7 @@ function renderProducts() {
             <td class="num">${formatQty(p.stock_quantity)}</td>
             <td class="num">${formatQty(p.reorder_level)}</td>
             <td>${status(p)}</td>
+            <td class="num">${p.expected_30d == null ? '<span class="rp-sub">Being calculated</span>' : (p.expected_30d >= 0.5 ? formatNumber(Math.round(p.expected_30d)) : '—')}</td>
             <td class="num">${p.cost_price != null ? formatCurrency(p.cost_price) : '—'}${p.pending_price != null
                 ? `<span class="rp-sub">${formatCurrency(p.pending_price)} proposed, waiting</span>` : ''}</td>
             <td class="num"><button class="btn-view" data-price="${Number(p.id)}">Change price</button></td>

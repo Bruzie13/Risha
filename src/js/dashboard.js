@@ -60,7 +60,7 @@ function renderGreeting() {
     if (el) el.textContent = first;
     if (typeof applyUserIdentity === 'function') applyUserIdentity();
     const roleEl = document.getElementById('heroRoleChip');
-    if (roleEl) roleEl.textContent = user?.role || '';
+    if (roleEl) roleEl.textContent = roleLabel(user?.role);
     const dateEl = document.getElementById('dateDisplay');
     if (dateEl) dateEl.textContent = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }

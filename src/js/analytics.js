@@ -48,7 +48,7 @@ async function loadStockPlanning(force) {
         const msg = error.name === 'AbortError'
             ? 'The forecast is taking longer than usual. Press Refresh in a minute.'
             : 'Stock planning could not be loaded. Press Refresh to try again.';
-        setRow('reorderTableBody', 5, msg);
+        setRow('reorderTableBody', 6, msg);
         setRow('predictionsTableBody', 7, msg);
     } finally {
         clearTimeout(timeout);
@@ -59,7 +59,7 @@ async function loadStockPlanning(force) {
 function refreshAnalytics() {
     predDisplayCount = PRED_PAGE_SIZE;
     reorderDisplayCount = PRED_PAGE_SIZE;
-    setRow('reorderTableBody', 5, 'Working out what to reorder…');
+    setRow('reorderTableBody', 6, 'Working out what to reorder…');
     setRow('predictionsTableBody', 7, 'Loading products…');
     loadStockPlanning(true);
 }
@@ -89,9 +89,11 @@ function wirePlanControls() {
         const row = e.target.closest('tr[data-id]');
         if (row) openProductDetail(Number(row.dataset.id));
     });
-    document.getElementById('reorderTableBody').addEventListener('click', e => {
-        const row = e.target.closest('tr[data-id]');
-        if (row) openProductDetail(Number(row.dataset.id));
+    ['reorderTableBody', 'excessBody', 'expiryBody'].forEach(id => {
+        document.getElementById(id).addEventListener('click', e => {
+            const row = e.target.closest('tr[data-id]');
+            if (row) openProductDetail(Number(row.dataset.id));
+        });
     });
 }
 
@@ -137,14 +139,20 @@ function renderPlan() {
 
     // Stale sales are the single most common reason this page looks empty, so
     // say so in words instead of leaving a row of zeros to be puzzled over.
+    // A gap in recorded sales is the most common reason this page looks low,
+    // so say so in words instead of leaving small numbers to be puzzled over.
+    const thin = !stale && plan.last_sale_date != null && plan.recent_sale_days <= 5;
     showNotice('planNotice', plan.last_sale_date == null
         ? 'No sales have been recorded yet. Forecasts will appear once the shop starts recording sales.'
         : stale
             ? `The last sale on record was ${planDate(plan.last_sale_date)}, ${plan.days_since_last_sale} days ago. `
-              + 'Forecasts are based on recent sales, so they will stay low until new sales are recorded. Stock levels and reorder levels below are still current.'
-            : '');
+              + 'Forecasts lean on recent sales, so they will stay low until new sales are recorded. Stock levels and reorder levels below are still current.'
+            : thin
+                ? `Sales were recorded on only ${plan.recent_sale_days} of the last 30 days. Forecasts lean on recent sales, so they are lower than usual, `
+                  + 'and many products show as not selling. They will correct themselves as daily sales are recorded.'
+                : '');
     document.getElementById('planCaption').textContent =
-        `Based on sales from the last ${plan.window_days} days. Forecasts cover the next ${plan.forecast_days} days.`
+        `Based on ${plan.history_days ? plan.history_days + ' days of sales on record (the model reads up to 12 months)' : 'sales on record'}. Forecasts cover the next ${plan.forecast_days} days.`
         + (plan.last_sale_date && !stale ? ` Last sale recorded ${planDate(plan.last_sale_date)}.` : '');
     const lead = document.getElementById('howLead');
     if (lead) lead.textContent = plan.lead_time_days;
@@ -161,30 +169,175 @@ function renderPlan() {
         : 'Needs recent sales to test against';
 
     renderReorder();
+    renderExcess();
+    renderExpiry();
     renderAllProducts();
+    renderDemandGroups();
+    renderModel();
 }
 
 function renderReorder() {
     const tbody = document.getElementById('reorderTableBody');
     const rows = plan.products.filter(p => p.stock_status !== 'ok');
+    const orderable = rows.filter(p => p.suggested_order > 0 && p.supplier_id);
+    const createBtn = document.getElementById('createOrdersBtn');
+    if (createBtn) createBtn.hidden = !(orderable.length && typeof canManage === 'function' && canManage());
     if (!rows.length) {
-        setRow('reorderTableBody', 5, 'Nothing needs reordering right now.');
+        setRow('reorderTableBody', 6, 'Nothing needs reordering right now.');
         document.getElementById('reorderPagination').innerHTML = '';
         return;
     }
-    tbody.innerHTML = rows.slice(0, reorderDisplayCount).map(p => `
+    const today = ymd(new Date());
+    tbody.innerHTML = rows.slice(0, reorderDisplayCount).map(p => {
+        const suggestion = p.suggested_order > 0
+            ? formatNumber(p.suggested_order)
+            : (p.on_order > 0 ? '<span class="rp-sub">Already on order</span>' : '—');
+        return `
         <tr data-id="${p.product_id}" tabindex="0">
-            <td><span class="rp-strong">${escHtml(p.name)}</span>${p.sku ? `<span class="rp-sub">${escHtml(p.sku)}</span>` : ''}</td>
+            <td><span class="rp-strong">${escHtml(p.name)}</span><span class="rp-sub">${escHtml(p.supplier_name ? 'From ' + p.supplier_name : 'No supplier set — cannot be ordered from here')}</span></td>
             <td>${badge(p.stock_status)}<span class="rp-sub">${escHtml(reorderReason(p))}</span></td>
             <td class="num">${formatQty(p.stock)}</td>
-            <td class="num">${p.per_week > 0 ? formatDecimal(p.per_week, 1) : '—'}</td>
-            <td class="num rp-strong">${formatNumber(p.suggested_order)}</td>
-        </tr>`).join('');
+            <td class="num">${p.on_order > 0 ? formatQty(p.on_order) : '—'}</td>
+            <td>${p.order_by ? (p.order_by <= today ? '<span class="rp-urgent">Today</span>' : escHtml(planDate(p.order_by))) : '—'}</td>
+            <td class="num rp-strong">${suggestion}</td>
+        </tr>`;
+    }).join('');
     updatePagination('reorderPagination', rows, reorderDisplayCount, 'showMoreReorder', 'showLessReorder', PRED_PAGE_SIZE);
 }
 
 function showMoreReorder() { reorderDisplayCount += PRED_PAGE_SIZE; renderReorder(); }
-function showLessReorder() { reorderDisplayCount = PRED_PAGE_SIZE; renderReorder(); }
+function showLessReorder() { reorderDisplayCount = Math.max(PRED_PAGE_SIZE, reorderDisplayCount - PRED_PAGE_SIZE); renderReorder(); }
+
+/* Turn the reorder list into purchase orders — one per supplier, each emailed
+   to its supplier, with the quantities the forecast suggests. */
+function createPlannedOrders() {
+    const lines = plan.products.filter(p => p.stock_status !== 'ok' && p.suggested_order > 0 && p.supplier_id);
+    if (!lines.length) { showToast('Nothing on the list can be ordered right now', 'warning'); return; }
+    const suppliers = new Set(lines.map(p => p.supplier_id)).size;
+    const skipped = plan.products.filter(p => p.stock_status !== 'ok' && p.suggested_order > 0 && !p.supplier_id).length;
+    showConfirmDialog('Create purchase orders',
+        `This creates ${suppliers} purchase order${suppliers === 1 ? '' : 's'} covering ${lines.length} product${lines.length === 1 ? '' : 's'}, `
+        + `with the suggested quantities, and <strong>emails each order to its supplier straight away</strong>.`
+        + (skipped ? ` ${skipped} product${skipped === 1 ? ' has' : 's have'} no supplier set and will be left out.` : ''),
+        async () => {
+            try {
+                const res = await fetch(`${API_BASE}/purchase-orders/auto-generate`, {
+                    method: 'POST', headers: getAuthHeaders(),
+                    body: JSON.stringify({ items: lines.map(p => ({ product_id: p.product_id, quantity: p.suggested_order })) })
+                });
+                const data = await res.json();
+                if (!data.success) { showToast(data.message || 'The orders could not be created', 'error'); return; }
+                const warnings = Array.isArray(data.warnings) && data.warnings.length
+                    ? '<br><br>' + data.warnings.map(w => escHtml(w)).join('<br>') : '';
+                showSuccessDialog('Purchase orders created', escHtml(data.message || 'Done.') + warnings, { icon: 'local_shipping' });
+                loadStockPlanning(true);
+            } catch (error) {
+                console.error('Creating orders failed:', error);
+                showToast('The orders could not be created', 'error');
+            }
+        }, 'Create and email');
+}
+
+/* ---------- Too much stock, and stock that will expire ---------- */
+
+let excessShown = PRED_PAGE_SIZE, expiryShown = PRED_PAGE_SIZE;
+
+function renderExcess() {
+    const rows = plan.products.filter(p => p.excess_units > 0).sort((a, b) => b.excess_value - a.excess_value || b.excess_units - a.excess_units);
+    document.getElementById('excessSub').textContent = rows.length
+        ? `${rows.length} product${rows.length === 1 ? '' : 's'} holding ${formatCurrency(plan.totals.excess_value)} more stock than the next three months need`
+        : 'More than three months of stock at the expected rate of sale, or stock that is not selling';
+    if (!rows.length) { setRow('excessBody', 5, 'No product is overstocked.'); document.getElementById('excessPagination').innerHTML = ''; return; }
+    document.getElementById('excessBody').innerHTML = rows.slice(0, excessShown).map(p => `
+        <tr data-id="${p.product_id}" tabindex="0">
+            <td><span class="rp-strong">${escHtml(p.name)}</span>${p.sku ? `<span class="rp-sub">${escHtml(p.sku)}</span>` : ''}</td>
+            <td>${p.excess_reason === 'not_selling'
+                ? 'Nothing sold in the last 30 days'
+                : 'Lasts ' + escHtml(lastsText(p).toLowerCase()) + ' at ' + formatDecimal(p.per_week, 1) + ' a week'}</td>
+            <td class="num">${formatQty(p.stock)}</td>
+            <td class="num">${formatQty(p.excess_units)}</td>
+            <td class="num rp-strong">${p.excess_value > 0 ? formatCurrency(p.excess_value) : '—'}</td>
+        </tr>`).join('');
+    updatePagination('excessPagination', rows, excessShown, 'showMoreExcess', 'showLessExcess', PRED_PAGE_SIZE);
+}
+function showMoreExcess() { excessShown += PRED_PAGE_SIZE; renderExcess(); }
+function showLessExcess() { excessShown = Math.max(PRED_PAGE_SIZE, excessShown - PRED_PAGE_SIZE); renderExcess(); }
+
+function renderExpiry() {
+    const rows = plan.products.filter(p => p.expired_units > 0 || p.expiry_risk_units > 0)
+        .sort((a, b) => (a.days_to_expiry ?? 0) - (b.days_to_expiry ?? 0));
+    const expired = rows.filter(p => p.expired_units > 0).length;
+    document.getElementById('expirySub').textContent = rows.length
+        ? `${expired ? expired + ' already expired with stock on the shelf. ' : ''}${rows.length - expired} more likely to expire before selling out`
+            + (plan.totals.expiry_risk_value > 0 ? `, worth ${formatCurrency(plan.totals.expiry_risk_value)} at cost` : '')
+        : 'Stock expected to still be on the shelf on its expiry date, and stock already expired';
+    if (!rows.length) { setRow('expiryBody', 5, 'Nothing is expected to expire unsold.'); document.getElementById('expiryPagination').innerHTML = ''; return; }
+    document.getElementById('expiryBody').innerHTML = rows.slice(0, expiryShown).map(p => {
+        const gone = p.expired_units > 0;
+        const when = gone
+            ? `<span class="rp-urgent">Expired</span><span class="rp-sub">${escHtml(planDate(p.expires_on))}</span>`
+            : `${escHtml(planDate(p.expires_on))}<span class="rp-sub">in ${p.days_to_expiry} day${p.days_to_expiry === 1 ? '' : 's'}</span>`;
+        const left = gone ? p.expired_units : p.expiry_risk_units;
+        return `<tr data-id="${p.product_id}" tabindex="0">
+            <td><span class="rp-strong">${escHtml(p.name)}</span>${p.sku ? `<span class="rp-sub">${escHtml(p.sku)}</span>` : ''}</td>
+            <td>${when}</td>
+            <td class="num">${formatQty(p.stock)}</td>
+            <td class="num">${formatQty(left)}${gone ? '<span class="rp-sub">remove from the shelf</span>' : ''}</td>
+            <td class="num rp-strong">${gone ? '—' : (p.expiry_risk_value > 0 ? formatCurrency(p.expiry_risk_value) : '—')}</td>
+        </tr>`;
+    }).join('');
+    updatePagination('expiryPagination', rows, expiryShown, 'showMoreExpiry', 'showLessExpiry', PRED_PAGE_SIZE);
+}
+function showMoreExpiry() { expiryShown += PRED_PAGE_SIZE; renderExpiry(); }
+function showLessExpiry() { expiryShown = Math.max(PRED_PAGE_SIZE, expiryShown - PRED_PAGE_SIZE); renderExpiry(); }
+
+/* ---------- Demand by category and brand; how good the model is ---------- */
+
+function renderDemandGroups() {
+    const bars = list => list.filter(g => g.expected_30d > 0 || g.sold_30d > 0).slice(0, 8).map(g => ({
+        label: g.name, value: g.expected_30d,
+        text: `${formatNumber(Math.round(g.expected_30d))} expected · ${formatQty(g.sold_30d)} sold in the last 30 days`
+    }));
+    renderBars('categoryDemand', bars(plan.by_category || []));
+    // Brand is optional on a product. If none have one, say how to get this
+    // view instead of showing a single bar labelled "Not set".
+    const brands = (plan.by_brand || []).filter(g => g.name !== 'Not set');
+    if (brands.length) renderBars('brandDemand', bars(plan.by_brand || []));
+    else document.getElementById('brandDemand').innerHTML = '<p class="rp-empty">No product has a brand set yet. Add a brand to products in Inventory to see which brands are expected to sell.</p>';
+}
+
+function renderModel() {
+    const model = plan.model || {};
+    const cmp = model.comparison;
+    const body = document.getElementById('modelCompareBody');
+    const note = document.getElementById('modelCompareNote');
+    const pct = v => v == null ? '—' : formatDecimal(v, 1) + '%';
+    if (!cmp) {
+        body.innerHTML = '<tr><td colspan="2" class="rp-loading">Not available yet. The test compares the forecast with the last two weeks of sales, and too few sales were recorded in that time to judge it fairly.</td></tr>';
+        note.textContent = '';
+    } else {
+        const best = Math.max(cmp.random_forest ?? 0, cmp.gradient_boosting ?? 0, cmp.ensemble ?? 0);
+        const row = (label, value, hint, strong) => `<tr><td>${strong ? '<span class="rp-strong">' + label + '</span>' : label}<span class="rp-sub">${hint}</span></td><td class="num ${strong ? 'rp-strong' : ''}">${pct(value)}</td></tr>`;
+        body.innerHTML =
+            row('Random Forest alone', cmp.random_forest, 'Many decision trees, averaged', false)
+            + row('Gradient Boosting alone', cmp.gradient_boosting, 'Trees that each correct the last', false)
+            + row('Both together (the ensemble)', cmp.ensemble, 'The average of the two models', cmp.ensemble === best)
+            + row('Simple trend only', cmp.statistical_baseline, 'No machine learning, for comparison', false)
+            + row('What this page uses', cmp.system_forecast, 'The ensemble balanced with the simple trend', true);
+        note.textContent = `Tested on ${cmp.products} product${cmp.products === 1 ? '' : 's'} that sold ${formatNumber(cmp.actual_units)} items in the test period. `
+            + 'Accuracy is how close the forecast total came to the items actually sold.';
+    }
+    document.getElementById('modelSub').textContent = model.runtime && !/python/.test(model.runtime)
+        ? 'The machine-learning model could not be run, so these forecasts use the simple trend only'
+        : 'The model is tested on the most recent two weeks, which it is not shown';
+
+    const weights = (model.feature_weights || []).filter(w => w.weight > 0.005);
+    const box = document.getElementById('featureWeights');
+    if (!weights.length) { box.innerHTML = '<p class="rp-empty">Available once a product has enough sales history to train on.</p>'; return; }
+    renderBars('featureWeights', weights.slice(0, 8).map(w => ({
+        label: w.feature.charAt(0).toUpperCase() + w.feature.slice(1), value: w.weight, text: Math.round(w.weight * 100) + '%'
+    })));
+}
 
 function renderAllProducts() {
     const all = plan.products;
@@ -264,7 +417,16 @@ function detailSentence(p) {
         ? `Expected to sell about ${formatNumber(Math.round(p.expected_30d))} in the next 30 days (around ${formatDecimal(p.per_week, 1)} a week).`
         : 'Little or nothing is expected to sell in the next 30 days.');
     if (p.stock > 0 && p.days_left != null) parts.push(`At that rate the stock lasts ${lastsText(p).toLowerCase()}.`);
-    if (p.stock_status !== 'ok') parts.push(`${STOCK_LABEL[p.stock_status].text}: suggested order ${formatNumber(p.suggested_order)}.`);
+    if (p.stock_status !== 'ok') {
+        parts.push(p.suggested_order > 0
+            ? `${STOCK_LABEL[p.stock_status].text}: order ${formatNumber(p.suggested_order)}${p.order_by ? ' by ' + planDate(p.order_by) : ''}.`
+            : `${STOCK_LABEL[p.stock_status].text}, and ${formatQty(p.on_order)} already on order.`);
+    }
+    if (p.recommended_reorder_point != null) {
+        parts.push(`Recommended reorder point: ${formatNumber(p.recommended_reorder_point)}, which includes a safety stock of ${formatNumber(p.safety_stock)}`
+            + (p.recommended_reorder_point !== p.reorder_level ? ` (it is currently set to ${formatQty(p.reorder_level)}).` : ' (matches the current setting).'));
+    }
+    if (p.expiry_risk_units > 0) parts.push(`About ${formatQty(p.expiry_risk_units)} may still be unsold when it expires on ${planDate(p.expires_on)}.`);
     if (p.confidence && p.expected_30d >= 0.5) {
         parts.push({ high: 'Sales have been regular, so this estimate is fairly reliable.',
                      medium: 'Sales have been somewhat uneven, so treat this as a guide.',
@@ -340,6 +502,19 @@ function renderPatterns(seasonality) {
         });
     }
 
+    // The pattern the study names first: do weekends sell more than weekdays?
+    const note = document.getElementById('weekendNote');
+    if (note) {
+        const avg = days => { const v = dow.filter(d => days.includes(d.day)).map(d => Number(d.avg_daily_sales) || 0); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0; };
+        const weekend = avg(['Sat', 'Sun']), weekday = avg(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
+        if (weekday > 0 && weekend > 0) {
+            const diff = Math.round((weekend - weekday) / weekday * 100);
+            note.textContent = Math.abs(diff) < 3
+                ? `Weekends and weekdays sell about the same: around ${formatDecimal(weekday, 0)} items a day.`
+                : `Weekends sell ${Math.abs(diff)}% ${diff > 0 ? 'more' : 'less'} per day than weekdays (${formatDecimal(weekend, 0)} against ${formatDecimal(weekday, 0)} items).`;
+        } else note.textContent = '';
+    }
+
     const months = seasonality.monthly_patterns || [];
     const monthCanvas = document.getElementById('seasonalTrendsChart');
     if (seasonalChart) { seasonalChart.destroy(); seasonalChart = null; }
@@ -357,9 +532,9 @@ function renderPatterns(seasonality) {
 function exportReorderCSV() {
     const rows = plan ? plan.products.filter(p => p.stock_status !== 'ok') : [];
     if (!rows.length) { showToast('Nothing needs reordering right now', 'warning'); return; }
-    const lines = [['Product', 'SKU', 'Status', 'Why', 'In stock', 'Reorder level', 'Sells per week', 'Suggested order'].map(csvCell).join(',')];
-    rows.forEach(p => lines.push([p.name, p.sku || '', STOCK_LABEL[p.stock_status].text, reorderReason(p),
-        p.stock, p.reorder_level, p.per_week, p.suggested_order].map(csvCell).join(',')));
+    const lines = [['Product', 'SKU', 'Supplier', 'Status', 'Why', 'In stock', 'On order', 'Reorder level', 'Recommended reorder point', 'Safety stock', 'Sells per week', 'Order by', 'Suggested order'].map(csvCell).join(',')];
+    rows.forEach(p => lines.push([p.name, p.sku || '', p.supplier_name || '', STOCK_LABEL[p.stock_status].text, reorderReason(p),
+        p.stock, p.on_order, p.reorder_level, p.recommended_reorder_point ?? '', p.safety_stock, p.per_week, p.order_by || '', p.suggested_order].map(csvCell).join(',')));
     downloadCSV(`reorder_list_${ymd(new Date())}.csv`, lines);
     showToast('Reorder list exported', 'success');
 }

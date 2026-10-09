@@ -532,7 +532,7 @@
     </script>
         <script src="js/utils.js"></script>
 <script src="js/format.js"></script>
-<script src="js/auth.js?v=30"></script>
+<script src="js/auth.js?v=31"></script>
 <script src="js/motion.js?v=20"></script>
 <script src="js/jump.js?v=28"></script>
 <script src="js/assistant.js?v=22"></script>
@@ -587,7 +587,7 @@
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">assessment</span> Reports</h3>
                 <ul>
                     <li><strong>Sales</strong> — pick a period (last 7 days, last 30 days, this month, all time, or your own dates) and view it by day, week or month. Shows revenue, number of sales, average per sale, items sold, best-selling products and sales by category. <strong>Export CSV</strong> saves the table.</li>
-                    <li><strong>Stock planning</strong> — estimates what each product will sell over the next 30 days from its recent sales. <strong>What to reorder</strong> lists products that are out of stock, at or below their reorder level, or expected to run out within three weeks, with a suggested order quantity.</li>
+                    <li><strong>Stock planning</strong> — forecasts what each product will sell over the next 30 days, using Random Forest and Gradient Boosting on up to 12 months of sales. <strong>What to reorder</strong> lists what to order, how much and by which date; <strong>Create purchase orders</strong> turns the list into orders and emails each supplier. Further down: products with too much stock, stock likely to expire before it sells, expected sales by category and brand, and how accurate the forecast has been.</li>
                     <li>Under <strong>All products</strong>, filter by how each product is selling and select any product to see its sales history and forecast. <strong>How these numbers are worked out</strong> at the bottom explains every figure.</li>
                     <li><strong>Void requests</strong> (admins and managers) lists sales a cashier has asked to have voided, with the reason. Choose <strong>Void sale</strong> to cancel it and return the items to stock, or <strong>Keep sale</strong> to dismiss the request. Recently voided sales are listed below.</li>
                     <li><strong>Activity log</strong> (admins) shows who did what, and when.</li>
@@ -596,9 +596,9 @@
             <div class="help-section">
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">group</span> Users &amp; Roles</h3>
                 <ul>
-                    <li><strong>Admin</strong> — everything in the back office, including users, the activity log, email settings and backups. Does not use the point of sale.</li>
+                    <li><strong>Administrator</strong> — everything in the back office, including users, the activity log, email settings and backups. Does not use the point of sale.</li>
                     <li><strong>Manager</strong> — inventory, suppliers, reorders, voids; no user management and no point of sale.</li>
-                    <li><strong>Cashier</strong> — the point of sale only. Signs in straight to the till; each sale reduces stock in inventory, and the cashier records the end-of-day cash count from the POS.</li>
+                    <li><strong>Staff</strong> — the point of sale only. Signs in straight to the till; each sale reduces stock in inventory, low-stock items are marked on the product cards, and staff record the end-of-day cash count from the POS.</li>
                     <li><strong>Viewer</strong> — can look at everything in the back office and change nothing.</li>
                     <li><strong>Supplier</strong> — an outside login tied to one supplier. Sees only the purchase orders sent to that supplier and the products it supplies, and can confirm an order and mark it shipped.</li>
                     <li>Passwords need at least 6 characters with an uppercase letter, a number, and a special character. Five failed logins locks the account for a few minutes.</li>

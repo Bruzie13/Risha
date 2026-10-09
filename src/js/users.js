@@ -76,7 +76,7 @@ function displayUsers(users) {
                     ? '<span class="verify-badge verified" title="This address has been confirmed by the account holder"><span class="material-symbols-outlined">verified</span> Verified</span>'
                     : '<span class="verify-badge pending" title="Cannot sign in until the confirmation link is clicked"><span class="material-symbols-outlined">mark_email_unread</span> Unconfirmed</span>'}
             </td>
-            <td><span class="role-badge role-${escHtml(u.role)}">${escHtml(u.role)}</span>${u.role === 'supplier' && u.supplier_name ? `<span style="display:block;font-size:12.5px;color:var(--text-muted);margin-top:2px;">${escHtml(u.supplier_name)}</span>` : ''}</td>
+            <td><span class="role-badge role-${escHtml(u.role)}">${escHtml(roleLabel(u.role))}</span>${u.role === 'supplier' && u.supplier_name ? `<span style="display:block;font-size:12.5px;color:var(--text-muted);margin-top:2px;">${escHtml(u.supplier_name)}</span>` : ''}</td>
             <td>
                 <span class="status-badge ${isActive(u) ? 'status-in-stock' : 'status-expired'}">
                     ${isActive(u) ? 'Active' : 'Deactivated'}
@@ -303,7 +303,7 @@ function resetEmailCodeState() {
 /* ── Role-dependent fields ────────────────────────────────────────────────
    A supplier account has to be tied to one supplier; nobody else is. */
 const ROLE_HINTS = {
-    cashier: 'Opens straight to the point of sale and can use nothing else. Sales it records reduce stock in inventory as usual, and it records the end-of-day cash count.',
+    cashier: 'The staff account for the till. Opens straight to the point of sale and can use nothing else. Sales it records reduce stock in inventory as usual, and it records the end-of-day cash count.',
     manager: 'Manages inventory, suppliers and purchase orders. Does not use the point of sale.',
     admin: 'Full control of the back office, including users. Does not use the point of sale.',
     viewer: 'Can look at everything and change nothing.',

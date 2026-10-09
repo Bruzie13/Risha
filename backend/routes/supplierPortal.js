@@ -96,7 +96,16 @@ router.get('/products', async (req, res) => {
              LEFT JOIN price_proposals pp ON pp.product_id = p.id AND pp.supplier_id = p.supplier_id AND pp.status = 'pending'
              WHERE p.supplier_id = ? AND p.is_active = TRUE
              ORDER BY p.name`, [req.supplier.id]);
-        res.json({ success: true, data: rows });
+        // The study has the supplier planning deliveries from the shop's
+        // demand forecast, so each of their products carries what the shop
+        // expects to sell. Only their own products, and only the forecast —
+        // not the shop's sales history behind it.
+        const forecasts = require('./predictions').peekForecasts();
+        rows.forEach(r => {
+            const f = forecasts ? forecasts.get(Number(r.id)) : undefined;
+            r.expected_30d = forecasts ? (f ? Math.round(Number(f.next_month_prediction) * 10) / 10 : 0) : null;
+        });
+        res.json({ success: true, data: rows, forecast_ready: !!forecasts });
     } catch (e) { fail(res, 'products', e); }
 });
 

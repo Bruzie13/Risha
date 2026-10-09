@@ -188,9 +188,36 @@ exports.deletePO = async (req, res) => {
 exports.autoGeneratePO = async (req, res) => {
     try {
         const { product_ids } = req.body;
-        let lowStockProducts = await Product.getLowStock();
+        let lowStockProducts;
 
-        if (Array.isArray(product_ids) && product_ids.length > 0) {
+        /* Orders raised from the stock-planning forecast arrive as explicit
+           lines: the product and the quantity the forecast suggests. That
+           covers a product still above its reorder level that the forecast
+           says will run out before a delivery could arrive — the case the
+           plain low-stock rule cannot see. Quantities are checked here; the
+           price always comes from the product, never from the request. */
+        const planned = new Map();
+        if (Array.isArray(req.body.items) && req.body.items.length > 0) {
+            if (req.body.items.length > 200) {
+                return res.status(400).json({ success: false, message: 'Too many products in one request' });
+            }
+            for (const line of req.body.items) {
+                const pid = Number(line && line.product_id), qty = Number(line && line.quantity);
+                if (!Number.isInteger(pid) || !Number.isInteger(qty) || qty < 1 || qty > 10000) {
+                    return res.status(400).json({ success: false, message: 'Each line needs a product and a whole quantity from 1 to 10,000' });
+                }
+                planned.set(pid, qty);
+            }
+            lowStockProducts = [];
+            for (const pid of planned.keys()) {
+                const product = await Product.findById(pid);
+                if (product && product.is_active !== 0 && product.is_active !== false) lowStockProducts.push(product);
+            }
+        } else {
+            lowStockProducts = await Product.getLowStock();
+        }
+
+        if (!planned.size && Array.isArray(product_ids) && product_ids.length > 0) {
             const idSet = new Set(product_ids.map(Number));
             lowStockProducts = lowStockProducts.filter(p => idSet.has(p.id));
             if (lowStockProducts.length === 0) {
@@ -250,7 +277,9 @@ exports.autoGeneratePO = async (req, res) => {
             let reorderQuantity;
             const unitsSold30d = velocityMap[product.id] || 0;
             const dailyAvg = unitsSold30d / 30;
-            if (!hasSalesData || dailyAvg < 0.5) {
+            if (planned.has(Number(product.id))) {
+                reorderQuantity = planned.get(Number(product.id));
+            } else if (!hasSalesData || dailyAvg < 0.5) {
                 if (hasSalesData && dailyAvg < 0.5) {
                     warnings.push(`"${product.name}" has low sales velocity (${dailyAvg.toFixed(2)} units/day), ordering minimum quantity`);
                 }
@@ -286,7 +315,7 @@ exports.autoGeneratePO = async (req, res) => {
             const orderData = {
                 supplier_id: parseInt(supplierId),
                 total_amount,
-                notes: 'Auto-generated purchase order for low stock products',
+                notes: planned.size ? 'Purchase order raised from the stock-planning forecast' : 'Auto-generated purchase order for low stock products',
                 created_by: req.user.id,
                 items
             };

@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { forecastML, warmMLCacheAsync, mlAvailable } = require('../utils/mlForecast');
+const { forecastML, warmMLCacheAsync, mlAvailable, featureWeights } = require('../utils/mlForecast');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
-const HISTORY_WINDOW_DAYS = 90; // analyze up to the last 90 calendar days
+// Up to twelve months of sales, the range the study specifies (3–12 months),
+// so weekend, pay-day and seasonal patterns are all inside what the model sees.
+const HISTORY_WINDOW_DAYS = 365;
 const FORECAST_DAYS = 30;
 const DAY_MS = 86400000;
 
@@ -135,9 +137,11 @@ function dayOfWeekIndices(series) {
 // Core forecaster shared by /product/:id and /all.
 // Ensemble: Holt smoothing + linear regression + weighted moving average,
 // weighted by how much history exists, then shaped by day-of-week indices.
-function forecastSeries(series, days = FORECAST_DAYS) {
-    // Fit on the last 8 weeks only: demand regimes shift (seasons, promos,
-    // assortment changes) and stale months poison the level estimate.
+function forecastSeries(series, days = FORECAST_DAYS, opts = {}) {
+    // The machine-learning model reads the whole history. The statistical
+    // baseline beside it reads only the last 8 weeks: its job is to track the
+    // current level, and stale months would drag that estimate.
+    const fullSeries = series;
     const FIT_WINDOW = 56;
     if (series.length > FIT_WINDOW) series = series.slice(-FIT_WINDOW);
     const quantities = winsorize(series.map(p => p.quantity));
@@ -194,8 +198,14 @@ function forecastSeries(series, days = FORECAST_DAYS) {
     // statistical baseline above. Returns null when history is too short to
     // train, or when the Python model could not be reached — in both cases the
     // statistical baseline stands alone rather than the forecast failing.
-    const mlPreds = forecastML(series, days);
+    const mlPreds = forecastML(fullSeries, days, opts.compare);
+    // For the backtest: what each part would have forecast by itself over the
+    // horizon, so the ensemble can be judged against its own ingredients.
+    const sumOf = (rows, field) => rows.reduce((a, p) => a + (Number(p[field]) || 0), 0);
+    const parts = { baseline: sumOf(predictions, 'predicted_quantity'), ml: null, rf: null, gb: null };
     if (mlPreds) {
+        parts.ml = sumOf(mlPreds, 'predicted_quantity');
+        if (mlPreds[0] && mlPreds[0].rf !== undefined) { parts.rf = sumOf(mlPreds, 'rf'); parts.gb = sumOf(mlPreds, 'gb'); }
         for (let i = 0; i < predictions.length; i++) {
             const blended = 0.5 * predictions[i].predicted_quantity + 0.5 * mlPreds[i].predicted_quantity;
             predictions[i].predicted_quantity = Math.round(blended * 100) / 100;
@@ -218,8 +228,9 @@ function forecastSeries(series, days = FORECAST_DAYS) {
         sigma,
         trend,
         momentum,
-        historyDays: n,
+        historyDays: fullSeries.length,
         historyAvg: avg,
+        parts,
         confidence: computeConfidence(n, reg.r2, cv)
     };
 }
@@ -235,7 +246,8 @@ function mlJobsFor(series, days = FORECAST_DAYS) {
     const jobs = [{ series, days }];
     const holdout = series.length >= 42 ? 14 : 7;
     if (series.length >= holdout + 14) {
-        jobs.push({ series: series.slice(0, -holdout), days: holdout });
+        // the backtest also asks what each learner would have said alone
+        jobs.push({ series: series.slice(0, -holdout), days: holdout, compare: true });
     }
     return jobs;
 }
@@ -250,7 +262,7 @@ function backtestAccuracy(series) {
     if (series.length < holdout + 14) return null; // need 14+ training days
     const train = series.slice(0, -holdout);
     const test = series.slice(-holdout);
-    const fc = forecastSeries(train, holdout);
+    const fc = forecastSeries(train, holdout, { compare: true });
     // Score on total holdout volume: for intermittent retail demand, WHICH
     // day a bulk purchase lands on is noise — the volume is what inventory
     // decisions depend on.
@@ -263,7 +275,7 @@ function backtestAccuracy(series) {
     const accuracy = actualTotal > 0
         ? Math.round(Math.max(0, Math.min(100, 100 - (Math.abs(predTotal - actualTotal) / actualTotal) * 100)) * 10) / 10
         : null;
-    return { accuracy, predTotal, actualTotal };
+    return { accuracy, predTotal, actualTotal, parts: fc.parts };
 }
 
 // ---------- Routes ----------
@@ -344,6 +356,16 @@ const ALL_TTL_MS = 5 * 60 * 1000;
 let allCache = { at: 0, payload: null };
 let rebuildInFlight = null;
 
+// Fewer items than this sold across the shop in the test fortnight is too
+// little to grade a forecast on.
+const MIN_TEST_UNITS = 20;
+
+/** 100 minus the percentage error on total volume, floored at 0 — the same score as the headline accuracy. */
+function accuracyOf(predicted, actual) {
+    if (!(actual > 0)) return null;
+    return Math.round(Math.max(0, Math.min(100, 100 - (Math.abs(predicted - actual) / actual) * 100)) * 10) / 10;
+}
+
 async function computeAllPredictions() {
         const [rows] = await pool.query(`
             SELECT si.product_id, p.name, p.unit_price, p.stock_quantity, p.reorder_level,
@@ -377,6 +399,10 @@ async function computeAllPredictions() {
         await warmMLCacheAsync(warmJobs);
 
         let holdPred = 0, holdActual = 0, backtested = 0;
+        // Store-level holdout totals for each way of forecasting, kept only
+        // over the products where every one of them produced a figure, so the
+        // comparison is like for like.
+        const cmp = { actual: 0, baseline: 0, rf: 0, gb: 0, ml: 0, final: 0, products: 0 };
         const result = Object.entries(byProduct).map(([pid, data]) => {
             const series = allSeries[pid];
             const fc = forecastSeries(series);
@@ -388,6 +414,15 @@ async function computeAllPredictions() {
                 holdPred += bt.predTotal;
                 holdActual += bt.actualTotal;
                 backtested++;
+                if (bt.parts && bt.parts.rf !== null && bt.parts.ml !== null) {
+                    cmp.actual += bt.actualTotal;
+                    cmp.baseline += bt.parts.baseline;
+                    cmp.rf += bt.parts.rf;
+                    cmp.gb += bt.parts.gb;
+                    cmp.ml += bt.parts.ml;
+                    cmp.final += bt.predTotal;
+                    cmp.products++;
+                }
             }
             return {
                 product_id: Number(pid),
@@ -403,6 +438,7 @@ async function computeAllPredictions() {
                 trend_momentum: `${fc.momentum}%`,
                 confidence_score: fc.confidence,
                 backtest_accuracy: accuracy,
+                sigma: Math.round(fc.sigma * 1000) / 1000,
                 days_of_history: fc.historyDays
             };
         });
@@ -415,10 +451,25 @@ async function computeAllPredictions() {
                 window_days: HISTORY_WINDOW_DAYS,
                 total_predicted_units: Math.round(result.reduce((a, r) => a + r.next_month_prediction, 0)),
                 total_predicted_revenue: Math.round(result.reduce((a, r) => a + r.predicted_revenue, 0) * 100) / 100,
-                overall_accuracy: holdActual > 0
-                    ? Math.round(Math.max(0, Math.min(100, 100 - (Math.abs(holdPred - holdActual) / holdActual) * 100)) * 10) / 10
-                    : null,
+                // A score needs something to be scored against. With only a
+                // handful of items sold in the test fortnight the percentage
+                // swings between 0 and 100 on one sale and means nothing, so
+                // it is withheld rather than shown.
+                overall_accuracy: holdActual >= MIN_TEST_UNITS ? accuracyOf(holdPred, holdActual) : null,
                 backtested_products: backtested,
+                model: {
+                    runtime: mlAvailable() ? 'python/scikit-learn' : 'statistical baseline only (Python model unavailable)',
+                    comparison: cmp.actual >= MIN_TEST_UNITS ? {
+                        products: cmp.products,
+                        actual_units: Math.round(cmp.actual),
+                        random_forest: accuracyOf(cmp.rf, cmp.actual),
+                        gradient_boosting: accuracyOf(cmp.gb, cmp.actual),
+                        ensemble: accuracyOf(cmp.ml, cmp.actual),
+                        statistical_baseline: accuracyOf(cmp.baseline, cmp.actual),
+                        system_forecast: accuracyOf(cmp.final, cmp.actual)
+                    } : null,
+                    feature_weights: featureWeights(Object.values(allSeries), FORECAST_DAYS)
+                },
                 predictions: result
             }
         };
@@ -485,18 +536,42 @@ function confidenceWord(score) {
     return score >= 70 ? 'high' : score >= 45 ? 'medium' : 'low';
 }
 
-/** Pure: (active products, forecast rows, units sold per product in 30 days) → rows for the page. */
-function planStock(products, forecasts, sold30) {
+const OVERSTOCK_DAYS = 90;       // more than three months of stock is more than the shop needs
+const EXPIRY_HORIZON_DAYS = 180; // only worry about expiry dates within six months
+const DAY_MS_ = 86400000;
+const addDays = (day, n) => new Date(Date.parse(day + 'T00:00:00Z') + n * DAY_MS_).toISOString().slice(0, 10);
+const daysBetween = (from, to) => Math.round((Date.parse(to + 'T00:00:00Z') - Date.parse(from + 'T00:00:00Z')) / DAY_MS_);
+
+/* Pure: (active products, forecast rows, units sold per product in 30 days)
+   → rows for the page. `extra` carries what is already on order from
+   suppliers and today's date, so the function stays free of the database and
+   the clock and can be tested as arithmetic.
+
+   Beyond stock status it answers the questions the study sets for the
+   predictive module:
+     when to reorder      order_by — the last day an order still arrives in time
+     how much             suggested_order, less what is already on order
+     reorder point        expected sales during the delivery wait, plus
+     and safety stock     a buffer for the days sales run above average
+     overstock            stock beyond three months of expected sales
+     expiry               stock expected to still be on the shelf on its
+                          expiry date */
+function planStock(products, forecasts, sold30, extra = {}) {
     const byId = new Map(forecasts.map(f => [Number(f.product_id), f]));
+    const onOrder = extra.onOrder || new Map();
+    const today = extra.today || new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+
     const rows = products.map(p => {
         const id = Number(p.id);
         const f = byId.get(id);
         const stock = Number(p.stock_quantity) || 0;
         const reorderLevel = Number(p.reorder_level) || 0;
+        const cost = Number(p.cost_price) || 0;
         const expected = f ? Number(f.next_month_prediction) || 0 : 0;
         const daily = expected / FORECAST_DAYS;
         const daysLeft = daily > 0 ? Math.floor(stock / daily) : null;
         const sold = Number(sold30.get(id)) || 0;
+        const coming = Number(onOrder.get(id)) || 0;
 
         let stockStatus = 'ok';
         if (stock <= 0) stockStatus = 'out';
@@ -504,23 +579,74 @@ function planStock(products, forecasts, sold30) {
         else if (daysLeft !== null && daysLeft <= REORDER_SOON_DAYS) stockStatus = 'reorder_soon';
 
         // Enough for the coming month plus the wait for delivery, and never
-        // less than what brings the shelf back to twice its reorder level.
-        const suggested = stockStatus === 'ok' ? 0
+        // less than what brings the shelf back to twice its reorder level —
+        // minus anything a supplier is already bringing.
+        const need = stockStatus === 'ok' ? 0
             : Math.max(0, Math.ceil(Math.max(expected + daily * LEAD_TIME_DAYS - stock, reorderLevel * 2 - stock)));
+        const suggested = Math.max(0, need - coming);
+
+        // Safety stock at about a 95% service level: z × daily spread × √(lead time).
+        const sigma = f ? Number(f.sigma) || 0 : 0;
+        const safety = daily > 0 ? Math.ceil(1.65 * sigma * Math.sqrt(LEAD_TIME_DAYS)) : 0;
+        const reorderPoint = daily > 0 ? Math.ceil(daily * LEAD_TIME_DAYS) + safety : null;
+
+        const runOut = daysLeft !== null && stock > 0 ? addDays(today, daysLeft) : null;
+        // At or below the reorder level the trigger has already been reached,
+        // so the answer is today however slowly the product sells. Above it,
+        // it is the last day an order still arrives before the shelf empties.
+        const orderBy = stock <= reorderLevel ? today
+            : runOut ? addDays(today, Math.max(0, daysLeft - LEAD_TIME_DAYS)) : null;
+
+        // Overstock: what is left after three months of expected sales. A
+        // product with stock and no sales at all is all excess.
+        let excess = 0, excessReason = null;
+        if (stock > 0 && daily > 0 && daysLeft > OVERSTOCK_DAYS) {
+            excess = Math.floor(stock - daily * OVERSTOCK_DAYS);
+            excessReason = 'slow';
+        } else if (stock > reorderLevel && daily === 0 && sold === 0) {
+            excess = stock - reorderLevel;
+            excessReason = 'not_selling';
+        }
+
+        // Expiry: how much will still be here on the day it expires.
+        const expires = p.expires_on || null;
+        const daysToExpiry = expires ? daysBetween(today, expires) : null;
+        let expiryRisk = 0, expired = 0;
+        if (expires && stock > 0) {
+            if (daysToExpiry < 0) expired = stock;
+            else if (daysToExpiry <= EXPIRY_HORIZON_DAYS) expiryRisk = Math.max(0, Math.ceil(stock - daily * daysToExpiry));
+        }
 
         return {
             product_id: id,
             name: p.name,
             sku: p.sku || null,
+            brand: p.brand || null,
+            category: p.category || null,
+            supplier_id: p.supplier_id ? Number(p.supplier_id) : null,
+            supplier_name: p.supplier_name || null,
             unit_price: Number(p.unit_price) || 0,
             stock,
             reorder_level: reorderLevel,
+            on_order: coming,
             sold_30d: sold,
             expected_30d: Math.round(expected * 10) / 10,
             per_week: Math.round(daily * 7 * 10) / 10,
             days_left: daysLeft,
+            runs_out_on: runOut,
+            order_by: stockStatus === 'ok' ? null : (orderBy || today),
             stock_status: stockStatus,
             suggested_order: suggested,
+            safety_stock: safety,
+            recommended_reorder_point: reorderPoint,
+            excess_units: excess,
+            excess_value: Math.round(excess * cost * 100) / 100,
+            excess_reason: excessReason,
+            expires_on: expires,
+            days_to_expiry: daysToExpiry,
+            expiry_risk_units: expiryRisk,
+            expiry_risk_value: Math.round(expiryRisk * cost * 100) / 100,
+            expired_units: expired,
             demand: 'none',
             trend: f ? f.trend : 'stable',
             confidence: f ? confidenceWord(f.confidence_score) : null
@@ -547,6 +673,31 @@ function planStock(products, forecasts, sold30) {
     return rows;
 }
 
+/** Expected and recent sales added up by one field — brand, or category. */
+function demandBy(rows, field) {
+    const groups = new Map();
+    rows.forEach(r => {
+        const key = r[field] || 'Not set';
+        const g = groups.get(key) || { name: key, products: 0, expected_30d: 0, sold_30d: 0 };
+        g.products++;
+        g.expected_30d += r.expected_30d;
+        g.sold_30d += r.sold_30d;
+        groups.set(key, g);
+    });
+    return [...groups.values()]
+        .map(g => ({ ...g, expected_30d: Math.round(g.expected_30d * 10) / 10 }))
+        .sort((a, b) => b.expected_30d - a.expected_30d || b.sold_30d - a.sold_30d || a.name.localeCompare(b.name));
+}
+
+/* The forecast for a set of products, for callers outside this file (the
+   supplier page). Reads the cache; if nothing has been computed yet it starts
+   the computation and returns null rather than making the caller wait. */
+function peekForecasts() {
+    if (!allCache.payload) { rebuildAllPredictions().catch(() => {}); return null; }
+    if (Date.now() - allCache.at >= ALL_TTL_MS) rebuildAllPredictions().catch(() => {});
+    return new Map(allCache.payload.data.predictions.map(p => [Number(p.product_id), p]));
+}
+
 router.get('/overview', authenticateToken, async (req, res) => {
     try {
         // Serve a cached forecast when there is one (refreshing it behind the
@@ -556,41 +707,71 @@ router.get('/overview', authenticateToken, async (req, res) => {
         else if (Date.now() - allCache.at >= ALL_TTL_MS) rebuildAllPredictions().catch(() => {});
 
         const [products] = await pool.query(`
-            SELECT id, name, sku, unit_price, stock_quantity, reorder_level
-            FROM products WHERE is_active = TRUE`);
+            SELECT p.id, p.name, p.sku, p.brand, p.unit_price, p.cost_price, p.stock_quantity, p.reorder_level,
+                   p.supplier_id, c.name AS category, s.name AS supplier_name,
+                   DATE_FORMAT(p.expiration_date, '%Y-%m-%d') AS expires_on
+            FROM products p
+            LEFT JOIN categories c ON c.id = p.category_id
+            LEFT JOIN suppliers s ON s.id = p.supplier_id AND s.is_active = TRUE
+            WHERE p.is_active = TRUE`);
         const [soldRows] = await pool.query(`
             SELECT si.product_id, SUM(si.quantity) AS qty
             FROM sale_items si JOIN sales s ON si.sale_id = s.id
             WHERE s.payment_status = 'completed'
               AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
             GROUP BY si.product_id`);
+        // Stock a supplier is already bringing: ordering it again would
+        // double the shelf. Uses what the supplier confirmed where they have.
+        const [orderRows] = await pool.query(`
+            SELECT pi.product_id, SUM(COALESCE(pi.confirmed_quantity, pi.quantity)) AS qty
+            FROM po_items pi JOIN purchase_orders po ON po.id = pi.po_id
+            WHERE po.status IN ('pending', 'confirmed', 'shipped')
+            GROUP BY pi.product_id`);
         const [lastRows] = await pool.query(`
-            SELECT DATE_FORMAT(CONVERT_TZ(MAX(created_at),'+00:00','+08:00'), '%Y-%m-%d') AS last_sale,
+            SELECT COUNT(DISTINCT CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                                       THEN DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) END) AS recent_days,
+                   DATE_FORMAT(CONVERT_TZ(MAX(created_at),'+00:00','+08:00'), '%Y-%m-%d') AS last_sale,
+                   DATE_FORMAT(CONVERT_TZ(MIN(created_at),'+00:00','+08:00'), '%Y-%m-%d') AS first_sale,
                    DATEDIFF(DATE(CONVERT_TZ(NOW(),'+00:00','+08:00')),
                             DATE(CONVERT_TZ(MAX(created_at),'+00:00','+08:00'))) AS days_since
             FROM sales WHERE payment_status = 'completed'`);
 
+        const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
         const sold30 = new Map(soldRows.map(r => [Number(r.product_id), Number(r.qty)]));
-        const rows = planStock(products, all.data.predictions, sold30);
+        const onOrder = new Map(orderRows.map(r => [Number(r.product_id), Number(r.qty)]));
+        const rows = planStock(products, all.data.predictions, sold30, { onOrder, today });
         const needOrder = rows.filter(r => r.stock_status !== 'ok');
+        const sum = (list, field) => Math.round(list.reduce((a, r) => a + (Number(r[field]) || 0), 0) * 100) / 100;
+        // How much history the model actually had, in days, capped at the window.
+        const historyDays = lastRows[0].first_sale
+            ? Math.min(HISTORY_WINDOW_DAYS, daysBetween(lastRows[0].first_sale, today) + 1) : 0;
 
         res.json({
             success: true,
             data: {
                 window_days: HISTORY_WINDOW_DAYS,
+                history_days: historyDays,
                 forecast_days: FORECAST_DAYS,
                 lead_time_days: LEAD_TIME_DAYS,
+                overstock_days: OVERSTOCK_DAYS,
                 last_sale_date: lastRows[0].last_sale || null,
                 days_since_last_sale: lastRows[0].days_since == null ? null : Number(lastRows[0].days_since),
+                // on how many of the last 30 days anything was sold at all
+                recent_sale_days: Number(lastRows[0].recent_days) || 0,
                 totals: {
                     products: rows.length,
                     expected_units: Math.round(rows.reduce((a, r) => a + r.expected_30d, 0)),
                     expected_revenue: Math.round(rows.reduce((a, r) => a + r.expected_30d * r.unit_price, 0) * 100) / 100,
                     to_reorder: needOrder.length,
                     out_of_stock: rows.filter(r => r.stock_status === 'out').length,
+                    excess_value: sum(rows, 'excess_value'),
+                    expiry_risk_value: sum(rows, 'expiry_risk_value'),
                     accuracy: all.data.overall_accuracy,
                     accuracy_products: all.data.backtested_products
                 },
+                by_category: demandBy(rows, 'category'),
+                by_brand: demandBy(rows, 'brand').slice(0, 10),
+                model: all.data.model || null,
                 products: rows
             }
         });
@@ -741,7 +922,9 @@ router.get('/trends', authenticateToken, async (req, res) => {
 });
 
 // exposed for offline evaluation scripts / tests
-router._internals = { forecastSeries, backtestAccuracy, buildDailySeries, winsorize, planStock };
+router._internals = { forecastSeries, backtestAccuracy, buildDailySeries, winsorize, planStock, demandBy };
+// the supplier page shows each supplier the forecast for its own products
+router.peekForecasts = peekForecasts;
 // server.js warms this on boot and on a timer so Analytics opens instantly
 router.warmAllPredictions = warmAllPredictions;
 

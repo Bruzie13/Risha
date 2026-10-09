@@ -38,21 +38,24 @@ const MAX_BUFFER = 64 * 1024 * 1024;
 // nothing is blocked while it runs.
 const ASYNC_TIMEOUT_MS = 5 * 60 * 1000;
 
-/* Only the most recent weeks are fitted — older retail history mostly adds
-   noise. This lives here, next to the cache key it feeds, because the window
-   and the key have to be decided in the same place: when the caller trimmed
-   the series and the lookup did not, every warm entry was filed under a key
-   nobody ever asked for, and each product quietly fell back to fitting itself
-   in its own Python process. */
-const FIT_WINDOW = 56;
+/* How much history the model learns from: up to twelve months, the range the
+   study specifies (three to twelve months), so it has a chance of seeing a
+   season turn. This lives here, next to the cache key it feeds, because the
+   window and the key have to be decided in the same place: when the caller
+   trimmed the series and the lookup did not, every warm entry was filed under
+   a key nobody ever asked for, and each product quietly fell back to fitting
+   itself in its own Python process. */
+const FIT_WINDOW = 365;
 function fitSlice(series) {
     return series.length > FIT_WINDOW ? series.slice(-FIT_WINDOW) : series;
 }
 
 let cache = new Map();
+let weights = new Map();           // key → the forest's feature weights for that fit
+let featureNames = [];
 let pythonBroken = null;           // remembers a failed run so we warn once
 
-function seriesKey(series, days) {
+function seriesKey(series, days, compare) {
     const first = series.length ? series[0].date : '-';
     const last = series.length ? series[series.length - 1].date : '-';
     // The quantities decide the fit, so they belong in the key.
@@ -61,12 +64,12 @@ function seriesKey(series, days) {
         sum += p.quantity;
         mix = (mix * 31 + p.quantity) % 2147483647;
     }
-    return `${first}|${last}|${series.length}|${days}|${sum}|${mix}`;
+    return `${first}|${last}|${series.length}|${days}|${sum}|${mix}|${compare ? 'c' : ''}`;
 }
 
-function firstDow(series) {
-    if (!series.length) return 0;
-    return new Date(series[0].date + 'T00:00:00Z').getUTCDay();
+/** One job for the Python model. */
+function jobFor(key, fit, days, compare) {
+    return { key, series: fit.map(p => p.quantity), first_date: fit[0].date, days, compare: !!compare };
 }
 
 /** Turn Python's day offsets back into the dated shape callers expect. */
@@ -78,6 +81,8 @@ function toDated(series, preds) {
         date: new Date(lastMs + p.date_offset * DAY_MS).toISOString().split('T')[0],
         predicted_quantity: p.predicted_quantity,
         day: p.date_offset,
+        // present only on comparison jobs: each learner forecasting alone
+        ...(p.rf !== undefined ? { rf: p.rf, gb: p.gb } : {}),
     }));
 }
 
@@ -92,7 +97,10 @@ function fitted(stdout, jobs, started) {
     // series; a page of single-series lines means the cache is missing.
     console.log(`[ML] fitted ${jobs.length} series in ${Date.now() - started}ms`);
     pythonBroken = null;
-    return JSON.parse(stdout).results || {};
+    const out = JSON.parse(stdout);
+    if (Array.isArray(out.features)) featureNames = out.features;
+    for (const [key, w] of Object.entries(out.importances || {})) weights.set(key, w);
+    return out.results || {};
 }
 
 function fitFailed(err) {
@@ -153,10 +161,10 @@ function pendingJobs(list) {
 
     for (const item of list) {
         const fit = fitSlice(item.series);
-        const key = seriesKey(fit, item.days);
+        const key = seriesKey(fit, item.days, item.compare);
         if (cache.has(key)) continue;
         if (fit.length < WARMUP + MIN_TRAIN_ROWS) { cache.set(key, null); continue; }
-        jobs.push({ key, series: fit.map(p => p.quantity), first_dow: firstDow(fit), days: item.days });
+        jobs.push(jobFor(key, fit, item.days, item.compare));
         keyed.push({ key, series: fit });
     }
     return { jobs, keyed, days };
@@ -185,25 +193,41 @@ async function warmMLCacheAsync(list) {
  * series: [{ date: 'YYYY-MM-DD', quantity }] — continuous calendar days.
  * Returns daily predictions, or null when history is too short to train.
  */
-function forecastML(series, days) {
+function forecastML(series, days, compare) {
     const fit = fitSlice(series);
     if (fit.length < WARMUP + MIN_TRAIN_ROWS) return null;
-    const key = seriesKey(fit, days);
+    const key = seriesKey(fit, days, compare);
     if (cache.has(key)) return cache.get(key);
 
     // Cache miss: fit this one series on its own rather than skip the model.
     // After a warm pass this should be rare — a burst of these means the warm
     // list and the callers have drifted apart again.
-    const results = runPython(
-        [{ key, series: fit.map(p => p.quantity), first_dow: firstDow(fit), days }], days);
+    const results = runPython([jobFor(key, fit, days, compare)], days);
     const dated = toDated(fit, results[key] || null);
     cache.set(key, dated);
     return dated;
 }
 
-function clearMLCache() { cache = new Map(); }
+/* What the forest leaned on, averaged over the given series' live fits. Each
+   weight is the share of the forest's splitting done on that input, so they
+   sum to 1. Returns [] until something has been fitted. */
+function featureWeights(seriesList, days) {
+    const sums = [];
+    let n = 0;
+    for (const series of seriesList) {
+        const w = weights.get(seriesKey(fitSlice(series), days, false));
+        if (!w) continue;
+        w.forEach((v, i) => { sums[i] = (sums[i] || 0) + v; });
+        n++;
+    }
+    if (!n) return [];
+    return sums.map((v, i) => ({ feature: featureNames[i] || `input ${i + 1}`, weight: Math.round(v / n * 1000) / 1000 }))
+        .sort((a, b) => b.weight - a.weight);
+}
+
+function clearMLCache() { cache = new Map(); weights = new Map(); }
 
 /** True when a real Python fit has succeeded and no failure is outstanding. */
 function mlAvailable() { return pythonBroken === null; }
 
-module.exports = { forecastML, warmMLCache, warmMLCacheAsync, clearMLCache, mlAvailable, WARMUP };
+module.exports = { forecastML, warmMLCache, warmMLCacheAsync, clearMLCache, featureWeights, FIT_WINDOW, mlAvailable, WARMUP };

@@ -74,6 +74,13 @@ const FENCED_ROLE_PAGES = {
 };
 const SELLING_ROLES = ['cashier'];
 
+/* What a role is called on screen. The study describes two access points,
+   Administrator and Staff; the till account is the Staff one. */
+const ROLE_LABELS = { admin: 'Administrator', manager: 'Manager', cashier: 'Staff', viewer: 'Viewer', supplier: 'Supplier' };
+function roleLabel(role) {
+    return ROLE_LABELS[role] || (role ? String(role).charAt(0).toUpperCase() + String(role).slice(1) : '');
+}
+
 function isFencedRole(role) {
     return Object.prototype.hasOwnProperty.call(FENCED_ROLE_PAGES, role || getUserRole());
 }
@@ -865,7 +872,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Without this the sidebar keeps its "Staff" placeholder for everyone,
         // including admins. Never share this id with the role picker on
         // users.html — getElementById would hand the form the wrong element.
-        if (user && roleEl && user.role) roleEl.textContent = user.role.charAt(0).toUpperCase() + user.role.slice(1);
+        if (user && roleEl && user.role) roleEl.textContent = roleLabel(user.role);
         applyUserIdentity();
         applyRoleInterface();
     }
