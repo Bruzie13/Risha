@@ -21,7 +21,6 @@
    The receipt is paper: it stays white with dark ink in dark mode too. */
 
 :root {
-  --sidebar-collapsed-w: 84px;
   --till-soft: color-mix(in srgb, var(--text-primary) 7%, var(--bg-card));
   --till-line: color-mix(in srgb, var(--text-primary) 15%, var(--bg-card));
   --till-pad: clamp(14px, 1.8vw, 26px);
@@ -38,28 +37,6 @@ body, .main-wrapper { background: var(--bg-card); }
 .tone-toy    { --t: #F28A1F; }
 .tone-other  { --t: #5A6E82; }
 :root.dark-mode .tone-care { --t-ink: #FFD86B; --t-mix: 20%; }
-
-/* ----- The sidebar is a slim strip: the logo, where you are, and the three
-   things at the bottom ----- */
-@media (min-width: 769px) {
-  html.sidebar-hidden .sidebar .sidebar-header { padding: 16px 0 6px; border-bottom: none; justify-content: center; }
-  html.sidebar-hidden .sidebar .sidebar-brand .brand-icon { display: block; width: 54px; height: 54px; border-width: 3px; }
-  html.sidebar-hidden .sidebar-collapse-btn { display: none; }
-  html.sidebar-hidden .sidebar .sidebar-nav { padding: 12px 0; align-items: center; gap: 8px; }
-  html.sidebar-hidden .sidebar .sidebar-nav .nav-link { width: 54px; height: 54px; padding: 0; border-radius: 16px; }
-  html.sidebar-hidden .sidebar .sidebar-nav .nav-link.active { box-shadow: 0 3px 0 var(--brand-sky-3); }
-  html.sidebar-hidden .sidebar .sidebar-nav .nav-link .nav-icon.material-symbols-outlined { font-size: 26px; }
-  html.sidebar-hidden .sidebar .sidebar-footer { border-top: none; padding: 8px 0 14px; align-items: center; }
-  html.sidebar-hidden .sidebar .sidebar-user { padding: 0; margin-bottom: 8px; cursor: pointer; }
-  html.sidebar-hidden .sidebar .sidebar-user:hover { background: none; }
-  html.sidebar-hidden .sidebar .sidebar-user .avatar { width: 42px; height: 42px; }
-  html.sidebar-hidden .sidebar .sidebar-actions { gap: 6px; flex: 0 0 auto; }
-  html.sidebar-hidden .sidebar .sidebar-btn { flex: 0 0 46px; width: 46px; height: 46px; border-radius: 14px; background: transparent; box-shadow: none; }
-  html.sidebar-hidden .sidebar .sidebar-btn .material-symbols-outlined { font-size: 24px !important; }
-  html.sidebar-hidden .sidebar .sidebar-btn:hover { background: rgba(255, 255, 255, 0.18); }
-  html.sidebar-hidden .sidebar .sidebar-btn.sidebar-logout { margin-top: 0; }
-  html.sidebar-hidden .sidebar .sidebar-btn.sidebar-logout:hover { background: var(--brand-red); box-shadow: none; }
-}
 
 /* ----- The frame: products | sale ----- */
 .content.pos-content.till {

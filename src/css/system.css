@@ -97,6 +97,35 @@ h1, h2, h3 { font-family: var(--font-display); }
   .sidebar .sidebar-btn { display: flex; flex: 0 0 36px; width: 36px; height: 36px; padding: 0; }
 }
 
+/* ----- The slim strip -----
+   The cashier and the supplier each have one page, so a full sidebar would be
+   a quarter of the screen spent on a single link. On their pages (the till,
+   the supplier portal, and Settings when they open it) the sidebar is a fixed
+   strip instead: the logo, where you are, and your avatar, theme and logout
+   at the bottom. It does not expand; there is nothing more to show. On a
+   phone it is still the slide-in menu. The pages ask for it with the class
+   rail-only on <html>, set in their head before anything is drawn. */
+html.rail-only { --sidebar-collapsed-w: 84px; }
+@media (min-width: 769px) {
+  html.rail-only.sidebar-hidden .sidebar .sidebar-header { padding: 16px 0 6px; border-bottom: none; justify-content: center; }
+  html.rail-only.sidebar-hidden .sidebar .sidebar-brand .brand-icon { display: block; width: 54px; height: 54px; border-width: 3px; }
+  html.rail-only.sidebar-hidden .sidebar-collapse-btn { display: none; }
+  html.rail-only.sidebar-hidden .sidebar .sidebar-nav { padding: 12px 0; align-items: center; gap: 8px; }
+  html.rail-only.sidebar-hidden .sidebar .sidebar-nav .nav-link { width: 54px; height: 54px; padding: 0; border-radius: 16px; }
+  html.rail-only.sidebar-hidden .sidebar .sidebar-nav .nav-link.active { box-shadow: 0 3px 0 var(--brand-sky-3); }
+  html.rail-only.sidebar-hidden .sidebar .sidebar-nav .nav-link .nav-icon.material-symbols-outlined { font-size: 26px; }
+  html.rail-only.sidebar-hidden .sidebar .sidebar-footer { border-top: none; padding: 8px 0 14px; align-items: center; }
+  html.rail-only.sidebar-hidden .sidebar .sidebar-user { padding: 0; margin-bottom: 8px; cursor: pointer; }
+  html.rail-only.sidebar-hidden .sidebar .sidebar-user:hover { background: none; }
+  html.rail-only.sidebar-hidden .sidebar .sidebar-user .avatar { width: 42px; height: 42px; }
+  html.rail-only.sidebar-hidden .sidebar .sidebar-actions { gap: 6px; flex: 0 0 auto; }
+  html.rail-only.sidebar-hidden .sidebar .sidebar-btn { flex: 0 0 46px; width: 46px; height: 46px; border-radius: 14px; background: transparent; box-shadow: none; }
+  html.rail-only.sidebar-hidden .sidebar .sidebar-btn .material-symbols-outlined { font-size: 24px !important; }
+  html.rail-only.sidebar-hidden .sidebar .sidebar-btn:hover { background: rgba(255, 255, 255, 0.18); }
+  html.rail-only.sidebar-hidden .sidebar .sidebar-btn.sidebar-logout { margin-top: 0; }
+  html.rail-only.sidebar-hidden .sidebar .sidebar-btn.sidebar-logout:hover { background: var(--brand-red); box-shadow: none; }
+}
+
 /* ----- Shell: the yellow band. The page's name and its main actions always
    sit here, in the same place on every page. ----- */
 .page-header {

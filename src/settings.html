@@ -32,6 +32,12 @@
             if (localStorage.getItem('sidebarHidden') === 'true') {
                 document.documentElement.classList.add('sidebar-hidden');
             }
+            // A cashier or a supplier has one page besides this one, so they
+            // keep the slim strip here too instead of a full sidebar.
+            try {
+                var su = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
+                if (su.role === 'cashier' || su.role === 'supplier') document.documentElement.classList.add('sidebar-hidden', 'rail-only');
+            } catch (e) {}
             var ct = localStorage.getItem('colorTheme');
             if (ct) document.documentElement.setAttribute('data-theme', ct);
             try {
@@ -42,7 +48,7 @@
             if (ts && ts !== '1') document.documentElement.style.zoom = ts;
         }());
     </script>
-    <link rel="stylesheet" href="css/system.css?v=31">
+    <link rel="stylesheet" href="css/system.css?v=32">
 </head>
 <body>
 
