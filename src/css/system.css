@@ -593,6 +593,31 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); widt
 .pos-content > * { max-width: none; }
 .pos-cart-summary { overflow-y: auto; }
 
+/* The cart list is the part of the checkout the cashier reads, so it gets
+   the room. Everything fixed around it (heading, customer fields, totals,
+   cash box, buttons) is set tighter, and the "Cash payment only" banner
+   became two words beside "Cash received". On a laptop screen the list now
+   shows about six items before it scrolls; it showed two. */
+.pos-cart-header { padding: 10px 16px; }
+.pos-cart-items { padding: 4px 10px; }
+.pos-cart-item { padding: 8px 6px; gap: 8px; }
+.pos-cart-empty { padding: 28px 16px 20px; }
+.pos-cart-customer { padding: 8px 16px; gap: 6px; }
+.pos-cart-customer input { padding: 7px 10px; font-size: 13px; min-height: 34px; }
+.pos-cart-summary { padding: 8px 16px 10px; }
+.pos-cart-summary .summary-row { padding: 2px 0; font-size: 13.5px; }
+.pos-cart-summary .summary-row.total { font-size: 20px; padding-top: 6px; margin-top: 4px; }
+.pos-tender-section { margin-top: 8px; padding: 9px 12px 10px; }
+.pos-tender-row input { padding: 6px 10px; min-height: 38px; font-size: 17px; }
+.pos-tender-row label { font-size: 13px; }
+.pos-cash-only { font-size: 12px; font-weight: 500; color: var(--text-muted); margin-left: 4px; }
+.pos-quick-cash { margin-top: 7px; }
+.pos-quick-cash button { min-height: 32px; }
+.pos-change-row { margin-top: 7px; padding-top: 6px; }
+.pos-cart-actions { padding: 8px 16px 12px; }
+.pos-cart-actions .pos-pay-main { min-height: 48px; }
+.pos-cash-banner { display: none; }
+
 /* ----- Outside the sign-in wall: the yellow of the sign, its paws and bones
    drifting slowly, and one white card ----- */
 body.auth-page {

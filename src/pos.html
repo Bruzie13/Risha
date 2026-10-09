@@ -27,7 +27,7 @@
     <link rel="stylesheet" href="css/global.css?v=50">
     <link rel="stylesheet" href="css/pos.css?v=33">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=23">
+        <link rel="stylesheet" href="css/system.css?v=24">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -126,7 +126,7 @@
                         </div>
                     </div>
                     <div class="pos-cart-customer">
-                        <input type="text" id="posCustomerName" placeholder="Customer name (optional)">
+                        <input type="text" id="posCustomerName" placeholder="Customer (optional)">
                         <input type="text" id="posCustomerPhone" placeholder="Phone (optional)">
                     </div>
                     <div class="pos-cart-summary">
@@ -147,14 +147,9 @@
                             <span class="total-val" id="posTotal">₱0.00</span>
                         </div>
 
-                        <div class="pos-cash-banner">
-                            <span class="material-symbols-outlined" style="font-size:17px;">payments</span>
-                            Cash payment only
-                        </div>
-
                         <div class="pos-tender-section" id="posTenderSection">
                             <div class="pos-tender-row">
-                                <label for="posTendered">Cash received</label>
+                                <label for="posTendered">Cash received <small class="pos-cash-only">cash only</small></label>
                                 <input type="number" id="posTendered" min="0" step="0.01" placeholder="0.00" oninput="updateChange()">
                             </div>
                             <div class="pos-quick-cash">
