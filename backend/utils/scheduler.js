@@ -19,23 +19,24 @@ function start() {
     // first backup shortly after boot, then daily
     setTimeout(runBackup, 2 * 60 * 1000);
     backupHandle = setInterval(runBackup, BACKUP_INTERVAL);
-    /* Pre-fitting the forecast model is OFF unless FORECAST_WARM=1.
+    /* Fit the forecast model once shortly after boot, so the first person to
+       open Analytics reads a cache instead of waiting on Python.
 
-       It calls Python through execFileSync, which blocks the event loop for as
-       long as the fit takes — 14s on a laptop, far longer on a small shared
-       instance. Running it 5s after boot meant the server could not answer the
-       platform's health check, so the container was killed and restarted, and
-       5s later it blocked again: a boot loop that took the site down.
+       This used to be off: the fit ran through execFileSync, which held the
+       event loop for its whole duration, so the server could not answer the
+       platform's health check and was killed and restarted in a loop. The fit
+       is now asynchronous (see mlForecast.warmMLCacheAsync), so it no longer
+       stops the server answering. FORECAST_WARM=0 turns it off.
 
-       Leave it off until the Python call is made asynchronous. With it off the
-       forecast is computed on demand instead, which costs the first viewer of
-       Analytics a wait but keeps the server answering. */
+       The 4-minute refresh stays opt-in (FORECAST_WARM=1): an expired cache
+       is already served stale while it rebuilds, and refitting round the
+       clock would eat most of a small shared instance's CPU. */
+    if (process.env.FORECAST_WARM !== '0') {
+        setTimeout(warmForecasts, 15000);
+    }
     if (process.env.FORECAST_WARM === '1') {
-        console.log('[Scheduler] Forecast pre-fitting ENABLED (blocking; only safe on a dedicated instance)');
-        setTimeout(warmForecasts, 5000);
+        console.log('[Scheduler] Forecast refresh every 4 min ENABLED');
         forecastHandle = setInterval(warmForecasts, FORECAST_WARM_INTERVAL);
-    } else {
-        console.log('[Scheduler] Forecast pre-fitting off — forecasts are computed on first request');
     }
 }
 

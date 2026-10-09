@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { forecastML, warmMLCache, mlAvailable } = require('../utils/mlForecast');
+const { forecastML, warmMLCacheAsync, mlAvailable } = require('../utils/mlForecast');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
@@ -288,7 +288,7 @@ router.get('/product/:id', authenticateToken, async (req, res) => {
         }
 
         const series = buildDailySeries(rows);
-        warmMLCache(mlJobsFor(series));
+        await warmMLCacheAsync(mlJobsFor(series));
         const fc = forecastSeries(series);
 
         const nextMonthTotal = Math.round(fc.predictions.reduce((a, p) => a + p.predicted_quantity, 0) * 100) / 100;
@@ -373,7 +373,7 @@ async function computeAllPredictions() {
             allSeries[pid] = series;
             warmJobs.push(...mlJobsFor(series));
         });
-        warmMLCache(warmJobs);
+        await warmMLCacheAsync(warmJobs);
 
         let holdPred = 0, holdActual = 0, backtested = 0;
         const result = Object.entries(byProduct).map(([pid, data]) => {

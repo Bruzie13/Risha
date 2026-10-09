@@ -16,8 +16,16 @@
  *
  * A forecastML() call that misses the cache still works — it just runs its own
  * one-job Python process rather than silently degrading to no model at all.
+ *
+ * WHY THE SERVER WARMS ASYNCHRONOUSLY
+ * execFileSync holds the event loop for the whole fit. On a small shared
+ * instance that is long enough for every other request — stylesheets, the
+ * platform's health check — to be answered 503 while Python works. The routes
+ * therefore await warmMLCacheAsync(), which runs the same single Python
+ * process without blocking; the synchronous path is left for the rare cache
+ * miss and for scripts.
  */
-const { execFileSync } = require('child_process');
+const { execFileSync, execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -26,6 +34,9 @@ const PYTHON = process.env.PYTHON_BIN || 'python3';
 const WARMUP = 28;                 // must match ml/forecast.py
 const MIN_TRAIN_ROWS = 14;
 const MAX_BUFFER = 64 * 1024 * 1024;
+// Generous: a small shared instance takes several times a laptop's ~10s, and
+// nothing is blocked while it runs.
+const ASYNC_TIMEOUT_MS = 5 * 60 * 1000;
 
 /* Only the most recent weeks are fitted — older retail history mostly adds
    noise. This lives here, next to the cache key it feeds, because the window
@@ -70,12 +81,33 @@ function toDated(series, preds) {
     }));
 }
 
-function runPython(jobs, days) {
-    if (!jobs.length) return {};
-    if (!fs.existsSync(SCRIPT)) {
-        if (!pythonBroken) { pythonBroken = 'model script missing at ' + SCRIPT; console.error('[ML] ' + pythonBroken); }
-        return {};
+function scriptMissing() {
+    if (fs.existsSync(SCRIPT)) return false;
+    if (!pythonBroken) { pythonBroken = 'model script missing at ' + SCRIPT; console.error('[ML] ' + pythonBroken); }
+    return true;
+}
+
+function fitted(stdout, jobs, started) {
+    // One line per Python process. A healthy request logs one fit of many
+    // series; a page of single-series lines means the cache is missing.
+    console.log(`[ML] fitted ${jobs.length} series in ${Date.now() - started}ms`);
+    pythonBroken = null;
+    return JSON.parse(stdout).results || {};
+}
+
+function fitFailed(err) {
+    // Falling back to the statistical baseline is survivable; pretending a
+    // model ran is not. Say so loudly, once.
+    if (!pythonBroken) {
+        pythonBroken = err.message;
+        console.error(`[ML] Python forecaster unavailable (${PYTHON}): ${err.message}`);
+        console.error('[ML] Forecasts fall back to the statistical baseline until this is fixed.');
     }
+    return {};
+}
+
+function runPython(jobs, days) {
+    if (!jobs.length || scriptMissing()) return {};
     try {
         const started = Date.now();
         const stdout = execFileSync(PYTHON, [SCRIPT], {
@@ -84,28 +116,37 @@ function runPython(jobs, days) {
             maxBuffer: MAX_BUFFER,
             timeout: 120000,
         });
-        // One line per Python process. A healthy request logs one fit of many
-        // series; a page of single-series lines means the cache is missing.
-        console.log(`[ML] fitted ${jobs.length} series in ${Date.now() - started}ms`);
-        pythonBroken = null;
-        return JSON.parse(stdout).results || {};
+        return fitted(stdout, jobs, started);
     } catch (err) {
-        // Falling back to the statistical baseline is survivable; pretending a
-        // model ran is not. Say so loudly, once.
-        if (!pythonBroken) {
-            pythonBroken = err.message;
-            console.error(`[ML] Python forecaster unavailable (${PYTHON}): ${err.message}`);
-            console.error('[ML] Forecasts fall back to the statistical baseline until this is fixed.');
-        }
-        return {};
+        return fitFailed(err);
     }
+}
+
+/** Same Python run as runPython, without holding the event loop. Never rejects. */
+function runPythonAsync(jobs, days) {
+    if (!jobs.length || scriptMissing()) return Promise.resolve({});
+    return new Promise(resolve => {
+        const started = Date.now();
+        const child = execFile(PYTHON, [SCRIPT], {
+            encoding: 'utf8',
+            maxBuffer: MAX_BUFFER,
+            timeout: ASYNC_TIMEOUT_MS,
+        }, (err, stdout) => {
+            if (err) return resolve(fitFailed(err));
+            try { resolve(fitted(stdout, jobs, started)); } catch (e) { resolve(fitFailed(e)); }
+        });
+        // A Python that died early closes its stdin; without a listener that
+        // EPIPE is an unhandled error and takes the server down with it.
+        child.stdin.on('error', () => {});
+        child.stdin.end(JSON.stringify({ days, jobs }));
+    });
 }
 
 /**
  * Fit every series in one Python process. `list` is [{ series, days }].
  * Series too short to train are skipped here and resolved as null.
  */
-function warmMLCache(list) {
+function pendingJobs(list) {
     const jobs = [];
     const keyed = [];
     const days = list.length ? list[0].days : 30;
@@ -118,12 +159,26 @@ function warmMLCache(list) {
         jobs.push({ key, series: fit.map(p => p.quantity), first_dow: firstDow(fit), days: item.days });
         keyed.push({ key, series: fit });
     }
+    return { jobs, keyed, days };
+}
 
-    if (!jobs.length) return;
-    const results = runPython(jobs, days);
+function store(keyed, results) {
     for (const { key, series } of keyed) {
         cache.set(key, toDated(series, results[key] || null));
     }
+}
+
+function warmMLCache(list) {
+    const { jobs, keyed, days } = pendingJobs(list);
+    if (!jobs.length) return;
+    store(keyed, runPython(jobs, days));
+}
+
+/** warmMLCache without blocking the event loop — what the HTTP routes use. */
+async function warmMLCacheAsync(list) {
+    const { jobs, keyed, days } = pendingJobs(list);
+    if (!jobs.length) return;
+    store(keyed, await runPythonAsync(jobs, days));
 }
 
 /**
@@ -151,4 +206,4 @@ function clearMLCache() { cache = new Map(); }
 /** True when a real Python fit has succeeded and no failure is outstanding. */
 function mlAvailable() { return pythonBroken === null; }
 
-module.exports = { forecastML, warmMLCache, clearMLCache, mlAvailable, WARMUP };
+module.exports = { forecastML, warmMLCache, warmMLCacheAsync, clearMLCache, mlAvailable, WARMUP };
