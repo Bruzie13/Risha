@@ -100,7 +100,7 @@ exports.createSale = async (req, res) => {
                 return res.status(400).json({
                     success: false,
                     code: 'DRAWER_CLOSED',
-                    message: "Your drawer is closed for today: the end-of-day count is already saved. Ask an administrator to reopen the count if you need to sell again."
+                    message: "Your drawer is closed for today: the end-of-day count is already saved. Ask an administrator or a manager to reopen the count if you need to sell again."
                 });
             }
         }

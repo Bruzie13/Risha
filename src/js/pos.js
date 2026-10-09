@@ -877,7 +877,7 @@ function applyDrawerState() {
     const pay = document.getElementById('posPayBtn');
     if (pay) {
         pay.disabled = closed;
-        pay.title = closed ? "Today's count is saved. An administrator can reopen it." : '';
+        pay.title = closed ? "Today's count is saved. An administrator or a manager can reopen it." : '';
     }
     if (closed && cartItems.length) { cartItems = []; renderCart(); updateCartTotals(); }
 }
@@ -1155,8 +1155,17 @@ function closePosEod() {
 function savePosEod() {
     const counted = parseFloat(document.getElementById('posEodCounted').value);
     if (isNaN(counted) || counted < 0) { showToast('Enter the cash counted in the drawer', 'warning'); return; }
-    showConfirmDialog('Save the count?',
-        'You counted ' + formatCurrency(counted) + '. This closes your drawer for today and cannot be changed afterwards.',
+    /* Saving the count closes the drawer for the day, which is easy to do too
+       early by accident and can only be undone by an administrator or a
+       manager. So the question spells out what stops, the button that keeps
+       the drawer open is the one already selected, and the button that closes
+       it says so. */
+    showConfirmDialog('Close your drawer for today?',
+        'You counted <strong>' + formatCurrency(counted) + '</strong>. Save this only when the shop is closing. After you save:'
+        + '<span class="pos-close-list"><span>You cannot make any more sales today.</span>'
+        + '<span>You cannot record cash in or out.</span>'
+        + '<span>The count cannot be changed.</span></span>'
+        + 'Only an administrator or a manager can reopen it.',
         async () => {
             const btn = document.getElementById('posEodSave');
             btn.disabled = true;
@@ -1176,5 +1185,10 @@ function savePosEod() {
             } finally {
                 btn.disabled = false;
             }
-        }, 'Save count');
+        }, 'Close the drawer', '<span class="material-symbols-outlined" style="color:var(--warning);">lock</span>');
+    // "Not yet" is the safe answer, so it is the one Enter chooses
+    setTimeout(() => {
+        const notYet = document.getElementById('confirmCancelBtn');
+        if (notYet) { notYet.textContent = 'Not yet'; notYet.focus(); }
+    }, 60);
 }
