@@ -71,16 +71,20 @@ class Product {
             sql = applyProductFilters(sql, params, filters);
             if (filters.sort && SORT_SQL[filters.sort]) {
                 const dir = filters.dir === 'desc' ? 'DESC' : 'ASC';
-                sql += ` ORDER BY ${SORT_SQL[filters.sort]} ${dir}`;
+                sql += ` ORDER BY ${SORT_SQL[filters.sort]} ${dir}, p.id`;
             } else if (filters.sort === 'expiry') {
                 // Products without an expiry date always sink to the bottom
                 const dir = filters.dir === 'desc' ? 'DESC' : 'ASC';
-                sql += ` ORDER BY p.expiration_date IS NULL ASC, DATE(p.expiration_date) ${dir}`;
+                sql += ` ORDER BY p.expiration_date IS NULL ASC, DATE(p.expiration_date) ${dir}, p.id`;
             } else if (filters.sort === 'status') {
                 const dir = filters.dir === 'desc' ? 'DESC' : 'ASC';
-                sql += ` ORDER BY ${STATUS_RANK_SQL} ${dir}`;
+                sql += ` ORDER BY ${STATUS_RANK_SQL} ${dir}, p.id`;
             } else {
-                sql += ' ORDER BY p.created_at DESC';
+                // p.id breaks ties. Many products share a created_at (they were
+                // imported together), and without a tiebreaker MySQL may return
+                // them in a different order for each page — so "Show more"
+                // repeated some products and never reached others.
+                sql += ' ORDER BY p.created_at DESC, p.id';
             }
             // Pagination: values are parseInt-sanitized in the controller.
             // mysql2 execute() rejects placeholders in LIMIT, so inline them

@@ -1409,36 +1409,45 @@ input[type="datetime-local"] {
 
 .search-box::placeholder { color: var(--text-muted); }
 
-/* ===== TOAST ===== */
+/* ===== TOAST =====
+   A short confirmation at the top of the screen. It is small, sits above the
+   page rather than over the controls, and clicks pass straight through it —
+   a message about the last thing you did should never block the next. */
 .toast-container {
   position: fixed;
-  top: 70px;
-  right: 24px;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 9999;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  pointer-events: none;
 }
 
 .toast {
-  padding: 12px 18px;
+  padding: 6px 12px;
   border-radius: var(--radius-md);
-  color: white;
-  font-weight: 600;
-  font-size: 13px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-  animation: toastIn 0.3s ease;
+  color: #fff;
+  font-weight: 500;
+  font-size: 12.5px;
+  line-height: 1.4;
+  box-shadow: var(--shadow-md);
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 280px;
-  max-width: 420px;
+  gap: 6px;
+  max-width: 360px;
+  pointer-events: none;
 }
+.toast .material-symbols-outlined { font-size: 15px !important; flex-shrink: 0; }
 
-.toast-success { background: #2FA36B; }
-.toast-error { background: #E5484D; }
-.toast-warning { background: #E8930C; }
-.toast-info { background: #3E9BD6; }
+.toast-success { background: #1F7A4D; }
+.toast-error { background: #BE3A2F; }
+.toast-warning { background: #9A5B08; }
+.toast-info { background: #2B3037; }
 
 /* ===== SKELETON ===== */
 .skeleton {
@@ -3998,7 +4007,7 @@ body.jump-open { overflow: hidden; }
 .mascot-glyph { filter: none; }
 
 /* ----- Toasts ----- */
-.toast { border-radius: var(--radius-lg); box-shadow: var(--shadow-md); }
+.toast { animation: none; }
 
 @media (max-width: 768px) {
   /* The title sits beside the fixed menu button rather than under it. */

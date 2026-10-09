@@ -108,7 +108,10 @@ exports.createSale = async (req, res) => {
                     message: `Insufficient stock for ${product.name}. Available: ${product.stock_quantity}, requested: ${item.quantity}`
                 });
             }
-            if (product.expiration_date && new Date(product.expiration_date) <= new Date()) {
+            // Expired means the date has passed. It was "on or before now",
+            // which refused a product on its last good day while inventory
+            // still listed it as merely expiring.
+            if (product.expiration_date && expiryDay(product.expiration_date) < shopToday()) {
                 return res.status(400).json({
                     success: false,
                     message: `Product ${product.name} has expired and cannot be sold`
@@ -198,6 +201,16 @@ exports.voidSale = async (req, res) => {
 const pool = require('../config/database');
 const { checkDiscount, drawerExpected, discrepancy } = require('../utils/till');
 const { readMaxDiscount } = require('./tillController');
+
+/* A DATE column read as the calendar day it means. mysql2 hands it over as a
+   Date at the server's own midnight, so the UTC reading is a day early on a
+   machine ahead of UTC; shifting by the shop's offset lands on the right day
+   whether the server runs in Manila or in UTC. */
+function expiryDay(value) {
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+    const d = new Date(value);
+    return isNaN(d) ? '9999-12-31' : new Date(d.getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
 
 /* The shop's calendar day. toISOString() is UTC, which is still yesterday in
    the Philippines until 8am — a cashier closing an early shift would have

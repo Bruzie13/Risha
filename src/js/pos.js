@@ -194,6 +194,26 @@ function filterProducts() {
     posSearchDebounce = setTimeout(() => loadProducts(), 250);
 }
 
+/* Why a product cannot be sold right now, or null if it can. One rule, used
+   by the product grid, the search suggestions, the barcode scanner and the
+   cart, so none of them can disagree. A product is expired once its
+   expiry date has passed; it can still be sold on the date itself. */
+function unavailableReason(p) {
+    if (!p) return null;
+    if (p.expiration_date) {
+        // The date can arrive as a UTC datetime; read the calendar day in local time.
+        const d = new Date(p.expiration_date);
+        if (!isNaN(d)) {
+            const day = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+            const now = new Date();
+            const today = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+            if (day < today) return 'Expired';
+        }
+    }
+    if ((parseFloat(p.stock_quantity) || 0) <= 0) return 'Sold out';
+    return null;
+}
+
 function renderProducts(products) {
     const grid = document.getElementById('productGrid');
     if (!grid) return;
@@ -208,7 +228,14 @@ function renderProducts(products) {
         const stock = parseFloat(p.stock_quantity) || 0;
         let stockClass = '';
         let stockText = formatQty(stock) + unitLabel;
-        if (stock <= 0) { stockClass = 'out'; stockText = 'Out of stock'; }
+        const blocked = unavailableReason(p);
+        if (blocked) {
+            stockClass = 'out';
+            // the tag says which; this line says the detail behind it
+            stockText = blocked === 'Expired'
+                ? 'Expired ' + new Date(p.expiration_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                : 'None left';
+        }
         else if (stock <= 10) stockClass = 'low';
         const cat = productCategory(p).toLowerCase();
         const icon = cat.includes('food') || cat.includes('treat') ? 'pet_supplies'
@@ -216,7 +243,12 @@ function renderProducts(products) {
             : cat.includes('medicine') || cat.includes('health') ? 'medication'
             : cat.includes('groom') ? 'soap'
             : 'inventory_2';
-        return `<div class="pos-product-card" onclick="addToCart(${p.id})" title="${escHtml(p.name)}">
+        // Not sellable: no click handler at all, and it says why.
+        const open = blocked
+            ? `<div class="pos-product-card unavailable" aria-disabled="true" title="${escHtml(p.name)} — ${blocked.toLowerCase()}, cannot be sold">`
+            : `<div class="pos-product-card" role="button" tabindex="0" onclick="addToCart(${Number(p.id)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();addToCart(${Number(p.id)});}" title="${escHtml(p.name)}">`;
+        return `${open}
+            ${blocked ? `<span class="p-tag ${blocked === 'Expired' ? 'expired' : 'soldout'}">${blocked}</span>` : ''}
             <div class="p-img">${p.image_url ? `<img class="p-img-photo" src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.remove()">` : ''}<span class="material-symbols-outlined" style="font-size:22px;">${icon}</span></div>
             <div class="p-name">${escHtml(p.name)}</div>
             <div class="p-price">${formatCurrency(parseFloat(p.unit_price || 0))}</div>
@@ -342,7 +374,13 @@ function addToCart(productId) {
     const product = allProducts.find(p => p.id === productId);
     if (!product) return;
     const stock = parseFloat(product.stock_quantity) || 0;
-    if (stock <= 0) { showToast('Out of stock', 'error'); return; }
+    // The grid already refuses the click; this also stops a scanned barcode
+    // or a search suggestion from putting an unsellable product in the cart.
+    const blocked = unavailableReason(product);
+    if (blocked) {
+        showToast(blocked === 'Expired' ? `${product.name} has expired and cannot be sold` : `${product.name} is sold out`, 'error');
+        return;
+    }
     const existing = cartItems.find(i => i.product_id === productId);
     const qtyStep = getQtyStep(product.unit_type);
     if (existing) {
@@ -706,17 +744,21 @@ function setupAutocomplete() {
             (p.barcode || '').toLowerCase().includes(q)
         ).slice(0, 6);
         if (matches.length === 0) { suggest.style.display = 'none'; return; }
-        suggest.innerHTML = matches.map(p =>
-            `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;font-size:12px;color:var(--text-primary);border-bottom:1px solid var(--border-subtle);transition:background 0.15s;"
-                  onmouseover="this.style.background='var(--gray-50)'"
-                  onmouseout="this.style.background='transparent'"
-                  onclick="addToCart(${p.id});document.getElementById('posSearchSuggest').style.display='none'">
-                <span style="font-size:18px;">${p.category?.toLowerCase().includes('food') ? '🍖' : p.category?.toLowerCase().includes('toy') ? '🧸' : '📦'}</span>
-                <span style="flex:1;font-weight:600;">${escHtml(p.name)}</span>
-                <span style="font-weight:700;color:var(--nav-text-active);">${formatCurrency(parseFloat(p.unit_price || 0))}</span>
-            </div>`
+        suggest.innerHTML = matches.map(p => {
+            const blocked = unavailableReason(p);
+            return `<div class="pos-suggest-item${blocked ? ' unavailable' : ''}" ${blocked ? 'aria-disabled="true"' : `data-suggest="${Number(p.id)}"`}>
+                <span class="pos-suggest-name">${escHtml(p.name)}</span>
+                <span class="pos-suggest-price">${blocked ? blocked : formatCurrency(parseFloat(p.unit_price || 0))}</span>
+            </div>`;
+        }
         ).join('');
         suggest.style.display = 'block';
+    });
+    suggest.addEventListener('click', e => {
+        const row = e.target.closest('[data-suggest]');
+        if (!row) return;
+        addToCart(Number(row.dataset.suggest));
+        suggest.style.display = 'none';
     });
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.pos-search-wrap')) suggest.style.display = 'none';

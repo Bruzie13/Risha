@@ -590,10 +590,12 @@ function showToast(message, type) {
     };
     toast.innerHTML = (icons[type] || icons.info) + ' ' + escHtml(message);
     container.appendChild(toast);
-    setTimeout(() => {
-        toast.style.animation = 'toastOut 0.3s ease forwards';
-        setTimeout(() => toast.remove(), 300);
-    }, 4500);
+    // Never a stack: a burst of actions (scanning several items) shows the
+    // latest few, not a column of messages down the screen.
+    while (container.children.length > 3) container.firstElementChild.remove();
+    // Long enough to read, short enough to be gone before the next action.
+    // Problems stay a little longer than confirmations.
+    setTimeout(() => toast.remove(), type === 'error' || type === 'warning' ? 4000 : 2200);
 }
 
 /* Kept in step with the copy in utils.js. Both exist because analytics.html and
