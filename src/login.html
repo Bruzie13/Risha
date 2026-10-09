@@ -115,6 +115,7 @@
         .fp-cancel { color: var(--text-secondary); }
     </style>
 <script>/* login page is always light-themed */document.documentElement.classList.remove('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');if(!sessionStorage.getItem('authToken')&&!localStorage.getItem('authToken'))document.cookie='token=;path=/;max-age=0';var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
+    <link rel="stylesheet" href="css/intro.css?v=2">
         <link rel="stylesheet" href="css/system.css?v=7">
 </head>
 <body class="auth-page">
@@ -304,5 +305,6 @@
 <script src="js/auth.js?v=41"></script>
 <script>/* login page is always light-themed, undo auth.js theme apply */document.documentElement.classList.remove('dark-mode');</script>
 <script src="js/motion.js?v=21"></script>
+    <script src="js/intro.js?v=2"></script>
 </body>
 </html>
