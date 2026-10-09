@@ -3420,7 +3420,7 @@ html.sidebar-hidden .sidebar-footer .sidebar-btn::after {
 }
 
 .jump-sidebar-btn .material-symbols-outlined { font-size: 18px; }
-.jump-sidebar-btn { color: var(--primary) !important; }
+.jump-sidebar-btn { color: var(--brand-sun) !important; }   /* the bolt, in the yellow of the sign so it shows on the sidebar */
 
 /* -- overlay -- */
 .jump-overlay {
