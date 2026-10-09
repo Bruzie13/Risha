@@ -32,7 +32,7 @@ h1, h2, h3 { font-family: var(--font-display); }
 .sidebar-brand .brand-icon { width: 46px; height: 46px; border-radius: 50%; border: 3px solid #fff; background: #fff; padding: 0; overflow: hidden; transition: transform 200ms var(--ease-out); }
 .sidebar-brand .brand-icon img { border-radius: 50%; width: 100%; height: 100%; object-fit: cover; transform: scale(1.12); }
 .sidebar-brand .brand-text span { color: #fff; font-size: 19px; font-weight: 800; letter-spacing: 0.01em; }
-.sidebar-brand .brand-text small { color: #fff; opacity: 0.92; font-size: 12.5px; font-weight: 500; }
+.sidebar-brand .brand-text small { color: #fff; opacity: 1; font-size: 12.5px; font-weight: 500; }
 .sidebar-collapse-btn { background: var(--brand-sky-2); border: none; color: #fff; border-radius: var(--radius-md); box-shadow: 0 2px 0 var(--brand-sky-3); }
 .sidebar-collapse-btn:hover { background: var(--brand-sky-3); color: #fff; }
 
@@ -64,7 +64,7 @@ h1, h2, h3 { font-family: var(--font-display); }
 .sidebar-user { background: var(--brand-sky-2); padding: 8px 10px; border-radius: var(--radius-lg); }
 .sidebar-user:hover { background: var(--brand-sky-3); }
 .sidebar-user .user-info span { color: #fff; font-size: 14px; font-weight: 600; }
-.sidebar-user .user-info small { color: #fff; opacity: 0.9; font-size: 12.5px; }
+.sidebar-user .user-info small { color: #fff; opacity: 1; font-size: 12.5px; }
 .sidebar-user .avatar { width: 34px; height: 34px; border-radius: 50%; }
 .sidebar-user .user-settings-btn { color: #fff; }
 .sidebar-user .user-settings-btn:hover { background: rgba(255, 255, 255, 0.18); color: #fff; }
@@ -570,6 +570,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); widt
 }
 .pos-quick-cash button:hover { background: var(--bg-card-hover); border-color: var(--gray-400); }
 .pos-quick-cash button:active { transform: translateY(var(--edge)); box-shadow: none; }
+/* "Exact" is the dark one; it keeps its dark body on hover (it used to turn cream under white text) */
+.pos-quick-cash button.exact, .pos-quick-cash button.exact:hover { background: var(--brand-ink); border-color: var(--brand-ink); color: #fff; box-shadow: 0 var(--edge) 0 #000; opacity: 1; }
 .pos-pay-main { min-height: 54px; font-size: 17px; font-weight: 700; }
 .pos-ci-remove, .btn-remove { min-height: 30px; padding: 0 8px; box-shadow: none; border-color: transparent; background: transparent; color: var(--danger); }
 .pos-ci-remove:hover, .btn-remove:hover { background: var(--danger-bg); }
@@ -584,7 +586,7 @@ body.auth-page {
   animation: sys-drift 60s linear infinite;
 }
 .auth-page .login-page, .auth-wrap {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -606,6 +608,16 @@ body.auth-page {
 .rp-table th.num, .rp-table td.num { white-space: nowrap; }
 .rp-table th.num { white-space: normal; }
 .pos-product-card.unavailable .p-stock::before { display: none; }
+
+/* ----- Reading: headings break into even lines, paragraphs never leave one
+   word alone on the last line, and running text stops at a readable width. ----- */
+h1, h2, h3, .login-brand-name { text-wrap: balance; }
+p, li, .breadcrumb, .rp-card-sub, .settings-toggle-desc { text-wrap: pretty; }
+.rp-how p, .settings-toggle-desc, .modal-body > p { max-width: 68ch; }
+
+/* On a very wide monitor the work stays a readable width instead of
+   stretching edge to edge; it stays against the sidebar, not floating in the middle. */
+.content > * { max-width: 1560px; }
 
 /* ===========================================================================
    MOTION — after Emil Kowalski's design-engineering rules
@@ -702,7 +714,7 @@ body.auth-page {
   --brand-sky: #12314F; --brand-sky-2: #1D4468; --brand-sky-3: #0A2238; --nav-text-active: #B5141D;
   --brand-red: #E3202B; --brand-red-dark: #B5141D;
   --band-bg: #BEE3FA; --band-text: #10283F; --band-sub: #27506F; --band-line: transparent;
-  --primary: #0A74BF; --primary-dark: #086199; --primary-darker: #064F7E; --primary-light: #9AD2F4; --chart-1: #0D96E6; --chart-1-soft: #B4DEF7;
+  --primary: #0969AD; --primary-dark: #075688; --primary-darker: #064F7E; --primary-light: #9AD2F4; --chart-1: #0D96E6; --chart-1-soft: #B4DEF7;
   --bg-body: #EEF6FC; --bg-deep: #EEF6FC; --bg-raised: #F5FAFE; --bg-secondary: #F5FAFE; --bg-card-hover: #F5FAFE; --bg-glass-hover: #F5FAFE; --gray-50: #F5FAFE;
   --bg-inset: #DDECF7; --bg-glass-strong: #DDECF7; --border-glass: #CBE0F0; --border-color: #CBE0F0; --border-default: #CBE0F0; --gray-200: #CBE0F0;
   --border-subtle: #E1EEF7; --gray-100: #E9F3FA; --gray-300: #A9C8E0;
@@ -716,7 +728,7 @@ body.auth-page {
   --brand-sky: #C71C27; --brand-sky-2: #A9141E; --brand-sky-3: #8A0E17; --nav-text-active: #C71C27;
   --brand-red: #0A74BF; --brand-red-dark: #064F7E;
   --band-bg: #FFD23F; --band-text: #10283F; --band-sub: #4E3C00; --band-line: transparent;
-  --primary: #0A74BF; --primary-dark: #086199; --primary-darker: #064F7E; --primary-light: #9AD2F4; --chart-1: #E3202B; --chart-1-soft: #F7C2C5;
+  --primary: #0969AD; --primary-dark: #075688; --primary-darker: #064F7E; --primary-light: #9AD2F4; --chart-1: #E3202B; --chart-1-soft: #F7C2C5;
 }
 :root.dark-mode[data-theme="cherry"] {
   --brand-sky: #8A0E17; --brand-sky-2: #A9141E; --brand-sky-3: color-mix(in srgb, #8A0E17 60%, #000); --nav-text-active: #C71C27;
@@ -766,7 +778,7 @@ body.auth-page {
   --brand-sky: #25303B; --brand-sky-2: #33414F; --brand-sky-3: #18212A; --nav-text-active: #25303B;
   --brand-red: #0A74BF; --brand-red-dark: #064F7E;
   --band-bg: #FFFFFF; --band-text: #10283F; --band-sub: #5A6E82; --band-line: #D8DDE3;
-  --primary: #0A74BF; --primary-dark: #086199; --primary-darker: #064F7E; --primary-light: #9AD2F4; --chart-1: #0A74BF; --chart-1-soft: #B4DEF7;
+  --primary: #0969AD; --primary-dark: #075688; --primary-darker: #064F7E; --primary-light: #9AD2F4; --chart-1: #0A74BF; --chart-1-soft: #B4DEF7;
   --bg-body: #F2F4F6; --bg-deep: #F2F4F6; --bg-raised: #F8F9FA; --bg-secondary: #F8F9FA; --bg-card-hover: #F8F9FA; --bg-glass-hover: #F8F9FA; --gray-50: #F8F9FA;
   --bg-inset: #E6E9ED; --bg-glass-strong: #E6E9ED; --border-glass: #D8DDE3; --border-color: #D8DDE3; --border-default: #D8DDE3; --gray-200: #D8DDE3;
   --border-subtle: #E8EBEF; --gray-100: #EDEFF2; --gray-300: #BCC4CD;

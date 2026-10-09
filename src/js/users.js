@@ -343,7 +343,7 @@ function refreshRoleFields() {
 
 function openAddUserModal() {
     editingUserId = null;
-    document.getElementById('userModalTitle').textContent = 'Add New User';
+    document.getElementById('userModalTitle').textContent = 'Add new user';
     document.getElementById('userForm').reset();
     refreshRoleFields();
     resetEmailCodeState();
@@ -355,7 +355,7 @@ function openAddUserModal() {
     unameEl.title = '';
     document.getElementById('userPassword').required = true;
     document.getElementById('passwordRequired').style.display = 'inline';
-    document.getElementById('userSubmitBtn').textContent = 'Create User';
+    document.getElementById('userSubmitBtn').textContent = 'Create user';
     document.getElementById('userModal').classList.add('active');
 }
 
@@ -363,7 +363,7 @@ function openEditUserModal(id) {
     editingUserId = id;
     const user = allUsers.find(u => u.id === id);
     if (!user) return;
-    document.getElementById('userModalTitle').textContent = 'Edit User';
+    document.getElementById('userModalTitle').textContent = 'Edit user';
     // Editing keeps the link-based flow: changing the address re-locks the
     // account and mails a confirmation link, no code needed here.
     resetEmailCodeState();
@@ -384,7 +384,7 @@ function openEditUserModal(id) {
     document.getElementById('userPassword').required = false;
     document.getElementById('userPassword').value = '';
     document.getElementById('passwordRequired').style.display = 'none';
-    document.getElementById('userSubmitBtn').textContent = 'Update User';
+    document.getElementById('userSubmitBtn').textContent = 'Update user';
     document.getElementById('userModal').classList.add('active');
 }
 
@@ -473,7 +473,7 @@ async function deleteUser(id) {
     // Deletion is a deactivation: the row stays, so the username and email stay
     // reserved. Saying "cannot be undone" sent admins hunting for a name that
     // the list no longer showed but the database still held.
-    showConfirmDialog('Delete User', 'Deactivate this account? They can no longer sign in, and their username and email stay reserved. You can bring the account back later with "Show deactivated".', async () => {
+    showConfirmDialog('Delete user', 'Deactivate this account? They can no longer sign in, and their username and email stay reserved. You can bring the account back later with "Show deactivated".', async () => {
         try {
             const response = await fetch(`${API_BASE}/auth/users/${id}`, {
                 method: 'DELETE', headers: getAuthHeaders()

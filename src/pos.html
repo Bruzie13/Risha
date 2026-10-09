@@ -24,10 +24,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=45">
-    <link rel="stylesheet" href="css/pos.css?v=32">
+    <link rel="stylesheet" href="css/global.css?v=50">
+    <link rel="stylesheet" href="css/pos.css?v=33">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=7">
+        <link rel="stylesheet" href="css/system.css?v=20">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -46,7 +46,7 @@
             <a href="dashboard.html" class="nav-link" title="Dashboard"><span class="nav-icon material-symbols-outlined">dashboard</span><span class="nav-label">Dashboard</span></a>
             <a href="inventory.html" class="nav-link" title="Inventory"><span class="nav-icon material-symbols-outlined">inventory_2</span><span class="nav-label">Inventory</span></a>
             <a href="pos.html" class="nav-link active" title="POS"><span class="nav-icon material-symbols-outlined">point_of_sale</span><span class="nav-label">POS</span></a>
-            <a href="sales.html" class="nav-link" title="Sales History"><span class="nav-icon material-symbols-outlined">receipt</span><span class="nav-label">Sales History</span></a>
+            <a href="sales.html" class="nav-link" title="Sales history"><span class="nav-icon material-symbols-outlined">receipt</span><span class="nav-label">Sales history</span></a>
             <a href="suppliers.html" class="nav-link" title="Suppliers"><span class="nav-icon material-symbols-outlined">local_shipping</span><span class="nav-label">Suppliers</span></a>
             <a href="reports.html" class="nav-link" title="Reports"><span class="nav-icon material-symbols-outlined">assessment</span><span class="nav-label">Reports</span></a>
             <a href="users.html" class="nav-link" id="usersLink" title="Users"><span class="nav-icon material-symbols-outlined">group</span><span class="nav-label">Users</span></a>
@@ -79,7 +79,7 @@
     <div class="main-wrapper">
         <div class="page-header pos-header">
             <div>
-                <h1>Point of Sale</h1>
+                <h1>Point of sale</h1>
                 <div class="breadcrumb">Ring up a sale</div>
             </div>
             <div class="page-header-actions">
@@ -103,7 +103,7 @@
                         </div>
                         <button type="button" id="connectPrinterBtn" class="btn-secondary" style="display:none;white-space:nowrap;gap:6px;align-items:center;" title="Connect a USB thermal printer for one-tap receipts (no print dialog)" onclick="connectThermalPrinter()">
                             <span class="material-symbols-outlined" style="font-size:18px;">print</span>
-                            <span id="connectPrinterLabel">Connect Printer</span>
+                            <span id="connectPrinterLabel">Connect printer</span>
                         </button>
                     </div>
                     <div class="pos-cats-bar" id="categoryFilters"></div>
@@ -115,14 +115,14 @@
                 <!-- Right: Cart Panel -->
                 <div class="pos-cart">
                     <div class="pos-cart-header">
-                        <h3><span class="icon-chip coral"><span class="material-symbols-outlined" style="font-size:16px;">shopping_cart</span></span> Current Sale</h3>
+                        <h3><span class="icon-chip coral"><span class="material-symbols-outlined" style="font-size:16px;">shopping_cart</span></span> Current sale</h3>
                         <span class="cart-count" id="cartCount">0</span>
                     </div>
                     <div class="pos-cart-items" id="cartItems">
                         <div class="pos-cart-empty">
                             <div class="empty-icon"><span class="material-symbols-outlined" style="font-size:40px;">add_shopping_cart</span></div>
                             No items added<br>
-                            <span style="font-size:11px;">Scan or click products to add</span>
+                            <span style="font-size:12px;">Scan or click products to add</span>
                         </div>
                     </div>
                     <div class="pos-cart-customer">
@@ -303,19 +303,19 @@
 
         <script src="js/format.js"></script>
 <script src="js/utils.js"></script>
-<script src="js/auth.js?v=41"></script>
-<script src="js/motion.js?v=21"></script>
-<script src="js/jump.js?v=29"></script>
-<script src="js/assistant.js?v=23"></script>
-    <script src="js/escpos-print.js?v=2"></script>
-    <script src="js/pos.js?v=31"></script>
+<script src="js/auth.js?v=42"></script>
+<script src="js/motion.js?v=22"></script>
+<script src="js/jump.js?v=30"></script>
+<script src="js/assistant.js?v=24"></script>
+    <script src="js/escpos-print.js?v=3"></script>
+    <script src="js/pos.js?v=32"></script>
 </body>
 </html>
 
 <div id="helpGuideModal">
     <div class="modal-content" style="max-width:640px;">
         <div class="modal-header">
-            <h2><span class="material-symbols-outlined" style="font-size:20px;">help</span> Help Guide</h2>
+            <h2><span class="material-symbols-outlined" style="font-size:20px;">help</span> Help guide</h2>
             <button class="close-btn" title="Close" onclick="closeHelpGuide()">&times;</button>
         </div>
         <div class="help-guide-content">
@@ -343,11 +343,11 @@
                 </ul>
             </div>
             <div class="help-section">
-                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">receipt</span> Sales History</h3>
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">receipt</span> Sales history</h3>
                 <ul>
                     <li>Search and filter past sales by date; click <strong>View</strong> for item details and a printable receipt.</li>
                     <li><strong>Void</strong> (admins/managers) cancels a sale with a required reason — the items go back into stock and the sale stays in history marked <em>Voided</em>, excluded from all totals.</li>
-                    <li><strong>End of Day</strong> (also on the POS for cashiers) records the drawer count: the system shows the expected cash from today's sales, you enter what was actually counted, and any over/short is saved with notes for the daily record.</li>
+                    <li><strong>End of day</strong> (also on the POS for cashiers) records the drawer count: the system shows the expected cash from today's sales, you enter what was actually counted, and any over/short is saved with notes for the daily record.</li>
                 </ul>
             </div>
             <div class="help-section">
@@ -385,7 +385,7 @@
                 <p>Alerts for low stock, stockouts, and expiring products. Open them from the bell in the sidebar or the Notifications page; suppliers with low-stock products are emailed automatically at most once per day.</p>
             </div>
             <div class="help-section">
-                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">keyboard</span> Keyboard Shortcuts</h3>
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">keyboard</span> Keyboard shortcuts</h3>
                 <ul>
                     <li><span class="shortcut">F2</span> — Focus barcode scanner input (POS page)</li>
                     <li><span class="shortcut">⌘J</span> / <span class="shortcut">Ctrl J</span> — Open <strong>Jump to…</strong>: search every page, every section of the page you are on, quick actions, and your products and suppliers</li>

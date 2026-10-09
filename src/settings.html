@@ -21,8 +21,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=45">
-    <link rel="stylesheet" href="css/settings.css?v=23">
+    <link rel="stylesheet" href="css/global.css?v=50">
+    <link rel="stylesheet" href="css/settings.css?v=24">
     <script>
         (function() {
             var saved = localStorage.getItem('theme');
@@ -42,7 +42,7 @@
             if (ts && ts !== '1') document.documentElement.style.zoom = ts;
         }());
     </script>
-    <link rel="stylesheet" href="css/system.css?v=7">
+    <link rel="stylesheet" href="css/system.css?v=20">
 </head>
 <body>
 
@@ -67,7 +67,7 @@
             <a href="dashboard.html" class="nav-link" title="Dashboard"><span class="nav-icon material-symbols-outlined">dashboard</span><span class="nav-label">Dashboard</span></a>
             <a href="inventory.html" class="nav-link" title="Inventory"><span class="nav-icon material-symbols-outlined">inventory_2</span><span class="nav-label">Inventory</span></a>
             <a href="pos.html" class="nav-link" title="POS"><span class="nav-icon material-symbols-outlined">point_of_sale</span><span class="nav-label">POS</span></a>
-            <a href="sales.html" class="nav-link" title="Sales History"><span class="nav-icon material-symbols-outlined">receipt</span><span class="nav-label">Sales History</span></a>
+            <a href="sales.html" class="nav-link" title="Sales history"><span class="nav-icon material-symbols-outlined">receipt</span><span class="nav-label">Sales history</span></a>
             <a href="suppliers.html" class="nav-link" title="Suppliers"><span class="nav-icon material-symbols-outlined">local_shipping</span><span class="nav-label">Suppliers</span></a>
             <a href="reports.html" class="nav-link" title="Reports"><span class="nav-icon material-symbols-outlined">assessment</span><span class="nav-label">Reports</span></a>
             <a href="users.html" class="nav-link" id="usersLink" title="Users"><span class="nav-icon material-symbols-outlined">group</span><span class="nav-label">Users</span></a>
@@ -137,7 +137,7 @@
                     <div class="settings-panel active" id="panel-profile">
                         <div class="settings-card">
                             <div class="settings-card-header">
-                                <h3>Profile Information</h3>
+                                <h3>Profile information</h3>
                                 <p>Your personal details and account info</p>
                             </div>
                             <div class="settings-card-body">
@@ -157,13 +157,13 @@
                                 </div>
                                 <div class="settings-divider"></div>
                                 <div class="settings-field">
-                                    <label>Full Name</label>
+                                    <label>Full name</label>
                                     <input type="text" class="form-input" id="settingsFullName" placeholder="Your full name">
                                 </div>
                                 <div class="settings-field">
                                     <label>Email</label>
                                     <input type="email" class="form-input" id="settingsEmail" placeholder="your@email.com" autocomplete="email">
-                                    <small style="display:block;margin-top:4px;font-size:11px;color:var(--text-muted);">Password reset links are sent to this address.</small>
+                                    <small style="display:block;margin-top:4px;font-size:12px;color:var(--text-muted);">Password reset links are sent to this address.</small>
                                 </div>
                                 <div class="settings-field">
                                     <label>Username</label>
@@ -171,7 +171,7 @@
                                 </div>
                                 <button class="btn-primary" onclick="saveProfile()" style="margin-top:8px;padding:10px 28px;">
                                     <span class="material-symbols-outlined" style="font-size:16px;">save</span>
-                                    Save Changes
+                                    Save changes
                                 </button>
                             </div>
                         </div>
@@ -180,29 +180,29 @@
                     <div class="settings-panel" id="panel-password">
                         <div class="settings-card">
                             <div class="settings-card-header">
-                                <h3>Change Password</h3>
+                                <h3>Change password</h3>
                                 <p>Update your account password</p>
                             </div>
                             <div class="settings-card-body">
                                 <div class="settings-field">
-                                    <label>Current Password</label>
+                                    <label>Current password</label>
                                     <input type="password" class="form-input" id="settingsCurrentPw" placeholder="Enter current password">
                                     <span class="field-error" id="errorCurrentPw"></span>
                                 </div>
                                 <div class="settings-field">
-                                    <label>New Password</label>
+                                    <label>New password</label>
                                     <input type="password" class="form-input" id="settingsNewPw" placeholder="Enter new password">
-                                    <small style="display:block;margin-top:4px;font-size:11px;color:var(--text-muted);">At least 6 characters with an uppercase letter, a number, and a special character.</small>
+                                    <small style="display:block;margin-top:4px;font-size:12px;color:var(--text-muted);">At least 6 characters with an uppercase letter, a number, and a special character.</small>
                                     <span class="field-error" id="errorNewPw"></span>
                                 </div>
                                 <div class="settings-field">
-                                    <label>Confirm New Password</label>
+                                    <label>Confirm new password</label>
                                     <input type="password" class="form-input" id="settingsConfirmPw" placeholder="Confirm new password">
                                     <span class="field-error" id="errorConfirmPw"></span>
                                 </div>
                                 <button class="btn-primary" onclick="changePassword()" style="margin-top:8px;padding:10px 28px;">
                                     <span class="material-symbols-outlined" style="font-size:16px;">lock_reset</span>
-                                    Update Password
+                                    Update password
                                 </button>
                             </div>
                         </div>
@@ -225,7 +225,7 @@
                         </div>
                         <div class="settings-card" id="backupCard" style="display:none;margin-bottom:20px;">
                             <div class="settings-card-header">
-                                <h3>Data Backup</h3>
+                                <h3>Data backup</h3>
                                 <p>Full database export — keep copies somewhere safe</p>
                             </div>
                             <div class="settings-card-body">
@@ -233,7 +233,7 @@
                                     A backup is also emailed automatically once a day. Download one now before making big changes.
                                 </p>
                                 <button class="btn-primary" id="downloadBackupBtn" onclick="downloadBackup()">
-                                    <span class="material-symbols-outlined" style="font-size:16px;">cloud_download</span> Download Backup
+                                    <span class="material-symbols-outlined" style="font-size:16px;">cloud_download</span> Download backup
                                 </button>
                             </div>
                         </div>
@@ -256,7 +256,7 @@
                                 <div class="settings-divider"></div>
                                 <div class="settings-toggle-row">
                                     <div>
-                                        <div class="settings-toggle-label">Compact Sidebar</div>
+                                        <div class="settings-toggle-label">Compact sidebar</div>
                                         <div class="settings-toggle-desc">Collapse sidebar for more workspace</div>
                                     </div>
                                     <label class="settings-toggle">
@@ -306,7 +306,7 @@
                                 <div class="settings-divider"></div>
                                 <div class="settings-toggle-row" style="align-items:flex-start;">
                                     <div>
-                                        <div class="settings-toggle-label">Text Size</div>
+                                        <div class="settings-toggle-label">Text size</div>
                                         <div class="settings-toggle-desc">Make everything smaller or larger for easier reading</div>
                                     </div>
                                     <div class="seg" id="textSizeSeg">
@@ -319,7 +319,7 @@
                                 <div class="settings-divider"></div>
                                 <div class="settings-toggle-row">
                                     <div>
-                                        <div class="settings-toggle-label">Reset Appearance</div>
+                                        <div class="settings-toggle-label">Reset appearance</div>
                                         <div class="settings-toggle-desc">Restore the default theme, color, font and size</div>
                                     </div>
                                     <button class="btn-secondary" type="button" id="resetAppearanceBtn">Reset</button>
@@ -328,7 +328,7 @@
                                     <span class="asb-msg"><span class="material-symbols-outlined" style="font-size:17px;">edit</span> You have unsaved appearance changes</span>
                                     <div class="asb-actions">
                                         <button class="btn-secondary" type="button" id="appearanceDiscardBtn">Discard</button>
-                                        <button class="btn-primary" type="button" id="appearanceSaveBtn"><span class="material-symbols-outlined" style="font-size:16px;">save</span> Save Changes</button>
+                                        <button class="btn-primary" type="button" id="appearanceSaveBtn"><span class="material-symbols-outlined" style="font-size:16px;">save</span> Save changes</button>
                                     </div>
                                 </div>
                             </div>
@@ -351,13 +351,13 @@
                                     <div style="font-size:14px;color:var(--text-secondary);" id="settingsSessionRole">admin</div>
                                 </div>
                                 <div class="settings-field">
-                                    <label>Account Status</label>
+                                    <label>Account status</label>
                                     <div><span class="status-badge status-active" id="settingsSessionStatus">Active</span></div>
                                 </div>
                                 <div class="settings-divider"></div>
                                 <button class="btn-danger" onclick="logout()" style="padding:10px 28px;">
                                     <span class="material-symbols-outlined" style="font-size:16px;">logout</span>
-                                    Sign Out
+                                    Sign out
                                 </button>
                             </div>
                         </div>
@@ -366,13 +366,13 @@
                     <div class="settings-panel" id="panel-email">
                         <div class="settings-card">
                             <div class="settings-card-header">
-                                <h3>Email Configuration</h3>
+                                <h3>Email configuration</h3>
                                 <p>Gmail account used to send purchase orders and low-stock alerts to suppliers</p>
                             </div>
                             <div class="settings-card-body">
                                 <div class="settings-toggle-row">
                                     <div>
-                                        <div class="settings-toggle-label">Email Sending</div>
+                                        <div class="settings-toggle-label">Email sending</div>
                                         <div class="settings-toggle-desc">Turn off to pause all outgoing supplier emails</div>
                                     </div>
                                     <label class="settings-toggle">
@@ -382,18 +382,18 @@
                                 </div>
                                 <div class="settings-divider"></div>
                                 <div class="settings-field">
-                                    <label>Sender Gmail Address</label>
+                                    <label>Sender Gmail address</label>
                                     <input type="email" class="form-input" id="emailSenderUser" placeholder="yourshop@gmail.com">
                                 </div>
                                 <div class="settings-field">
-                                    <label>Gmail App Password</label>
+                                    <label>Gmail app password</label>
                                     <input type="password" class="form-input" id="emailSenderPass" placeholder="16-character app password" autocomplete="new-password">
                                     <span style="font-size:12px;color:var(--text-muted);display:block;margin-top:4px;">
                                         Generate one at Google Account → Security → 2-Step Verification → App passwords. Leave blank to keep the saved password.
                                     </span>
                                 </div>
                                 <div class="settings-field">
-                                    <label>From Name</label>
+                                    <label>From name</label>
                                     <input type="text" class="form-input" id="emailFromName" placeholder="RISHA Pet Supplies">
                                 </div>
                                 <div id="emailConfigStatus" style="font-size:13px;margin:4px 0 8px;"></div>
@@ -406,7 +406,7 @@
 
                         <div class="settings-card" style="margin-top:20px;">
                             <div class="settings-card-header">
-                                <h3>Send Test Email</h3>
+                                <h3>Send test email</h3>
                                 <p>Confirm your configuration works end-to-end</p>
                             </div>
                             <div class="settings-card-body">
@@ -416,7 +416,7 @@
                                 </div>
                                 <button class="btn-primary" id="testEmailBtn" onclick="sendTestEmail()" style="margin-top:4px;padding:10px 28px;">
                                     <span class="material-symbols-outlined" style="font-size:16px;">send</span>
-                                    Send Test Email
+                                    Send test email
                                 </button>
                             </div>
                         </div>
@@ -441,10 +441,10 @@
     </script>
     <script src="js/utils.js"></script>
     <script src="js/format.js"></script>
-    <script src="js/auth.js?v=41"></script>
-<script src="js/motion.js?v=21"></script>
-<script src="js/jump.js?v=29"></script>
-<script src="js/assistant.js?v=23"></script>
-    <script src="js/settings.js?v=42"></script>
+    <script src="js/auth.js?v=42"></script>
+<script src="js/motion.js?v=22"></script>
+<script src="js/jump.js?v=30"></script>
+<script src="js/assistant.js?v=24"></script>
+    <script src="js/settings.js?v=43"></script>
 </body>
 </html>

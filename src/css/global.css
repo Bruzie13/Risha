@@ -31,9 +31,9 @@
   --brand-ink-2: #1B3A57;
   --brand-ink-3: #27506F;
 
-  --primary: #0A74BF;            /* links, selection, focus, charts */
-  --primary-dark: #086199;
-  --primary-darker: #064F7E;
+  --primary: #0969AD;            /* links, selection, focus, charts; 4.5:1 even on its own tint */
+  --primary-dark: #075688;
+  --primary-darker: #064570;
   --primary-light: #9AD2F4;
   --primary-bg: color-mix(in srgb, var(--primary) 10%, transparent);
   --primary-glow: color-mix(in srgb, var(--primary) 32%, transparent);
@@ -83,10 +83,13 @@
 
   /* lines */
   --border-glass: #EDDDA2;
-  --border-glass-strong: #B9C9D8;   /* the outline of a control */
+  /* the outline of a control: the paper's own tint taken darker, so warm
+     paper gets a warm line and a cool combination gets a cool one. One grey
+     family per look, never a blue-grey line on yellow paper. */
+  --border-glass-strong: color-mix(in srgb, var(--gray-300) 72%, var(--brand-ink));
   --border-glass-accent: color-mix(in srgb, var(--primary) 38%, transparent);
   --border-color: #EDDDA2;
-  --border-strong: #B9C9D8;
+  --border-strong: var(--border-glass-strong);
   --border-subtle: #F6ECC6;
   --border-default: #EDDDA2;
 
@@ -127,7 +130,7 @@
   --gray-100: #FAF0CB;
   --gray-200: #EDDDA2;
   --gray-300: #D9C680;
-  --gray-400: #9FA9B4;
+  --gray-400: color-mix(in srgb, var(--gray-300) 50%, var(--brand-ink));
   --gray-500: #5A6E82;
   --gray-600: #37506A;
   --gray-700: #1B3A57;

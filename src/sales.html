@@ -24,10 +24,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=45">
-    <link rel="stylesheet" href="css/sales.css?v=22">
+    <link rel="stylesheet" href="css/global.css?v=50">
+    <link rel="stylesheet" href="css/sales.css?v=23">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=7">
+        <link rel="stylesheet" href="css/system.css?v=20">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -46,7 +46,7 @@
             <a href="dashboard.html" class="nav-link" title="Dashboard"><span class="nav-icon material-symbols-outlined">dashboard</span><span class="nav-label">Dashboard</span></a>
             <a href="inventory.html" class="nav-link" title="Inventory"><span class="nav-icon material-symbols-outlined">inventory_2</span><span class="nav-label">Inventory</span></a>
             <a href="pos.html" class="nav-link" title="POS"><span class="nav-icon material-symbols-outlined">point_of_sale</span><span class="nav-label">POS</span></a>
-            <a href="sales.html" class="nav-link active" title="Sales History"><span class="nav-icon material-symbols-outlined">receipt</span><span class="nav-label">Sales History</span></a>
+            <a href="sales.html" class="nav-link active" title="Sales history"><span class="nav-icon material-symbols-outlined">receipt</span><span class="nav-label">Sales history</span></a>
             <a href="suppliers.html" class="nav-link" title="Suppliers"><span class="nav-icon material-symbols-outlined">local_shipping</span><span class="nav-label">Suppliers</span></a>
             <a href="reports.html" class="nav-link" title="Reports"><span class="nav-icon material-symbols-outlined">assessment</span><span class="nav-label">Reports</span></a>
             <a href="users.html" class="nav-link" id="usersLink" title="Users"><span class="nav-icon material-symbols-outlined">group</span><span class="nav-label">Users</span></a>
@@ -79,7 +79,7 @@
     <div class="main-wrapper">
         <div class="page-header">
             <div>
-                <h1>Sales History</h1>
+                <h1>Sales history</h1>
                 <div class="breadcrumb">Every sale on record</div>
             </div>
             <div class="page-header-actions">
@@ -90,7 +90,7 @@
                     <input type="text" id="searchInput" class="search-box" placeholder="Search sales..." style="width:180px;">
                 </div>
                 <div class="toolbar-right">
-                    <button class="btn-secondary" onclick="openEodModal()"><span class="material-symbols-outlined" style="font-size:16px;">savings</span> End of Day</button>
+                    <button class="btn-secondary" onclick="openEodModal()"><span class="material-symbols-outlined" style="font-size:16px;">savings</span> End of day</button>
                     <a href="pos.html" class="btn-primary"><span class="material-symbols-outlined" style="font-size:16px;">point_of_sale</span> Open POS</a>
                     <button class="btn-secondary" onclick="exportSalesCsv()"><span class="material-symbols-outlined" style="font-size:16px;">download</span> Export CSV</button>
                 </div>
@@ -109,7 +109,7 @@
                 <div class="stat-card">
                     <div class="stat-icon green"><span class="material-symbols-outlined" style="font-size:18px;">payments</span></div>
                     <div class="stat-body">
-                        <span class="stat-label">Total Sales Amount</span>
+                        <span class="stat-label">Total sales amount</span>
                         <span class="stat-value" id="totalSalesAmount">
 <span class="skeleton" style="display:inline-block;width:70px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
 </span>
@@ -118,7 +118,7 @@
                 <div class="stat-card">
                     <div class="stat-icon blue"><span class="material-symbols-outlined" style="font-size:18px;">assignment</span></div>
                     <div class="stat-body">
-                        <span class="stat-label">Total Transactions</span>
+                        <span class="stat-label">Total transactions</span>
                         <span class="stat-value" id="totalTransactions">
 <span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
 </span>
@@ -144,7 +144,7 @@
                             <th>Customer</th>
                             <th>Cashier</th>
                             <th>Items</th>
-                            <th>Total Amount</th>
+                            <th>Total amount</th>
                             <th>Payment</th>
                             <th>Status</th>
                             <th>Actions</th>
@@ -166,27 +166,27 @@
     <div id="saleModal" class="modal">
         <div class="modal-content modal-lg">
             <div class="modal-header">
-                <h2>Create New Sale</h2>
+                <h2>Create new sale</h2>
                 <button class="close-btn" title="Close" onclick="closeSaleModal()">&times;</button>
             </div>
             <form id="saleForm" onsubmit="handleSaleSubmit(event)">
                 <div class="modal-body">
                     <div class="form-section">
-                        <h3>Customer Information</h3>
+                        <h3>Customer information</h3>
                         <div class="form-row">
                             <div class="form-group">
-                                <label class="form-label">Customer Name</label>
+                                <label class="form-label">Customer name</label>
                                 <input type="text" class="form-input" id="customer_name" placeholder="Optional">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Customer Phone</label>
+                                <label class="form-label">Customer phone</label>
                                 <input type="text" class="form-input" id="customer_phone" placeholder="Optional">
                             </div>
                         </div>
                     </div>
 
                     <div class="form-section">
-                        <h3>Scan or Search Product</h3>
+                        <h3>Scan or search product</h3>
                         <div style="position: relative;">
                             <div class="barcode-row">
                                 <input type="text" class="form-input barcode-input" id="barcodeScanInput" placeholder="Scan barcode or type to search... (F2)" autofocus>
@@ -198,7 +198,7 @@
                     </div>
 
                     <div class="form-section">
-                        <h3>Add Items Manually</h3>
+                        <h3>Add items manually</h3>
                         <div class="form-row">
                             <div class="form-group" style="flex:2;">
                                 <label class="form-label">Product</label>
@@ -215,15 +215,15 @@
                                 <input type="number" class="form-input" id="unit_price" step="0.01">
                             </div>
                             <div class="form-group align-bottom">
-                                <button type="button" class="btn-secondary" onclick="addItemToSale()">Add Item</button>
+                                <button type="button" class="btn-secondary" onclick="addItemToSale()">Add item</button>
                             </div>
                         </div>
                         <div id="qtyWarning" class="hidden" style="color:#d32f2f;font-size:13px;margin-top:5px;"><span class="material-symbols-outlined" style="font-size:14px;color:#d32f2f;vertical-align:middle;">warning</span> Quantity exceeds available stock</div>
                         <div style="text-align:right;font-size:14px;color:#666;margin-top:5px;">
-                            Item Total: <span id="itemTotal">
+                            Item total: <span id="itemTotal">
 <span class="skeleton" style="display:inline-block;width:70px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
 </span>
-                            <span style="margin-left:15px;">Max Stock: <span id="maxStock">
+                            <span style="margin-left:15px;">Max stock: <span id="maxStock">
 <span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
 </span></span>
                         </div>
@@ -241,7 +241,7 @@
                     <div class="form-section">
                         <div class="form-row">
                             <div class="form-group">
-                                <label class="form-label">Payment Method</label>
+                                <label class="form-label">Payment method</label>
                                 <select class="form-select" id="payment_method" disabled>
                                     <option value="cash" selected>Cash (cash-only)</option>
                                 </select>
@@ -271,7 +271,7 @@
                             <span><input type="number" class="form-input" id="discount" value="0" min="0" max="100" step="0.01" style="width:80px;display:inline;padding:5px;"></span>
                         </div>
                         <div class="total-row highlight">
-                            <span>Total Amount:</span>
+                            <span>Total amount:</span>
                             <span id="totalAmount">
 <span class="skeleton" style="display:inline-block;width:70px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
 </span>
@@ -280,8 +280,8 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn-secondary" onclick="closeSaleModal()">Cancel</button>
-                    <button type="button" class="btn-warning" onclick="printCurrentReceipt()"><span class="material-symbols-outlined" style="font-size:16px;">print</span> Print Receipt</button>
-                    <button type="submit" class="btn-primary"><span class="material-symbols-outlined" style="font-size:16px;">payments</span> Complete Sale</button>
+                    <button type="button" class="btn-warning" onclick="printCurrentReceipt()"><span class="material-symbols-outlined" style="font-size:16px;">print</span> Print receipt</button>
+                    <button type="submit" class="btn-primary"><span class="material-symbols-outlined" style="font-size:16px;">payments</span> Complete sale</button>
                 </div>
             </form>
         </div>
@@ -290,14 +290,14 @@
     <div id="viewSaleModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Sale Details</h2>
+                <h2>Sale details</h2>
                 <button class="close-btn" title="Close" onclick="closeViewSaleModal()">&times;</button>
             </div>
             <div class="modal-body" id="saleDetailsContent"></div>
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeViewSaleModal()">Close</button>
-                <button type="button" class="btn-primary" onclick="printReceipt(viewingSaleId)"><span class="material-symbols-outlined" style="font-size:16px;">print</span> Print Receipt</button>
-                <button type="button" class="btn-danger" onclick="deleteSaleFromDetail()">Delete Sale</button>
+                <button type="button" class="btn-primary" onclick="printReceipt(viewingSaleId)"><span class="material-symbols-outlined" style="font-size:16px;">print</span> Print receipt</button>
+                <button type="button" class="btn-danger" onclick="deleteSaleFromDetail()">Delete sale</button>
             </div>
         </div>
     </div>
@@ -334,12 +334,12 @@
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0;">
                     <div style="background:var(--bg-raised);border:1px solid var(--border-glass);border-radius:12px;padding:14px;">
-                        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Expected in drawer</div>
+                        <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Expected in drawer</div>
                         <div id="eodExpected" style="font-size:22px;font-weight:800;color:var(--text-primary);margin-top:4px;">—</div>
-                        <div id="eodTxns" style="font-size:11.5px;color:var(--text-muted);margin-top:2px;"></div>
+                        <div id="eodTxns" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></div>
                     </div>
                     <div style="background:var(--bg-raised);border:1px solid var(--border-glass);border-radius:12px;padding:14px;">
-                        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Over / Short</div>
+                        <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Over / Short</div>
                         <div id="eodDiff" style="font-size:22px;font-weight:800;color:var(--text-muted);margin-top:4px;">—</div>
                     </div>
                 </div>
@@ -359,25 +359,25 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeEodModal()">Cancel</button>
-                <button type="button" class="btn-primary" onclick="saveEod()"><span class="material-symbols-outlined" style="font-size:16px;">savings</span> Save Count</button>
+                <button type="button" class="btn-primary" onclick="saveEod()"><span class="material-symbols-outlined" style="font-size:16px;">savings</span> Save count</button>
             </div>
         </div>
     </div>
 
         <script src="js/utils.js"></script>
 <script src="js/format.js"></script>
-<script src="js/auth.js?v=41"></script>
-<script src="js/motion.js?v=21"></script>
-<script src="js/jump.js?v=29"></script>
-<script src="js/assistant.js?v=23"></script>
-    <script src="js/point-of-sale.js?v=30"></script>
+<script src="js/auth.js?v=42"></script>
+<script src="js/motion.js?v=22"></script>
+<script src="js/jump.js?v=30"></script>
+<script src="js/assistant.js?v=24"></script>
+    <script src="js/point-of-sale.js?v=31"></script>
 </body>
 </html>
 
 <div id="helpGuideModal">
     <div class="modal-content" style="max-width:640px;">
         <div class="modal-header">
-            <h2><span class="material-symbols-outlined" style="font-size:20px;">help</span> Help Guide</h2>
+            <h2><span class="material-symbols-outlined" style="font-size:20px;">help</span> Help guide</h2>
             <button class="close-btn" title="Close" onclick="closeHelpGuide()">&times;</button>
         </div>
         <div class="help-guide-content">
@@ -405,11 +405,11 @@
                 </ul>
             </div>
             <div class="help-section">
-                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">receipt</span> Sales History</h3>
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">receipt</span> Sales history</h3>
                 <ul>
                     <li>Search and filter past sales by date; click <strong>View</strong> for item details and a printable receipt.</li>
                     <li><strong>Void</strong> (admins/managers) cancels a sale with a required reason — the items go back into stock and the sale stays in history marked <em>Voided</em>, excluded from all totals.</li>
-                    <li><strong>End of Day</strong> (also on the POS for cashiers) records the drawer count: the system shows the expected cash from today's sales, you enter what was actually counted, and any over/short is saved with notes for the daily record.</li>
+                    <li><strong>End of day</strong> (also on the POS for cashiers) records the drawer count: the system shows the expected cash from today's sales, you enter what was actually counted, and any over/short is saved with notes for the daily record.</li>
                 </ul>
             </div>
             <div class="help-section">
@@ -447,7 +447,7 @@
                 <p>Alerts for low stock, stockouts, and expiring products. Open them from the bell in the sidebar or the Notifications page; suppliers with low-stock products are emailed automatically at most once per day.</p>
             </div>
             <div class="help-section">
-                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">keyboard</span> Keyboard Shortcuts</h3>
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">keyboard</span> Keyboard shortcuts</h3>
                 <ul>
                     <li><span class="shortcut">F2</span> — Focus barcode scanner input (POS page)</li>
                     <li><span class="shortcut">⌘J</span> / <span class="shortcut">Ctrl J</span> — Open <strong>Jump to…</strong>: search every page, every section of the page you are on, quick actions, and your products and suppliers</li>

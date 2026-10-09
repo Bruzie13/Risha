@@ -52,7 +52,7 @@ function reflectPrinterState() {
     const label = document.getElementById('connectPrinterLabel');
     if (!btn || !label) return;
     const on = window.escposPrint && escposPrint.isConnected();
-    label.textContent = on ? 'Printer Connected' : 'Connect Printer';
+    label.textContent = on ? 'Printer connected' : 'Connect printer';
     btn.title = on
         ? 'Thermal printer connected — receipts print directly, no dialog. Click to disconnect.'
         : 'Connect a USB thermal printer for one-tap receipts (no print dialog)';
@@ -461,7 +461,7 @@ function renderCart() {
     const container = document.getElementById('cartItems');
     if (!container) return;
     if (cartItems.length === 0) {
-        container.innerHTML = '<div class="pos-cart-empty"><div class="empty-icon"><span class="material-symbols-outlined" style="font-size:44px;">shopping_cart</span></div>Cart is empty<br><span style="font-size:11px;color:var(--text-muted);">Click a product to add</span></div>';
+        container.innerHTML = '<div class="pos-cart-empty"><div class="empty-icon"><span class="material-symbols-outlined" style="font-size:44px;">shopping_cart</span></div>Cart is empty<br><span style="font-size:12px;color:var(--text-muted);">Click a product to add</span></div>';
         document.getElementById('cartCount').textContent = '0';
         return;
     }
@@ -577,7 +577,7 @@ async function completeSale() {
         <div><strong>Change:</strong> <span style="font-weight:800;color:var(--success);">${formatCurrency(change)}</span></div>
         <div><strong>Customer:</strong> ${escHtml(customer)}</div>
     </div>`;
-    showConfirmDialog('Confirm Cash Sale', msg, async () => {
+    showConfirmDialog('Confirm cash sale', msg, async () => {
         const saleData = {
             payment_method: PAYMENT_METHOD,
             notes: 'POS sale',
@@ -596,7 +596,7 @@ async function completeSale() {
             });
             const data = await response.json();
             if (data.success) {
-                showToast('Sale completed!' + (change > 0 ? ' Change: ₱' + change.toFixed(2) : ''), 'success');
+                showToast('Sale completed' + (change > 0 ? ' Change: ₱' + change.toFixed(2) : ''), 'success');
                 const saleId = data.data?.id || data.data?.sale_id;
                 cartItems = [];
                 renderCart();
@@ -653,13 +653,13 @@ async function printReceipt(saleId, tendered, change) {
                 @page{margin:0;size:58mm auto;}
                 body{font-family:'Courier New',monospace;font-size:10px;width:58mm;max-width:58mm;padding:4px 4px;margin:0 auto;text-align:center;word-break:break-word;}
                 h2{margin:5px 0 2px;font-size:16px;letter-spacing:1px;text-transform:uppercase;}
-                .info{font-size:10px;color:#555;margin:2px 0;line-height:1.4;}
-                table{width:100%;border-collapse:collapse;margin:8px 0;text-align:left;font-size:10px;table-layout:auto;}
+                .info{font-size:12px;color:#555;margin:2px 0;line-height:1.4;}
+                table{width:100%;border-collapse:collapse;margin:8px 0;text-align:left;font-size:12px;table-layout:auto;}
             td:not(:first-child),th:not(:first-child){white-space:nowrap;}
-                th{padding:4px;border-bottom:2px solid #000;font-size:10px;text-transform:uppercase;}
+                th{padding:4px;border-bottom:2px solid #000;font-size:12px;text-transform:uppercase;}
                 .total-row{display:flex;justify-content:space-between;padding:3px 4px;font-size:12px;}
                 .grand-total{font-size:16px;font-weight:bold;border-top:2px solid #000;border-bottom:2px solid #000;padding:8px 4px;margin:8px 0;}
-                .footer{font-size:10px;color:#555;margin-top:10px;line-height:1.5;}
+                .footer{font-size:12px;color:#555;margin-top:10px;line-height:1.5;}
                 hr{border:none;border-top:1px dashed #ccc;margin:8px 0;}
                 button{display:none;}
                 .barcode{font-family:'Courier New',monospace;font-size:14px;letter-spacing:2px;margin:8px 0;}
@@ -669,7 +669,7 @@ async function printReceipt(saleId, tendered, change) {
                 <div class="info">7 Bagumbong Road, Brgy. 171, North Caloocan</div>
                 <div class="info">Tel: (02) 8123-4567 | TIN: 123-456-789-000</div>
                 <hr>
-                <div style="text-align:left;font-size:11px;line-height:1.6;">
+                <div style="text-align:left;font-size:12px;line-height:1.6;">
                     <div>Receipt #: <strong>${String(sale.sale_number || sale.id).padStart(6, '0')}</strong></div>
                     <div>Date: ${date}</div>
                     <div>Cashier: ${escHtml(sale.staff_name || 'N/A')}</div>

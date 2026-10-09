@@ -241,9 +241,9 @@ function setInvView(mode) {
 function cardTheme(status) {
     switch (status) {
         case 'expired': return { color: 'var(--danger)', bg: 'var(--danger-bg)', label: 'Expired' };
-        case 'out': return { color: 'var(--danger)', bg: 'var(--danger-bg)', label: 'Out of Stock' };
+        case 'out': return { color: 'var(--danger)', bg: 'var(--danger-bg)', label: 'Out of stock' };
         case 'expiring': return { color: 'var(--warning)', bg: 'var(--warning-bg)', label: 'Expiring' };
-        case 'low': return { color: 'var(--warning)', bg: 'var(--warning-bg)', label: 'Low Stock' };
+        case 'low': return { color: 'var(--warning)', bg: 'var(--warning-bg)', label: 'Low stock' };
         default: return { color: 'var(--success)', bg: 'var(--success-bg)', label: 'Healthy' };
     }
 }
@@ -261,7 +261,7 @@ function displayProductsGrid(products) {
             <span class="material-symbols-outlined" style="font-size:46px;color:var(--border-strong,#ccc);display:block;margin-bottom:10px;">${hasFilters ? 'search_off' : 'inventory_2'}</span>
             <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">${hasFilters ? 'No products match your filters' : 'No products yet'}</div>
             <div style="color:var(--text-muted);">${hasFilters ? 'Try adjusting your search or filters.' : (viewer ? 'Products will appear here once added.' : 'Add your first product to get started.')}</div>
-            ${hasFilters ? '<button class="btn-secondary" onclick="showAllProducts()" style="margin-top:14px;padding:8px 18px;font-size:13px;">Clear Filters</button>' : (viewer ? '' : '<button class="btn-primary" onclick="openAddProductModal()" style="margin-top:14px;padding:8px 18px;font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;">add</span> Add Product</button>')}
+            ${hasFilters ? '<button class="btn-secondary" onclick="showAllProducts()" style="margin-top:14px;padding:8px 18px;font-size:13px;">Clear filters</button>' : (viewer ? '' : '<button class="btn-primary" onclick="openAddProductModal()" style="margin-top:14px;padding:8px 18px;font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;">add</span> Add product</button>')}
         </div>`;
         updatePagination('inventoryPagination', { length: serverTotal }, displayCount, 'showMoreProducts', 'showLessProducts', invPageSize());
         return;
@@ -340,8 +340,8 @@ function displayProducts(products) {
             ? 'Try adjusting your search or filters.'
             : (viewer ? 'Products will appear here once added.' : 'Add your first product or import from CSV to get started.');
         const action = hasFilters
-            ? '<button class="btn-secondary" onclick="showAllProducts()" style="margin-top:14px;padding:8px 18px;font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;">filter_alt_off</span> Clear Filters</button>'
-            : (viewer ? '' : '<button class="btn-primary" onclick="openAddProductModal()" style="margin-top:14px;padding:8px 18px;font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;">add</span> Add Product</button>');
+            ? '<button class="btn-secondary" onclick="showAllProducts()" style="margin-top:14px;padding:8px 18px;font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;">filter_alt_off</span> Clear filters</button>'
+            : (viewer ? '' : '<button class="btn-primary" onclick="openAddProductModal()" style="margin-top:14px;padding:8px 18px;font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;">add</span> Add product</button>');
         tbody.innerHTML = `<tr><td colspan="${colSpan}">
             <div class="empty-state" style="padding:48px 22px;">
                 <span class="material-symbols-outlined" style="font-size:44px;color:var(--border-strong,#ccc);display:block;margin-bottom:10px;">${icon}</span>
@@ -403,7 +403,7 @@ function displayProducts(products) {
                 </td>
                 <td>
                     <div style="font-size:12.5px;font-weight:500;color:var(--text-secondary);">${escHtml(product.category_name || 'N/A')}</div>
-                    ${product.species ? `<div style="font-size:11px;color:var(--text-muted);margin-top:1px;">${escHtml(product.species)}</div>` : ''}
+                    ${product.species ? `<div style="font-size:12px;color:var(--text-muted);margin-top:1px;">${escHtml(product.species)}</div>` : ''}
                 </td>
                 <td style="font-weight:600;color:var(--text-primary);font-variant-numeric:tabular-nums;">${formatCurrency(product.unit_price)}</td>
                 <td>${stockCell}</td>
@@ -451,16 +451,16 @@ function getStatusBadge(stock, reorder, expirationDate) {
         if (daysLeft !== null && daysLeft < 0) {
             return '<span class="status-badge status-expired">Expired</span>';
         } else if (daysLeft !== null && daysLeft <= 30) {
-            return '<span class="status-badge status-expiring-soon">Expiring Soon</span>';
+            return '<span class="status-badge status-expiring-soon">Expiring soon</span>';
         }
     }
 
     if (stock === 0) {
-        return '<span class="status-badge status-out-of-stock">Out of Stock</span>';
+        return '<span class="status-badge status-out-of-stock">Out of stock</span>';
     } else if (stock <= reorder) {
-        return '<span class="status-badge status-low-stock">Low Stock</span>';
+        return '<span class="status-badge status-low-stock">Low stock</span>';
     } else {
-        return '<span class="status-badge status-in-stock">In Stock</span>';
+        return '<span class="status-badge status-in-stock">In stock</span>';
     }
 }
 
@@ -601,7 +601,7 @@ function filterProducts() {
 function openAddProductModal() {
     if (!canManage()) { showToast("Your role can't add products.", 'error'); return; }
     editingProductId = null;
-    document.getElementById('modalTitle').textContent = 'Add New Product';
+    document.getElementById('modalTitle').textContent = 'Add new product';
     document.getElementById('productForm').reset();
     updateImagePreview();
     document.getElementById('productModal').classList.add('active');
@@ -618,7 +618,7 @@ async function openEditProductModal(id) {
             const product = data.data;
             editingProductId = id;
             
-            document.getElementById('modalTitle').textContent = 'Edit Product';
+            document.getElementById('modalTitle').textContent = 'Edit product';
             document.getElementById('sku').value = product.sku;
             document.getElementById('name').value = product.name;
             document.getElementById('brand').value = product.brand || '';
@@ -665,7 +665,7 @@ async function viewProductDetails(id) {
                     <span class="details-value">${escHtml(product.sku)}</span>
                 </div>
                 <div class="details-row">
-                    <span class="details-label">Product Name</span>
+                    <span class="details-label">Product name</span>
                     <span class="details-value">${escHtml(product.name)}</span>
                 </div>
                 <div class="details-row">
@@ -681,15 +681,15 @@ async function viewProductDetails(id) {
                     <span class="details-value">${escHtml(product.species || 'N/A')}</span>
                 </div>
                 <div class="details-row">
-                    <span class="details-label">Breed Size</span>
+                    <span class="details-label">Breed size</span>
                     <span class="details-value">${escHtml(product.breed_size || 'N/A')}</span>
                 </div>
                 <div class="details-row">
-                    <span class="details-label">Age Group</span>
+                    <span class="details-label">Age group</span>
                     <span class="details-value">${escHtml(product.age_group || 'N/A')}</span>
                 </div>
                 <div class="details-row">
-                    <span class="details-label">Health Category</span>
+                    <span class="details-label">Health category</span>
                     <span class="details-value">${escHtml(product.health_category || 'N/A')}</span>
                 </div>
                 <div class="details-row">
@@ -697,27 +697,27 @@ async function viewProductDetails(id) {
                     <span class="details-value">${escHtml(product.supplier_name || 'N/A')}</span>
                 </div>
                 <div class="details-row">
-                    <span class="details-label">Unit Type</span>
+                    <span class="details-label">Unit type</span>
                     <span class="details-value">${getUnitLabel(product.unit_type) || 'pcs'}</span>
                 </div>
                 <div class="details-row">
-                    <span class="details-label">Unit Price</span>
+                    <span class="details-label">Unit price</span>
                     <span class="details-value">${formatCurrency(product.unit_price)}${product.unit_type && product.unit_type !== 'piece' ? '/' + getUnitLabel(product.unit_type).trim() : ''}</span>
                 </div>
                 <div class="details-row">
-                    <span class="details-label">Cost Price</span>
+                    <span class="details-label">Cost price</span>
                     <span class="details-value">${formatCurrency(product.cost_price || 0)}</span>
                 </div>
                 <div class="details-row">
-                    <span class="details-label">Stock Quantity</span>
+                    <span class="details-label">Stock quantity</span>
                     <span class="details-value">${formatNumber(product.stock_quantity)}</span>
                 </div>
                 <div class="details-row">
-                    <span class="details-label">Reorder Level</span>
+                    <span class="details-label">Reorder level</span>
                     <span class="details-value">${product.reorder_level}</span>
                 </div>
                 <div class="details-row">
-                    <span class="details-label">Max Stock Level</span>
+                    <span class="details-label">Max stock level</span>
                     <span class="details-value">${escHtml(product.max_stock_level || 'N/A')}</span>
                 </div>
                 <div class="details-row">
@@ -725,7 +725,7 @@ async function viewProductDetails(id) {
                     <span class="details-value">${escHtml(product.batch_number || 'N/A')}</span>
                 </div>
                 <div class="details-row">
-                    <span class="details-label">Expiration Date</span>
+                    <span class="details-label">Expiration date</span>
                     <span class="details-value">${product.expiration_date ? new Date(product.expiration_date).toLocaleDateString() : 'N/A'}</span>
                 </div>
                 <div class="details-row">
@@ -772,7 +772,7 @@ function deleteFromDetails() {
 // Delete product with confirmation
 async function deleteProduct(id) {
     if (!canManage()) { showToast("Your role can't delete products.", 'error'); return; }
-    showConfirmDialog('Delete Product', 'Are you sure you want to delete this product? This cannot be undone.', async () => {
+    showConfirmDialog('Delete product', 'Are you sure you want to delete this product? This cannot be undone.', async () => {
         try {
             const response = await fetch(`${API_URL}/products/${id}`, {
                 method: 'DELETE',
@@ -865,7 +865,7 @@ function openStockModal(productId) {
     if (!canManage()) { showToast("Your role can't adjust stock.", 'error'); return; }
     stockAdjustProductId = productId;
     const product = allProducts.find(p => p.id === productId);
-    document.getElementById('stockProductName').textContent = product ? product.name : 'Unknown Product';
+    document.getElementById('stockProductName').textContent = product ? product.name : 'Unknown product';
     document.getElementById('stockQuantity').value = 1;
     document.getElementById('stockAdjustType').value = 'in';
     document.getElementById('stockReason').value = '';
@@ -906,7 +906,7 @@ async function saveStockAdjustment() {
 
 function showWarnings(warnings) {
     const list = warnings.map(w => `<div style="padding:6px 0;border-bottom:1px solid var(--border-color,#eee);font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;color:var(--danger);">warning_amber</span> ${escHtml(w)}</div>`).join('');
-    showConfirmDialog('Reorder Warnings', list, () => {}, 'Got It', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">smart_toy</span>');
+    showConfirmDialog('Reorder warnings', list, () => {}, 'Got It', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">smart_toy</span>');
 }
 
 // Auto-reorder function — shows product selection list
@@ -944,7 +944,7 @@ async function autoReorder() {
         const items = lowStock.slice(0, displayed);
         const rowsHtml = items.map(p => {
             const checked = selected.has(p.id) ? 'checked' : '';
-            const status = p.stock_quantity === 0 ? 'Out of Stock' : 'Low Stock';
+            const status = p.stock_quantity === 0 ? 'Out of stock' : 'Low stock';
             const statusColor = p.stock_quantity === 0 ? 'var(--danger)' : 'var(--warning)';
             return `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border-color,#eee);">
                 <input type="checkbox" id="reord-${p.id}" ${checked} style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">
@@ -956,7 +956,7 @@ async function autoReorder() {
                     <div style="font-size:12px;color:var(--text-muted,#888);">Stock: <strong>${formatNumber(p.stock_quantity)}</strong></div>
                     <div style="font-size:12px;color:var(--text-muted,#888);">Reorder at: <strong>${p.reorder_level}</strong></div>
                 </div>
-                <span style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px;background:${statusColor}15;color:${statusColor}">${status}</span>
+                <span style="font-size:12px;font-weight:600;padding:3px 8px;border-radius:4px;background:${statusColor}15;color:${statusColor}">${status}</span>
             </div>`;
         }).join('');
 
@@ -1131,7 +1131,7 @@ async function bulkReorder() {
     if (!canManage()) { showToast("Your role can't reorder.", 'error'); return; }
     const ids = getSelectedIds();
     if (ids.length === 0) return;
-    showConfirmDialog('Bulk Reorder', `Generate purchase orders for ${ids.length} selected product(s)?`, () => {
+    showConfirmDialog('Bulk reorder', `Generate purchase orders for ${ids.length} selected product(s)?`, () => {
         // Second confirmation before the purchase orders are created
         showConfirmDialog('Final check', `This will create the purchase orders and <strong>email each one to its assigned supplier straight away</strong>. Proceed?`, async () => {
         try {
@@ -1163,12 +1163,12 @@ async function bulkAdjustStock() {
     if (!canManage()) { showToast("Your role can't adjust stock.", 'error'); return; }
     const ids = getSelectedIds();
     if (ids.length === 0) return;
-    showPromptDialog('Bulk Stock Adjust', `Enter quantity to add/remove for ${ids.length} product(s):<br>(positive = add stock, negative = remove stock)`, (qty) => {
+    showPromptDialog('Bulk stock adjust', `Enter quantity to add/remove for ${ids.length} product(s):<br>(positive = add stock, negative = remove stock)`, (qty) => {
         if (qty === null || qty === '') return;
         const numQty = parseInt(qty);
         if (isNaN(numQty) || numQty === 0) { showToast('Invalid quantity', 'error'); return; }
         const type = numQty > 0 ? 'in' : 'out';
-        showConfirmDialog('Confirm Adjustment', `Adjust stock by ${numQty} for ${ids.length} product(s)?`, async () => {
+        showConfirmDialog('Confirm adjustment', `Adjust stock by ${numQty} for ${ids.length} product(s)?`, async () => {
             try {
                 let successCount = 0;
                 for (const id of ids) {
@@ -1194,7 +1194,7 @@ async function bulkDelete() {
     if (!canManage()) { showToast("Your role can't delete products.", 'error'); return; }
     const ids = getSelectedIds();
     if (ids.length === 0) return;
-    showConfirmDialog('Bulk Delete', `Delete ${ids.length} product(s)? This cannot be undone.`, async () => {
+    showConfirmDialog('Bulk delete', `Delete ${ids.length} product(s)? This cannot be undone.`, async () => {
         try {
             let successCount = 0;
             for (const id of ids) {
@@ -1345,7 +1345,7 @@ async function importCsvProducts() {
         showToast('Import failed', 'error');
     } finally {
         btn.disabled = false;
-        btn.textContent = 'Import Products';
+        btn.textContent = 'Import products';
     }
 }
 
@@ -1422,7 +1422,7 @@ function renderBarcodeManagerList() {
         '<div class="bc-row" data-id="' + p.id + '">' +
             '<div style="flex:1;min-width:0;">' +
                 '<div style="font-weight:600;font-size:13px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(p.name || '') + '</div>' +
-                '<div style="font-size:11px;color:var(--text-muted);">' + escHtml(p.sku || '') + '</div>' +
+                '<div style="font-size:12px;color:var(--text-muted);">' + escHtml(p.sku || '') + '</div>' +
             '</div>' +
             '<input type="text" class="form-input bc-input" placeholder="Scan or type…" value="' + escHtml(p.barcode || '') + '" style="width:190px;flex-shrink:0;">' +
             '<button type="button" class="btn-secondary bc-gen" title="Generate" style="padding:6px 10px;flex-shrink:0;"><span class="material-symbols-outlined" style="font-size:15px;">auto_fix_high</span></button>' +
@@ -1546,7 +1546,7 @@ function renderImageManagerList() {
             '<span class="img-thumb-ph" ' + (p.image_url ? 'style="display:none;"' : '') + '><span class="material-symbols-outlined">image</span></span>' +
             '<div style="flex:1;min-width:0;">' +
                 '<div style="font-weight:600;font-size:13px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(p.name || '') + '</div>' +
-                '<div style="font-size:11px;color:var(--text-muted);">' + escHtml(p.sku || '') + '</div>' +
+                '<div style="font-size:12px;color:var(--text-muted);">' + escHtml(p.sku || '') + '</div>' +
             '</div>' +
             '<input type="text" class="form-input img-input" placeholder="Paste URL…" value="' + escHtml(p.image_url || '') + '" style="width:180px;flex-shrink:0;">' +
             '<label class="btn-secondary" title="Upload from this device" style="cursor:pointer;padding:6px 9px;flex-shrink:0;margin:0;">' +

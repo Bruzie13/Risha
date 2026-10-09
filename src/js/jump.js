@@ -35,15 +35,15 @@
     // `kw` holds the words a cashier might actually type for this thing.
     var PLACES = [
         { label: 'Dashboard', sub: 'Today at a glance — KPIs, trends, alerts', icon: 'dashboard', tone: 'coral', href: 'dashboard.html', kw: 'home overview start main' },
-        { label: 'Point of Sale', sub: 'Ring up a sale, scan barcodes, print a receipt', icon: 'point_of_sale', tone: 'green', href: 'pos.html', kw: 'pos checkout cashier till sell counter' },
+        { label: 'Point of sale', sub: 'Ring up a sale, scan barcodes, print a receipt', icon: 'point_of_sale', tone: 'green', href: 'pos.html', kw: 'pos checkout cashier till sell counter' },
         { label: 'Inventory', sub: 'Products, stock levels, expiry, reorders', icon: 'inventory_2', tone: 'blue', href: 'inventory.html', kw: 'products stock items goods catalog' },
-        { label: 'Sales History', sub: 'Past sales, receipts, voids, cash count', icon: 'receipt_long', tone: 'purple', href: 'sales.html', kw: 'transactions receipts orders history' },
+        { label: 'Sales history', sub: 'Past sales, receipts, voids, cash count', icon: 'receipt_long', tone: 'purple', href: 'sales.html', kw: 'transactions receipts orders history' },
         { label: 'Suppliers', sub: 'Contacts, purchase orders, delivery performance', icon: 'local_shipping', tone: 'amber', href: 'suppliers.html', kw: 'vendors distributors purchase order po' },
         { label: 'Reports', sub: 'Daily, weekly and monthly sales summaries', icon: 'assessment', tone: 'coral', href: 'reports.html', kw: 'summary print daily weekly monthly' },
         { label: 'Stock planning', sub: 'What to reorder and what each product is expected to sell', icon: 'insights', tone: 'purple', href: 'reports.html?tab=analytics', kw: 'forecast prediction analytics ml trends movers reorder' },
         { label: 'Notifications', sub: 'Low stock, stockouts and expiry alerts', icon: 'notifications', tone: 'amber', href: 'notifications.html', kw: 'alerts bell warnings messages' },
         { label: 'Users', sub: 'Accounts, roles and access', icon: 'group', tone: 'blue', href: 'users.html', kw: 'staff accounts team roles permissions', when: manages },
-        { label: 'Audit Logs', sub: 'Who did what, when and from where', icon: 'history', tone: 'red', href: 'audit.html', kw: 'logs activity trail security', when: isAdmin },
+        { label: 'Audit logs', sub: 'Who did what, when and from where', icon: 'history', tone: 'red', href: 'audit.html', kw: 'logs activity trail security', when: isAdmin },
         { label: 'Settings', sub: 'Your profile, password, theme and backups', icon: 'settings', tone: 'blue', href: 'settings.html', kw: 'preferences profile account theme backup' }
     ];
 

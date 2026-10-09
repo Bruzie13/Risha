@@ -51,7 +51,7 @@ function renderPage(page, logs) {
             return `<div class="audit-item" onclick="toggleDetail(this)">
                 <div class="audit-icon ${iconClass}">${icon}</div>
                 <div class="audit-info">
-                    <div class="audit-action">${table}${detailHtml ? ' <span style="font-size:10px;color:var(--primary);cursor:pointer;">▼</span>' : ''}</div>
+                    <div class="audit-action">${table}${detailHtml ? ' <span style="font-size:12px;color:var(--primary);cursor:pointer;">▼</span>' : ''}</div>
                     <div class="audit-detail">${escHtml(formatAction(action))} on ${escHtml(l.table_name)}${userInfo}</div>
                     ${detailHtml}
                 </div>

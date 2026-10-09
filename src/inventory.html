@@ -24,10 +24,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=45">
-    <link rel="stylesheet" href="css/inventory.css?v=22">
+    <link rel="stylesheet" href="css/global.css?v=50">
+    <link rel="stylesheet" href="css/inventory.css?v=23">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=7">
+        <link rel="stylesheet" href="css/system.css?v=20">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -46,7 +46,7 @@
             <a href="dashboard.html" class="nav-link" title="Dashboard"><span class="nav-icon material-symbols-outlined">dashboard</span><span class="nav-label">Dashboard</span></a>
             <a href="inventory.html" class="nav-link active" title="Inventory"><span class="nav-icon material-symbols-outlined">inventory_2</span><span class="nav-label">Inventory</span></a>
             <a href="pos.html" class="nav-link" title="POS"><span class="nav-icon material-symbols-outlined">point_of_sale</span><span class="nav-label">POS</span></a>
-            <a href="sales.html" class="nav-link" title="Sales History"><span class="nav-icon material-symbols-outlined">receipt</span><span class="nav-label">Sales History</span></a>
+            <a href="sales.html" class="nav-link" title="Sales history"><span class="nav-icon material-symbols-outlined">receipt</span><span class="nav-label">Sales history</span></a>
             <a href="suppliers.html" class="nav-link" title="Suppliers"><span class="nav-icon material-symbols-outlined">local_shipping</span><span class="nav-label">Suppliers</span></a>
             <a href="reports.html" class="nav-link" title="Reports"><span class="nav-icon material-symbols-outlined">assessment</span><span class="nav-label">Reports</span></a>
             <a href="users.html" class="nav-link" id="usersLink" title="Users"><span class="nav-icon material-symbols-outlined">group</span><span class="nav-label">Users</span></a>
@@ -132,7 +132,7 @@
                 <div class="stat-card">
                     <div class="stat-icon blue"><span class="material-symbols-outlined" style="font-size:18px;">inventory_2</span></div>
                     <div class="stat-body">
-                        <span class="stat-label">Total Products</span>
+                        <span class="stat-label">Total products</span>
                         <span class="stat-value" id="totalProductsCount">
 <span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
 </span>
@@ -141,7 +141,7 @@
                 <div class="stat-card" onclick="filterLowStock()" style="cursor:pointer;">
                     <div class="stat-icon orange"><span class="material-symbols-outlined" style="font-size:18px;">warning_amber</span></div>
                     <div class="stat-body">
-                        <span class="stat-label">Low Stock</span>
+                        <span class="stat-label">Low stock</span>
                         <span class="stat-value warning" id="lowStockCount">
 <span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
 </span>
@@ -150,7 +150,7 @@
                 <div class="stat-card">
                     <div class="stat-icon red"><span class="material-symbols-outlined" style="font-size:18px;">hourglass_bottom</span></div>
                     <div class="stat-body">
-                        <span class="stat-label">Expiring Soon</span>
+                        <span class="stat-label">Expiring soon</span>
                         <span class="stat-value danger" id="expiringCount">
 <span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
 </span>
@@ -159,7 +159,7 @@
                 <div class="stat-card">
                     <div class="stat-icon green"><span class="material-symbols-outlined" style="font-size:18px;">payments</span></div>
                     <div class="stat-body">
-                        <span class="stat-label">Total Inventory Value</span>
+                        <span class="stat-label">Total inventory value</span>
                         <span class="stat-value" id="totalValue">
 <span class="skeleton" style="display:inline-block;width:70px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
 </span>
@@ -178,9 +178,9 @@
 
             <div class="chip-row" id="statusChips" style="margin-bottom:16px;">
                 <button class="chip active" data-status="" onclick="setStatusFilter('', this)">All <span class="chip-count" id="chipCountAll">–</span></button>
-                <button class="chip chip-warning" data-status="low" onclick="setStatusFilter('low', this)">Low Stock <span class="chip-count" id="chipCountLow">–</span></button>
-                <button class="chip chip-danger" data-status="out" onclick="setStatusFilter('out', this)">Out of Stock <span class="chip-count" id="chipCountOut">–</span></button>
-                <button class="chip chip-warning" data-status="expiring" onclick="setStatusFilter('expiring', this)">Expiring Soon <span class="chip-count" id="chipCountExpiring">–</span></button>
+                <button class="chip chip-warning" data-status="low" onclick="setStatusFilter('low', this)">Low stock <span class="chip-count" id="chipCountLow">–</span></button>
+                <button class="chip chip-danger" data-status="out" onclick="setStatusFilter('out', this)">Out of stock <span class="chip-count" id="chipCountOut">–</span></button>
+                <button class="chip chip-warning" data-status="expiring" onclick="setStatusFilter('expiring', this)">Expiring soon <span class="chip-count" id="chipCountExpiring">–</span></button>
                 <button class="chip chip-danger" data-status="expired" onclick="setStatusFilter('expired', this)">Expired <span class="chip-count" id="chipCountExpired">–</span></button>
                 <button class="chip chip-success" data-status="in" onclick="setStatusFilter('in', this)">Healthy <span class="chip-count" id="chipCountIn">–</span></button>
             </div>
@@ -188,9 +188,9 @@
             <div id="reorderBanner" style="display:none;margin-bottom:16px;">
                 <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--warning-bg);border:1px solid color-mix(in srgb, var(--warning) 25%, transparent);border-radius:var(--radius-md);flex:1;">
                     <span class="material-symbols-outlined" style="color:var(--warning);font-size:20px;">warning_amber</span>
-                    <span style="font-weight:600;font-size:13.5px;color:var(--text-primary);">Low Stock Items</span>
+                    <span style="font-weight:600;font-size:13.5px;color:var(--text-primary);">Low stock items</span>
                     <span id="reorderCount" style="font-size:12.5px;color:var(--text-muted);"></span>
-                    <button class="btn-secondary" onclick="showAllProducts()" style="margin-left:auto;padding:6px 14px;font-size:12px;">Show All Products</button>
+                    <button class="btn-secondary" onclick="showAllProducts()" style="margin-left:auto;padding:6px 14px;font-size:12px;">Show all products</button>
                 </div>
             </div>
             <div id="productsGrid" class="product-grid"></div>
@@ -220,8 +220,8 @@
             <div class="pagination-bar" id="inventoryPagination" style="display:flex;justify-content:center;padding:16px;"></div>
             <div class="bulk-bar" id="bulkBar" style="display:none;">
                 <span class="bulk-count" id="bulkCount">0 selected</span>
-                <button class="btn-primary" onclick="bulkReorder()" style="padding:8px 16px;font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;">inventory_2</span> Bulk Reorder</button>
-                <button class="btn-primary" onclick="bulkAdjustStock()" style="padding:8px 16px;font-size:13px;background:var(--primary-gradient);"><span class="material-symbols-outlined" style="font-size:16px;">edit_note</span> Adjust Stock</button>
+                <button class="btn-primary" onclick="bulkReorder()" style="padding:8px 16px;font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;">inventory_2</span> Bulk reorder</button>
+                <button class="btn-primary" onclick="bulkAdjustStock()" style="padding:8px 16px;font-size:13px;background:var(--primary-gradient);"><span class="material-symbols-outlined" style="font-size:16px;">edit_note</span> Adjust stock</button>
                 <button class="btn-delete" onclick="bulkDelete()" style="padding:8px 16px;font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;">delete</span> Delete</button>
                 <button class="btn-secondary" onclick="clearSelection()" style="padding:8px 16px;font-size:13px;"><span class="material-symbols-outlined" style="font-size:14px;">close</span> Clear</button>
             </div>
@@ -234,7 +234,7 @@
     <div id="productModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="modalTitle">Add New Product</h2>
+                <h2 id="modalTitle">Add new product</h2>
                 <button class="close-btn" title="Close" onclick="closeProductModal()">&times;</button>
             </div>
             <form id="productForm" onsubmit="handleProductSubmit(event)">
@@ -265,7 +265,7 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label">Product Name *</label>
+                            <label class="form-label">Product name *</label>
                             <input type="text" class="form-input" id="name" required>
                         </div>
                         <div class="form-group">
@@ -293,7 +293,7 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label">Breed Size</label>
+                            <label class="form-label">Breed size</label>
                             <select id="breed_size" class="form-select">
                                 <option value="">Any Size</option>
                                 <option value="small">Small</option>
@@ -303,7 +303,7 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Age Group</label>
+                            <label class="form-label">Age group</label>
                             <select id="age_group" class="form-select">
                                 <option value="">All Ages</option>
                                 <option value="puppy_kitten">Puppy/Kitten</option>
@@ -312,7 +312,7 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Health Category</label>
+                            <label class="form-label">Health category</label>
                             <select id="health_category" class="form-select">
                                 <option value="">None</option>
                                 <option value="dietary">Dietary</option>
@@ -325,27 +325,27 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label">Unit Price *</label>
+                            <label class="form-label">Unit price *</label>
                             <input type="number" class="form-input" id="unit_price" step="0.01" required>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Cost Price</label>
+                            <label class="form-label">Cost price</label>
                             <input type="number" class="form-input" id="cost_price" step="0.01">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label">Stock Quantity</label>
+                            <label class="form-label">Stock quantity</label>
                             <input type="number" class="form-input" id="stock_quantity" value="0" min="0">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Reorder Level</label>
+                            <label class="form-label">Reorder level</label>
                             <input type="number" class="form-input" id="reorder_level" value="10" min="0">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label">Unit Type</label>
+                            <label class="form-label">Unit type</label>
                             <select class="form-select" id="unit_type">
                                 <option value="piece">Piece (pcs)</option>
                                 <option value="kg">Kilogram (kg)</option>
@@ -355,7 +355,7 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Max Stock Level</label>
+                            <label class="form-label">Max stock level</label>
                             <input type="number" class="form-input" id="max_stock_level" value="100" min="0">
                         </div>
                         <div class="form-group">
@@ -371,7 +371,7 @@
                             <input type="text" class="form-input" id="batch_number" placeholder="e.g., LOT-2025-001">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Expiration Date</label>
+                            <label class="form-label">Expiration date</label>
                             <input type="date" class="form-input" id="expiration_date">
                         </div>
                     </div>
@@ -382,7 +382,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn-secondary" onclick="closeProductModal()">Cancel</button>
-                    <button type="submit" class="btn-primary">Save Product</button>
+                    <button type="submit" class="btn-primary">Save product</button>
                 </div>
             </form>
         </div>
@@ -391,7 +391,7 @@
     <div id="productDetailsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Product Details</h2>
+                <h2>Product details</h2>
                 <button class="close-btn" title="Close" onclick="closeProductDetailsModal()">&times;</button>
             </div>
             <div class="modal-body" id="productDetailsContent"></div>
@@ -406,13 +406,13 @@
     <div id="stockModal" class="modal">
         <div class="modal-content" style="max-width:450px;">
             <div class="modal-header">
-                <h2>Adjust Stock</h2>
+                <h2>Adjust stock</h2>
                 <button class="close-btn" title="Close" onclick="closeStockModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <p id="stockProductName" style="margin-bottom:15px;font-weight:600;"></p>
                 <div class="form-group">
-                    <label class="form-label">Adjustment Type</label>
+                    <label class="form-label">Adjustment type</label>
                     <select class="form-select" id="stockAdjustType">
                         <option value="in">Add Stock (In)</option>
                         <option value="out">Remove Stock (Out)</option>
@@ -431,7 +431,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeStockModal()">Cancel</button>
-                <button type="button" class="btn-primary" onclick="saveStockAdjustment()">Save Adjustment</button>
+                <button type="button" class="btn-primary" onclick="saveStockAdjustment()">Save adjustment</button>
             </div>
         </div>
     </div>
@@ -447,7 +447,7 @@
                     <strong style="color:var(--text-primary);">CSV must have these columns:</strong><br>
                     <code>sku, name, brand, category, unit_price, cost_price, stock_quantity, reorder_level, unit_type, description, barcode, species</code>
                     <br><br>
-                    <button class="btn-secondary" onclick="downloadCsvTemplate()" style="font-size:12px;"><span class="material-symbols-outlined" style="font-size:14px;">download</span> Download Template</button>
+                    <button class="btn-secondary" onclick="downloadCsvTemplate()" style="font-size:12px;"><span class="material-symbols-outlined" style="font-size:14px;">download</span> Download template</button>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Choose CSV File</label>
@@ -457,7 +457,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeCsvImportModal()">Cancel</button>
-                <button type="button" class="btn-primary" onclick="importCsvProducts()" id="importBtn">Import Products</button>
+                <button type="button" class="btn-primary" onclick="importCsvProducts()" id="importBtn">Import products</button>
             </div>
         </div>
     </div>
@@ -465,7 +465,7 @@
     <div id="barcodeManagerModal" class="modal">
         <div class="modal-content" style="max-width:640px;">
             <div class="modal-header">
-                <h2><span class="material-symbols-outlined" style="font-size:20px;vertical-align:middle;">barcode_scanner</span> Assign Barcodes</h2>
+                <h2><span class="material-symbols-outlined" style="font-size:20px;vertical-align:middle;">barcode_scanner</span> Assign barcodes</h2>
                 <button class="close-btn" title="Close" onclick="closeBarcodeManager()">&times;</button>
             </div>
             <div class="modal-body">
@@ -490,7 +490,7 @@
     <div id="imageManagerModal" class="modal">
         <div class="modal-content" style="max-width:660px;">
             <div class="modal-header">
-                <h2><span class="material-symbols-outlined" style="font-size:20px;vertical-align:middle;">image</span> Product Images</h2>
+                <h2><span class="material-symbols-outlined" style="font-size:20px;vertical-align:middle;">image</span> Product images</h2>
                 <button class="close-btn" title="Close" onclick="closeImageManager()">&times;</button>
             </div>
             <div class="modal-body">
@@ -533,18 +533,18 @@
     </script>
         <script src="js/utils.js"></script>
 <script src="js/format.js"></script>
-<script src="js/auth.js?v=41"></script>
-<script src="js/motion.js?v=21"></script>
-<script src="js/jump.js?v=29"></script>
-<script src="js/assistant.js?v=23"></script>
-    <script src="js/inventory.js?v=22"></script>
+<script src="js/auth.js?v=42"></script>
+<script src="js/motion.js?v=22"></script>
+<script src="js/jump.js?v=30"></script>
+<script src="js/assistant.js?v=24"></script>
+    <script src="js/inventory.js?v=23"></script>
 </body>
 </html>
 
 <div id="helpGuideModal">
     <div class="modal-content" style="max-width:640px;">
         <div class="modal-header">
-            <h2><span class="material-symbols-outlined" style="font-size:20px;">help</span> Help Guide</h2>
+            <h2><span class="material-symbols-outlined" style="font-size:20px;">help</span> Help guide</h2>
             <button class="close-btn" title="Close" onclick="closeHelpGuide()">&times;</button>
         </div>
         <div class="help-guide-content">
@@ -572,11 +572,11 @@
                 </ul>
             </div>
             <div class="help-section">
-                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">receipt</span> Sales History</h3>
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">receipt</span> Sales history</h3>
                 <ul>
                     <li>Search and filter past sales by date; click <strong>View</strong> for item details and a printable receipt.</li>
                     <li><strong>Void</strong> (admins/managers) cancels a sale with a required reason — the items go back into stock and the sale stays in history marked <em>Voided</em>, excluded from all totals.</li>
-                    <li><strong>End of Day</strong> (also on the POS for cashiers) records the drawer count: the system shows the expected cash from today's sales, you enter what was actually counted, and any over/short is saved with notes for the daily record.</li>
+                    <li><strong>End of day</strong> (also on the POS for cashiers) records the drawer count: the system shows the expected cash from today's sales, you enter what was actually counted, and any over/short is saved with notes for the daily record.</li>
                 </ul>
             </div>
             <div class="help-section">
@@ -614,7 +614,7 @@
                 <p>Alerts for low stock, stockouts, and expiring products. Open them from the bell in the sidebar or the Notifications page; suppliers with low-stock products are emailed automatically at most once per day.</p>
             </div>
             <div class="help-section">
-                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">keyboard</span> Keyboard Shortcuts</h3>
+                <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">keyboard</span> Keyboard shortcuts</h3>
                 <ul>
                     <li><span class="shortcut">F2</span> — Focus barcode scanner input (POS page)</li>
                     <li><span class="shortcut">⌘J</span> / <span class="shortcut">Ctrl J</span> — Open <strong>Jump to…</strong>: search every page, every section of the page you are on, quick actions, and your products and suppliers</li>

@@ -59,7 +59,7 @@ function displaySuppliers(suppliers) {
         'net15': 'Net 15',
         'net30': 'Net 30',
         'net60': 'Net 60',
-        'due_on_receipt': 'Due on Receipt'
+        'due_on_receipt': 'Due on receipt'
     };
     document.getElementById('totalSuppliers').textContent = suppliers.length;
     document.getElementById('activeSuppliers').textContent = suppliers.filter(s => s.is_active === 1 || s.is_active === true).length;
@@ -85,7 +85,7 @@ function displaySuppliers(suppliers) {
             <td>${escHtml(s.phone || 'N/A')}</td>
             <td>${paymentTermsMap[s.payment_terms] || 'Net 30'}</td>
             <td>${(s.is_active === 1 || s.is_active === true) ? '<span class="status-badge status-active">Active</span>' : '<span class="status-badge status-inactive">Inactive</span>'}</td>
-            <td><button class="btn-action" onclick="showEmailLogs(${s.id}, '${escHtml(s.name).replace(/'/g, "\\'")}')" style="font-size:11px"><span class="material-symbols-outlined" style="font-size:13px;">mark_email_read</span> Emails</button></td>
+            <td><button class="btn-action" onclick="showEmailLogs(${s.id}, '${escHtml(s.name).replace(/'/g, "\\'")}')" style="font-size:12px"><span class="material-symbols-outlined" style="font-size:13px;">mark_email_read</span> Emails</button></td>
             <td>
                 <button class="btn-view" onclick="showPerformance(${s.id})">Performance</button>
                 ${viewer ? '' : `<button class="btn-edit" onclick="openEditSupplierModal(${s.id})">Edit</button>
@@ -112,7 +112,7 @@ document.getElementById('searchInput')?.addEventListener('keyup', (e) => {
 function openAddSupplierModal() {
     if (!canManage()) { showToast("Your role can't add suppliers.", 'error'); return; }
     editingSupplierId = null;
-    document.getElementById('supplierModalTitle').textContent = 'Add Supplier';
+    document.getElementById('supplierModalTitle').textContent = 'Add supplier';
     document.getElementById('supplierForm').reset();
     document.getElementById('supplierModal').classList.add('active');
     if (typeof openSupplierPicker === 'function') openSupplierPicker(null, null);
@@ -123,7 +123,7 @@ function openEditSupplierModal(id) {
     editingSupplierId = id;
     const supplier = allSuppliers.find(s => s.id === id);
     if (!supplier) return;
-    document.getElementById('supplierModalTitle').textContent = 'Edit Supplier';
+    document.getElementById('supplierModalTitle').textContent = 'Edit supplier';
     document.getElementById('name').value = supplier.name || '';
     document.getElementById('contact_person').value = supplier.contact_person || '';
     document.getElementById('email').value = supplier.email || '';
@@ -190,7 +190,7 @@ async function handleSupplierSubmit(event) {
 
 async function deleteSupplier(id) {
     if (!canManage()) { showToast("Your role can't delete suppliers.", 'error'); return; }
-    showConfirmDialog('Delete Supplier', 'Are you sure you want to delete this supplier? This cannot be undone.', async () => {
+    showConfirmDialog('Delete supplier', 'Are you sure you want to delete this supplier? This cannot be undone.', async () => {
         try {
             const response = await fetch(`${API_BASE}/suppliers/${id}`, {
                 method: 'DELETE', headers: getAuthHeaders()
@@ -227,7 +227,7 @@ function advancePOFromModal(id, nextStatus, poNumber, supplierId) {
             'Mark Received', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">inventory</span>', 'date', '');
         return;
     }
-    showConfirmDialog('Update Purchase Order', 'Mark ' + poNumber + ' as ' + nextStatus + '?',
+    showConfirmDialog('Update purchase order', 'Mark ' + poNumber + ' as ' + nextStatus + '?',
         function () { sendModalAdvance(id, nextStatus, poNumber, supplierId, ''); },
         'Yes, Update', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">local_shipping</span>');
 }
@@ -253,7 +253,7 @@ async function sendModalAdvance(id, nextStatus, poNumber, supplierId, expiration
 }
 
 function emailPOFromModal(id, poNumber, supplierId) {
-    showConfirmDialog('Email Purchase Order', 'Send ' + poNumber + ' to the supplier now?',
+    showConfirmDialog('Email purchase order', 'Send ' + poNumber + ' to the supplier now?',
         function () { sendPOEmailNow(id, poNumber, supplierId); },
         'Yes, Send Email', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">mail</span>');
 }
@@ -428,9 +428,9 @@ async function showEmailLogs(supplierId, supplierName) {
         </div>`;
 
         const typeMeta = {
-            po: { icon: 'receipt_long', cls: 'po', label: 'Purchase Order' },
-            low_stock: { icon: 'inventory_2', cls: 'low_stock', label: 'Low Stock Alert' },
-            tracking: { icon: 'share_location', cls: 'tracking', label: 'Delivery Tracking Link' }
+            po: { icon: 'receipt_long', cls: 'po', label: 'Purchase order' },
+            low_stock: { icon: 'inventory_2', cls: 'low_stock', label: 'Low stock alert' },
+            tracking: { icon: 'share_location', cls: 'tracking', label: 'Delivery tracking link' }
         };
 
         body.innerHTML = summary + '<div class="email-log-list">' + logs.map(l => {

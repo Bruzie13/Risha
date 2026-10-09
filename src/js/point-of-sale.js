@@ -516,7 +516,7 @@ function addItemToSale() {
     if (expiration) {
         const expDate = new Date(expiration);
         if (expDate < new Date()) {
-            showToast('Cannot sell expired product!', 'error');
+            showToast('This product has expired and cannot be sold.', 'error');
             return;
         }
     }
@@ -651,9 +651,9 @@ async function viewSaleDetails(id) {
                 <div class="details-row"><span class="details-label">Payment</span><span class="details-value">${escHtml(sale.payment_method)}</span></div>
                 <div class="details-row"><span class="details-label">Discount</span><span class="details-value">${sale.discount_percent || 0}%</span></div>
                 <div class="details-row"><span class="details-label">Notes</span><span class="details-value">${escHtml(sale.notes || 'None')}</span></div>
-                <div class="details-items"><h4>Items Sold</h4>
+                <div class="details-items"><h4>Items sold</h4>
                     <table class="sales-table" style="margin:0;">
-                        <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
+                        <thead><tr><th>Product</th><th>Qty</th><th>Unit price</th><th>Total</th></tr></thead>
                         <tbody>${(sale.items || []).map(item => {
                             const ul = getUnitLabel(item.unit_type);
                             return `<tr><td>${escHtml(item.product_name)}</td><td>${parseFloat(item.quantity)}${ul}</td><td>${formatCurrency(parseFloat(item.unit_price))}</td><td>${formatCurrency(parseFloat(item.subtotal))}</td></tr>`;
@@ -663,9 +663,9 @@ async function viewSaleDetails(id) {
                 <div class="total-section" style="margin-top:20px;">
                     <div class="total-row"><span>Subtotal:</span><span>${formatCurrency(parseFloat(sale.total_amount || 0))}</span></div>
                     ${parseFloat(sale.discount || 0) > 0 ? `<div class="total-row"><span>Discount (${parseFloat(sale.discount).toFixed(2)}%):</span><span>-${formatCurrency((parseFloat(sale.total_amount || 0) - parseFloat(sale.final_amount || 0)))}</span></div>` : ''}
-                    <div class="total-row highlight"><span>Total Amount:</span><span>${formatCurrency(parseFloat(sale.final_amount ?? sale.total_amount ?? 0))}</span></div>
+                    <div class="total-row highlight"><span>Total amount:</span><span>${formatCurrency(parseFloat(sale.final_amount ?? sale.total_amount ?? 0))}</span></div>
                 </div>
-                <button class="btn-primary" onclick="printReceipt(${sale.id})" style="margin-top:15px;">Print Receipt</button>
+                <button class="btn-primary" onclick="printReceipt(${sale.id})" style="margin-top:15px;">Print receipt</button>
             `;
             document.getElementById('viewSaleModal').classList.add('active');
         }
@@ -690,7 +690,7 @@ async function deleteSaleFromDetail() {
 
 async function deleteSale(id) {
     if (!canManage()) { showToast("Your role can't delete sales.", 'error'); return; }
-    showConfirmDialog('Delete Sale', 'Are you sure you want to delete this sale? This cannot be undone.', async () => {
+    showConfirmDialog('Delete sale', 'Are you sure you want to delete this sale? This cannot be undone.', async () => {
         try {
             const response = await fetch(`${API_BASE}/sales/${id}`, {
                 method: 'DELETE', headers: getAuthHeaders()
@@ -736,13 +736,13 @@ async function printReceipt(saleId) {
             @page{margin:0;size:58mm auto;}
             body{font-family:'Courier New',monospace;font-size:10px;width:58mm;max-width:58mm;padding:4px 4px;margin:0 auto;text-align:center;word-break:break-word;}
             h2{margin:5px 0 2px;font-size:16px;letter-spacing:1px;text-transform:uppercase;}
-            .info{font-size:10px;color:#555;margin:2px 0;line-height:1.4;}
-            table{width:100%;border-collapse:collapse;margin:8px 0;text-align:left;font-size:10px;table-layout:auto;}
+            .info{font-size:12px;color:#555;margin:2px 0;line-height:1.4;}
+            table{width:100%;border-collapse:collapse;margin:8px 0;text-align:left;font-size:12px;table-layout:auto;}
             td:not(:first-child),th:not(:first-child){white-space:nowrap;}
-            th{padding:4px;border-bottom:2px solid #000;font-size:10px;text-transform:uppercase;}
+            th{padding:4px;border-bottom:2px solid #000;font-size:12px;text-transform:uppercase;}
             .total-row{display:flex;justify-content:space-between;padding:3px 4px;font-size:12px;}
             .grand-total{font-size:16px;font-weight:bold;border-top:2px solid #000;border-bottom:2px solid #000;padding:8px 4px;margin:8px 0;}
-            .footer{font-size:10px;color:#555;margin-top:10px;line-height:1.5;}
+            .footer{font-size:12px;color:#555;margin-top:10px;line-height:1.5;}
             hr{border:none;border-top:1px dashed #ccc;margin:8px 0;}
             button{display:none;}
             .barcode{font-family:'Courier New',monospace;font-size:14px;letter-spacing:2px;margin:8px 0;}
@@ -752,7 +752,7 @@ async function printReceipt(saleId) {
             <div class="info">7 Bagumbong Road, Brgy. 171, North Caloocan</div>
             <div class="info">Tel: (02) 8123-4567 | TIN: 123-456-789-000</div>
             <hr>
-            <div style="text-align:left;font-size:11px;line-height:1.6;">
+            <div style="text-align:left;font-size:12px;line-height:1.6;">
                 <div>Receipt #: <strong>${String(sale.sale_number || sale.id).padStart(6, '0')}</strong></div>
                 <div>Date: ${date}</div>
                 <div>Cashier: ${escHtml(sale.staff_name || 'N/A')}</div>
@@ -801,13 +801,13 @@ function printCurrentReceipt() {
             @page{margin:0;size:58mm auto;}
             body{font-family:'Courier New',monospace;font-size:10px;width:58mm;max-width:58mm;padding:4px 4px;margin:0 auto;text-align:center;word-break:break-word;}
             h2{margin:5px 0 2px;font-size:16px;letter-spacing:1px;text-transform:uppercase;}
-            .info{font-size:10px;color:#555;margin:2px 0;line-height:1.4;}
-            table{width:100%;border-collapse:collapse;margin:8px 0;text-align:left;font-size:10px;table-layout:auto;}
+            .info{font-size:12px;color:#555;margin:2px 0;line-height:1.4;}
+            table{width:100%;border-collapse:collapse;margin:8px 0;text-align:left;font-size:12px;table-layout:auto;}
             td:not(:first-child),th:not(:first-child){white-space:nowrap;}
-            th{padding:4px;border-bottom:2px solid #000;font-size:10px;text-transform:uppercase;}
+            th{padding:4px;border-bottom:2px solid #000;font-size:12px;text-transform:uppercase;}
             .total-row{display:flex;justify-content:space-between;padding:3px 4px;font-size:12px;}
             .grand-total{font-size:16px;font-weight:bold;border-top:2px solid #000;border-bottom:2px solid #000;padding:8px 4px;margin:8px 0;}
-            .footer{font-size:10px;color:#555;margin-top:10px;line-height:1.5;}
+            .footer{font-size:12px;color:#555;margin-top:10px;line-height:1.5;}
             hr{border:none;border-top:1px dashed #ccc;margin:8px 0;}
             button{display:none;}
         </style></head>
@@ -816,7 +816,7 @@ function printCurrentReceipt() {
             <div class="info">7 Bagumbong Road, Brgy. 171, North Caloocan</div>
             <div class="info">Tel: (02) 8123-4567</div>
             <hr>
-            <div style="text-align:left;font-size:11px;line-height:1.6;">
+            <div style="text-align:left;font-size:12px;line-height:1.6;">
                 <div>Receipt #: <strong>${receiptNum}</strong></div>
                 <div>Date: ${now}</div>
                 <div>Cashier: ${escHtml(user ? user.full_name || user.username : 'N/A')}</div>

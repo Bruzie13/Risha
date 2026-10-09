@@ -126,21 +126,21 @@ async function loadDashboardStats() {
             const expiring = s.expiring_count ?? 0;
             briefAttention = { low, expiring };
             document.getElementById('metricCards').innerHTML =
-                kpiCard('Total Products', 'inventory_2', 'blue',
+                kpiCard('Total products', 'inventory_2', 'blue',
                     formatNumber(s.total_products ?? 0),
                     `<span class="trend-pill up">▲ ${formatNumber(s.active_products ?? 0)}</span> active`) +
-                kpiCard('Total Revenue', 'payments', 'coral',
+                kpiCard('Total revenue', 'payments', 'coral',
                     `<span title="${formatCurrency(s.total_sales_amount ?? 0)}">${formatCompactCurrency(s.total_sales_amount ?? 0)}</span>`,
                     `${formatNumber(s.total_sales ?? 0)} transactions`) +
-                kpiCard('Restock Needed', 'warning', 'amber',
+                kpiCard('Restock needed', 'warning', 'amber',
                     formatNumber(low),
                     low > 0 ? '<span class="trend-pill down">Needs attention</span>' : '<span class="trend-pill up">All good</span>',
                     low > 0 ? 'var(--warning)' : null) +
-                kpiCard('Expiring Soon', 'schedule', 'red',
+                kpiCard('Expiring soon', 'schedule', 'red',
                     formatNumber(expiring),
                     'Within 30 days',
                     expiring > 0 ? 'var(--danger)' : null) +
-                kpiCard('Inventory Value', 'account_balance', 'green',
+                kpiCard('Inventory value', 'account_balance', 'green',
                     '<span id="inventoryValue">—</span>',
                     'Retail estimate');
         }
@@ -326,7 +326,7 @@ function advancePO(id, nextStatus, poNumber) {
         confirmed: `Mark ${poNumber} as confirmed by the supplier?`,
         shipped: `Mark ${poNumber} as shipped?`
     };
-    showConfirmDialog('Update Purchase Order', messages[nextStatus] || 'Advance this order?', () => sendPOAdvance(id, nextStatus, poNumber, ''), 'Yes, Update', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">local_shipping</span>');
+    showConfirmDialog('Update purchase order', messages[nextStatus] || 'Advance this order?', () => sendPOAdvance(id, nextStatus, poNumber, ''), 'Yes, Update', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">local_shipping</span>');
 }
 
 async function sendPOAdvance(id, nextStatus, poNumber, expiration_date) {
@@ -515,7 +515,7 @@ function renderInventoryChart(categories) {
     if (categoryChartInstance) categoryChartInstance.destroy();
     const ctx = canvas.getContext('2d');
     const theme = chartTheme();
-    const items = Array.isArray(categories) && categories.length ? categories : [{ label: 'No Data', value: 1 }];
+    const items = Array.isArray(categories) && categories.length ? categories : [{ label: 'No data', value: 1 }];
     categoryChartInstance = new Chart(ctx, {
         type: 'doughnut',
         data: {

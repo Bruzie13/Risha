@@ -38,8 +38,8 @@ async function loadSummary() {
                 <div class="sum-label"><span class="material-symbols-outlined" style="font-size:16px;">${icon}</span> ${label}</div>
             </div>`;
         document.getElementById('notifSummary').innerHTML =
-            card('low_stock', s.low_stock, 'inventory_2', 'Low Stock') +
-            card('stockout', s.stockout, 'block', 'Out of Stock') +
+            card('low_stock', s.low_stock, 'inventory_2', 'Low stock') +
+            card('stockout', s.stockout, 'block', 'Out of stock') +
             card('expiration', s.expiration, 'schedule', 'Expiring') +
             card('info', s.total, 'assignment', 'Total');
     } catch (e) {

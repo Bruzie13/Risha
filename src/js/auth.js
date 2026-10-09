@@ -182,7 +182,7 @@ function toggleTheme() {
     var btn = document.getElementById('themeToggleBtn');
     if (btn) {
         btn.innerHTML = isDark ? '<span class="material-symbols-outlined">light_mode</span>' : '<span class="material-symbols-outlined">dark_mode</span>';
-        btn.title = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+        btn.title = isDark ? 'Switch to light mode' : 'Switch to dark mode';
     }
 }
 
@@ -821,7 +821,7 @@ function showShortcuts() {
     overlay.innerHTML = `
         <div class="modal-content" style="max-width:420px;">
             <div class="modal-header">
-                <h2><span class="material-symbols-outlined" style="font-size:20px;">keyboard</span> Keyboard Shortcuts</h2>
+                <h2><span class="material-symbols-outlined" style="font-size:20px;">keyboard</span> Keyboard shortcuts</h2>
                 <button class="close-btn" onclick="closeShortcuts()">&times;</button>
             </div>
             <div class="modal-body">
@@ -872,7 +872,7 @@ document.addEventListener('DOMContentLoaded', () => {
     var themeBtn = document.getElementById('themeToggleBtn');
     if (themeBtn) {
         themeBtn.innerHTML = isDarkMode() ? '<span class="material-symbols-outlined">light_mode</span>' : '<span class="material-symbols-outlined">dark_mode</span>';
-        themeBtn.title = isDarkMode() ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+        themeBtn.title = isDarkMode() ? 'Switch to light mode' : 'Switch to dark mode';
         themeBtn.addEventListener('click', toggleTheme);
     }
 
