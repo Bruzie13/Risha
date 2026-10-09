@@ -268,7 +268,8 @@ async function refreshSalesLive() {
         const data = await response.json();
         if (!data.success || !Array.isArray(data.data)) return;
         const fresh = data.data;
-        const fingerprint = list => list.map(s => `${s.id}:${s.payment_status}`).join(',');
+        // a void request has to show up without a reload, so it is part of what counts as a change
+        const fingerprint = list => list.map(s => `${s.id}:${s.payment_status}:${Number(s.void_requested) || 0}`).join(',');
         if (fingerprint(fresh) === fingerprint(allSales)) return;
         allSales = fresh;
         salesTotal = data.total ?? allSales.length;
@@ -290,6 +291,7 @@ function displaySales(sales) {
         return;
     }
     const shown = sales.slice(0, displayCount);
+    renderVoidRequestNotice(sales);
     tbody.innerHTML = shown.map(s => `
         <tr>
             <td>#${s.id}</td>
@@ -299,7 +301,9 @@ function displaySales(sales) {
             <td>${s.item_count || 0}</td>
             <td>${formatCurrency(parseFloat(s.final_amount ?? s.total_amount ?? 0))}</td>
             <td>${escHtml(s.payment_method || 'N/A')}</td>
-            <td>${s.payment_status === 'completed'
+            <td>${s.payment_status === 'completed' && Number(s.void_requested)
+                ? `<span class="status-badge status-low-stock" title="${escHtml(s.void_request_reason || '')}">Void requested</span><span class="void-reason">${escHtml(s.void_request_reason || '')}</span>`
+                : s.payment_status === 'completed'
                 ? '<span class="status-badge status-in-stock">Completed</span>'
                 : s.payment_status === 'voided'
                     ? '<span class="status-badge status-expired" title="Voided — stock was restored">Voided</span>'
@@ -307,10 +311,35 @@ function displaySales(sales) {
             <td>
                 <button class="btn-view" onclick="viewSaleDetails(${s.id})">View</button>
                 ${viewer || s.payment_status === 'voided' ? '' : `<button class="btn-delete" onclick="voidSale(${s.id})">Void</button>`}
+                ${!viewer && s.payment_status === 'completed' && Number(s.void_requested) ? `<button class="btn-view" onclick="dismissVoidRequest(${s.id})">Keep sale</button>` : ''}
             </td>
         </tr>
     `).join('');
     updatePagination('salesPagination', { length: salesTotal }, displayCount, 'showMoreSales', 'showLessSales', PAGE_SIZE);
+}
+
+// Cashiers cannot void; they flag a sale and say why. Say so at the top of the
+// list so a manager does not have to hunt for the badge.
+function renderVoidRequestNotice(sales) {
+    const el = document.getElementById('voidRequestNotice');
+    if (!el) return;
+    const waiting = sales.filter(s => s.payment_status === 'completed' && Number(s.void_requested));
+    el.hidden = !waiting.length || !canManage();
+    if (!waiting.length) return;
+    el.textContent = (waiting.length === 1 ? 'A cashier has asked for 1 sale to be voided: ' : `Cashiers have asked for ${waiting.length} sales to be voided: `)
+        + waiting.map(s => '#' + s.id).join(', ') + '. Void each one, or choose Keep sale to dismiss the request.';
+}
+
+async function dismissVoidRequest(id) {
+    try {
+        const res = await fetch(`${API_BASE}/sales/${id}/void-request/dismiss`, { method: 'POST', headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) { showToast(data.message || 'Could not dismiss the request', 'error'); return; }
+        showToast('Request dismissed. The sale stands.', 'success');
+        await loadSales();
+    } catch (e) {
+        showToast('Could not dismiss the request', 'error');
+    }
 }
 
 // Void: restores stock, keeps the record with a Voided badge (audit-friendly)
@@ -380,7 +409,7 @@ async function loadEod() {
         if (d.reconciliation) {
             counted.value = parseFloat(d.reconciliation.counted_cash);
             notes.value = d.reconciliation.notes || '';
-            document.getElementById('eodStatus').textContent = 'Already recorded by ' + (d.reconciliation.counted_by_name || 'someone') + ' — saving again overwrites it.';
+            document.getElementById('eodStatus').textContent = 'You already recorded a count for this day. Saving again replaces yours.';
         } else {
             counted.value = '';
             notes.value = '';
@@ -433,15 +462,37 @@ async function loadEodHistory() {
         list.innerHTML = data.data.map(r => {
             const diff = parseFloat(r.discrepancy);
             const color = diff === 0 ? 'var(--success)' : diff > 0 ? 'var(--warning)' : 'var(--danger)';
-            const label = diff === 0 ? 'Balanced' : diff > 0 ? '+' + formatCurrency(diff) : '−' + formatCurrency(Math.abs(diff));
+            const label = diff === 0 ? 'Balanced' : diff > 0 ? 'Over ' + formatCurrency(diff) : 'Short ' + formatCurrency(Math.abs(diff));
+            // business_date arrives as a UTC datetime; read the calendar day in local time
             const d = new Date(r.business_date);
-            return `<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border-subtle);font-size:12.5px;">
-                <span style="font-weight:600;color:var(--text-primary);">${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                <span style="color:var(--text-muted);">counted ${formatCurrency(parseFloat(r.counted_cash))} / expected ${formatCurrency(parseFloat(r.expected_cash))}</span>
-                <span style="font-weight:700;color:${color};">${label}</span>
+            const opening = parseFloat(r.opening_cash) || 0;
+            return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border-subtle);font-size:12.5px;">
+                <span style="min-width:0;">
+                    <span style="font-weight:600;color:var(--text-primary);">${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · ${escHtml(r.counted_by_name || 'Unknown')}</span>
+                    <span style="display:block;color:var(--text-muted);">counted ${formatCurrency(parseFloat(r.counted_cash))}, expected ${formatCurrency(parseFloat(r.expected_cash))}${opening ? ' (incl. ' + formatCurrency(opening) + ' starting cash)' : ''}${r.notes ? ' — ' + escHtml(r.notes) : ''}</span>
+                </span>
+                <span style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
+                    <span style="font-weight:600;color:${color};">${label}</span>
+                    ${canManage() ? `<button class="btn-view" onclick="reopenCount(${Number(r.id)})" title="Remove this count so it can be recorded again">Reopen</button>` : ''}
+                </span>
             </div>`;
         }).join('');
     } catch (e) { console.error(e); }
+}
+
+function reopenCount(id) {
+    showConfirmDialog('Reopen this count?', 'The recorded count is removed so it can be done again. The removal is kept in the activity log.', async () => {
+        try {
+            const res = await fetch(`${API_BASE}/sales/eod/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+            const data = await res.json();
+            if (!data.success) { showToast(data.message || 'Could not reopen the count', 'error'); return; }
+            showToast('Count removed. It can be recorded again.', 'success');
+            await loadEod();
+            await loadEodHistory();
+        } catch (e) {
+            showToast('Could not reopen the count', 'error');
+        }
+    }, 'Reopen');
 }
 
 // Stat cards come from one aggregate that respects the active date/search

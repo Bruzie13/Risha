@@ -30,6 +30,7 @@ class Sale {
             const params = [];
             let sql = `SELECT s.id, s.sale_number, s.customer_name, s.customer_phone, s.total_amount, s.discount,
                         s.final_amount, s.payment_method, s.payment_status, s.notes, s.created_by,
+                        s.void_requested_at IS NOT NULL as void_requested, s.void_request_reason,
                         UNIX_TIMESTAMP(s.created_at) * 1000 as created_at,
                         UNIX_TIMESTAMP(s.updated_at) * 1000 as updated_at,
                         u.full_name as staff_name,
@@ -92,6 +93,7 @@ class Sale {
             const [rows] = await connection.execute(
                 `SELECT s.id, s.sale_number, s.customer_name, s.customer_phone, s.total_amount, s.discount,
                         s.final_amount, s.payment_method, s.payment_status, s.notes, s.created_by,
+                        s.void_requested_at IS NOT NULL as void_requested, s.void_request_reason,
                         UNIX_TIMESTAMP(s.created_at) * 1000 as created_at,
                         UNIX_TIMESTAMP(s.updated_at) * 1000 as updated_at,
                         u.full_name as staff_name 

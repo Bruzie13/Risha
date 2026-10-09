@@ -24,8 +24,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=21">
-    <link rel="stylesheet" href="css/pos.css?v=23">
+    <link rel="stylesheet" href="css/global.css?v=26">
+    <link rel="stylesheet" href="css/pos.css?v=25">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');try{var _av=JSON.parse(localStorage.getItem('accentVars2')||'null');if(_av){for(var _k in _av)document.documentElement.style.setProperty(_k,_av[_k]);}}catch(e){}var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
     </head>
 <body>
@@ -82,6 +82,7 @@
                 <div class="breadcrumb">Ring up a sale</div>
             </div>
             <div class="page-header-actions">
+                <button type="button" class="btn-secondary" onclick="openMySales()"><span class="material-symbols-outlined">receipt_long</span> My sales today</button>
                 <button type="button" class="btn-secondary" onclick="openPosEod()"><span class="material-symbols-outlined">savings</span> End of day</button>
             </div>
         </div>
@@ -135,7 +136,7 @@
                         <div class="summary-row discount-row">
                             <span>Discount
                                 <span class="discount-inline">
-                                    <input type="number" id="posDiscount" value="0" min="0" max="100" step="0.01" oninput="updateCartTotals()">%
+                                    <input type="number" id="posDiscount" value="0" min="0" max="100" step="0.01" oninput="updateCartTotals()">%<span id="posDiscountLimit" class="pos-discount-limit"></span>
                                 </span>
                             </span>
                             <span id="posDiscountAmount">-₱0.00</span>
@@ -198,6 +199,57 @@
         });
     </script>
 
+    <div id="posOpenModal" class="modal">
+        <div class="modal-content" style="max-width:420px;">
+            <div class="modal-header">
+                <h2>Starting cash</h2>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.5;margin-bottom:14px;">Count the cash in the drawer before your first sale. It is added to your sales at the end of the day so the count comes out right. Enter 0 if the drawer is empty.</p>
+                <div class="form-group">
+                    <label class="form-label" for="posOpenAmount">Cash in the drawer now (₱)</label>
+                    <input type="number" class="form-input" id="posOpenAmount" min="0" step="0.01" inputmode="decimal">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" id="posOpenCancel" onclick="closePosOpen()" hidden>Cancel</button>
+                <button type="button" class="btn-primary" id="posOpenSave" onclick="savePosOpen()">Save starting cash</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="posMySalesModal" class="modal">
+        <div class="modal-content" style="max-width:720px;">
+            <div class="modal-header">
+                <h2>My sales today</h2>
+                <button class="close-btn" title="Close" onclick="closeMySales()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:0;">
+                <div class="pos-mysales-wrap">
+                    <table class="pos-mysales">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Sale</th>
+                                <th>Customer</th>
+                                <th class="num">Total</th>
+                                <th>Status</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="posMySalesBody">
+                            <tr><td colspan="6" class="pos-mysales-empty">Loading…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span style="margin-right:auto;font-size:12.5px;color:var(--text-muted);">A wrong sale cannot be removed from the till. Ask for a void and a manager will review it.</span>
+                <button type="button" class="btn-secondary" onclick="closeMySales()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <div id="posEodModal" class="modal">
         <div class="modal-content" style="max-width:460px;">
             <div class="modal-header">
@@ -208,39 +260,54 @@
                 <p id="posEodDate" style="font-size:13.5px;color:var(--text-muted);margin-bottom:12px;"></p>
                 <div class="pos-eod-figures">
                     <div>
-                        <span class="pos-eod-label">Expected in the drawer</span>
-                        <span class="pos-eod-value" id="posEodExpected">—</span>
-                        <span class="pos-eod-note" id="posEodTxns"></span>
+                        <span class="pos-eod-label">Starting cash</span>
+                        <span class="pos-eod-value" id="posEodOpening">—</span>
+                        <button type="button" class="pos-eod-link" id="posEodChangeOpening" onclick="changePosOpen()">Change</button>
                     </div>
                     <div>
-                        <span class="pos-eod-label">Over or short</span>
-                        <span class="pos-eod-value" id="posEodDiff">—</span>
+                        <span class="pos-eod-label">Your cash sales today</span>
+                        <span class="pos-eod-value" id="posEodTxns">—</span>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="posEodCounted">Cash counted in the drawer (₱)</label>
-                    <input type="number" class="form-input" id="posEodCounted" min="0" step="0.01" inputmode="decimal" oninput="updatePosEodDiff()">
+
+                <div id="posEodEntry">
+                    <div class="form-group">
+                        <label class="form-label" for="posEodCounted">Cash counted in the drawer (₱)</label>
+                        <input type="number" class="form-input" id="posEodCounted" min="0" step="0.01" inputmode="decimal">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="posEodNotes">Notes (optional)</label>
+                        <input type="text" class="form-input" id="posEodNotes" maxlength="500" placeholder="For example: ₱200 used for water delivery">
+                    </div>
+                    <p style="font-size:12.5px;color:var(--text-muted);line-height:1.5;">Count everything in the drawer, including the starting cash. The expected amount is shown after you save, and the count cannot be changed afterwards.</p>
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="posEodNotes">Notes (optional)</label>
-                    <input type="text" class="form-input" id="posEodNotes" maxlength="500" placeholder="For example: ₱200 used for water delivery">
+
+                <div id="posEodResult" hidden>
+                    <div class="pos-eod-result">
+                        <div><span>Expected in the drawer</span><strong id="posEodExpected"></strong></div>
+                        <div><span>You counted</span><strong id="posEodCountedOut"></strong></div>
+                        <div class="pos-eod-result-total"><span>Result</span><strong id="posEodDiff"></strong></div>
+                    </div>
+                    <p id="posEodNotesOut" style="font-size:12.5px;color:var(--text-muted);margin-top:8px;"></p>
+                    <p style="font-size:12.5px;color:var(--text-muted);margin-top:8px;">Today's count is recorded. Ask a manager if it needs to be done again.</p>
                 </div>
-                <p id="posEodStatus" style="font-size:12.5px;color:var(--warning);"></p>
+                <p id="posEodStatus" style="font-size:12.5px;color:var(--warning);margin-top:8px;"></p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn-secondary" onclick="closePosEod()">Cancel</button>
+                <button type="button" class="btn-secondary" onclick="closePosEod()">Close</button>
                 <button type="button" class="btn-primary" id="posEodSave" onclick="savePosEod()">Save count</button>
             </div>
         </div>
     </div>
+
         <script src="js/format.js"></script>
 <script src="js/utils.js"></script>
-<script src="js/auth.js?v=23"></script>
+<script src="js/auth.js?v=25"></script>
 <script src="js/motion.js?v=20"></script>
 <script src="js/jump.js?v=23"></script>
 <script src="js/assistant.js?v=22"></script>
     <script src="js/escpos-print.js?v=1"></script>
-    <script src="js/pos.js?v=24"></script>
+    <script src="js/pos.js?v=25"></script>
 </body>
 </html>
 

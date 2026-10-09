@@ -123,7 +123,13 @@ exports.createSale = async (req, res) => {
             total_amount += item.subtotal;
         }
 
-        const discPct = Math.min(100, Math.max(0, parseFloat(discount_percent) || 0));
+        // The ceiling is the shop's, read fresh each sale; the browser's copy
+        // of it is only there to warn the cashier early.
+        const discountCheck = checkDiscount(discount_percent, await readMaxDiscount(pool));
+        if (discountCheck.error) {
+            return res.status(400).json({ success: false, message: discountCheck.error });
+        }
+        const discPct = discountCheck.percent;
         const final_amount = Math.max(0, total_amount - (total_amount * (discPct / 100)));
 
         const saleData = {
@@ -190,6 +196,8 @@ exports.voidSale = async (req, res) => {
 // ---- End-of-day cash reconciliation ----
 
 const pool = require('../config/database');
+const { checkDiscount, drawerExpected, discrepancy } = require('../utils/till');
+const { readMaxDiscount } = require('./tillController');
 
 /* The shop's calendar day. toISOString() is UTC, which is still yesterday in
    the Philippines until 8am — a cashier closing an early shift would have
@@ -206,11 +214,60 @@ function eodDate(req, requested) {
     return /^\d{4}-\d{2}-\d{2}$/.test(requested || '') ? requested : shopToday();
 }
 
+/* A cashier's count is of their own drawer: what it started with plus the
+   cash they took today. It is blind — the expected figure is withheld until
+   they have typed what they counted — and final, so the answer cannot be
+   read off the screen and then typed in. A manager can remove a count to let
+   it be done again.
+
+   Admins and managers keep the shop-wide view from Sales History. */
+async function cashierDrawer(conn, cashierId, date) {
+    const [sales] = await conn.execute(
+        `SELECT COUNT(*) AS transactions, COALESCE(SUM(final_amount), 0) AS cash_sales
+         FROM sales
+         WHERE created_by = ? AND DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) = ?
+           AND payment_method = 'cash' AND payment_status = 'completed'`, [cashierId, date]);
+    const [opening] = await conn.execute(
+        'SELECT opening_cash FROM till_openings WHERE business_date = ? AND cashier_id = ?', [date, cashierId]);
+    const openingCash = opening.length ? parseFloat(opening[0].opening_cash) || 0 : 0;
+    return {
+        transactions: Number(sales[0].transactions) || 0,
+        opening_set: opening.length > 0,
+        opening_cash: openingCash,
+        expected: drawerExpected(openingCash, sales[0].cash_sales)
+    };
+}
+
 exports.getEod = async (req, res) => {
     try {
         const date = eodDate(req, req.query.date);
         const conn = await pool.getConnection();
         try {
+            if (req.user.role === 'cashier') {
+                const drawer = await cashierDrawer(conn, req.user.id, date);
+                const [mine] = await conn.execute(
+                    `SELECT expected_cash, counted_cash, discrepancy, notes, opening_cash
+                     FROM cash_reconciliations WHERE business_date = ? AND counted_by = ?`, [date, req.user.id]);
+                const done = mine[0] || null;
+                return res.json({
+                    success: true,
+                    data: {
+                        date,
+                        transactions: drawer.transactions,
+                        opening_set: drawer.opening_set,
+                        opening_cash: drawer.opening_cash,
+                        counted: !!done,
+                        // only once the count is in
+                        result: done ? {
+                            expected_cash: parseFloat(done.expected_cash),
+                            counted_cash: parseFloat(done.counted_cash),
+                            discrepancy: parseFloat(done.discrepancy),
+                            notes: done.notes || ''
+                        } : null
+                    }
+                });
+            }
+
             const [sales] = await conn.execute(
                 `SELECT COUNT(*) as transactions, COALESCE(SUM(final_amount), 0) as expected_cash,
                         MIN(created_at) as first_sale, MAX(created_at) as last_sale
@@ -218,9 +275,10 @@ exports.getEod = async (req, res) => {
                  WHERE DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) = ? AND payment_method = 'cash' AND payment_status = 'completed'`, [date]);
             const [voided] = await conn.execute(
                 `SELECT COUNT(*) as c FROM sales WHERE DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) = ? AND payment_status = 'voided'`, [date]);
+            // Each person's count is its own row now; the dialog edits yours.
             const [existing] = await conn.execute(
                 `SELECT cr.*, u.full_name as counted_by_name FROM cash_reconciliations cr
-                 LEFT JOIN users u ON cr.counted_by = u.id WHERE cr.business_date = ?`, [date]);
+                 LEFT JOIN users u ON cr.counted_by = u.id WHERE cr.business_date = ? AND cr.counted_by = ?`, [date, req.user.id]);
             res.json({
                 success: true,
                 data: {
@@ -248,21 +306,39 @@ exports.saveEod = async (req, res) => {
         if (isNaN(counted) || counted < 0) {
             return res.status(400).json({ success: false, message: 'Counted cash must be a valid amount' });
         }
+        const cleanNotes = String(notes || '').slice(0, 500) || null;
         const conn = await pool.getConnection();
         try {
+            if (req.user.role === 'cashier') {
+                const [mine] = await conn.execute(
+                    'SELECT id FROM cash_reconciliations WHERE business_date = ? AND counted_by = ?', [bizDate, req.user.id]);
+                if (mine.length) {
+                    return res.status(400).json({ success: false, message: "Today's count is already recorded. Ask a manager if it needs to be done again." });
+                }
+                const drawer = await cashierDrawer(conn, req.user.id, bizDate);
+                const diff = discrepancy(counted, drawer.expected);
+                await conn.execute(
+                    `INSERT INTO cash_reconciliations (business_date, expected_cash, counted_cash, discrepancy, notes, counted_by, opening_cash)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                    [bizDate, drawer.expected, counted, diff, cleanNotes, req.user.id, drawer.opening_cash]);
+                logAudit(req.user.id, 'create', 'cash_reconciliations', null, null,
+                    { date: bizDate, opening: drawer.opening_cash, expected: drawer.expected, counted, discrepancy: diff }, req.ip);
+                return res.json({ success: true, data: { date: bizDate, opening_cash: drawer.opening_cash, expected_cash: drawer.expected, counted_cash: counted, discrepancy: diff } });
+            }
+
             const [sales] = await conn.execute(
                 `SELECT COALESCE(SUM(final_amount), 0) as expected FROM sales
                  WHERE DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) = ? AND payment_method = 'cash' AND payment_status = 'completed'`, [bizDate]);
             const expected = parseFloat(sales[0].expected) || 0;
-            const discrepancy = Math.round((counted - expected) * 100) / 100;
+            const diff = discrepancy(counted, expected);
             await conn.execute(
                 `INSERT INTO cash_reconciliations (business_date, expected_cash, counted_cash, discrepancy, notes, counted_by)
                  VALUES (?, ?, ?, ?, ?, ?)
                  ON DUPLICATE KEY UPDATE expected_cash = VALUES(expected_cash), counted_cash = VALUES(counted_cash),
-                     discrepancy = VALUES(discrepancy), notes = VALUES(notes), counted_by = VALUES(counted_by)`,
-                [bizDate, expected, counted, discrepancy, (notes || '').slice(0, 500) || null, req.user.id]);
-            logAudit(req.user.id, 'create', 'cash_reconciliations', null, null, { date: bizDate, expected, counted, discrepancy }, req.ip);
-            res.json({ success: true, data: { date: bizDate, expected_cash: expected, counted_cash: counted, discrepancy } });
+                     discrepancy = VALUES(discrepancy), notes = VALUES(notes)`,
+                [bizDate, expected, counted, diff, cleanNotes, req.user.id]);
+            logAudit(req.user.id, 'create', 'cash_reconciliations', null, null, { date: bizDate, expected, counted, discrepancy: diff }, req.ip);
+            res.json({ success: true, data: { date: bizDate, expected_cash: expected, counted_cash: counted, discrepancy: diff } });
         } finally { conn.release(); }
     } catch (error) {
         console.error('EOD save error:', error);
@@ -275,9 +351,9 @@ exports.getEodHistory = async (req, res) => {
         const conn = await pool.getConnection();
         try {
             const [rows] = await conn.execute(
-                `SELECT cr.*, u.full_name as counted_by_name FROM cash_reconciliations cr
+                `SELECT cr.*, u.full_name as counted_by_name, u.role as counted_by_role FROM cash_reconciliations cr
                  LEFT JOIN users u ON cr.counted_by = u.id
-                 ORDER BY cr.business_date DESC LIMIT 30`);
+                 ORDER BY cr.business_date DESC, cr.id DESC LIMIT 40`);
             res.json({ success: true, data: rows });
         } finally { conn.release(); }
     } catch (error) {

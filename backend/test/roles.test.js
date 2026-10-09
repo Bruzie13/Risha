@@ -12,12 +12,18 @@ test('cashier: can reach exactly what the till needs', () => {
     assert.ok(apiAllowed('cashier', 'PUT', '/api/auth/change-password'));
     assert.ok(apiAllowed('cashier', 'GET', '/api/sales/eod'), "today's expected cash");
     assert.ok(apiAllowed('cashier', 'POST', '/api/sales/eod'), 'record the count');
+    assert.ok(apiAllowed('cashier', 'GET', '/api/sales/till'));
+    assert.ok(apiAllowed('cashier', 'POST', '/api/sales/till/open'), 'starting cash');
+    assert.ok(apiAllowed('cashier', 'GET', '/api/sales/mine'), 'own sales today');
+    assert.ok(apiAllowed('cashier', 'POST', '/api/sales/42/void-request'));
 });
 
 test('cashier: everything else is refused', () => {
     for (const [method, path] of [
         ['GET', '/api/sales'], ['GET', '/api/sales/report'], ['POST', '/api/sales/42/void'],
         ['DELETE', '/api/sales/42'], ['PUT', '/api/sales/42'], ['GET', '/api/sales/eod/history'],
+        ['POST', '/api/sales/42/void-request/dismiss'], ['DELETE', '/api/sales/eod/5'],
+        ['PUT', '/api/sales/pos-settings'], ['GET', '/api/sales/pos-settings'],
         ['POST', '/api/products'], ['PUT', '/api/products/3'], ['DELETE', '/api/products/3'],
         ['PUT', '/api/products/3/stock'], ['GET', '/api/products/3'], ['GET', '/api/products/suppliers'],
         ['GET', '/api/suppliers'], ['GET', '/api/purchase-orders'], ['GET', '/api/dashboard/stats'],

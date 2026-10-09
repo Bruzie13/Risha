@@ -698,6 +698,25 @@ exports.verifyToken = async (req, res) => {
             });
         }
 
+        /* Pages are admitted by a cookie, API calls by the token the tab holds.
+           The two can drift apart: signing out in one tab clears the shared
+           cookie while another tab still holds a perfectly good token. That
+           tab then bounced for ever between the sign-in page (token fine, go
+           to your home page) and the page guard (no cookie, go and sign in).
+
+           The token has just been verified against the database, so hand the
+           page guard the same proof. It is a session cookie: it lasts no
+           longer than the browser, whatever "keep me signed in" was. */
+        const presented = (req.headers['authorization'] || '').split(' ')[1];
+        if (presented && req.cookies?.token !== presented) {
+            res.cookie('token', presented, {
+                httpOnly: true,
+                sameSite: 'lax',
+                secure: process.env.NODE_ENV === 'production',
+                path: '/'
+            });
+        }
+
         res.status(200).json({
             success: true,
             user: user

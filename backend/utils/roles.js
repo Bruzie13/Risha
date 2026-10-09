@@ -4,8 +4,9 @@
    in:
 
      cashier   the till. The POS screen and nothing else: it can read the
-               product list, record a sale, reprint a sale it made, and record
-               today's end-of-day cash count.
+               product list, record a sale, list and reprint its own sales
+               for the day, ask for one to be voided, and open and count its
+               own cash drawer.
      supplier  an outside company. Its own details, the products it supplies
                and the purchase orders addressed to it — nothing of the shop's
                sales, other suppliers, or the rest of the stock.
@@ -38,8 +39,12 @@ const API_ALLOW = {
         ['GET', /^\/api\/products\/(stock-levels|categories|barcode)$/],
         ['POST', /^\/api\/sales$/],
         ['GET', /^\/api\/sales\/\d+$/],   // own sales only — enforced in the controller
-        ['GET', /^\/api\/sales\/eod$/],     // today only — enforced in the controller
+        ['GET', /^\/api\/sales\/eod$/],     // own drawer, today only — enforced in the controller
         ['POST', /^\/api\/sales\/eod$/],
+        ['GET', /^\/api\/sales\/till$/],
+        ['POST', /^\/api\/sales\/till\/open$/],
+        ['GET', /^\/api\/sales\/mine$/],
+        ['POST', /^\/api\/sales\/\d+\/void-request$/],
         ...SELF
     ],
     supplier: [

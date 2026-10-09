@@ -28,6 +28,7 @@ window.addEventListener('load', async () => {
         document.querySelector('.pos-cart-actions .btn-primary')?.remove();
     }
     await Promise.all([loadProducts(), renderCategoryFilters()]);
+    loadTill();
     setupBarcodeListener();
     document.getElementById('posSearchInput')?.addEventListener('keyup', filterProducts);
     // Live stock: another terminal's sale shows here without a refresh
@@ -459,8 +460,11 @@ function getDiscountPercent() {
     const el = document.getElementById('posDiscount');
     const raw = parseFloat(el?.value);
     if (!isFinite(raw)) return 0;
-    const clamped = Math.min(100, Math.max(0, raw));
-    if (el && clamped !== raw) el.value = clamped;
+    const clamped = Math.min(posMaxDiscount, Math.max(0, raw));
+    if (el && clamped !== raw) {
+        el.value = clamped;
+        if (raw > posMaxDiscount) showToast(`The largest discount allowed is ${posMaxDiscount}%`, 'warning');
+    }
     return clamped;
 }
 
@@ -720,10 +724,145 @@ function setupAutocomplete() {
 }
 
 
-/* ---------- End-of-day cash count ----------
-   The cashier counts the drawer they have been selling from. The server always
-   records it against today for a cashier account, so no date is sent. */
-let posEodExpected = 0;
+/* ---------- The till: starting cash, my sales, end-of-day count ----------
+   All of it is the signed-in cashier's own drawer for today. The server
+   decides whose and which day; nothing here sends either. */
+let posTill = null;                 // { opening_set, opening_cash, counted, max_discount_percent }
+let posMaxDiscount = 100;           // replaced by the shop's limit once the till loads
+
+async function loadTill() {
+    try {
+        const res = await fetch(`${API_BASE}/sales/till`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) return;
+        posTill = data.data;
+        posMaxDiscount = Number(posTill.max_discount_percent);
+        const input = document.getElementById('posDiscount');
+        if (input) input.max = posMaxDiscount;
+        const hint = document.getElementById('posDiscountLimit');
+        if (hint) hint.textContent = posMaxDiscount < 100 ? `up to ${posMaxDiscount}%` : '';
+        // First thing each day: what is in the drawer before any sale.
+        if (!posTill.opening_set && !posTill.counted) openPosOpen(false);
+    } catch (e) {
+        console.error('Till load failed:', e);
+    }
+}
+
+function openPosOpen(canCancel) {
+    document.getElementById('posOpenCancel').hidden = !canCancel;
+    const input = document.getElementById('posOpenAmount');
+    input.value = posTill && posTill.opening_set ? posTill.opening_cash : '';
+    document.getElementById('posOpenModal').classList.add('active');
+    setTimeout(() => input.focus(), 50);
+}
+
+function closePosOpen() {
+    document.getElementById('posOpenModal').classList.remove('active');
+}
+
+function changePosOpen() {
+    closePosEod();
+    openPosOpen(true);
+}
+
+async function savePosOpen() {
+    const amount = parseFloat(document.getElementById('posOpenAmount').value);
+    if (isNaN(amount) || amount < 0) { showToast('Enter the cash in the drawer, or 0 if it is empty', 'warning'); return; }
+    const btn = document.getElementById('posOpenSave');
+    btn.disabled = true;
+    try {
+        const res = await fetch(`${API_BASE}/sales/till/open`, {
+            method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ opening_cash: amount })
+        });
+        const data = await res.json();
+        if (!data.success) { showToast(data.message || 'The starting cash could not be saved', 'error'); return; }
+        if (posTill) { posTill.opening_set = true; posTill.opening_cash = data.data.opening_cash; }
+        closePosOpen();
+        showToast('Starting cash saved: ' + formatCurrency(data.data.opening_cash), 'success');
+    } catch (e) {
+        console.error('Starting cash save failed:', e);
+        showToast('The starting cash could not be saved', 'error');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+/* ---- My sales today ---- */
+
+async function openMySales() {
+    document.getElementById('posMySalesModal').classList.add('active');
+    await loadMySales();
+}
+
+function closeMySales() {
+    document.getElementById('posMySalesModal').classList.remove('active');
+}
+
+async function loadMySales() {
+    const body = document.getElementById('posMySalesBody');
+    const message = text => { body.innerHTML = `<tr><td colspan="6" class="pos-mysales-empty">${escHtml(text)}</td></tr>`; };
+    try {
+        const res = await fetch(`${API_BASE}/sales/mine`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) { message('Your sales could not be loaded.'); return; }
+        if (!data.data.length) { message('You have not made a sale yet today.'); return; }
+        body.innerHTML = data.data.map(s => {
+            const id = Number(s.id);
+            const voided = s.payment_status === 'voided';
+            const status = voided ? '<span class="status-badge status-expired">Voided</span>'
+                : s.void_requested ? '<span class="status-badge status-low-stock">Void requested</span>'
+                : '<span class="status-badge status-in-stock">Completed</span>';
+            const actions = `<button class="btn-view" data-reprint="${id}">Reprint</button>`
+                + (voided || s.void_requested ? '' : `<button class="btn-delete" data-void="${id}">Ask for void</button>`);
+            return `<tr class="${voided ? 'pos-mysales-voided' : ''}">
+                <td>${new Date(Number(s.created_at)).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</td>
+                <td>#${id}<span style="color:var(--text-muted);"> · ${formatQty(s.item_count)} item${Number(s.item_count) === 1 ? '' : 's'}</span></td>
+                <td>${escHtml(s.customer_name || 'Walk-in')}</td>
+                <td class="num">${formatCurrency(s.final_amount)}</td>
+                <td>${status}</td>
+                <td>${actions}</td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        console.error('My sales load failed:', e);
+        message('Your sales could not be loaded.');
+    }
+}
+
+document.addEventListener('click', e => {
+    const reprint = e.target.closest('[data-reprint]');
+    if (reprint) { printReceipt(Number(reprint.dataset.reprint)); return; }
+    const ask = e.target.closest('[data-void]');
+    if (ask) requestVoid(Number(ask.dataset.void));
+});
+
+function requestVoid(id) {
+    showPromptDialog(
+        'Ask for sale #' + id + ' to be voided',
+        'A manager will review it. Until then the sale stays as it is. What went wrong?',
+        async reason => {
+            reason = (reason || '').trim();
+            if (reason.length < 3) { showToast('Say briefly what went wrong', 'warning'); return; }
+            try {
+                const res = await fetch(`${API_BASE}/sales/${id}/void-request`, {
+                    method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ reason })
+                });
+                const data = await res.json();
+                if (!data.success) { showToast(data.message || 'The request could not be sent', 'error'); return; }
+                showToast('Sent to a manager', 'success');
+                loadMySales();
+            } catch (e) {
+                console.error('Void request failed:', e);
+                showToast('The request could not be sent', 'error');
+            }
+        },
+        'Send request', null, 'text', ''
+    );
+}
+
+/* ---- End-of-day count ----
+   Blind: the expected amount is not shown, or even sent, until the cashier
+   has entered what they counted. Once saved it is final for the day. */
 
 async function openPosEod() {
     const modal = document.getElementById('posEodModal');
@@ -731,73 +870,66 @@ async function openPosEod() {
     modal.classList.add('active');
     document.getElementById('posEodDate').textContent = 'For today, ' +
         new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) + '.';
-    document.getElementById('posEodExpected').textContent = '—';
-    document.getElementById('posEodTxns').textContent = '';
     document.getElementById('posEodStatus').textContent = '';
+    document.getElementById('posEodCounted').value = '';
+    document.getElementById('posEodNotes').value = '';
     try {
         const res = await fetch(`${API_BASE}/sales/eod`, { headers: getAuthHeaders() });
         const data = await res.json();
         if (!data.success) throw new Error(data.message || 'Could not load');
         const d = data.data;
-        posEodExpected = Number(d.expected_cash) || 0;
-        document.getElementById('posEodExpected').textContent = formatCurrency(posEodExpected);
-        document.getElementById('posEodTxns').textContent =
-            `${d.transactions} cash sale${Number(d.transactions) === 1 ? '' : 's'}` + (d.voided_sales ? `, ${d.voided_sales} voided` : '');
-        const counted = document.getElementById('posEodCounted');
-        const notes = document.getElementById('posEodNotes');
-        if (d.reconciliation) {
-            counted.value = parseFloat(d.reconciliation.counted_cash);
-            notes.value = d.reconciliation.notes || '';
-            document.getElementById('posEodStatus').textContent =
-                'Already recorded today by ' + (d.reconciliation.counted_by_name || 'someone') + '. Saving again replaces it.';
-        } else {
-            counted.value = '';
-            notes.value = '';
-        }
-        updatePosEodDiff();
-        counted.focus();
+        document.getElementById('posEodOpening').textContent = d.opening_set ? formatCurrency(d.opening_cash) : 'Not entered';
+        document.getElementById('posEodTxns').textContent = `${d.transactions} sale${Number(d.transactions) === 1 ? '' : 's'}`;
+        showPosEodResult(d.counted ? d.result : null);
+        if (!d.counted) document.getElementById('posEodCounted').focus();
     } catch (e) {
         console.error('End-of-day load failed:', e);
-        document.getElementById('posEodStatus').textContent = "Today's expected cash could not be loaded. Try again.";
+        document.getElementById('posEodStatus').textContent = 'The count could not be loaded. Try again.';
     }
+}
+
+function showPosEodResult(result) {
+    const done = !!result;
+    document.getElementById('posEodEntry').hidden = done;
+    document.getElementById('posEodResult').hidden = !done;
+    document.getElementById('posEodSave').hidden = done;
+    document.getElementById('posEodChangeOpening').hidden = done;
+    if (!done) return;
+    const diff = Number(result.discrepancy);
+    const el = document.getElementById('posEodDiff');
+    el.textContent = diff === 0 ? 'Balanced' : diff > 0 ? 'Over by ' + formatCurrency(diff) : 'Short by ' + formatCurrency(Math.abs(diff));
+    el.style.color = diff === 0 ? 'var(--success)' : diff > 0 ? 'var(--warning)' : 'var(--danger)';
+    document.getElementById('posEodExpected').textContent = formatCurrency(result.expected_cash);
+    document.getElementById('posEodCountedOut').textContent = formatCurrency(result.counted_cash);
+    document.getElementById('posEodNotesOut').textContent = result.notes ? 'Notes: ' + result.notes : '';
 }
 
 function closePosEod() {
     document.getElementById('posEodModal')?.classList.remove('active');
 }
 
-function updatePosEodDiff() {
-    const counted = parseFloat(document.getElementById('posEodCounted').value);
-    const el = document.getElementById('posEodDiff');
-    if (isNaN(counted)) { el.textContent = '—'; el.style.color = ''; return; }
-    const diff = Math.round((counted - posEodExpected) * 100) / 100;
-    if (diff === 0) { el.textContent = 'Balanced'; el.style.color = 'var(--success)'; }
-    else if (diff > 0) { el.textContent = 'Over by ' + formatCurrency(diff); el.style.color = 'var(--warning)'; }
-    else { el.textContent = 'Short by ' + formatCurrency(Math.abs(diff)); el.style.color = 'var(--danger)'; }
-}
-
-async function savePosEod() {
+function savePosEod() {
     const counted = parseFloat(document.getElementById('posEodCounted').value);
     if (isNaN(counted) || counted < 0) { showToast('Enter the cash counted in the drawer', 'warning'); return; }
-    const btn = document.getElementById('posEodSave');
-    btn.disabled = true;
-    try {
-        const res = await fetch(`${API_BASE}/sales/eod`, {
-            method: 'POST', headers: getAuthHeaders(),
-            body: JSON.stringify({ counted_cash: counted, notes: document.getElementById('posEodNotes').value })
-        });
-        const data = await res.json();
-        if (!data.success) { showToast(data.message || 'The count could not be saved', 'error'); return; }
-        const d = data.data;
-        closePosEod();
-        showSuccessDialog('Count saved', d.discrepancy === 0
-            ? 'The drawer balances with the ' + formatCurrency(d.expected_cash) + ' expected.'
-            : (d.discrepancy > 0 ? 'Over by ' + formatCurrency(d.discrepancy) : 'Short by ' + formatCurrency(Math.abs(d.discrepancy)))
-                + ' against the ' + formatCurrency(d.expected_cash) + ' expected.', { icon: 'savings' });
-    } catch (e) {
-        console.error('End-of-day save failed:', e);
-        showToast('The count could not be saved', 'error');
-    } finally {
-        btn.disabled = false;
-    }
+    showConfirmDialog('Save the count?',
+        'You counted ' + formatCurrency(counted) + '. This closes your drawer for today and cannot be changed afterwards.',
+        async () => {
+            const btn = document.getElementById('posEodSave');
+            btn.disabled = true;
+            try {
+                const res = await fetch(`${API_BASE}/sales/eod`, {
+                    method: 'POST', headers: getAuthHeaders(),
+                    body: JSON.stringify({ counted_cash: counted, notes: document.getElementById('posEodNotes').value })
+                });
+                const data = await res.json();
+                if (!data.success) { showToast(data.message || 'The count could not be saved', 'error'); return; }
+                if (posTill) posTill.counted = true;
+                showPosEodResult({ ...data.data, notes: document.getElementById('posEodNotes').value });
+            } catch (e) {
+                console.error('End-of-day save failed:', e);
+                showToast('The count could not be saved', 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }, 'Save count');
 }

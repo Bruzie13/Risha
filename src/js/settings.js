@@ -423,9 +423,34 @@ function setupEmailSettings() {
     if (!user || user.role !== 'admin') return;
     var backupCard = document.getElementById('backupCard');
     if (backupCard) backupCard.style.display = '';
+    loadPosSettings();
     var tabBtn = document.getElementById('emailTabBtn');
     if (tabBtn) tabBtn.style.display = '';
     loadEmailSettings();
+}
+
+/* ===== Point of sale limits (admin) ===== */
+async function loadPosSettings() {
+    try {
+        var res = await fetch(API_BASE + '/sales/pos-settings', { headers: getAuthHeaders() });
+        var data = await res.json();
+        if (!data.success) return;
+        document.getElementById('posMaxDiscountInput').value = data.data.max_discount_percent;
+        document.getElementById('posSettingsCard').style.display = '';
+    } catch (e) { console.error('POS settings load failed:', e); }
+}
+
+async function savePosSettings() {
+    var value = parseFloat(document.getElementById('posMaxDiscountInput').value);
+    if (isNaN(value) || value < 0 || value > 100) { showToast('Enter a limit between 0 and 100', 'warning'); return; }
+    try {
+        var res = await fetch(API_BASE + '/sales/pos-settings', {
+            method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify({ max_discount_percent: value })
+        });
+        var data = await res.json();
+        if (!data.success) { showToast(data.message || 'The limit could not be saved', 'error'); return; }
+        showToast('Cashiers can now discount up to ' + data.data.max_discount_percent + '%', 'success');
+    } catch (e) { showToast('The limit could not be saved', 'error'); }
 }
 
 function setEmailStatus(message, type) {

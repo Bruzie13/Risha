@@ -280,6 +280,34 @@ async function ensureAccountRoles() {
     }
 }
 
+async function ensureTillTables() {
+    try {
+        const conn = await pool.getConnection();
+        // The cash each cashier's drawer starts the day with.
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS till_openings (
+                business_date DATE NOT NULL,
+                cashier_id INT NOT NULL,
+                opening_cash DECIMAL(12,2) NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (business_date, cashier_id)
+            )`);
+        // A count per person per day instead of one for the whole shop, so a
+        // second cashier no longer overwrites the first. The new key is added
+        // before the old one is dropped, so there is never a moment with none.
+        try { await conn.execute('ALTER TABLE cash_reconciliations ADD COLUMN opening_cash DECIMAL(12,2) NOT NULL DEFAULT 0'); } catch (e) { /* column exists */ }
+        try { await conn.execute('ALTER TABLE cash_reconciliations ADD UNIQUE KEY uq_count_per_person (business_date, counted_by)'); } catch (e) { /* key exists */ }
+        try { await conn.execute('ALTER TABLE cash_reconciliations DROP INDEX business_date'); } catch (e) { /* already dropped */ }
+        // A cashier's request for a manager to void a sale.
+        try { await conn.execute('ALTER TABLE sales ADD COLUMN void_requested_at DATETIME NULL'); } catch (e) { /* column exists */ }
+        try { await conn.execute('ALTER TABLE sales ADD COLUMN void_request_reason VARCHAR(300) NULL'); } catch (e) { /* column exists */ }
+        conn.release();
+        console.log('[DB] till tables ready (opening cash, per-cashier counts, void requests)');
+    } catch (e) {
+        console.error('[DB] till migration error:', e.message);
+    }
+}
+
 async function ensureEmailCodesTable() {
     try {
         const conn = await pool.getConnection();
@@ -687,6 +715,7 @@ async function runMigrations() {
     await ensureEmailVerificationColumns();
     await ensureTokenVersionColumn();
     await ensureAccountRoles();
+    await ensureTillTables();
     await ensureEmailCodesTable();
     await ensureEmailLogsTable();
     await ensureIndexes();

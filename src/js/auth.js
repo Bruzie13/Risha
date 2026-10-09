@@ -100,7 +100,28 @@ function canOpenPage(href) {
     const page = (window.location.pathname.split('/').pop() || '').toLowerCase();
     const open = ['', 'login.html', 'reset-password.html', 'verify-email.html', 'track-delivery.html'];
     if (open.includes(page) || !getToken() || !getUser()) return;
-    if (!canOpenPage(page)) window.location.replace(roleHome());
+    if (canOpenPage(page)) { sessionStorage.removeItem('roleBounce'); return; }
+
+    /* Two accounts open in two tabs share one page cookie, and it belongs to
+       whichever signed in last — so the server can send this tab to the other
+       account's home page. Asking the server to check this tab's own token
+       re-issues the cookie for this account; only then go home. Without that
+       step the two tabs' rules disagree for ever and the page ping-pongs. */
+    document.documentElement.style.visibility = 'hidden';
+    let bounces = [];
+    try { bounces = JSON.parse(sessionStorage.getItem('roleBounce') || '[]'); } catch (e) {}
+    bounces = bounces.filter(t => Date.now() - t < 10000).concat(Date.now());
+    sessionStorage.setItem('roleBounce', JSON.stringify(bounces));
+    if (bounces.length > 3) {
+        // Something is still sending us round in circles; stop and start clean.
+        sessionStorage.removeItem('roleBounce');
+        clearToken();
+        window.location.replace('login.html');
+        return;
+    }
+    fetch(`${API_BASE}/auth/verify`, { headers: getAuthHeaders() })
+        .catch(function () {})
+        .finally(function () { window.location.replace(roleHome()); });
 })();
 
 /* Trim the interface to what this account can use: links to screens it cannot

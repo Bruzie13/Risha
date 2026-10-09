@@ -24,7 +24,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=21">
+    <link rel="stylesheet" href="css/global.css?v=26">
     <link rel="stylesheet" href="css/sales.css?v=20">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');try{var _av=JSON.parse(localStorage.getItem('accentVars2')||'null');if(_av){for(var _k in _av)document.documentElement.style.setProperty(_k,_av[_k]);}}catch(e){}var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
     </head>
@@ -133,6 +133,8 @@
                     </div>
                 </div>
             </div>
+
+            <div class="page-notice" id="voidRequestNotice" hidden></div>
 
             <div class="table-container">
                 <table class="data-table">
@@ -323,7 +325,7 @@
     <div id="eodModal" class="modal">
         <div class="modal-content" style="max-width:520px;">
             <div class="modal-header">
-                <h2>End of Day — Cash Count</h2>
+                <h2>End of day cash count (whole shop)</h2>
                 <button class="close-btn" title="Close" onclick="closeEodModal()">&times;</button>
             </div>
             <div class="modal-body">
@@ -352,8 +354,8 @@
                 </div>
                 <div id="eodStatus" style="font-size:12px;color:var(--warning);margin-top:4px;"></div>
                 <div style="margin-top:16px;">
-                    <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">Recent closes</div>
-                    <div id="eodHistory" style="max-height:170px;overflow-y:auto;border:1px solid var(--border-glass);border-radius:10px;"></div>
+                    <div style="font-size:12.5px;font-weight:500;color:var(--text-secondary);margin-bottom:6px;">Recent counts, including each cashier's drawer</div>
+                    <div id="eodHistory" style="max-height:220px;overflow-y:auto;border:1px solid var(--border-glass);border-radius:10px;"></div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -365,11 +367,11 @@
 
         <script src="js/utils.js"></script>
 <script src="js/format.js"></script>
-<script src="js/auth.js?v=23"></script>
+<script src="js/auth.js?v=25"></script>
 <script src="js/motion.js?v=20"></script>
 <script src="js/jump.js?v=23"></script>
 <script src="js/assistant.js?v=22"></script>
-    <script src="js/point-of-sale.js?v=23"></script>
+    <script src="js/point-of-sale.js?v=25"></script>
 </body>
 </html>
 

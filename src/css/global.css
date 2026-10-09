@@ -4026,3 +4026,22 @@ body.jump-open { overflow: hidden; }
 .notif-summary-card .sum-label { justify-content: flex-start; font-weight: 500; color: var(--text-secondary); font-size: 12.5px; margin-top: 0; }
 .notif-summary-card.low_stock, .notif-summary-card.stockout,
 .notif-summary-card.expiration, .notif-summary-card.info { border-left: 1px solid var(--border-glass); }
+
+/* ----- A plain statement at the top of a page that needs acting on ----- */
+.page-notice {
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+  border-left: 3px solid var(--warning);
+  background: var(--warning-bg);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+.page-notice[hidden] { display: none; }
+.void-reason { display: block; font-size: 12.5px; color: var(--text-muted); margin-top: 2px; max-width: 220px; white-space: normal; }
+
+/* The hidden attribute means hidden. Without this, any class that sets
+   display (every button does) silently wins and the element stays on screen. */
+[hidden] { display: none !important; }
