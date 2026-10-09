@@ -22,8 +22,8 @@
 
     // ── Who is allowed where ───────────────────────────────────────────────
     function role() {
-        try { return (typeof getUserRole === 'function' && getUserRole()) || 'staff'; }
-        catch (e) { return 'staff'; }
+        try { return (typeof getUserRole === 'function' && getUserRole()) || 'viewer'; }
+        catch (e) { return 'viewer'; }
     }
     function manages() {
         try { return typeof canManage === 'function' ? canManage() : false; }

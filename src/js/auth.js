@@ -56,8 +56,8 @@ window.fetch = function() {
     });
 };
 
-// UI gating: staff (cashier) can sell and view, but only admins/managers
-// may modify inventory, suppliers, and purchase orders
+// UI gating: only admins/managers may modify inventory, suppliers, and
+// purchase orders
 function canManage() {
     const role = getUserRole();
     return role === 'admin' || role === 'manager';
@@ -72,7 +72,7 @@ const FENCED_ROLE_PAGES = {
     cashier: ['pos.html', 'settings.html'],
     supplier: ['supplier.html', 'settings.html']
 };
-const SELLING_ROLES = ['cashier', 'staff'];
+const SELLING_ROLES = ['cashier'];
 
 function isFencedRole(role) {
     return Object.prototype.hasOwnProperty.call(FENCED_ROLE_PAGES, role || getUserRole());

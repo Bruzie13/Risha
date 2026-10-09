@@ -263,6 +263,16 @@ async function ensureAccountRoles() {
             await conn.execute("ALTER TABLE users MODIFY role ENUM('admin','manager','staff','viewer','cashier','supplier') DEFAULT 'staff'");
         } catch (e) { console.error('[DB] role list migration error:', e.message); }
         try { await conn.execute('ALTER TABLE users ADD COLUMN supplier_id INT NULL'); } catch (e) { /* column exists */ }
+        // The staff role was retired in favour of cashier. Move anyone still
+        // on it, and end their sessions so the change takes hold at once.
+        // 'staff' stays in the column's list only so an older copy of the app
+        // pointed at this database does not fail outright; this app no longer
+        // offers or accepts it.
+        try {
+            const [moved] = await conn.execute(
+                "UPDATE users SET role = 'cashier', token_version = token_version + 1 WHERE role = 'staff'");
+            if (moved.affectedRows) console.log(`[DB] ${moved.affectedRows} staff account(s) became cashier`);
+        } catch (e) { console.error('[DB] staff-to-cashier migration error:', e.message); }
         conn.release();
         console.log('[DB] cashier and supplier account roles ready');
     } catch (e) {

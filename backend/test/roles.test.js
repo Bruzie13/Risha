@@ -10,12 +10,14 @@ test('cashier: can reach exactly what the till needs', () => {
     assert.ok(apiAllowed('cashier', 'POST', '/api/sales'));
     assert.ok(apiAllowed('cashier', 'GET', '/api/sales/42'));
     assert.ok(apiAllowed('cashier', 'PUT', '/api/auth/change-password'));
+    assert.ok(apiAllowed('cashier', 'GET', '/api/sales/eod'), "today's expected cash");
+    assert.ok(apiAllowed('cashier', 'POST', '/api/sales/eod'), 'record the count');
 });
 
 test('cashier: everything else is refused', () => {
     for (const [method, path] of [
         ['GET', '/api/sales'], ['GET', '/api/sales/report'], ['POST', '/api/sales/42/void'],
-        ['DELETE', '/api/sales/42'], ['PUT', '/api/sales/42'], ['POST', '/api/sales/eod'],
+        ['DELETE', '/api/sales/42'], ['PUT', '/api/sales/42'], ['GET', '/api/sales/eod/history'],
         ['POST', '/api/products'], ['PUT', '/api/products/3'], ['DELETE', '/api/products/3'],
         ['PUT', '/api/products/3/stock'], ['GET', '/api/products/3'], ['GET', '/api/products/suppliers'],
         ['GET', '/api/suppliers'], ['GET', '/api/purchase-orders'], ['GET', '/api/dashboard/stats'],
@@ -51,12 +53,18 @@ test('fenced roles: odd spellings of an allowed path do not slip through', () =>
 });
 
 test('back-office roles are unaffected, and an unknown role gets nothing', () => {
-    for (const role of ['admin', 'manager', 'staff', 'viewer']) {
+    for (const role of ['admin', 'manager', 'viewer']) {
         assert.ok(apiAllowed(role, 'GET', '/api/suppliers'));
         assert.ok(apiAllowed(role, 'GET', '/api/predictions/overview'));
     }
     assert.equal(apiAllowed('intruder', 'GET', '/api/products'), false);
     assert.equal(apiAllowed(undefined, 'GET', '/api/products'), false);
+});
+
+test('the retired staff role opens nothing', () => {
+    assert.equal(apiAllowed('staff', 'GET', '/api/products'), false);
+    assert.equal(apiAllowed('staff', 'POST', '/api/sales'), false);
+    assert.equal(pageAllowed('staff', '/pos.html'), false);
 });
 
 test('pages: each account lands on, and is kept to, its own screens', () => {
@@ -74,12 +82,11 @@ test('pages: each account lands on, and is kept to, its own screens', () => {
     assert.equal(pageAllowed('supplier', '/pos.html'), false);
 });
 
-test('the point of sale belongs to the till accounts, not to admin or manager', () => {
-    assert.deepEqual(SELLING_ROLES, ['cashier', 'staff']);
+test('the point of sale belongs to the cashier, not to admin or manager', () => {
+    assert.deepEqual(SELLING_ROLES, ['cashier']);
     assert.equal(pageAllowed('admin', '/pos.html'), false);
     assert.equal(pageAllowed('manager', '/pos.html'), false);
     assert.equal(pageAllowed('viewer', '/pos.html'), false);
-    assert.ok(pageAllowed('staff', '/pos.html'));
     assert.ok(pageAllowed('admin', '/inventory.html'));
     assert.equal(pageAllowed('admin', '/supplier.html'), false);
 });

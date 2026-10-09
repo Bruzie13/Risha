@@ -191,9 +191,24 @@ exports.voidSale = async (req, res) => {
 
 const pool = require('../config/database');
 
+/* The shop's calendar day. toISOString() is UTC, which is still yesterday in
+   the Philippines until 8am — a cashier closing an early shift would have
+   recorded the count against the wrong date. */
+function shopToday() {
+    return new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/* Which day a cash count is for. Back-office roles may pick a date (to fix a
+   missed close); a cashier counts the drawer in front of them, so it is
+   always today, whatever the request says. */
+function eodDate(req, requested) {
+    if (req.user.role === 'cashier') return shopToday();
+    return /^\d{4}-\d{2}-\d{2}$/.test(requested || '') ? requested : shopToday();
+}
+
 exports.getEod = async (req, res) => {
     try {
-        const date = /^\d{4}-\d{2}-\d{2}$/.test(req.query.date || '') ? req.query.date : new Date().toISOString().slice(0, 10);
+        const date = eodDate(req, req.query.date);
         const conn = await pool.getConnection();
         try {
             const [sales] = await conn.execute(
@@ -228,7 +243,7 @@ exports.getEod = async (req, res) => {
 exports.saveEod = async (req, res) => {
     try {
         const { date, counted_cash, notes } = req.body;
-        const bizDate = /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? date : new Date().toISOString().slice(0, 10);
+        const bizDate = eodDate(req, date);
         const counted = parseFloat(counted_cash);
         if (isNaN(counted) || counted < 0) {
             return res.status(400).json({ success: false, message: 'Counted cash must be a valid amount' });

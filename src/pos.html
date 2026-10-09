@@ -25,7 +25,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css?v=21">
-    <link rel="stylesheet" href="css/pos.css?v=20">
+    <link rel="stylesheet" href="css/pos.css?v=23">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');try{var _av=JSON.parse(localStorage.getItem('accentVars2')||'null');if(_av){for(var _k in _av)document.documentElement.style.setProperty(_k,_av[_k]);}}catch(e){}var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
     </head>
 <body>
@@ -58,7 +58,7 @@
                 </div>
                 <div class="user-info">
                     <span id="userName">Loading...</span>
-                    <small id="sidebarUserRole">Staff</small>
+                    <small id="sidebarUserRole"></small>
                 </div>
                 <button class="user-settings-btn" onclick="event.stopPropagation();location.href='settings.html'" title="Settings">
                     <span class="material-symbols-outlined">settings</span>
@@ -82,7 +82,7 @@
                 <div class="breadcrumb">Ring up a sale</div>
             </div>
             <div class="page-header-actions">
-                <a href="sales.html" class="btn-secondary" style="font-size:12px;padding:7px 14px;"><span class="material-symbols-outlined" style="font-size:14px;">receipt</span> Sales History</a>
+                <button type="button" class="btn-secondary" onclick="openPosEod()"><span class="material-symbols-outlined">savings</span> End of day</button>
             </div>
         </div>
 
@@ -197,14 +197,50 @@
             }
         });
     </script>
+
+    <div id="posEodModal" class="modal">
+        <div class="modal-content" style="max-width:460px;">
+            <div class="modal-header">
+                <h2>End of day cash count</h2>
+                <button class="close-btn" title="Close" onclick="closePosEod()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="posEodDate" style="font-size:13.5px;color:var(--text-muted);margin-bottom:12px;"></p>
+                <div class="pos-eod-figures">
+                    <div>
+                        <span class="pos-eod-label">Expected in the drawer</span>
+                        <span class="pos-eod-value" id="posEodExpected">—</span>
+                        <span class="pos-eod-note" id="posEodTxns"></span>
+                    </div>
+                    <div>
+                        <span class="pos-eod-label">Over or short</span>
+                        <span class="pos-eod-value" id="posEodDiff">—</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="posEodCounted">Cash counted in the drawer (₱)</label>
+                    <input type="number" class="form-input" id="posEodCounted" min="0" step="0.01" inputmode="decimal" oninput="updatePosEodDiff()">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="posEodNotes">Notes (optional)</label>
+                    <input type="text" class="form-input" id="posEodNotes" maxlength="500" placeholder="For example: ₱200 used for water delivery">
+                </div>
+                <p id="posEodStatus" style="font-size:12.5px;color:var(--warning);"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closePosEod()">Cancel</button>
+                <button type="button" class="btn-primary" id="posEodSave" onclick="savePosEod()">Save count</button>
+            </div>
+        </div>
+    </div>
         <script src="js/format.js"></script>
 <script src="js/utils.js"></script>
-<script src="js/auth.js?v=22"></script>
+<script src="js/auth.js?v=23"></script>
 <script src="js/motion.js?v=20"></script>
-<script src="js/jump.js?v=22"></script>
+<script src="js/jump.js?v=23"></script>
 <script src="js/assistant.js?v=22"></script>
     <script src="js/escpos-print.js?v=1"></script>
-    <script src="js/pos.js?v=20"></script>
+    <script src="js/pos.js?v=23"></script>
 </body>
 </html>
 
@@ -235,7 +271,7 @@
                     <li>Filter with the status chips (Low Stock, Out of Stock, Expiring Soon, Expired, Healthy) and sort any column by clicking its header.</li>
                     <li><strong>Reorder</strong> lets you pick low-stock products; after a final confirmation it creates the purchase orders and emails each one to its assigned supplier. Any that couldn't be sent (usually a supplier with no email address on file) are listed afterwards so you can chase them from the supplier's Performance panel. Expired items can be reordered — the new batch replaces the old one.</li>
                     <li>Use <strong>Import</strong> for bulk CSV product uploads, and the checkboxes for bulk reorder/adjust/delete.</li>
-                    <li>Staff accounts see inventory read-only; only admins and managers can add, edit, or delete.</li>
+                    <li>Viewer accounts see inventory read-only; only admins and managers can add, edit, or delete.</li>
                 </ul>
             </div>
             <div class="help-section">
@@ -243,7 +279,7 @@
                 <ul>
                     <li>Search and filter past sales by date; click <strong>View</strong> for item details and a printable receipt.</li>
                     <li><strong>Void</strong> (admins/managers) cancels a sale with a required reason — the items go back into stock and the sale stays in history marked <em>Voided</em>, excluded from all totals.</li>
-                    <li><strong>End of Day</strong> records the drawer count: the system shows the expected cash from today's sales, you enter what was actually counted, and any over/short is saved with notes for the daily record.</li>
+                    <li><strong>End of Day</strong> (also on the POS for cashiers) records the drawer count: the system shows the expected cash from today's sales, you enter what was actually counted, and any over/short is saved with notes for the daily record.</li>
                 </ul>
             </div>
             <div class="help-section">
@@ -265,8 +301,8 @@
                 <ul>
                     <li><strong>Admin</strong> — everything in the back office, including users, the activity log, email settings and backups. Does not use the point of sale.</li>
                     <li><strong>Manager</strong> — inventory, suppliers, reorders, voids; no user management and no point of sale.</li>
-                    <li><strong>Staff</strong> — sell on the POS, record the end-of-day count, view everything else read-only.</li>
-                    <li><strong>Cashier</strong> — the point of sale only. Signs in straight to the till; each sale reduces stock in inventory.</li>
+                    <li><strong>Cashier</strong> — the point of sale only. Signs in straight to the till; each sale reduces stock in inventory, and the cashier records the end-of-day cash count from the POS.</li>
+                    <li><strong>Viewer</strong> — can look at everything in the back office and change nothing.</li>
                     <li><strong>Supplier</strong> — an outside login tied to one supplier. Sees only the purchase orders sent to that supplier and the products it supplies, and can confirm an order and mark it shipped.</li>
                     <li>Passwords need at least 6 characters with an uppercase letter, a number, and a special character. Five failed logins locks the account for a few minutes.</li>
                 </ul>

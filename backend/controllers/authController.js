@@ -480,7 +480,7 @@ exports.register = async (req, res) => {
         if (role && !ROLES.includes(role)) {
             return res.status(400).json({ success: false, message: 'Invalid role. Must be one of: ' + ROLES.join(', ') });
         }
-        const link = await resolveSupplierLink(role || 'staff', supplier_id);
+        const link = await resolveSupplierLink(role || 'cashier', supplier_id);
         if (link.error) {
             return res.status(400).json({ success: false, message: link.error });
         }
@@ -514,7 +514,7 @@ exports.register = async (req, res) => {
             full_name,
             phone,
             address,
-            role: role || 'staff',
+            role: role || 'cashier',
             supplier_id: link.supplier_id
         });
 

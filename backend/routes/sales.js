@@ -14,11 +14,10 @@ router.get('/report', authenticateToken, saleController.getSalesReport);
 router.get('/top-products', authenticateToken, saleController.getTopProducts);
 router.get('/eod', authenticateToken, saleController.getEod);
 router.get('/eod/history', authenticateToken, saleController.getEodHistory);
-router.post('/eod', authenticateToken, authorizeRole('admin', 'manager', 'staff'), saleController.saveEod);
+router.post('/eod', authenticateToken, authorizeRole('admin', 'manager', 'cashier'), saleController.saveEod);
 router.get('/:id', authenticateToken, saleController.getSaleById);
 router.post('/:id/void', authenticateToken, authorizeRole('admin', 'manager'), saleController.voidSale);
-// Selling is the till's job: cashier accounts, and the floor staff who
-// already ran it. Admins and managers manage inventory instead.
+// Selling is the cashier's job. Admins and managers manage inventory instead.
 router.post('/', authenticateToken, authorizeRole(...SELLING_ROLES), saleController.createSale);
 router.put('/:id', authenticateToken, authorizeRole('admin', 'manager'), saleController.updateSale);
 router.delete('/:id', authenticateToken, authorizeRole('admin', 'manager'), saleController.deleteSale);

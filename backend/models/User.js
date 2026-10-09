@@ -116,7 +116,7 @@ class User {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                "SELECT id, username, email, full_name, role, phone, is_active FROM users WHERE role IN ('staff', 'admin') AND is_active = TRUE ORDER BY full_name"
+                "SELECT id, username, email, full_name, role, phone, is_active FROM users WHERE role IN ('cashier', 'admin') AND is_active = TRUE ORDER BY full_name"
             );
             return rows;
         } finally {
@@ -137,7 +137,7 @@ class User {
                     userData.email,
                     hashedPassword,
                     userData.full_name,
-                    userData.role || 'staff',
+                    userData.role || 'cashier',
                     userData.phone || null,
                     userData.address || null,
                     userData.is_active !== undefined ? userData.is_active : true,
@@ -150,7 +150,7 @@ class User {
                 username: userData.username || userData.email.split('@')[0],
                 email: userData.email,
                 full_name: userData.full_name,
-                role: userData.role || 'staff'
+                role: userData.role || 'cashier'
             };
         } finally {
             connection.release();

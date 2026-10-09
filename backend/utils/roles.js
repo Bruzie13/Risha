@@ -1,10 +1,11 @@
 /* Who may do what.
 
-   admin / manager / staff / viewer work across the back office, as before.
-   Two roles are fenced in:
+   admin / manager / viewer work across the back office. Two roles are fenced
+   in:
 
      cashier   the till. The POS screen and nothing else: it can read the
-               product list, record a sale, and reprint a sale it made.
+               product list, record a sale, reprint a sale it made, and record
+               today's end-of-day cash count.
      supplier  an outside company. Its own details, the products it supplies
                and the purchase orders addressed to it — nothing of the shop's
                sales, other suppliers, or the rest of the stock.
@@ -13,11 +14,16 @@
    refused. A new endpoint added later is therefore closed to them until
    someone opens it on purpose, which is the safe way to be wrong.
 
-   Selling belongs to the till accounts. Admins and managers run inventory and
-   do not get the POS. */
+   Selling belongs to the cashier. Admins and managers run inventory and do
+   not get the POS.
 
-const ROLES = ['admin', 'manager', 'staff', 'viewer', 'cashier', 'supplier'];
-const SELLING_ROLES = ['cashier', 'staff'];
+   There used to be a "staff" role: it sold on the POS and could read the
+   back office. Cashier took the first half and viewer already covered the
+   second, so it was retired and its accounts became cashiers. It is absent
+   from ROLES on purpose — an account still carrying it is refused everywhere. */
+
+const ROLES = ['admin', 'manager', 'viewer', 'cashier', 'supplier'];
+const SELLING_ROLES = ['cashier'];
 
 // Every signed-in account may check its session and manage its own profile.
 const SELF = [
@@ -32,6 +38,8 @@ const API_ALLOW = {
         ['GET', /^\/api\/products\/(stock-levels|categories|barcode)$/],
         ['POST', /^\/api\/sales$/],
         ['GET', /^\/api\/sales\/\d+$/],   // own sales only — enforced in the controller
+        ['GET', /^\/api\/sales\/eod$/],     // today only — enforced in the controller
+        ['POST', /^\/api\/sales\/eod$/],
         ...SELF
     ],
     supplier: [

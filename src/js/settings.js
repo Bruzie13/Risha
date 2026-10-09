@@ -303,12 +303,12 @@ function loadSettings() {
     var name = user.full_name || user.username || user.email || 'User';
     if (typeof applyUserIdentity === 'function') applyUserIdentity();
     if (displayNameEl) displayNameEl.textContent = name;
-    if (roleEl) roleEl.textContent = (user.role || 'staff');
+    if (roleEl) roleEl.textContent = (user.role || '');
     if (nameInput) nameInput.value = user.full_name || '';
     if (emailInput) emailInput.value = user.email || '';
     if (usernameInput) usernameInput.value = user.username || '';
     if (sessionUser) sessionUser.textContent = name;
-    if (sessionRole) sessionRole.textContent = user.role || 'staff';
+    if (sessionRole) sessionRole.textContent = user.role || '';
 }
 
 function setupThemeToggle() {

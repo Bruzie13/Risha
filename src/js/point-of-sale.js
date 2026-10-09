@@ -350,7 +350,11 @@ async function openEodModal() {
     if (!modal) return;
     modal.classList.add('active');
     const dateInput = document.getElementById('eodDate');
-    if (!dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
+    if (!dateInput.value) {
+        // local calendar day — toISOString() is UTC and reads as yesterday before 8am here
+        const now = new Date();
+        dateInput.value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    }
     await loadEod();
     await loadEodHistory();
 }

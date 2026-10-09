@@ -716,3 +716,86 @@ function setupAutocomplete() {
         if (!e.target.closest('.pos-search-wrap')) suggest.style.display = 'none';
     });
 }
+
+
+/* ---------- End-of-day cash count ----------
+   The cashier counts the drawer they have been selling from. The server always
+   records it against today for a cashier account, so no date is sent. */
+let posEodExpected = 0;
+
+async function openPosEod() {
+    const modal = document.getElementById('posEodModal');
+    if (!modal) return;
+    modal.classList.add('active');
+    document.getElementById('posEodDate').textContent = 'For today, ' +
+        new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) + '.';
+    document.getElementById('posEodExpected').textContent = '—';
+    document.getElementById('posEodTxns').textContent = '';
+    document.getElementById('posEodStatus').textContent = '';
+    try {
+        const res = await fetch(`${API_BASE}/sales/eod`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Could not load');
+        const d = data.data;
+        posEodExpected = Number(d.expected_cash) || 0;
+        document.getElementById('posEodExpected').textContent = formatCurrency(posEodExpected);
+        document.getElementById('posEodTxns').textContent =
+            `${d.transactions} cash sale${Number(d.transactions) === 1 ? '' : 's'}` + (d.voided_sales ? `, ${d.voided_sales} voided` : '');
+        const counted = document.getElementById('posEodCounted');
+        const notes = document.getElementById('posEodNotes');
+        if (d.reconciliation) {
+            counted.value = parseFloat(d.reconciliation.counted_cash);
+            notes.value = d.reconciliation.notes || '';
+            document.getElementById('posEodStatus').textContent =
+                'Already recorded today by ' + (d.reconciliation.counted_by_name || 'someone') + '. Saving again replaces it.';
+        } else {
+            counted.value = '';
+            notes.value = '';
+        }
+        updatePosEodDiff();
+        counted.focus();
+    } catch (e) {
+        console.error('End-of-day load failed:', e);
+        document.getElementById('posEodStatus').textContent = "Today's expected cash could not be loaded. Try again.";
+    }
+}
+
+function closePosEod() {
+    document.getElementById('posEodModal')?.classList.remove('active');
+}
+
+function updatePosEodDiff() {
+    const counted = parseFloat(document.getElementById('posEodCounted').value);
+    const el = document.getElementById('posEodDiff');
+    if (isNaN(counted)) { el.textContent = '—'; el.style.color = ''; return; }
+    const diff = Math.round((counted - posEodExpected) * 100) / 100;
+    if (diff === 0) { el.textContent = 'Balanced'; el.style.color = 'var(--success)'; }
+    else if (diff > 0) { el.textContent = 'Over by ' + formatCurrency(diff); el.style.color = 'var(--warning)'; }
+    else { el.textContent = 'Short by ' + formatCurrency(Math.abs(diff)); el.style.color = 'var(--danger)'; }
+}
+
+async function savePosEod() {
+    const counted = parseFloat(document.getElementById('posEodCounted').value);
+    if (isNaN(counted) || counted < 0) { showToast('Enter the cash counted in the drawer', 'warning'); return; }
+    const btn = document.getElementById('posEodSave');
+    btn.disabled = true;
+    try {
+        const res = await fetch(`${API_BASE}/sales/eod`, {
+            method: 'POST', headers: getAuthHeaders(),
+            body: JSON.stringify({ counted_cash: counted, notes: document.getElementById('posEodNotes').value })
+        });
+        const data = await res.json();
+        if (!data.success) { showToast(data.message || 'The count could not be saved', 'error'); return; }
+        const d = data.data;
+        closePosEod();
+        showSuccessDialog('Count saved', d.discrepancy === 0
+            ? 'The drawer balances with the ' + formatCurrency(d.expected_cash) + ' expected.'
+            : (d.discrepancy > 0 ? 'Over by ' + formatCurrency(d.discrepancy) : 'Short by ' + formatCurrency(Math.abs(d.discrepancy)))
+                + ' against the ' + formatCurrency(d.expected_cash) + ' expected.', { icon: 'savings' });
+    } catch (e) {
+        console.error('End-of-day save failed:', e);
+        showToast('The count could not be saved', 'error');
+    } finally {
+        btn.disabled = false;
+    }
+}

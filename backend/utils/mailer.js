@@ -636,7 +636,7 @@ async function sendWelcomeEmail(toEmail, fullName, username, role) {
         throw new Error('Email credentials not configured');
     }
 
-    const roleLabel = { admin: 'Administrator', manager: 'Manager', staff: 'Staff', viewer: 'Viewer', cashier: 'Cashier (point of sale)', supplier: 'Supplier' }[role] || 'Staff';
+    const roleLabel = { admin: 'Administrator', manager: 'Manager', viewer: 'Viewer', cashier: 'Cashier (point of sale)', supplier: 'Supplier' }[role] || 'Cashier (point of sale)';
     const loginUrl = `${BASE_URL}/login.html`;
 
     const content =

@@ -303,8 +303,7 @@ function resetEmailCodeState() {
 /* ── Role-dependent fields ────────────────────────────────────────────────
    A supplier account has to be tied to one supplier; nobody else is. */
 const ROLE_HINTS = {
-    staff: 'Can use the point of sale and record the end-of-day count. Sees the rest of the back office read-only.',
-    cashier: 'Opens straight to the point of sale and can use nothing else. Sales it records reduce stock in inventory as usual.',
+    cashier: 'Opens straight to the point of sale and can use nothing else. Sales it records reduce stock in inventory as usual, and it records the end-of-day cash count.',
     manager: 'Manages inventory, suppliers and purchase orders. Does not use the point of sale.',
     admin: 'Full control of the back office, including users. Does not use the point of sale.',
     viewer: 'Can look at everything and change nothing.',
@@ -375,7 +374,7 @@ function openEditUserModal(id) {
     unameEl.title = 'Usernames cannot be changed';
     document.getElementById('userFullName').value = user.full_name || '';
     document.getElementById('userEmail').value = user.email || '';
-    document.getElementById('userRole').value = user.role || 'staff';
+    document.getElementById('userRole').value = user.role || 'cashier';
     refreshRoleFields();
     if (user.role === 'supplier') {
         loadSupplierOptions().then(() => { document.getElementById('userSupplier').value = user.supplier_id || ''; });
