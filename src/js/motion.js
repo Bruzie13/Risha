@@ -3,13 +3,6 @@
 (function () {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // Entrance staggering and number count-ups were removed: a figure that
-    // animates to its value makes the reader wait to read it. The functions
-    // stay as no-ops so existing callers need no changes.
-    function stagger() {}
-    function countUp() {}
-    function countUpAll() {}
-
     // Cart feedback: pop the badge and slide in the newest line
     function cartPulse(badgeEl, lastItemEl) {
         if (reduced) return;
@@ -32,6 +25,6 @@
         </svg>`;
     }
 
-    window.fetchMotion = { stagger, countUp, countUpAll, cartPulse, checkmarkSVG, reduced };
+    window.fetchMotion = { cartPulse, checkmarkSVG, reduced };
 
 })();

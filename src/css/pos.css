@@ -608,14 +608,8 @@
   font-weight: 600;
 }
 
-/* Keep the floating help button clear of the docked cart / Charge button */
-.help-float-btn {
-  right: 410px;
-}
-
 /* ═══ Responsive ═══ */
 @media (max-width: 1024px) {
-  .help-float-btn { right: 24px; bottom: 88px; }
   .pos-layout {
     flex-direction: column;
     height: auto;
@@ -663,7 +657,6 @@
 .pos-eod-figures > div + div { border-left: 1px solid var(--border-glass); }
 .pos-eod-label { font-size: 12.5px; color: var(--text-secondary); }
 .pos-eod-value { font-size: 20px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.pos-eod-note { font-size: 12.5px; color: var(--text-muted); }
 
 .pos-eod-link { align-self: flex-start; border: none; background: none; padding: 0; font: inherit; font-size: 12.5px; color: var(--primary); cursor: pointer; }
 .pos-eod-link:hover { text-decoration: underline; }

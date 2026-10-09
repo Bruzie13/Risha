@@ -45,9 +45,10 @@ app.use(cors({
    token the attacker cannot send anywhere. Tightening script-src is the
    follow-up work; the containment is worth having now.
 
-   Origins allowed, and why: jsdelivr serves Chart.js, Google hosts the fonts,
-   OpenStreetMap serves the supplier-map tiles, Cloudinary serves product
-   images when CLOUDINARY_URL is configured (they are data: URIs otherwise). */
+   Origins allowed, and why: jsdelivr serves the Chart.js script, Google hosts
+   the fonts, Cloudinary serves product images when CLOUDINARY_URL is
+   configured (they are data: URIs otherwise). Nothing else: the supplier map
+   and its tiles are gone, so no map host is allowed any more. */
 const CSP = [
     "default-src 'self'",
     "base-uri 'self'",
@@ -55,11 +56,9 @@ const CSP = [
     "frame-ancestors 'none'",
     "form-action 'self'",
     "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
-    // jsdelivr also serves leaflet.css, and Leaflet pulls its marker icons from
-    // that same path — both would be blocked by a self-only style/img policy.
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
-    "img-src 'self' data: https://res.cloudinary.com https://cdn.jsdelivr.net",
+    "img-src 'self' data: https://res.cloudinary.com",
     "connect-src 'self'"
 ].join('; ');
 

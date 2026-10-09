@@ -21,8 +21,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=44">
-    <link rel="stylesheet" href="css/settings.css?v=22">
+    <link rel="stylesheet" href="css/global.css?v=45">
+    <link rel="stylesheet" href="css/settings.css?v=23">
     <script>
         (function() {
             var saved = localStorage.getItem('theme');
@@ -35,10 +35,6 @@
             var ct = localStorage.getItem('colorTheme');
             if (ct) document.documentElement.setAttribute('data-theme', ct);
             try {
-                var av = JSON.parse(localStorage.getItem('accentVars3') || 'null');
-                if (av) { for (var k in av) document.documentElement.style.setProperty(k, av[k]); }
-            } catch (e) {}
-            try {
                 var fv = JSON.parse(localStorage.getItem('fontVars2') || 'null');
                 if (fv) { for (var fk in fv) document.documentElement.style.setProperty(fk, fv[fk]); }
             } catch (e) {}
@@ -46,7 +42,7 @@
             if (ts && ts !== '1') document.documentElement.style.zoom = ts;
         }());
     </script>
-    <link rel="stylesheet" href="css/system.css?v=6">
+    <link rel="stylesheet" href="css/system.css?v=7">
 </head>
 <body>
 
@@ -321,18 +317,6 @@
                                     </div>
                                 </div>
                                 <div class="settings-divider"></div>
-                                <div class="appearance-preview">
-                                    <div class="ap-preview-label">Preview</div>
-                                    <div class="ap-preview-card">
-                                        <div class="ap-preview-title">Risha Pet Supplies</div>
-                                        <div class="ap-preview-text">This is how your text, <a href="#" onclick="return false;">links</a> and buttons will look across the system.</div>
-                                        <div class="ap-preview-actions">
-                                            <button type="button" class="btn-primary" onclick="return false;">Primary Button</button>
-                                            <span class="ap-preview-badge">Sample badge</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="settings-divider"></div>
                                 <div class="settings-toggle-row">
                                     <div>
                                         <div class="settings-toggle-label">Reset Appearance</div>
@@ -457,10 +441,10 @@
     </script>
     <script src="js/utils.js"></script>
     <script src="js/format.js"></script>
-    <script src="js/auth.js?v=40"></script>
-<script src="js/motion.js?v=20"></script>
-<script src="js/jump.js?v=28"></script>
-<script src="js/assistant.js?v=22"></script>
-    <script src="js/settings.js?v=41"></script>
+    <script src="js/auth.js?v=41"></script>
+<script src="js/motion.js?v=21"></script>
+<script src="js/jump.js?v=29"></script>
+<script src="js/assistant.js?v=23"></script>
+    <script src="js/settings.js?v=42"></script>
 </body>
 </html>

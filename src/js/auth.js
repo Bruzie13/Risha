@@ -351,8 +351,6 @@ function buildDialogShell(overlayId, tone, iconName, title, message) {
 
 /* Dialog buttons are the system's own buttons, so a "Confirm" here looks and
    presses exactly like a button anywhere else. */
-const DIALOG_BTN_GHOST = '';
-function dialogBtnSolid() { return ''; }
 function dialogActions(cancelLabel, okLabel, okClass, okId) {
     return `<div class="app-dialog-actions">
         ${cancelLabel ? `<button type="button" id="confirmCancelBtn" class="btn-secondary">${cancelLabel}</button>` : ''}

@@ -32,10 +32,3 @@ function updatePagination(containerId, items, shownCount, showMoreFn, showLessFn
     </button>${showLessBtn}`;
 }
 
-function initSkeletonReveal(delay) {
-    const els = document.querySelectorAll('.skel-reveal');
-    if (!els.length) return;
-    setTimeout(() => {
-        els.forEach(el => el.classList.add('loaded'));
-    }, delay || 600);
-}

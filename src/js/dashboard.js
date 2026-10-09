@@ -143,10 +143,6 @@ async function loadDashboardStats() {
                 kpiCard('Inventory Value', 'account_balance', 'green',
                     '<span id="inventoryValue">—</span>',
                     'Retail estimate');
-            if (window.fetchMotion) {
-                fetchMotion.stagger('#metricCards .kpi-card', 55);
-                fetchMotion.countUpAll('#metricCards .kpi-value');
-            }
         }
     } catch (error) {
         console.error('Error loading dashboard stats:', error);
@@ -628,34 +624,6 @@ async function loadExpirationRisk() {
     } catch (error) {
         console.error('Error loading expiration risk:', error);
     }
-}
-
-async function autoReorderDashboard() {
-    showConfirmDialog('Auto-Reorder', 'Auto-generate purchase orders for all low-stock products? Suppliers will be emailed.', () => {
-        // Second confirmation before anything is ordered or emailed
-        showConfirmDialog('Final check', 'This will create the purchase orders and email the suppliers. Proceed?', async () => {
-        try {
-            const response = await fetch(`${API_BASE}/purchase-orders/auto-generate`, {
-                method: 'POST', headers: getAuthHeaders()
-            });
-            const data = await response.json();
-            if (data.success) {
-                const count = Array.isArray(data.data) ? data.data.length : 0;
-                if (count > 0) {
-                    showSuccessDialog('Reorder placed', `${count} purchase order${count === 1 ? '' : 's'} generated — suppliers have been emailed.`, { icon: 'local_shipping' });
-                } else {
-                    showSuccessDialog('No orders generated', data.message || 'Nothing needed reordering — see the notes for details.', { tone: 'info' });
-                }
-                await loadDashboardStats();
-            } else {
-                showToast('Error: ' + (data.message || 'Unknown'), 'error');
-            }
-        } catch (error) {
-            console.error('Auto-reorder error:', error);
-            showToast('Failed to auto-reorder', 'error');
-        }
-        }, 'Yes, Send Orders', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">outgoing_mail</span>');
-    }, 'Yes, Reorder', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">inventory</span>');
 }
 
 function showExpirationProducts(riskLevel) {

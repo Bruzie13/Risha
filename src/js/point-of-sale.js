@@ -492,22 +492,6 @@ document.getElementById('searchInput')?.addEventListener('keyup', () => {
     salesSearchDebounce = setTimeout(() => loadSales(), 250);
 });
 
-function openNewSaleModal() {
-    if (isViewer()) { showToast('View-only account. Cannot create sales.', 'error'); return; }
-    currentSaleItems = [];
-    document.getElementById('saleForm').reset();
-    document.getElementById('unit_price').value = '';
-    document.getElementById('quantity').value = 1;
-    document.getElementById('maxStock').textContent = '0';
-    document.getElementById('discount').value = 0;
-    document.getElementById('qtyWarning')?.classList.add('hidden');
-    const itemTotal = document.getElementById('itemTotal');
-    if (itemTotal) itemTotal.textContent = '₱0.00';
-    updateItemsList();
-    updateTotals();
-    document.getElementById('saleModal').classList.add('active');
-}
-
 function closeSaleModal() {
     document.getElementById('saleModal').classList.remove('active');
     currentSaleItems = [];
@@ -614,10 +598,6 @@ document.getElementById('discount')?.addEventListener('input', updateTotals);
 function clearBarcodeInput() {
     document.getElementById('barcodeScanInput').value = '';
     document.getElementById('productAutocomplete').style.display = 'none';
-}
-
-function updateTotalAmount() {
-    updateTotals();
 }
 
 async function handleSaleSubmit(event) {
