@@ -490,13 +490,38 @@ exports.getEodHistory = async (req, res) => {
 exports.deleteSale = async (req, res) => {
     try {
         const { id } = req.params;
-        await Sale.delete(id);
+        // What is about to be removed, read first, so the Activity log keeps a
+        // copy of the sale and not just the fact that one was deleted.
+        const sale = await Sale.findById(id);
+        if (!sale) {
+            return res.status(404).json({ success: false, message: 'Sale not found' });
+        }
+        const items = await Sale.getSaleItems(id);
+        const result = await Sale.delete(id);
+        if (!result.deleted) {
+            return res.status(404).json({ success: false, message: 'Sale not found' });
+        }
 
-        logAudit(req.user.id, 'delete', 'sales', parseInt(id), null, null, req.ip);
+        logAudit(req.user.id, 'delete', 'sales', parseInt(id), {
+            sale_number: sale.sale_number,
+            sold_at: sale.created_at ? new Date(Number(sale.created_at)).toISOString() : null,
+            cashier: sale.staff_name || null,
+            customer_name: sale.customer_name || null,
+            total_amount: sale.total_amount,
+            discount: sale.discount,
+            final_amount: sale.final_amount,
+            payment_method: sale.payment_method,
+            payment_status: sale.payment_status,
+            notes: sale.notes || null,
+            items: items.map(i => ({ product_id: i.product_id, product: i.product_name, quantity: i.quantity, unit_price: i.unit_price, subtotal: i.subtotal }))
+        }, { deleted: true, stock_returned: result.stock_returned }, req.ip);
 
         res.status(200).json({
             success: true,
-            message: 'Sale deleted and stock restored successfully'
+            stock_returned: result.stock_returned,
+            message: result.stock_returned
+                ? 'Sale deleted and its items returned to stock.'
+                : 'Sale deleted. Its items had already gone back to stock when it was voided.'
         });
     } catch (error) {
         console.error('Delete sale error:', error);

@@ -381,7 +381,7 @@ function closeViewSaleModal() {
 }
 
 async function deleteSaleFromDetail() {
-    if (!canManage()) { showToast("Your role can't delete sales.", 'error'); return; }
+    if (getUserRole() !== 'admin') { showToast('Only an administrator can delete a sale. To cancel one, void it.', 'error'); return; }
     if (viewingSaleId) {
         await deleteSale(viewingSaleId);
         closeViewSaleModal();
@@ -389,18 +389,18 @@ async function deleteSaleFromDetail() {
 }
 
 async function deleteSale(id) {
-    if (!canManage()) { showToast("Your role can't delete sales.", 'error'); return; }
-    showConfirmDialog('Delete sale', 'Are you sure you want to delete this sale? This cannot be undone.', async () => {
+    if (getUserRole() !== 'admin') { showToast('Only an administrator can delete a sale. To cancel one, void it.', 'error'); return; }
+    showConfirmDialog('Delete sale', 'This removes the sale from the records for good, and it will no longer count in any report. The Activity log keeps a copy of it. To cancel a sale and keep it on record, use Void instead. Delete it?', async () => {
         try {
             const response = await fetch(`${API_BASE}/sales/${id}`, {
                 method: 'DELETE', headers: getAuthHeaders()
             });
             const data = await response.json();
             if (data.success) {
-                showSuccessDialog('Sale deleted', 'The sale record was removed and stock has been restored.', { tone: 'danger' });
+                showSuccessDialog('Sale deleted', escHtml(data.message || 'The sale record was removed.'), { tone: 'danger' });
                 await loadSales();
             } else {
-                showToast('Error: ' + (data.message || 'Unknown'), 'error');
+                showToast(data.message || 'The sale was not deleted', 'error');
             }
         } catch (error) {
             console.error('Error deleting sale:', error);

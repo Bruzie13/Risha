@@ -28,6 +28,8 @@ router.post('/:id/void-request', authenticateToken, authorizeRole('cashier'), ti
 router.post('/:id/void-request/dismiss', authenticateToken, authorizeRole('admin', 'manager'), tillController.dismissVoidRequest);
 // Selling is the cashier's job. Admins and managers manage inventory instead.
 router.post('/', authenticateToken, authorizeRole(...SELLING_ROLES), saleController.createSale);
-router.delete('/:id', authenticateToken, authorizeRole('admin', 'manager'), saleController.deleteSale);
+// Deleting removes the record for good, so it is the administrator's alone.
+// A manager cancels a sale by voiding it, which keeps it on record.
+router.delete('/:id', authenticateToken, authorizeRole('admin'), saleController.deleteSale);
 
 module.exports = router;

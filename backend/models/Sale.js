@@ -223,37 +223,40 @@ class Sale {
         }
     }
 
+    /**
+     * Removes a sale for good. Returns { deleted, stock_returned }.
+     * A completed sale gives its items back to stock. A voided sale already
+     * did that when it was voided, so nothing is returned a second time.
+     */
     static async delete(id) {
         const connection = await pool.getConnection();
         try {
             await connection.beginTransaction();
+            const [rows] = await connection.execute('SELECT payment_status FROM sales WHERE id = ? FOR UPDATE', [id]);
+            if (!rows.length) { await connection.rollback(); return { deleted: false, stock_returned: false }; }
+            const giveBack = rows[0].payment_status !== 'voided';
 
-            const items = await this.getSaleItems(id);
-
-            for (const item of items) {
-                await connection.execute(
-                    'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?',
-                    [item.quantity, item.product_id]
-                );
-
-                await connection.execute(
-                    `INSERT INTO stock_movements 
-                     (product_id, movement_type, quantity, reference_type, reference_id, notes) 
-                     VALUES (?, 'in', ?, 'sale_void', ?, ?)`,
-                    [
-                        item.product_id,
-                        item.quantity,
-                        id,
-                        `Sale #${id} voided - stock restored`
-                    ]
-                );
+            if (giveBack) {
+                const [items] = await connection.execute('SELECT product_id, quantity FROM sale_items WHERE sale_id = ?', [id]);
+                for (const item of items) {
+                    await connection.execute(
+                        'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?',
+                        [item.quantity, item.product_id]
+                    );
+                    await connection.execute(
+                        `INSERT INTO stock_movements
+                         (product_id, movement_type, quantity, reference_type, reference_id, notes)
+                         VALUES (?, 'in', ?, 'sale_delete', ?, ?)`,
+                        [item.product_id, item.quantity, id, `Sale #${id} deleted: items returned to stock`]
+                    );
+                }
             }
 
             await connection.execute('DELETE FROM sale_items WHERE sale_id = ?', [id]);
             await connection.execute('DELETE FROM sales WHERE id = ?', [id]);
 
             await connection.commit();
-            return true;
+            return { deleted: true, stock_returned: giveBack };
         } catch (error) {
             await connection.rollback();
             throw error;
@@ -356,6 +359,12 @@ class Sale {
                 await connection.execute(
                     'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?',
                     [item.quantity, item.product_id]);
+                // the stock history says where these came back from
+                await connection.execute(
+                    `INSERT INTO stock_movements
+                     (product_id, movement_type, quantity, reference_type, reference_id, notes)
+                     VALUES (?, 'in', ?, 'sale_void', ?, ?)`,
+                    [item.product_id, item.quantity, id, `Sale #${id} voided: items returned to stock`]);
             }
             await connection.execute(
                 `UPDATE sales SET payment_status = 'voided',
