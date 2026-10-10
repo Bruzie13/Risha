@@ -3,6 +3,7 @@ const Product = require('../models/Product');
 const logAudit = require('../services/audit');
 const { notifySaleCreated, notifyLowStock, notifyStockout } = require('../services/notifier');
 const { saleRef } = require('../utils/requestKeys');
+const { lineProblem, mergeLines } = require('../utils/saleLines');
 
 /* The answer to a cart that has already been saved: the sale it became. Only
    the cashier who made that sale is shown it; the reference is not a way to
@@ -89,7 +90,8 @@ exports.getSaleById = async (req, res) => {
 
 exports.createSale = async (req, res) => {
     try {
-        const { items, payment_method, notes, customer_name, customer_phone, discount_percent } = req.body;
+        const { payment_method, notes, customer_name, customer_phone, discount_percent } = req.body;
+        let { items } = req.body;
         const staff_id = req.user.id;
 
         // One cart, one sale (see utils/requestKeys.js).
@@ -103,12 +105,18 @@ exports.createSale = async (req, res) => {
             if (existing) return alreadySaved(req, res, existing);
         }
 
-        if (!items || items.length === 0) {
+        if (!Array.isArray(items) || items.length === 0) {
             return res.status(400).json({
                 success: false,
                 message: 'Sale must have at least one item'
             });
         }
+        for (const item of items) {
+            const problem = lineProblem(item);
+            if (problem) return res.status(400).json({ success: false, message: problem });
+        }
+        // the same product on two lines is one line, so the stock check below sees all of it
+        items = mergeLines(items);
 
         /* A cashier who has saved the end-of-day count has closed the drawer.
            A sale after that would put cash into a drawer whose count is
@@ -128,9 +136,6 @@ exports.createSale = async (req, res) => {
         }
 
         for (const item of items) {
-            if (!item.product_id || !item.quantity || item.quantity <= 0) {
-                return res.status(400).json({ success: false, message: 'Each item must have a valid product_id and positive quantity' });
-            }
             if (item.unit_price !== undefined && (isNaN(item.unit_price) || item.unit_price < 0)) {
                 return res.status(400).json({ success: false, message: 'Unit price must be a non-negative number' });
             }
@@ -196,6 +201,10 @@ exports.createSale = async (req, res) => {
             if (e.code === 'DUPLICATE_SALE' && saleNumber) {
                 const existing = await Sale.findByNumber(saleNumber);
                 if (existing) return alreadySaved(req, res, existing);
+            }
+            // someone else sold the last of it between the check above and the save
+            if (e.code === 'INSUFFICIENT_STOCK') {
+                return res.status(400).json({ success: false, message: e.message });
             }
             throw e;
         }

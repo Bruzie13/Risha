@@ -132,13 +132,15 @@ class Sale {
 
             for (const item of saleData.items) {
                 const [rows] = await connection.execute(
-                    'SELECT stock_quantity FROM products WHERE id = ? FOR UPDATE',
+                    'SELECT name, stock_quantity FROM products WHERE id = ? FOR UPDATE',
                     [item.product_id]
                 );
                 if (!rows.length || rows[0].stock_quantity < item.quantity) {
                     await connection.rollback();
                     const name = rows.length ? rows[0].name || `Product #${item.product_id}` : `Product #${item.product_id}`;
-                    throw new Error(`Insufficient stock for ${name}. Available: ${rows[0]?.stock_quantity || 0}, requested: ${item.quantity}`);
+                    const short = new Error(`Insufficient stock for ${name}. Available: ${rows[0]?.stock_quantity || 0}, requested: ${item.quantity}`);
+                    short.code = 'INSUFFICIENT_STOCK';
+                    throw short;
                 }
             }
 
