@@ -189,14 +189,25 @@ async function handleSupplierSubmit(event) {
 
 async function deleteSupplier(id) {
     if (!canManage()) { showToast("Your role can't delete suppliers.", 'error'); return; }
-    showConfirmDialog('Delete supplier', 'Are you sure you want to delete this supplier? This cannot be undone.', async () => {
+    /* Deleting a supplier does not delete what hangs off them. Their products
+       stay in Inventory with no supplier, and cannot be reordered until one is
+       assigned; an order still on its way has nobody left to deliver it. Say
+       so before the question is answered, with the real numbers. */
+    const supplier = (typeof allSuppliers !== 'undefined' ? allSuppliers : []).find(s => Number(s.id) === Number(id)) || {};
+    const products = Number(supplier.product_count) || 0, orders = Number(supplier.open_orders) || 0;
+    const left = [];
+    if (products) left.push(`<strong>${products} product${products === 1 ? '' : 's'}</strong> will be left with no supplier and cannot be reordered until you assign one`);
+    if (orders) left.push(`<strong>${orders} order${orders === 1 ? ' is' : 's are'} still in progress</strong> with this supplier`);
+    const question = `Delete ${escHtml(supplier.name || 'this supplier')}? This cannot be undone.`
+        + (left.length ? '<span style="display:block;margin-top:8px;">' + left.map(l => '<span style="display:block;margin-top:4px;">' + l + '.</span>').join('') + '</span>' : '');
+    showConfirmDialog('Delete supplier', question, async () => {
         try {
             const response = await fetch(`${API_BASE}/suppliers/${id}`, {
                 method: 'DELETE', headers: getAuthHeaders()
             });
             const data = await response.json();
             if (data.success) {
-                showSuccessDialog('Supplier deleted', 'The supplier has been removed from your directory.', { tone: 'danger' });
+                showSuccessDialog('Supplier deleted', escHtml(data.message || 'The supplier has been removed from your directory.'), { tone: 'danger' });
                 await loadSuppliers();
             } else {
                 showToast('Error: ' + (data.message || 'Unknown'), 'error');
@@ -223,7 +234,8 @@ function advancePOFromModal(id, nextStatus, poNumber, supplierId) {
         showPromptDialog('Receive ' + poNumber,
             'Stock will be added. Enter the new batch\'s expiration date (leave blank to keep the current date):',
             function (dateVal) { sendModalAdvance(id, 'received', poNumber, supplierId, dateVal); },
-            'Mark Received', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">inventory</span>', 'date', '');
+            'Mark Received', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">inventory</span>', 'date', '',
+            { min: localTodayYmd(), validate: expiryDateProblem });
         return;
     }
     showConfirmDialog('Update purchase order', 'Mark ' + poNumber + ' as ' + nextStatus + '?',

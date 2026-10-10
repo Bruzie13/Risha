@@ -711,7 +711,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
 
         const [products] = await pool.query(`
             SELECT p.id, p.name, p.sku, p.brand, p.unit_price, p.cost_price, p.stock_quantity, p.reorder_level,
-                   p.supplier_id, c.name AS category, s.name AS supplier_name,
+                   s.id AS supplier_id, c.name AS category, s.name AS supplier_name,
                    DATE_FORMAT(p.expiration_date, '%Y-%m-%d') AS expires_on
             FROM products p
             LEFT JOIN categories c ON c.id = p.category_id

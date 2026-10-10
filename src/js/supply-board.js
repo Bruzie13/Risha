@@ -228,7 +228,7 @@
                 (short ? 'The supplier sent less than ordered on some lines; only what they confirmed is added to stock. ' : 'The items are added to stock. ')
                 + 'Enter the new batch\'s expiration date, or leave it blank to keep the current one:',
                 function (dateVal) { setStatus(id, 'received', dateVal ? { expiration_date: dateVal } : null); },
-                'Receive into stock', null, 'date', '');
+                'Receive into stock', null, 'date', '', { min: localTodayYmd(), validate: expiryDateProblem });
         } else if (act === 'confirmed' || act === 'shipped') {
             showConfirmDialog('Update order', 'Mark ' + name + ' as ' + act + '? Use this when the supplier told you by phone or message rather than through their own login.',
                 function () { setStatus(id, act); }, 'Yes, update');

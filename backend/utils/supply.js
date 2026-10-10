@@ -113,4 +113,18 @@ function scorecard(orders) {
     };
 }
 
-module.exports = { termDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, scorecard };
+/* May a purchase order be raised for this product? Only when it has a supplier
+   who is still on the shop's list. Deleting a supplier leaves its products
+   pointing at it, so "has a supplier id" is not enough: the order would be
+   addressed to someone who can no longer sign in or be emailed.
+   `activeSupplierIds` is a Set of the ids of suppliers that have not been
+   deleted. Returns the reason it may not be ordered, or null. */
+function reorderSupplierProblem(product, activeSupplierIds) {
+    if (!product || !product.supplier_id) return 'no supplier assigned';
+    if (!activeSupplierIds || !activeSupplierIds.has(Number(product.supplier_id))) {
+        return 'its supplier has been deleted, so assign a current supplier first';
+    }
+    return null;
+}
+
+module.exports = { termDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, scorecard, reorderSupplierProblem };

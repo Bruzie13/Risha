@@ -103,3 +103,15 @@ test('scorecard: nothing delivered yet gives no percentages rather than 0% or 10
     assert.equal(s.complete_percent, null);
     assert.equal(s.average_days, null);
 });
+
+test('reorder: a product needs a supplier who is still on the list', () => {
+    const { reorderSupplierProblem } = require('../utils/supply');
+    const active = new Set([6, 7]);
+    assert.equal(reorderSupplierProblem({ id: 1, supplier_id: 6 }, active), null);
+    assert.equal(reorderSupplierProblem({ id: 1, supplier_id: '7' }, active), null, 'the id may arrive as text');
+    assert.match(reorderSupplierProblem({ id: 1, supplier_id: null }, active), /no supplier assigned/);
+    assert.match(reorderSupplierProblem({ id: 1 }, active), /no supplier assigned/);
+    assert.match(reorderSupplierProblem({ id: 1, supplier_id: 2 }, active), /has been deleted/, 'the id is set, but that supplier was deleted');
+    assert.match(reorderSupplierProblem({ id: 1, supplier_id: 2 }, new Set()), /has been deleted/);
+    assert.match(reorderSupplierProblem({ id: 1, supplier_id: 2 }, null), /has been deleted/, 'with no list to check against, nothing is orderable');
+});

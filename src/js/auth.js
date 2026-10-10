@@ -450,21 +450,50 @@ function showConfirmDialog(title, message, onConfirm, confirmText, icon) {
     setTimeout(() => ok.focus(), 30);
 }
 
-function showPromptDialog(title, message, onConfirm, confirmText, icon, inputType, defaultValue) {
+/* Today as YYYY-MM-DD on this device's clock, which in the shop is the shop's day. */
+function localTodayYmd() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/* Stock that is being added cannot already be past its date. Returns what is
+   wrong with the date typed, or null. The server applies the same rule. */
+function expiryDateProblem(value) {
+    return value && value < localTodayYmd() ? 'The expiration date cannot be earlier than today.' : null;
+}
+
+/* opts.min sets the earliest value the box offers. opts.validate(value) may
+   return a message: the question then stays open and shows it, instead of
+   closing and leaving the person to start again. */
+function showPromptDialog(title, message, onConfirm, confirmText, icon, inputType, defaultValue, opts) {
+    const o = opts || {};
     const { name, tone } = parseLegacyIcon(icon, 'edit_note');
     const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', tone, name, title, message);
     const body = dialog.querySelector('.dialog-body');
-    body.innerHTML = `<input id="promptInput" class="form-input" type="${escAttr(inputType || 'number')}" value="${escAttr(defaultValue)}">`;
+    body.innerHTML = `<input id="promptInput" class="form-input" type="${escAttr(inputType || 'number')}" value="${escAttr(defaultValue)}"${o.min ? ` min="${escAttr(o.min)}"` : ''}>
+        <div id="promptError" role="alert" style="display:none;margin-top:8px;font-size:13px;font-weight:600;color:var(--danger);"></div>`;
     body.insertAdjacentHTML('afterend', dialogActions('Cancel', confirmText || 'Confirm', 'btn-primary'));
 
     const input = dialog.querySelector('#promptInput');
     const close = () => { document.removeEventListener('keydown', onKey); overlay.remove(); };
     const onKey = (e) => { if (e.key === 'Escape') close(); };
     document.addEventListener('keydown', onKey);
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { close(); onConfirm(input.value); } });
+    const submit = () => {
+        const problem = typeof o.validate === 'function' ? o.validate(input.value) : null;
+        if (problem) {
+            const err = dialog.querySelector('#promptError');
+            err.textContent = problem;
+            err.style.display = 'block';
+            input.focus();
+            return;
+        }
+        close();
+        onConfirm(input.value);
+    };
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
     dialog.querySelector('#confirmCancelBtn').addEventListener('click', close);
-    dialog.querySelector('#confirmOkBtn').addEventListener('click', () => { close(); onConfirm(input.value); });
+    dialog.querySelector('#confirmOkBtn').addEventListener('click', submit);
     setTimeout(() => input.focus(), 50);
 }
 

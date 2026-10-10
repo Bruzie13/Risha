@@ -55,6 +55,12 @@ The check was done in two passes:
 15. **A supplier's name was written into the Reorder list without escaping.** A name containing HTML would have been run by the browser. Fixed.
 16. **The two redirect pages** (`analytics.html`, `audit.html`) carried their old content underneath. They are now 15 lines each and only redirect.
 
+### Reported by the owner after the deploy
+
+17. **A product could be reordered although it had no supplier.** 108 products still pointed at a supplier that had been deleted. The Reorder list showed them as "No supplier", but the server only checked that a supplier number was set, so it created a purchase order addressed to the deleted supplier, which nobody received. Now a product can be ordered only from a supplier who is still on the list: the server skips the rest and says why, the Reorder list does not let them be ticked and says how many there are, Stock planning leaves them out, and Inventory shows them with no supplier everywhere. Deleting a supplier now says first how many products it will leave without a supplier and how many of its orders are still in progress. Checked on the real products with the saving switched off: of the 5 low-stock products only the 1 with a current supplier would be ordered.
+18. **An expiration date in the past was accepted** when receiving an order, and when adding or editing a product. A new batch cannot already be expired, so a date earlier than today is now refused, on the page (the date box starts at today and says why it refuses) and on the server (receive, add, edit and import). A product that has already expired can still be edited as long as its date is left alone or moved to today or later. Leaving the date blank is still allowed. Checked eight ways on the real records with the saving switched off.
+19. **On a laptop running the server, the edit form showed every expiration date one day early**, and saving moved the stored date back a day each time. The live site was not affected, because its server runs on universal time. The date now travels as a plain day.
+
 ## What was pressed in the second pass
 
 A test copy of the server ran on this computer only, using the real routes, the real database and the real mail service, with one guard: an email could leave only if every recipient was one of the owner's own addresses. The accounts were created through the Users page itself. Sign-in was then tested separately on the real local server with those accounts and their real passwords.

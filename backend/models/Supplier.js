@@ -5,7 +5,11 @@ class Supplier {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                'SELECT * FROM suppliers WHERE is_active = TRUE ORDER BY name'
+                `SELECT s.*,
+                        (SELECT COUNT(*) FROM products p WHERE p.supplier_id = s.id AND p.is_active = TRUE) AS product_count,
+                        (SELECT COUNT(*) FROM purchase_orders po WHERE po.supplier_id = s.id
+                            AND po.status IN ('proposed', 'pending', 'confirmed', 'shipped')) AS open_orders
+                 FROM suppliers s WHERE s.is_active = TRUE ORDER BY s.name`
             );
             return rows;
         } finally {
@@ -77,6 +81,22 @@ class Supplier {
                 params
             );
             return await this.findById(id);
+        } finally {
+            connection.release();
+        }
+    }
+
+    /** What a supplier still carries: products assigned to them, and orders not yet finished. */
+    static async stillCarries(id) {
+        const connection = await pool.getConnection();
+        try {
+            const [rows] = await connection.execute(
+                `SELECT (SELECT COUNT(*) FROM products p WHERE p.supplier_id = ? AND p.is_active = TRUE) AS products,
+                        (SELECT COUNT(*) FROM purchase_orders po WHERE po.supplier_id = ?
+                            AND po.status IN ('proposed', 'pending', 'confirmed', 'shipped')) AS open_orders`,
+                [id, id]
+            );
+            return { products: Number(rows[0].products) || 0, open_orders: Number(rows[0].open_orders) || 0 };
         } finally {
             connection.release();
         }

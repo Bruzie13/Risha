@@ -70,7 +70,7 @@ exports.getExpirationRisk = async (req, res) => {
     const conn = await pool.getConnection();
     try {
         const [critical] = await conn.execute(
-            `SELECT p.*, c.name as category_name, s.name as supplier_name
+            `SELECT p.*, DATE_FORMAT(p.expiration_date, '%Y-%m-%d') AS expiration_date, c.name as category_name, s.name as supplier_name
              FROM products p
              LEFT JOIN categories c ON p.category_id = c.id
              LEFT JOIN suppliers s ON p.supplier_id = s.id
@@ -82,7 +82,7 @@ exports.getExpirationRisk = async (req, res) => {
         );
 
         const [warning] = await conn.execute(
-            `SELECT p.*, c.name as category_name, s.name as supplier_name
+            `SELECT p.*, DATE_FORMAT(p.expiration_date, '%Y-%m-%d') AS expiration_date, c.name as category_name, s.name as supplier_name
              FROM products p
              LEFT JOIN categories c ON p.category_id = c.id
              LEFT JOIN suppliers s ON p.supplier_id = s.id
@@ -94,7 +94,7 @@ exports.getExpirationRisk = async (req, res) => {
         );
 
         const [notice] = await conn.execute(
-            `SELECT p.*, c.name as category_name, s.name as supplier_name
+            `SELECT p.*, DATE_FORMAT(p.expiration_date, '%Y-%m-%d') AS expiration_date, c.name as category_name, s.name as supplier_name
              FROM products p
              LEFT JOIN categories c ON p.category_id = c.id
              LEFT JOIN suppliers s ON p.supplier_id = s.id

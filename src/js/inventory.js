@@ -600,8 +600,11 @@ function filterProducts() {
 function openAddProductModal() {
     if (!canManage()) { showToast("Your role can't add products.", 'error'); return; }
     editingProductId = null;
+    editingOriginalExpiry = '';
     document.getElementById('modalTitle').textContent = 'Add new product';
     document.getElementById('productForm').reset();
+    // new stock cannot already be past its date
+    document.getElementById('expiration_date').min = localTodayYmd();
     updateImagePreview();
     document.getElementById('productModal').classList.add('active');
 }
@@ -637,7 +640,11 @@ async function openEditProductModal(id) {
             document.getElementById('max_stock_level').value = product.max_stock_level || '';
             document.getElementById('supplier_id').value = product.supplier_id || '';
             document.getElementById('batch_number').value = product.batch_number || '';
-            document.getElementById('expiration_date').value = product.expiration_date ? product.expiration_date.split('T')[0] : '';
+            editingOriginalExpiry = product.expiration_date ? product.expiration_date.split('T')[0] : '';
+            document.getElementById('expiration_date').value = editingOriginalExpiry;
+            // A product that has already expired keeps its date while other things
+            // are edited; a date that is changed has to be today or later.
+            document.getElementById('expiration_date').min = editingOriginalExpiry && editingOriginalExpiry < localTodayYmd() ? '' : localTodayYmd();
             document.getElementById('description').value = product.description || '';
             
             document.getElementById('productModal').classList.add('active');
@@ -793,8 +800,17 @@ async function deleteProduct(id) {
 }
 
 // Handle product form submission
+let editingOriginalExpiry = '';   // the date the product being edited already has ('' when adding)
+
 async function handleProductSubmit(event) {
     event.preventDefault();
+
+    const typedExpiry = document.getElementById('expiration_date').value;
+    if (typedExpiry !== editingOriginalExpiry && expiryDateProblem(typedExpiry)) {
+        showToast(expiryDateProblem(typedExpiry), 'error');
+        document.getElementById('expiration_date').focus();
+        return;
+    }
 
     const productData = {
         sku: document.getElementById('sku').value,
@@ -941,15 +957,20 @@ async function autoReorder() {
 
     function render() {
         const items = lowStock.slice(0, displayed);
+        const blocked = lowStock.filter(p => !p.supplier_name).length;
         const rowsHtml = items.map(p => {
             const checked = selected.has(p.id) ? 'checked' : '';
+            // An order has to go to someone. A product with no supplier, or whose
+            // supplier has been deleted, is listed so it is not forgotten, but it
+            // cannot be ticked until a supplier is assigned (the server skips it too).
+            const orderable = !!p.supplier_name;
             const status = p.stock_quantity === 0 ? 'Out of stock' : 'Low stock';
             const statusColor = p.stock_quantity === 0 ? 'var(--danger)' : 'var(--warning)';
             return `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border-color,#eee);">
-                <input type="checkbox" id="reord-${p.id}" ${checked} style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">
+                <input type="checkbox" id="reord-${p.id}" ${orderable ? checked : 'disabled'} title="${orderable ? '' : 'Assign a supplier to this product first'}" style="width:18px;height:18px;cursor:${orderable ? 'pointer' : 'not-allowed'};flex-shrink:0;">
                 <div style="flex:1;min-width:0;">
                     <div style="font-weight:600;font-size:14px;color:var(--text-primary);">${escHtml(p.name)}</div>
-                    <div style="font-size:12px;color:var(--text-muted,#888);">${escHtml(p.sku || '')} · ${escHtml(p.supplier_name || 'No supplier')}</div>
+                    <div style="font-size:12px;color:var(--text-muted,#888);">${escHtml(p.sku || '')} · ${orderable ? escHtml(p.supplier_name) : '<span style="color:var(--danger);font-weight:600;">No supplier: assign one first</span>'}</div>
                 </div>
                 <div style="text-align:right;flex-shrink:0;">
                     <div style="font-size:12px;color:var(--text-muted,#888);">Stock: <strong>${formatNumber(p.stock_quantity)}</strong></div>
@@ -979,6 +1000,9 @@ async function autoReorder() {
                 </div>
                 <button id="reorderClose" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted,#888);padding:0;line-height:1;">&times;</button>
             </div>
+            ${blocked ? `<div style="padding:10px 18px;font-size:13px;line-height:1.45;background:var(--danger-bg);color:var(--text-primary);border-bottom:1px solid var(--border-color,#eee);flex-shrink:0;">
+                <strong>${blocked} of these ${blocked === 1 ? 'has' : 'have'} no supplier</strong>, so ${blocked === 1 ? 'it' : 'they'} cannot be ordered yet. Open the product, choose a supplier, then come back.
+            </div>` : ''}
             <div id="reorderList" style="overflow-y:auto;flex:1;min-height:0;">
                 ${rowsHtml}
             </div>

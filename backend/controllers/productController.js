@@ -1,3 +1,4 @@
+const { shopToday, expiryProblem } = require('../utils/expiry');
 const Product = require('../models/Product');
 const logAudit = require('../services/audit');
 const { notifyStockAdjusted, notifyProductCreated } = require('../services/notifier');
@@ -98,6 +99,12 @@ exports.createProduct = async (req, res) => {
             });
         }
 
+        // stock being added cannot already be past its date
+        const expiryIssue = expiryProblem(expiration_date, shopToday());
+        if (expiryIssue) {
+            return res.status(400).json({ success: false, message: expiryIssue });
+        }
+
         const existingProduct = await Product.findBySku(sku);
         if (existingProduct) {
             return res.status(409).json({
@@ -156,6 +163,16 @@ exports.updateProduct = async (req, res) => {
         }
 
         const oldProduct = await Product.findById(id);
+
+        // A changed expiration date has to be today or later. The date the
+        // product already has may stay, so an expired product can be edited.
+        if (updateData.expiration_date !== undefined) {
+            const expiryIssue = expiryProblem(updateData.expiration_date, shopToday(), oldProduct && oldProduct.expiration_date);
+            if (expiryIssue) {
+                return res.status(400).json({ success: false, message: expiryIssue });
+            }
+        }
+
         const product = await Product.update(id, updateData);
 
         if (!product) {
@@ -296,6 +313,11 @@ exports.bulkCreateProducts = async (req, res) => {
                 const existing = await Product.findBySku(p.sku);
                 if (existing) {
                     errors.push({ sku: p.sku, error: 'SKU already exists' });
+                    continue;
+                }
+                const expiryIssue = expiryProblem(p.expiration_date, shopToday());
+                if (expiryIssue) {
+                    errors.push({ sku: p.sku, error: expiryIssue });
                     continue;
                 }
                 const product = await Product.create({

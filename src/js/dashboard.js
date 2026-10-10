@@ -311,14 +311,13 @@ function advancePO(id, nextStatus, poNumber) {
     // Receiving prompts for the new batch's expiry so a refreshed product
     // (even a previously expired one) gets an up-to-date expiration date.
     if (nextStatus === 'received') {
-        const today = new Date().toISOString().slice(0, 10);
         showPromptDialog(
             `Receive ${escHtml(poNumber)}`,
             'Stock will be added. Enter the new batch\'s expiration date (leave blank to keep the current date):',
             (dateVal) => sendPOAdvance(id, 'received', poNumber, dateVal),
             'Mark Received',
             '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">inventory</span>',
-            'date', ''
+            'date', '', { min: localTodayYmd(), validate: expiryDateProblem }
         );
         return;
     }

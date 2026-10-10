@@ -120,13 +120,19 @@ exports.updateSupplier = async (req, res) => {
 exports.deleteSupplier = async (req, res) => {
     try {
         const { id } = req.params;
+        const left = await Supplier.stillCarries(id);
         await Supplier.delete(id);
 
         logAudit(req.user.id, 'delete', 'suppliers', parseInt(id), null, null, req.ip);
 
+        // their products and unfinished orders are not deleted with them: say what is left to deal with
+        const notes = [];
+        if (left.products) notes.push(`${left.products} product${left.products === 1 ? ' now has' : 's now have'} no supplier. Assign one in Inventory before reordering.`);
+        if (left.open_orders) notes.push(`${left.open_orders} order${left.open_orders === 1 ? ' is' : 's are'} still in progress with them.`);
         res.status(200).json({
             success: true,
-            message: 'Supplier deleted successfully'
+            message: ['Supplier deleted successfully.', ...notes].join(' '),
+            left
         });
     } catch (error) {
         console.error('Delete supplier error:', error);

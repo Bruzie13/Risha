@@ -5,6 +5,14 @@ const pool = require('../config/database');
 /* Can it be sold today? Not once its expiry date has passed (it can still be
    sold on the date itself), and not with nothing in stock. The same rule the
    point of sale applies tile by tile (unavailableReason in src/js/pos.js). */
+/* An expiration date is a day, with no time and no time zone. Read as a DATE
+   it becomes a JavaScript Date at the server's local midnight, and JSON then
+   writes it in UTC: on a server east of UTC (a laptop in Manila) every date
+   reached the page one day early, and saving the edit form moved the stored
+   date back a day each time. Selected as text after p.*, it replaces that
+   column and arrives as the same day everywhere. */
+const EXPIRY_AS_TEXT = "DATE_FORMAT(p.expiration_date, '%Y-%m-%d') AS expiration_date";
+
 const UNSELLABLE_SQL = `((p.expiration_date IS NOT NULL AND DATEDIFF(DATE(p.expiration_date), DATE(CONVERT_TZ(NOW(),'+00:00','+08:00'))) < 0) OR p.stock_quantity <= 0)`;
 
 const STATUS_SQL = {
@@ -69,10 +77,10 @@ class Product {
     static async getAll(filters = {}) {
         const connection = await pool.getConnection();
         try {
-            let sql = `SELECT p.*, c.name as category_name, s.name as supplier_name
+            let sql = `SELECT p.*, ${EXPIRY_AS_TEXT}, c.name as category_name, s.name as supplier_name
                        FROM products p
                        LEFT JOIN categories c ON p.category_id = c.id
-                       LEFT JOIN suppliers s ON p.supplier_id = s.id
+                       LEFT JOIN suppliers s ON p.supplier_id = s.id AND s.is_active = TRUE
                        WHERE p.is_active = TRUE`;
             const params = [];
             sql = applyProductFilters(sql, params, filters);
@@ -164,10 +172,10 @@ class Product {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                `SELECT p.*, c.name as category_name, s.name as supplier_name 
+                `SELECT p.*, ${EXPIRY_AS_TEXT}, c.name as category_name, s.name as supplier_name 
                  FROM products p 
                  LEFT JOIN categories c ON p.category_id = c.id 
-                 LEFT JOIN suppliers s ON p.supplier_id = s.id 
+                 LEFT JOIN suppliers s ON p.supplier_id = s.id AND s.is_active = TRUE
                  WHERE p.id = ?`,
                 [id]
             );
@@ -181,10 +189,10 @@ class Product {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                `SELECT p.*, c.name as category_name, s.name as supplier_name 
+                `SELECT p.*, ${EXPIRY_AS_TEXT}, c.name as category_name, s.name as supplier_name 
                  FROM products p 
                  LEFT JOIN categories c ON p.category_id = c.id 
-                 LEFT JOIN suppliers s ON p.supplier_id = s.id 
+                 LEFT JOIN suppliers s ON p.supplier_id = s.id AND s.is_active = TRUE
                  WHERE p.sku = ?`,
                 [sku]
             );
@@ -300,7 +308,7 @@ class Product {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                `SELECT p.*, c.name as category_name, s.name as supplier_name, s.email as supplier_email
+                `SELECT p.*, ${EXPIRY_AS_TEXT}, c.name as category_name, s.name as supplier_name, s.email as supplier_email
                  FROM products p 
                  LEFT JOIN categories c ON p.category_id = c.id 
                  LEFT JOIN suppliers s ON p.supplier_id = s.id AND s.is_active = TRUE
@@ -317,7 +325,7 @@ class Product {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                `SELECT p.*, c.name as category_name 
+                `SELECT p.*, ${EXPIRY_AS_TEXT}, c.name as category_name 
                  FROM products p 
                  LEFT JOIN categories c ON p.category_id = c.id 
                  WHERE p.expiration_date IS NOT NULL 
@@ -337,7 +345,7 @@ class Product {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                `SELECT p.*, c.name as category_name 
+                `SELECT p.*, ${EXPIRY_AS_TEXT}, c.name as category_name 
                  FROM products p 
                  LEFT JOIN categories c ON p.category_id = c.id 
                  WHERE p.stock_quantity >= p.max_stock_level 

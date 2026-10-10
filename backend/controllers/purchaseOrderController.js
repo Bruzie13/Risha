@@ -6,6 +6,8 @@ const Notification = require('../models/Notification');
 const { sendPOEmail } = require('../utils/mailer');
 const logAudit = require('../services/audit');
 const { notifyPOStatusChanged } = require('../services/notifier');
+const { reorderSupplierProblem } = require('../utils/supply');
+const { shopToday, expiryProblem } = require('../utils/expiry');
 
 exports.getAllPOs = async (req, res) => {
     try {
@@ -62,6 +64,15 @@ exports.updatePOStatus = async (req, res) => {
                 success: false,
                 message: `Cannot change status from "${order.status}" to "${status}". Allowed: ${allowedTransitions[order.status]?.join(', ') || 'none'}`
             });
+        }
+
+        // The date typed when an order is received becomes the expiration date
+        // of every product on it. A new batch cannot already be past its date.
+        if (status === 'received') {
+            const expiryIssue = expiryProblem(req.body.expiration_date, shopToday());
+            if (expiryIssue) {
+                return res.status(400).json({ success: false, message: expiryIssue });
+            }
         }
 
         const updatedOrder = await PurchaseOrder.updateStatus(id, status, { expiration_date: req.body.expiration_date });
@@ -139,9 +150,10 @@ exports.autoGeneratePO = async (req, res) => {
         // expired one. Expired units are unusable, so size the order as if
         // on-hand stock were zero, and remind staff to pull the old batch.
         const now = new Date();
+        const expired = new Set();
         for (const p of lowStockProducts) {
             if (p.expiration_date && new Date(p.expiration_date) <= now) {
-                warnings.push(`"${p.name}" is expired — ordering a fresh batch; remove the expired units from shelves`);
+                expired.add(Number(p.id));     // said below, and only if it really is ordered
                 p.stock_quantity = 0;
             }
         }
@@ -169,11 +181,17 @@ exports.autoGeneratePO = async (req, res) => {
         for (const v of salesVelocity) velocityMap[v.product_id] = v.units_sold;
         const hasSalesData = salesVelocity.length > 0;
 
+        // Only suppliers still on the shop's list can be ordered from.
+        const activeSupplierIds = new Set((await Supplier.getAll()).map(s => Number(s.id)));
         const supplierGroups = {};
         for (const product of lowStockProducts) {
-            if (!product.supplier_id) {
-                warnings.push(`"${product.name}" skipped: no supplier assigned`);
+            const noSupplier = reorderSupplierProblem(product, activeSupplierIds);
+            if (noSupplier) {
+                warnings.push(`"${product.name}" skipped: ${noSupplier}`);
                 continue;
+            }
+            if (expired.has(Number(product.id))) {
+                warnings.push(`"${product.name}" is expired — ordering a fresh batch; remove the expired units from shelves`);
             }
 
             let reorderQuantity;
