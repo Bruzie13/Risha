@@ -267,9 +267,12 @@ function simpleTrend(series, days, tune = TUNING) {
     return { daily, sigma, n, avg, reg, quantities, lastMs };
 }
 
-// Core forecaster shared by /product/:id and /all.
-// Ensemble: Holt smoothing + linear regression + weighted moving average,
-// weighted by how much history exists, then shaped by day-of-week indices.
+// Core forecaster shared by /product/:id and /all. In order: freak days are
+// capped; a product with under 14 days on record gets the cautious first
+// estimate; otherwise the simple trend and (from 42 days on record) the
+// machine-learning ensemble are worked out and mixed in the proportion
+// TUNING.mlWeight; last, the correction for the forecast's own recent miss.
+// QA/FORECAST-METHOD.md describes each step.
 function forecastSeries(series, days = FORECAST_DAYS, opts = {}) {
     // Freak days are capped before either model sees them (utils/forecastGuards.js).
     // The cap is worked out from the series given, so a forecast made from part
@@ -294,10 +297,11 @@ function forecastSeries(series, days = FORECAST_DAYS, opts = {}) {
     }));
 
     // Random Forest + Gradient Boosting ensemble (thesis method), fitted in
-    // Python by ml/forecast.py using scikit-learn, and blended with the
-    // simple trend above in the proportion TUNING.mlWeight. Returns null when history is too short to
-    // train, or when the Python model could not be reached — in both cases the
-    // statistical baseline stands alone rather than the forecast failing.
+    // Python by ml/forecast.py using scikit-learn, and mixed with the simple
+    // trend above in the proportion TUNING.mlWeight (now 1: the ensemble
+    // alone). Returns null when history is too short to train, or when the
+    // Python model could not be reached — in both cases the simple trend
+    // stands alone rather than the forecast failing.
     const mlPreds = forecastML(fullSeries, days, opts.compare);
     // For the backtest: what each part would have forecast by itself over the
     // horizon, so the ensemble can be judged against its own ingredients.
@@ -733,8 +737,8 @@ function warmAllPredictions() {
      Demand     fast / steady / slow by expected sales, none when nothing sold
                 in the last 30 days and nothing is expected
 
-   The forecast itself is unchanged — it is still the scikit-learn ensemble
-   blended with the statistical baseline, read from the same cache as /all. */
+   The forecast itself is the one described at forecastSeries, read from the
+   same cache as /all. */
 const LEAD_TIME_DAYS = 7;
 const REORDER_SOON_DAYS = 21;
 
