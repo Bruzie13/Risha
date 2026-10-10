@@ -64,6 +64,20 @@ test('stock change: the quantity is a number above zero that the column can hold
     assert.match(stockChangeProblem(1e12, 'in'), /larger than the system can hold/);
 });
 
+test('a list is not a value: stock change and product fields', () => {
+    // Number([5]) is 5, so a list of one used to pass as a number
+    assert.match(stockChangeProblem([5], 'in'), /above zero/);
+    assert.match(stockChangeProblem({ n: 5 }, 'out'), /above zero/);
+    assert.match(productProblem({ ...good, unit_price: [120] }, true, suppliers), /Unit price has to be a single value/);
+    assert.match(productProblem({ ...good, name: ['Dog food'] }, true, suppliers), /Product name has to be a single value/);
+    assert.match(productProblem({ ...good, supplier_id: [6] }, true, suppliers), /Supplier has to be a single value/);
+    assert.match(productProblem({ stock_quantity: { $gt: 0 } }, false, suppliers), /Stock quantity has to be a single value/);
+    assert.match(productProblem({ unit_type: ['kg'] }, false, suppliers), /Unit has to be a single value/);
+    // a field this check does not know about is not its business
+    assert.equal(productProblem({ barcode: '4800', allow_same_name: true }, false, suppliers), null);
+    assert.equal(productProblem({ ...good, max_stock_level: null }, true, suppliers), null, 'null still means "not set"');
+});
+
 test('adding a product: nothing larger or longer than its column can hold', () => {
     assert.match(productProblem({ ...good, unit_price: 1e12 }, true, suppliers), /Unit price is too large \(99,999,999\.99 at most\)/);
     assert.match(productProblem({ ...good, stock_quantity: 99999999999 }, true, suppliers), /Stock quantity is too large/);

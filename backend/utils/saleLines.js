@@ -6,13 +6,18 @@
    the sale would have left the stock at minus 12. Lines for the same product
    are therefore added together first, so the check sees the whole quantity. */
 
+/* A number as the till sends it: a number, or digits in text. Number() alone
+   also reads a list of one ([3]) as 3, so a line with a list for its quantity
+   was sold as if it were a number. */
+const asNumber = v => ((typeof v === 'number' || (typeof v === 'string' && v.trim() !== '')) ? Number(v) : NaN);
+
 /** Why a line cannot be sold, or null. */
 function lineProblem(item) {
-    if (!item || typeof item !== 'object') return 'Each item must have a product and a quantity';
-    const id = Number(item.product_id);
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return 'Each item must have a product and a quantity';
+    const id = asNumber(item.product_id);
     if (!Number.isInteger(id) || id <= 0) return 'Each item must have a valid product';
-    const qty = Number(item.quantity);
-    if (item.quantity === '' || item.quantity === null || typeof item.quantity === 'boolean' || !Number.isFinite(qty) || qty <= 0) {
+    const qty = asNumber(item.quantity);
+    if (!Number.isFinite(qty) || qty <= 0) {
         return 'Each item needs a quantity above zero, as a number';
     }
     return null;

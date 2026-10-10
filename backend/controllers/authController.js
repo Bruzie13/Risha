@@ -1007,13 +1007,13 @@ exports.deleteUser = async (req, res) => {
         logAudit(req.user.id, 'delete', 'users', parseInt(id), null, null, req.ip);
         res.status(200).json({
             success: true,
-            message: 'User deleted successfully'
+            message: 'Account deactivated'
         });
     } catch (error) {
         console.error('Delete user error:', error);
         res.status(500).json({
             success: false,
-            message: 'Error deleting user'
+            message: 'The account could not be deactivated'
         });
     }
 };

@@ -90,7 +90,7 @@ function displayUsers(users) {
                     ? `<button class="btn-edit" onclick="restoreUser(${u.id})" title="Reactivate this account — its username and email were never released">Restore</button>`
                     : `${Number(u.email_verified) === 1 ? '' : `<button class="btn-edit" onclick="resendVerification(${u.id})" title="Send the confirmation link again">Resend</button>`}
                 <button class="btn-edit" onclick="openEditUserModal(${u.id})">Edit</button>
-                ${Number(u.id) === Number((getUser() || {}).id) ? '' : `<button class="btn-delete" onclick="deleteUser(${u.id})">Delete</button>`}`}
+                ${Number(u.id) === Number((getUser() || {}).id) ? '' : `<button class="btn-delete" onclick="deleteUser(${u.id})" title="Stops this account signing in. It can be restored later.">Deactivate</button>`}`}
             </td>
         </tr>
     `).join('');
@@ -477,26 +477,28 @@ async function handleUserSubmit(event) {
 }
 
 async function deleteUser(id) {
-    // Deletion is a deactivation: the row stays, so the username and email stay
-    // reserved. Saying "cannot be undone" sent admins hunting for a name that
-    // the list no longer showed but the database still held.
-    showConfirmDialog('Delete user', 'Deactivate this account? They can no longer sign in, and their username and email stay reserved. You can bring the account back later with "Show deactivated".', async () => {
+    // Nothing is deleted: the account is switched off and the row stays, so the
+    // username and email stay reserved. The button, the title and the answer
+    // all said "Delete" while the text between them said "Deactivate".
+    const user = allUsers.find(u => Number(u.id) === Number(id));
+    const who = user ? `${escHtml(user.full_name || user.username)} (${escHtml(user.username || '')})` : 'this account';
+    showConfirmDialog('Deactivate account', `Deactivate ${who}? They can no longer sign in, and their username and email stay reserved. Nothing they recorded is removed. You can bring the account back later with "Show deactivated".`, async () => {
         try {
             const response = await fetch(`${API_BASE}/auth/users/${id}`, {
                 method: 'DELETE', headers: getAuthHeaders()
             });
             const data = await response.json();
             if (data.success) {
-                showSuccessDialog('User deactivated', 'The account can no longer sign in. Tick "Show deactivated" to restore it.', { tone: 'danger' });
+                showSuccessDialog('Account deactivated', 'The account can no longer sign in. Tick "Show deactivated" to restore it.', { tone: 'danger', icon: 'person_off' });
                 await loadUsers();
             } else {
                 showToast('Error: ' + (data.message || 'Unknown'), 'error');
             }
         } catch (error) {
-            console.error('Error deleting user:', error);
-            showToast('Failed to delete user', 'error');
+            console.error('Error deactivating user:', error);
+            showToast('The account could not be deactivated', 'error');
         }
-    }, 'Yes, Delete', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
+    }, 'Yes, deactivate', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">person_off</span>');
 }
 
 document.addEventListener('click', (e) => {

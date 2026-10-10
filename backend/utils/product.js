@@ -17,6 +17,9 @@ const LARGEST = [['unit_price', 'Unit price', 99999999.99], ['cost_price', 'Cost
 const WHOLE = [['reorder_level', 'Reorder level'], ['max_stock_level', 'Max stock level']];
 const UNIT_TYPES = ['piece', 'kg', 'g', 'liter', 'ml'];
 
+// every field named above, once, with its label
+const FIELDS = [...new Map([...IMPORTANT, ...NOT_NEGATIVE, ...LONGEST, ...LARGEST, ['unit_type', 'Unit']].map(([k, label]) => [k, [k, label]])).values()];
+
 const blank = v => v == null || String(v).trim() === '';
 
 /**
@@ -28,6 +31,11 @@ function productProblem(data, adding, activeSupplierIds) {
     const d = data || {};
     const sent = k => Object.prototype.hasOwnProperty.call(d, k);
     const checked = k => adding || sent(k);
+
+    // Each field is one value. A list in its place used to pass (Number([5])
+    // is 5) and then fail with a general error when the row was written.
+    const odd = FIELDS.find(([k]) => sent(k) && d[k] !== null && typeof d[k] === 'object');
+    if (odd) return `${odd[1]} has to be a single value.`;
 
     const missing = IMPORTANT.filter(([k]) => checked(k) && blank(d[k])).map(([, label]) => label);
     if (missing.length) return `Fill in ${missing.length === 1 ? 'this' : 'these'} first: ${missing.join(', ')}.`;
@@ -66,7 +74,8 @@ const MAX_STOCK = 9999999.999;
 function stockChangeProblem(quantity, kind) {
     if (!STOCK_CHANGES.includes(kind)) return 'Choose what kind of change this is: stock added, taken out, counted lower, or damaged.';
     if (quantity === null || quantity === undefined || quantity === '' || typeof quantity === 'boolean') return 'Enter the quantity.';
-    const n = Number(quantity);
+    // a number, or digits in text: Number() alone reads a list of one as its item
+    const n = (typeof quantity === 'number' || typeof quantity === 'string') ? Number(quantity) : NaN;
     if (!Number.isFinite(n) || n <= 0) return 'The quantity has to be a number above zero.';
     if (n > MAX_STOCK) return 'That quantity is larger than the system can hold.';
     return null;
