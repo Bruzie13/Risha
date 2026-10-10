@@ -1,5 +1,6 @@
 const pool = require('../config/database');
 const { newSaleRef } = require('../utils/requestKeys');
+const { LIKE_ESCAPE, containsPattern } = require('../utils/query');
 
 // Timestamps are stored in UTC but the shop trades on Philippine time (UTC+8,
 // no DST), so every report groups by CONVERT_TZ(...,'+00:00','+08:00'). Without
@@ -18,8 +19,9 @@ class Sale {
         if (from) { conditions.push(`DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00')) >= ?`); params.push(from); }
         if (to) { conditions.push(`DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00')) <= ?`); params.push(to); }
         if (filters.search) {
-            conditions.push('(CAST(s.id AS CHAR) LIKE ? OR s.sale_number LIKE ? OR u.full_name LIKE ? OR s.customer_name LIKE ?)');
-            const like = `%${filters.search}%`;
+            // % and _ in what was typed are looked for as themselves
+            conditions.push(`(CAST(s.id AS CHAR) LIKE ? ${LIKE_ESCAPE} OR s.sale_number LIKE ? ${LIKE_ESCAPE} OR u.full_name LIKE ? ${LIKE_ESCAPE} OR s.customer_name LIKE ? ${LIKE_ESCAPE})`);
+            const like = containsPattern(filters.search);
             params.push(like, like, like, like);
         }
         return conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';

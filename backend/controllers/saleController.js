@@ -4,6 +4,7 @@ const logAudit = require('../services/audit');
 const { notifySaleCreated, notifyLowStock, notifyStockout } = require('../services/notifier');
 const { saleRef } = require('../utils/requestKeys');
 const { lineProblem, mergeLines } = require('../utils/saleLines');
+const { dayRange, realDay } = require('../utils/query');
 
 /* The answer to a cart that has already been saved: the sale it became. Only
    the cashier who made that sale is shown it; the reference is not a way to
@@ -15,20 +16,25 @@ function alreadySaved(req, res, sale) {
     return res.status(200).json({ success: true, duplicate: true, message: 'This sale was already saved', data: sale });
 }
 
+/* The search and dates of a sales list. Either end of the range may be left
+   out. Dates that cannot be read come back as { problem } for the caller to
+   answer with: they used to reach the query, which then found nothing and
+   said nothing. */
 function saleFilters(query) {
     const filters = {};
     // accept both param spellings (the frontend used date_from/date_to)
-    const from = query.startDate || query.date_from;
-    const to = query.endDate || query.date_to;
-    if (from) filters.date_from = from;
-    if (to) filters.date_to = to;
-    if (query.search && String(query.search).trim()) filters.search = String(query.search).trim();
+    const range = dayRange(query.startDate || query.date_from, query.endDate || query.date_to);
+    if (range.problem) return { problem: range.problem };
+    if (range.from) filters.date_from = range.from;
+    if (range.to) filters.date_to = range.to;
+    if (typeof query.search === 'string' && query.search.trim()) filters.search = query.search.trim().slice(0, 100);
     return filters;
 }
 
 exports.getAllSales = async (req, res) => {
     try {
         const filters = saleFilters(req.query);
+        if (filters.problem) return res.status(400).json({ success: false, message: filters.problem });
         const { limit, offset } = req.query;
         const paginated = limit !== undefined;
         if (paginated) {
@@ -49,7 +55,9 @@ exports.getAllSales = async (req, res) => {
 
 exports.getSalesStats = async (req, res) => {
     try {
-        const stats = await Sale.getStats(saleFilters(req.query));
+        const filters = saleFilters(req.query);
+        if (filters.problem) return res.status(400).json({ success: false, message: filters.problem });
+        const stats = await Sale.getStats(filters);
         res.status(200).json({ success: true, data: stats });
     } catch (error) {
         console.error('Get sales stats error:', error);
@@ -283,7 +291,7 @@ function shopToday() {
    always today, whatever the request says. */
 function eodDate(req, requested) {
     if (req.user.role === 'cashier') return shopToday();
-    return /^\d{4}-\d{2}-\d{2}$/.test(requested || '') ? requested : shopToday();
+    return realDay(requested) || shopToday();
 }
 
 /* A cashier's count is of their own drawer: what it started with plus the
@@ -552,12 +560,13 @@ exports.getDailySales = async (req, res) => {
 exports.getSalesReport = async (req, res) => {
     try {
         const { period, date_from, date_to } = req.query;
-        // Only real calendar dates reach the query; anything else is ignored
-        // rather than passed along.
-        const isDate = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(Date.parse(v));
-        const ranged = isDate(date_from) && isDate(date_to);
-        const startDate = ranged ? date_from : null;
-        const endDate = ranged ? date_to : null;
+        // No dates is the whole history. Dates that cannot be read are
+        // refused: they used to be ignored, and the whole history came back
+        // under the heading of the period that was asked for.
+        const range = dayRange(date_from, date_to, { needBoth: true });
+        if (range.problem) return res.status(400).json({ success: false, message: range.problem });
+        const startDate = range.from;
+        const endDate = range.to;
         const grouping = ['daily', 'weekly', 'monthly'].includes(period) ? period : 'daily';
         const report = await Sale.getSalesReport(grouping, startDate, endDate);
         res.status(200).json({

@@ -47,6 +47,8 @@ async function loadSales(reset = true) {
             salesTotal = data.total ?? allSales.length;
             displaySales(allSales);
             updateStats();
+        } else if (reset && data.message) {
+            showToast(data.message, 'warning');
         }
     } catch (error) {
         console.error('Error loading sales:', error);
@@ -496,6 +498,7 @@ async function exportSalesCsv() {
     try {
         const res = await fetch(`${API_BASE}/sales?${salesQuery()}`, { headers: getAuthHeaders() });
         const data = await res.json();
+        if (!data.success && data.message) { showToast(data.message, 'warning'); return; }
         sales = (data.success && Array.isArray(data.data)) ? data.data : [];
     } catch (e) {
         showToast('Failed to export sales', 'error');
@@ -547,6 +550,7 @@ function filterSalesByDate() {
     const from = document.getElementById('dateFrom')?.value;
     const to = document.getElementById('dateTo')?.value;
     if (!from && !to) { showToast('Select a date range', 'error'); return; }
+    if (from && to && from > to) { showToast('The start date is after the end date', 'warning'); return; }
     loadSales();
 }
 

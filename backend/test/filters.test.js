@@ -44,6 +44,14 @@ test('Sale._filterWhere: search matches id, sale_number, staff name and customer
     assert.deepEqual(params, ['%180%', '%180%', '%180%', '%180%']);
 });
 
+test('Sale._filterWhere: a % or _ in the search is looked for as itself', () => {
+    // "%" alone used to match every sale, "_" every sale with a one-letter field
+    const params = [];
+    const where = Sale._filterWhere({ search: '50%_' }, params);
+    assert.equal((where.match(/LIKE \? ESCAPE '!'/g) || []).length, 4, 'each LIKE names its escape mark');
+    assert.deepEqual(params, ['%50!%!_%', '%50!%!_%', '%50!%!_%', '%50!%!_%']);
+});
+
 test('Notification._scopeWhere: user scope includes global (NULL) rows', () => {
     const params = [];
     const where = Notification._scopeWhere({ user_id: 7 }, params);

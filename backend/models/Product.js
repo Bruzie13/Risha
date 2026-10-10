@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { LIKE_ESCAPE, containsPattern } = require('../utils/query');
 
 // Stock/expiry status as SQL, mirroring the inventory page's statusMatches():
 // a product can be both low-stock AND expiring, so each filter is a plain fact.
@@ -55,8 +56,9 @@ function applyProductFilters(sql, params, filters) {
         params.push(filters.species);
     }
     if (filters.search) {
-        sql += ' AND (p.name LIKE ? OR p.sku LIKE ? OR p.brand LIKE ? OR p.barcode LIKE ?)';
-        const like = `%${filters.search}%`;
+        // % and _ in what was typed are looked for as themselves
+        sql += ` AND (p.name LIKE ? ${LIKE_ESCAPE} OR p.sku LIKE ? ${LIKE_ESCAPE} OR p.brand LIKE ? ${LIKE_ESCAPE} OR p.barcode LIKE ? ${LIKE_ESCAPE})`;
+        const like = containsPattern(filters.search);
         params.push(like, like, like, like);
     }
     if (filters.status && STATUS_SQL[filters.status]) {

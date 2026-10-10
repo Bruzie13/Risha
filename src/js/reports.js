@@ -139,6 +139,8 @@ async function loadSales() {
         if (from && to) { params.set('date_from', from); params.set('date_to', to); }
         const response = await fetch(`${API_BASE}/sales/report?${params}`, { headers: getAuthHeaders() });
         const data = await response.json();
+        // a refusal with a reason (dates that cannot be read) is shown as given
+        if (!data.success && response.status === 400 && data.message) { showToast(data.message, 'warning'); return; }
         if (!data.success) throw new Error(data.message || 'Report failed');
 
         const empty = !Number(data.data.summary?.total_transactions);
