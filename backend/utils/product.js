@@ -8,6 +8,14 @@
 
 const IMPORTANT = [['sku', 'SKU'], ['name', 'Product name'], ['category_id', 'Category'], ['unit_price', 'Unit price'], ['supplier_id', 'Supplier']];
 const NOT_NEGATIVE = [['cost_price', 'Cost price'], ['stock_quantity', 'Stock quantity'], ['reorder_level', 'Reorder level'], ['max_stock_level', 'Max stock level']];
+// What each column can hold. A value past these used to pass every check and
+// then be refused by the database with a general error.
+const LONGEST = [['sku', 'SKU', 50], ['name', 'Product name', 255], ['brand', 'Brand', 100], ['barcode', 'Barcode', 100], ['batch_number', 'Batch number', 100],
+    ['species', 'Species', 50], ['breed_size', 'Breed size', 20], ['age_group', 'Age group', 20], ['health_category', 'Health category', 50]];
+const LARGEST = [['unit_price', 'Unit price', 99999999.99], ['cost_price', 'Cost price', 99999999.99], ['stock_quantity', 'Stock quantity', 9999999.999],
+    ['reorder_level', 'Reorder level', 1000000], ['max_stock_level', 'Max stock level', 1000000]];
+const WHOLE = [['reorder_level', 'Reorder level'], ['max_stock_level', 'Max stock level']];
+const UNIT_TYPES = ['piece', 'kg', 'g', 'liter', 'ml'];
 
 const blank = v => v == null || String(v).trim() === '';
 
@@ -29,6 +37,16 @@ function productProblem(data, adding, activeSupplierIds) {
     for (const [k, label] of NOT_NEGATIVE) {
         if (sent(k) && !blank(d[k]) && !(Number(d[k]) >= 0)) return `${label} cannot be less than zero.`;
     }
+    for (const [k, label, max] of LONGEST) {
+        if (sent(k) && !blank(d[k]) && String(d[k]).length > max) return `${label} is too long (${max} characters at most).`;
+    }
+    for (const [k, label, max] of LARGEST) {
+        if (sent(k) && !blank(d[k]) && Number(d[k]) > max) return `${label} is too large (${max.toLocaleString('en-US')} at most).`;
+    }
+    for (const [k, label] of WHOLE) {
+        if (sent(k) && !blank(d[k]) && !Number.isInteger(Number(d[k]))) return `${label} has to be a whole number.`;
+    }
+    if (sent('unit_type') && !blank(d.unit_type) && !UNIT_TYPES.includes(d.unit_type)) return 'Choose the unit from the list (piece, kg, g, liter or ml).';
     if (checked('supplier_id') && !(activeSupplierIds && activeSupplierIds.has(Number(d.supplier_id)))) {
         return 'Choose a supplier from the list. A product needs a supplier so it can be reordered.';
     }

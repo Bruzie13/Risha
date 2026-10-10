@@ -63,3 +63,20 @@ test('stock change: the quantity is a number above zero that the column can hold
     assert.match(stockChangeProblem('', 'out'), /Enter the quantity/);
     assert.match(stockChangeProblem(1e12, 'in'), /larger than the system can hold/);
 });
+
+test('adding a product: nothing larger or longer than its column can hold', () => {
+    assert.match(productProblem({ ...good, unit_price: 1e12 }, true, suppliers), /Unit price is too large \(99,999,999\.99 at most\)/);
+    assert.match(productProblem({ ...good, stock_quantity: 99999999999 }, true, suppliers), /Stock quantity is too large/);
+    assert.match(productProblem({ ...good, reorder_level: 5000000 }, true, suppliers), /Reorder level is too large/);
+    assert.match(productProblem({ ...good, name: 'T'.repeat(300) }, true, suppliers), /Product name is too long \(255 characters at most\)/);
+    assert.match(productProblem({ ...good, sku: 'S'.repeat(51) }, true, suppliers), /SKU is too long/);
+    assert.match(productProblem({ ...good, barcode: '9'.repeat(101) }, true, suppliers), /Barcode is too long/);
+    assert.equal(productProblem({ ...good, unit_price: 99999999.99, stock_quantity: 9999999.999, name: 'T'.repeat(255) }, true, suppliers), null, 'the largest values that fit are accepted');
+});
+
+test('adding a product: levels are whole numbers and the unit is from the list', () => {
+    assert.match(productProblem({ ...good, reorder_level: 2.5 }, true, suppliers), /Reorder level has to be a whole number/);
+    assert.match(productProblem({ ...good, unit_type: 'box' }, true, suppliers), /unit from the list/);
+    assert.equal(productProblem({ ...good, unit_type: 'kg', stock_quantity: 12.5, reorder_level: 5 }, true, suppliers), null);
+    assert.equal(productProblem({ unit_type: 'box' }, false, suppliers) !== null, true, 'an edit is held to the same list');
+});
