@@ -1,5 +1,15 @@
 const pool = require('../config/database');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+
+/* How much work a password hash costs. Every hash in the system is made at
+   this cost, so checking any of them takes the same time. */
+const HASH_ROUNDS = 10;
+
+/* A hash that no password matches, made once when the server starts. Sign-in
+   checks the password against it when the name is not on the list, so that
+   answer takes as long as a wrong password for a real account. */
+const NO_ACCOUNT_HASH = bcrypt.hashSync(crypto.randomBytes(24).toString('hex'), HASH_ROUNDS);
 
 class User {
     static async findByEmail(email) {
@@ -127,7 +137,7 @@ class User {
     static async create(userData) {
         const connection = await pool.getConnection();
         try {
-            const hashedPassword = await bcrypt.hash(userData.password, 10);
+            const hashedPassword = await bcrypt.hash(userData.password, HASH_ROUNDS);
 
             const [result] = await connection.execute(
                 `INSERT INTO users (username, email, password, full_name, role, phone, address, is_active, supplier_id) 
@@ -174,7 +184,7 @@ class User {
             }
 
             if (userData.password) {
-                const hashedPassword = await bcrypt.hash(userData.password, 10);
+                const hashedPassword = await bcrypt.hash(userData.password, HASH_ROUNDS);
                 fields.push('password = ?');
                 params.push(hashedPassword);
             }
@@ -233,5 +243,7 @@ class User {
         return await bcrypt.compare(plainPassword, hashedPassword);
     }
 }
+
+User.NO_ACCOUNT_HASH = NO_ACCOUNT_HASH;
 
 module.exports = User;
