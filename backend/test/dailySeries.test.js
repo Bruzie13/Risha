@@ -35,3 +35,10 @@ test('series: nothing on record gives an empty series', () => {
     assert.deepEqual(buildDailySeries([], 365, '2026-10-08'), []);
     assert.deepEqual(buildDailySeries([row('2026-10-09', 4)], 365, '2026-10-08'), [], 'only today has sales');
 });
+
+test('series: days marked as having no data are left out, not counted as zero', () => {
+    const skip = new Set(['2026-10-03', '2026-10-04']);
+    const series = buildDailySeries([row('2026-10-01', 2), row('2026-10-06', 1)], 365, '2026-10-07', skip);
+    assert.deepEqual(series.map(p => p.date), ['2026-10-01', '2026-10-02', '2026-10-05', '2026-10-06', '2026-10-07']);
+    assert.deepEqual(series.map(p => p.quantity), [2, 0, 0, 1, 0], 'ordinary quiet days are still zeros');
+});

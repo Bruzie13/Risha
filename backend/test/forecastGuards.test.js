@@ -109,3 +109,40 @@ test('new product: nothing on record yet forecasts nothing', () => {
     assert.equal(fc.basis, 'new');
     assert.equal(fc.predictions.length, 30);
 });
+
+const { noDataDays } = require('../utils/forecastGuards');
+const dayMap = (obj) => new Map(Object.entries(obj));
+
+test('days without data: sales recorded with no items are left out', () => {
+    const sold = dayMap({ '2026-05-08': 90, '2026-05-09': 87, '2026-06-01': 20, '2026-06-02': 25 });
+    const sales = dayMap({ '2026-05-08': 10, '2026-05-09': 9, '2026-05-10': 12, '2026-05-11': 11, '2026-05-27': 8, '2026-06-01': 9, '2026-06-02': 11 });
+    const r = noDataDays(sold, sales, '2026-05-08', '2026-06-02');
+    assert.equal(r.days.size, 22, '10 to 31 May');
+    assert.ok(r.days.has('2026-05-10') && r.days.has('2026-05-31'));
+    assert.ok(!r.days.has('2026-05-09') && !r.days.has('2026-06-01'));
+    assert.deepEqual(r.ranges, [{ from: '2026-05-10', to: '2026-05-31', days: 22, sales: 31, reason: 'no_items' }]);
+});
+
+test('days without data: one or two quiet days are real zeros', () => {
+    const sold = dayMap({ '2026-04-05': 5, '2026-04-07': 6, '2026-04-10': 4 });
+    const r = noDataDays(sold, dayMap({ '2026-04-05': 2, '2026-04-07': 2, '2026-04-10': 1 }), '2026-04-05', '2026-04-10');
+    assert.equal(r.days.size, 0, 'the 6th alone, and the 8th and 9th together, stay in');
+    assert.deepEqual(r.ranges, []);
+});
+
+test('days without data: three empty days in a row with no sale at all is a closure', () => {
+    const sold = dayMap({ '2026-04-01': 5, '2026-04-05': 6 });
+    const r = noDataDays(sold, dayMap({ '2026-04-01': 1, '2026-04-05': 1 }), '2026-04-01', '2026-04-05');
+    assert.deepEqual(r.ranges, [{ from: '2026-04-02', to: '2026-04-04', days: 3, sales: 0, reason: 'closed' }]);
+});
+
+test('days without data: empty days up to the last day on record are kept', () => {
+    const sold = dayMap({ '2026-04-01': 5, '2026-04-02': 5 });
+    const r = noDataDays(sold, dayMap({ '2026-04-01': 1, '2026-04-02': 1 }), '2026-04-01', '2026-04-10');
+    assert.equal(r.days.size, 0, 'recent silence may be real');
+});
+
+test('days without data: nothing to look at gives nothing', () => {
+    assert.equal(noDataDays(new Map(), new Map(), null, '2026-04-10').days.size, 0);
+    assert.equal(noDataDays(new Map(), new Map(), '2026-04-11', '2026-04-10').days.size, 0);
+});

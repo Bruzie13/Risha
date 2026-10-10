@@ -153,7 +153,8 @@ function renderPlan() {
                 : '');
     document.getElementById('planCaption').textContent =
         `Based on ${plan.history_days ? plan.history_days + ' days of sales on record (the model reads up to 12 months)' : 'sales on record'}. Forecasts cover the next ${plan.forecast_days} days.`
-        + (plan.last_sale_date && !stale ? ` Last sale recorded ${planDate(plan.last_sale_date)}.` : '');
+        + (plan.last_sale_date && !stale ? ` Last sale recorded ${planDate(plan.last_sale_date)}.` : '')
+        + leftOutText(plan.excluded);
     const lead = document.getElementById('howLead');
     if (lead) lead.textContent = plan.lead_time_days;
 
@@ -412,6 +413,14 @@ async function openProductDetail(productId) {
     } finally {
         clearTimeout(timeout);
     }
+}
+
+/* The days the forecast does not read, and why, for the line under the title. */
+function leftOutText(excluded) {
+    if (!excluded || !excluded.days || !excluded.ranges || !excluded.ranges.length) return '';
+    const why = { no_items: 'sales were recorded without their items', closed: 'nothing was recorded' };
+    const parts = excluded.ranges.map(r => `${r.from === r.to ? planDate(r.from) : planDate(r.from) + ' to ' + planDate(r.to)} (${r.days} day${r.days === 1 ? '' : 's'}: ${why[r.reason] || 'no usable record'})`);
+    return ` Not counted: ${parts.join('; ')}.`;
 }
 
 function detailSentence(p) {

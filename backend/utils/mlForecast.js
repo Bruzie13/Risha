@@ -70,9 +70,24 @@ function seriesKey(series, days, compare) {
     return `${first}|${last}|${series.length}|${days}|${sum}|${mix}|${compare ? 'c' : ''}`;
 }
 
+/* Where the series skips calendar days (days left out because the shop has no
+   usable record for them: utils/forecastGuards.js). [index, days] means that
+   many days are missing just before the value at that index. */
+function gapsOf(series) {
+    const gaps = [];
+    for (let i = 1; i < series.length; i++) {
+        const missing = Math.round((Date.parse(series[i].date + 'T00:00:00Z') - Date.parse(series[i - 1].date + 'T00:00:00Z')) / 86400000) - 1;
+        if (missing > 0) gaps.push([i, missing]);
+    }
+    return gaps;
+}
+
 /** One job for the Python model. */
 function jobFor(key, fit, days, compare) {
-    return { key, series: fit.map(p => p.quantity), first_date: fit[0].date, days, compare: !!compare };
+    const job = { key, series: fit.map(p => p.quantity), first_date: fit[0].date, days, compare: !!compare };
+    const gaps = gapsOf(fit);
+    if (gaps.length) job.gaps = gaps;
+    return job;
 }
 
 /** Turn Python's day offsets back into the dated shape callers expect. */
@@ -193,7 +208,8 @@ async function warmMLCacheAsync(list) {
 }
 
 /**
- * series: [{ date: 'YYYY-MM-DD', quantity }] — continuous calendar days.
+ * series: [{ date: 'YYYY-MM-DD', quantity }] in date order, one per calendar
+ * day except where days have been left out.
  * Returns daily predictions, or null when history is too short to train.
  */
 function forecastML(series, days, compare) {

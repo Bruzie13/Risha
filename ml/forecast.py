@@ -58,7 +58,7 @@ Reads one JSON object on stdin and writes one JSON object on stdout, so the
 caller pays scikit-learn's import cost once for a whole batch of products:
 
     in   {"days": 30, "jobs": [{"key": "...", "series": [..], "first_date": "2026-02-27",
-                               "compare": false}, ...]}
+                               "compare": false, "gaps": [[72, 22]]}, ...]}
     out  {"results": {"<key>": [{"date_offset": 1, "predicted_quantity": 2.4}, ...] | null},
           "importances": {"<key>": [..one weight per feature..]},
           "features": ["day of week", ...]}
@@ -69,6 +69,15 @@ really does better than either learner by itself.
 
 A job returns null when its history is too short to train, and the caller falls
 back to the statistical baseline — the same behaviour as before.
+
+DAYS LEFT OUT
+A series is normally one value per calendar day. The caller may leave days out
+(days the shop has no usable record for: see backend/utils/forecastGuards.js)
+and say where with "gaps": [index, days] means that many calendar days are
+missing just before the value at that index. The values stay in order, so "the
+last 7 days" means the last 7 days on record, while the calendar inputs and the
+"how far ahead" input are worked out from the real dates. A training row is
+never asked to forecast across more than 30 real days.
 """
 import json
 import sys
@@ -143,12 +152,23 @@ def _state(n, qty):
     ]
 
 
-def _features(known, target, qty, first_day):
-    """Row for forecasting day index `target` from the first `known` days."""
-    return _calendar(first_day + timedelta(days=target)) + _state(known, qty) + [float(target - known + 1)]
+def _dates(first_day, n, gaps=None):
+    """The calendar day of each of the n values, allowing for days left out."""
+    missing = {int(i): int(d) for i, d in (gaps or [])}
+    out, day = [], first_day
+    for i in range(n):
+        if i:
+            day = day + timedelta(days=1 + missing.get(i, 0))
+        out.append(day)
+    return out
 
 
-def _rows(qty, first_day, salt=0):
+def _features(known, day, ahead, qty):
+    """Row for forecasting calendar day `day`, `ahead` days after the first `known` values."""
+    return _calendar(day) + _state(known, qty) + [float(ahead)]
+
+
+def _rows(qty, dates, salt=0):
     """Training rows for one product.
 
     Each day after the warm-up is paired with what was known some days earlier.
@@ -161,8 +181,15 @@ def _rows(qty, first_day, salt=0):
         gap = 1 + (target * 7 + salt * 13) % MAX_GAP
         known = target - gap + 1
         if known < WARMUP:
-            known, gap = target, 1                 # too early for that gap: use the day before
-        X.append(_features(known, target, qty, first_day))
+            known = target                         # too early for that gap: use the day before
+        ahead = (dates[target] - dates[known - 1]).days
+        if ahead > MAX_GAP:
+            # days were left out in between: forecast this day from the day before it
+            known = target
+            ahead = (dates[target] - dates[target - 1]).days
+            if ahead > MAX_GAP:
+                continue                           # first day back after a long break: nothing recent to go on
+        X.append(_features(known, dates[target], ahead, qty))
         y.append(qty[target])
         age.append(n - 1 - target)
     return X, y, age
@@ -176,7 +203,7 @@ def fit_group(jobs, half_life=0):
     """
     X, y, age = [], [], []
     for i, job in enumerate(jobs):
-        rows, target, ages = _rows(job["qty"], job["first_day"], i)
+        rows, target, ages = _rows(job["qty"], job["dates"], i)
         X.extend(rows)
         y.extend(target)
         age.extend(ages)
@@ -210,8 +237,9 @@ def forecast_group(jobs, half_life=0):
     X, owner = [], []
     for i, job in enumerate(jobs):
         n = len(job["qty"])
+        last = job["dates"][-1]
         for h in range(job["days"]):
-            X.append(_features(n, n + h, job["qty"], job["first_day"]))
+            X.append(_features(n, last + timedelta(days=h + 1), h + 1, job["qty"]))
             owner.append(i)
     X_arr = np.asarray(X, dtype=float)
     rf_pred = np.maximum(0.0, rf.predict(X_arr))
@@ -230,11 +258,12 @@ def forecast_group(jobs, half_life=0):
     return results, [round(float(w), 4) for w in rf.feature_importances_]
 
 
-def forecast(series, days, first_day, compare=False, half_life=0):
+def forecast(series, days, first_day, compare=False, half_life=0, gaps=None):
     """One series on its own: (daily predictions, feature weights), or (None, None)."""
     if len(series) < WARMUP + MIN_TRAIN_ROWS:
         return None, None
-    job = {"key": "_", "qty": [float(v) for v in series], "first_day": first_day, "days": days, "compare": compare}
+    job = {"key": "_", "qty": [float(v) for v in series], "dates": _dates(first_day, len(series), gaps),
+           "days": days, "compare": compare}
     results, weights = forecast_group([job], half_life)
     return results["_"], weights
 
@@ -263,11 +292,11 @@ def main():
             if len(series) < WARMUP + MIN_TRAIN_ROWS:
                 results[key] = None
                 continue
-            first_day = _first_day(raw)
+            dates = _dates(_first_day(raw), len(series), raw.get("gaps"))
             job = {
                 "key": key,
                 "qty": [float(v) for v in series],
-                "first_day": first_day,
+                "dates": dates,
                 # A job may set its own horizon: the backtest forecasts only the
                 # holdout window, while the live forecast runs the full 30 days.
                 "days": int(raw.get("days", default_days)),
@@ -276,8 +305,7 @@ def main():
             # Products are pooled with the others whose history ends on the
             # same day: the live forecast in one group, each backtest cut-off
             # in its own, so a backtest never sees the days it is graded on.
-            end_day = first_day + timedelta(days=len(series) - 1)
-            groups.setdefault(end_day, []).append(job)
+            groups.setdefault(dates[-1], []).append(job)
         except Exception as exc:                       # one bad series must not
             print(f"job {key}: {exc}", file=sys.stderr)  # sink the batch
             results[key] = None

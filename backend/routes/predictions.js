@@ -3,7 +3,7 @@ const router = express.Router();
 const { forecastML, warmMLCacheAsync, mlAvailable, featureWeights } = require('../utils/mlForecast');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { shopTypical, capSeries, isNewProduct, cautiousDailyRate } = require('../utils/forecastGuards');
+const { shopTypical, capSeries, isNewProduct, cautiousDailyRate, noDataDays } = require('../utils/forecastGuards');
 
 // Up to twelve months of sales, the range the study specifies (3–12 months),
 // so weekend, pay-day and seasonal patterns are all inside what the model sees.
@@ -96,7 +96,7 @@ function shopDay(offsetDays = 0) {
     return new Date(Date.now() + 8 * 3600e3 + offsetDays * DAY_MS).toISOString().slice(0, 10);
 }
 
-function buildDailySeries(rows, maxDays = HISTORY_WINDOW_DAYS, lastDay = shopDay(-1)) {
+function buildDailySeries(rows, maxDays = HISTORY_WINDOW_DAYS, lastDay = shopDay(-1), skip = null) {
     const dailyMap = {};
     rows.forEach(r => {
         const date = r.sale_day || new Date(r.sale_date).toISOString().split('T')[0];
@@ -111,9 +111,34 @@ function buildDailySeries(rows, maxDays = HISTORY_WINDOW_DAYS, lastDay = shopDay
     const series = [];
     for (let t = startMs; t <= endMs; t += DAY_MS) {
         const d = new Date(t).toISOString().split('T')[0];
+        // days the shop has no usable record for are left out, not counted as zero
+        if (skip && skip.has(d)) continue;
         series.push({ date: d, quantity: dailyMap[d] || 0 });
     }
     return series;
+}
+
+/* The days to leave out of every product's history (utils/forecastGuards.js):
+   days with sales recorded but no items, and closures of three days or more.
+   Worked out from the sale lines already read, plus how many sales were
+   recorded on each day. */
+async function findNoDataDays(rows, lastDay = shopDay(-1)) {
+    const soldByDay = new Map();
+    let firstDay = null;
+    rows.forEach(r => {
+        const day = r.sale_day || new Date(r.sale_date).toISOString().split('T')[0];
+        if (day > lastDay) return;
+        soldByDay.set(day, (soldByDay.get(day) || 0) + Number(r.quantity));
+        if (!firstDay || day < firstDay) firstDay = day;
+    });
+    const [saleDays] = await pool.query(`
+        SELECT DATE_FORMAT(CONVERT_TZ(s.created_at,'+00:00','+08:00'), '%Y-%m-%d') AS sale_day, COUNT(*) AS sales
+        FROM sales s
+        WHERE s.payment_status = 'completed'
+          AND s.created_at >= DATE_SUB(NOW(), INTERVAL ${HISTORY_WINDOW_DAYS} DAY)
+        GROUP BY sale_day`);
+    const salesByDay = new Map(saleDays.map(r => [r.sale_day, Number(r.sales)]));
+    return noDataDays(soldByDay, salesByDay, firstDay, lastDay);
 }
 
 // Multiplicative day-of-week indices (dampened 50%, clamped) so weekend
@@ -286,22 +311,33 @@ function forecastSeries(series, days = FORECAST_DAYS, opts = {}) {
 function mlJobsFor(series, days = FORECAST_DAYS, shop = {}) {
     // capped exactly as forecastSeries will cap them, or the cache keys differ
     const jobs = [{ series: capSeries(series, shop.live).series, days }];
-    const holdout = series.length >= 42 ? 14 : 7;
-    if (series.length >= holdout + 14) {
+    const split = backtestSplit(series);
+    if (split) {
         // the backtest also asks what each learner would have said alone
-        jobs.push({ series: capSeries(series.slice(0, -holdout), shop.back).series, days: holdout, compare: true });
+        jobs.push({ series: capSeries(split.train, shop.back).series, days: split.horizon, compare: true });
     }
     return jobs;
+}
+
+/* How the accuracy test divides a history: the last 14 days on record are
+   hidden (7 when there are under six weeks), and at least 14 must be left to
+   forecast from. The forecast then runs from the day after the rest up to the
+   last hidden day. That is the same 14 (or 7) days unless days were left out
+   in between, in which case it is longer and only the hidden days are scored. */
+function backtestSplit(series) {
+    const holdout = series.length >= 42 ? 14 : 7;
+    if (series.length < holdout + 14) return null;
+    const train = series.slice(0, -holdout);
+    const test = series.slice(-holdout);
+    const horizon = Math.round((Date.parse(test[test.length - 1].date + 'T00:00:00Z') - Date.parse(train[train.length - 1].date + 'T00:00:00Z')) / DAY_MS);
+    return { train, test, holdout, horizon };
 }
 
 /* The shop-wide "typical selling day" the outlier cap falls back on, for the
    live forecast and for the accuracy test. The test's figure comes only from
    the days the test is allowed to see. */
 function shopTypicals(seriesList) {
-    const trainParts = seriesList.map(s => {
-        const holdout = s.length >= 42 ? 14 : 7;
-        return s.length >= holdout + 14 ? s.slice(0, -holdout) : [];
-    });
+    const trainParts = seriesList.map(s => { const split = backtestSplit(s); return split ? split.train : []; });
     return { live: shopTypical(seriesList), back: shopTypical(trainParts) };
 }
 
@@ -311,16 +347,20 @@ function shopTypicals(seriesList) {
 // null when there isn't enough history to validate.
 function backtestAccuracy(series, shop = {}) {
     // Adaptive holdout: 14 days when there's 6+ weeks of history, else 7.
-    const holdout = series.length >= 42 ? 14 : 7;
-    if (series.length < holdout + 14) return null; // need 14+ training days
-    const train = series.slice(0, -holdout);
-    const test = series.slice(-holdout);
-    const fc = forecastSeries(train, holdout, { compare: true, shopTypical: shop.back });
+    const split = backtestSplit(series);
+    if (!split) return null; // need 14+ training days
+    const { train, test, holdout, horizon } = split;
+    const fc = forecastSeries(train, horizon, { compare: true, shopTypical: shop.back });
     // Score on total holdout volume: for intermittent retail demand, WHICH
     // day a bulk purchase lands on is noise — the volume is what inventory
-    // decisions depend on.
-    const predTotal = fc.predictions.reduce((a, p) => a + p.predicted_quantity, 0);
+    // decisions depend on. Only the hidden days are scored: a day left out
+    // of the history has no sales figure to score against.
+    const hidden = new Set(test.map(x => x.date));
+    const predTotal = fc.predictions.reduce((a, p) => a + (hidden.has(p.date) ? p.predicted_quantity : 0), 0);
     const actualTotal = test.reduce((a, x) => a + x.quantity, 0);
+    // The side-by-side figures for each method are totals over the whole
+    // run, so they are only like-for-like when no day was left out of it.
+    if (horizon !== holdout) fc.parts = null;
     // Per-product accuracy needs actual sales to compare against, but the
     // holdout totals are ALWAYS returned: excluding zero-actual products from
     // the store-level sums would bias the aggregate score (only "lucky hot"
@@ -353,12 +393,13 @@ router.get('/product/:id', authenticateToken, async (req, res) => {
             return res.status(404).json({ success: false, error: 'No sales data' });
         }
 
-        const series = buildDailySeries(rows);
         // The model is fitted on all products together, so this product's
         // forecast should come from that same fit — otherwise the chart here
         // and the figure in the list could disagree. Build it if it is not
         // there yet; after that this product's series is already in the cache.
         if (!allCache.payload) await rebuildAllPredictions().catch(() => {});
+        // built the same way as in the list: the same days left out, the same cap
+        const series = buildDailySeries(rows, HISTORY_WINDOW_DAYS, shopDay(-1), allCache.skip);
         const shop = allCache.shop || {};
         await warmMLCacheAsync(mlJobsFor(series, FORECAST_DAYS, shop));
         const fc = forecastSeries(series, FORECAST_DAYS, { shopTypical: shop.live });
@@ -414,7 +455,7 @@ router.get('/product/:id', authenticateToken, async (req, res) => {
    computed behind it, and concurrent callers share one rebuild instead of each
    starting their own Python process. */
 const ALL_TTL_MS = 5 * 60 * 1000;
-let allCache = { at: 0, payload: null, shop: null };
+let allCache = { at: 0, payload: null, shop: null, skip: null };
 let rebuildInFlight = null;
 
 // Fewer items than this sold across the shop in the test fortnight is too
@@ -451,9 +492,10 @@ async function computeAllPredictions() {
         // vs sum of actuals): per-product counts are tiny and noisy, but the
         // aggregate is what purchasing actually plans against.
         // Fit every product in a single Python process before the loop starts.
+        const noData = await findNoDataDays(rows);
         const allSeries = {};
         const warmJobs = [];
-        Object.entries(byProduct).forEach(([pid, data]) => { allSeries[pid] = buildDailySeries(data.rows); });
+        Object.entries(byProduct).forEach(([pid, data]) => { allSeries[pid] = buildDailySeries(data.rows, HISTORY_WINDOW_DAYS, shopDay(-1), noData.days); });
         const shop = shopTypicals(Object.values(allSeries));
         Object.values(allSeries).forEach(series => { warmJobs.push(...mlJobsFor(series, FORECAST_DAYS, shop)); });
         await warmMLCacheAsync(warmJobs);
@@ -518,6 +560,8 @@ async function computeAllPredictions() {
                 // it is withheld rather than shown.
                 overall_accuracy: holdActual >= MIN_TEST_UNITS ? accuracyOf(holdPred, holdActual) : null,
                 backtested_products: backtested,
+                // days left out of every product's history, and why
+                excluded: { days: noData.days.size, ranges: noData.ranges },
                 model: {
                     runtime: mlAvailable() ? 'python/scikit-learn' : 'statistical baseline only (Python model unavailable)',
                     comparison: cmp.actual >= MIN_TEST_UNITS ? {
@@ -534,7 +578,7 @@ async function computeAllPredictions() {
                 predictions: result
             }
         };
-        allCache = { at: Date.now(), payload, shop };
+        allCache = { at: Date.now(), payload, shop, skip: noData.days };
         return payload;
 }
 
@@ -799,6 +843,8 @@ router.get('/overview', authenticateToken, async (req, res) => {
             data: {
                 window_days: HISTORY_WINDOW_DAYS,
                 history_days: historyDays,
+                // days inside that span the forecast does not read, and why
+                excluded: all.data.excluded || { days: 0, ranges: [] },
                 forecast_days: FORECAST_DAYS,
                 lead_time_days: LEAD_TIME_DAYS,
                 overstock_days: OVERSTOCK_DAYS,
@@ -899,7 +945,7 @@ router.get('/trends', authenticateToken, async (req, res) => {
 });
 
 // exposed for offline evaluation scripts / tests
-router._internals = { forecastSeries, backtestAccuracy, buildDailySeries, planStock, demandBy, mlJobsFor, shopTypicals };
+router._internals = { forecastSeries, backtestAccuracy, backtestSplit, buildDailySeries, findNoDataDays, planStock, demandBy, mlJobsFor, shopTypicals };
 // the supplier page shows each supplier the forecast for its own products
 router.peekForecasts = peekForecasts;
 // server.js warms this on boot and on a timer so Analytics opens instantly

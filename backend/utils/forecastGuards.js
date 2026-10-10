@@ -37,13 +37,31 @@
    One sale of 5 gives 0.36 a day, about 11 in 30 days. The estimate rises as
    more is sold and meets the plain average on day 14, when the ordinary
    forecast takes over. Such a forecast is marked "new" so the page can say
-   it is a first estimate. */
+   it is a first estimate.
+
+   DAYS WITHOUT DATA
+   A day on which no item was sold is normally a real zero, and the forecast
+   should learn from it. Two kinds of empty day are not evidence of demand:
+
+     - days on which sales were recorded but none of them has its items
+       (the records are incomplete: money was taken, nobody knows for what)
+     - three or more empty days in a row with no sale at all (the shop was
+       closed, or nothing was being recorded)
+
+   A run of empty days is left out when it holds either. The days are dropped
+   from every product's history before any model sees them, so the forecast
+   neither learns "nothing sells" from them nor counts them when it measures
+   recent sales. A run that reaches the last day on record is kept: recent
+   silence may be real, and the page already says when the last sale was.
+   Nothing in the database is changed; the days are only skipped when read. */
 
 const MIN_CAP = 5;
 const CAP_TIMES = 4;
 const TYPICAL_QUANTILE = 0.75;
 const MIN_SELLING_DAYS = 5;
 const MIN_HISTORY_DAYS = 14;
+const CLOSED_RUN_DAYS = 3;
+const DAY_MS = 86400000;
 
 /** The value at this fraction of the way through a sorted list, never interpolated upward. */
 function lowQuantile(sorted, fraction) {
@@ -88,4 +106,37 @@ function cautiousDailyRate(series) {
     return series.reduce((total, p) => total + p.quantity, 0) / MIN_HISTORY_DAYS;
 }
 
-module.exports = { shopTypical, dailyCap, capSeries, lowQuantile, isNewProduct, cautiousDailyRate, MIN_CAP, CAP_TIMES, MIN_SELLING_DAYS, MIN_HISTORY_DAYS };
+/**
+ * The days to leave out of every product's history.
+ *   soldByDay   Map of shop day -> items sold that day, all products together
+ *   salesByDay  Map of shop day -> completed sales recorded that day, with or without items
+ *   firstDay, lastDay   the span to look at, as 'YYYY-MM-DD'
+ * Returns { days: Set, ranges: [{ from, to, days, sales, reason }] } where
+ * reason is 'no_items' or 'closed'.
+ */
+function noDataDays(soldByDay, salesByDay, firstDay, lastDay) {
+    const out = { days: new Set(), ranges: [] };
+    if (!firstDay || !lastDay || firstDay > lastDay) return out;
+    const endMs = Date.parse(lastDay + 'T00:00:00Z');
+    let run = [];
+    const close = (reachesEnd) => {
+        if (run.length && !reachesEnd) {
+            const sales = run.reduce((a, d) => a + (Number(salesByDay.get(d)) || 0), 0);
+            const reason = sales > 0 ? 'no_items' : run.length >= CLOSED_RUN_DAYS ? 'closed' : null;
+            if (reason) {
+                run.forEach(d => out.days.add(d));
+                out.ranges.push({ from: run[0], to: run[run.length - 1], days: run.length, sales, reason });
+            }
+        }
+        run = [];
+    };
+    for (let t = Date.parse(firstDay + 'T00:00:00Z'); t <= endMs; t += DAY_MS) {
+        const day = new Date(t).toISOString().slice(0, 10);
+        if ((Number(soldByDay.get(day)) || 0) > 0) close(false);
+        else run.push(day);
+    }
+    close(true);
+    return out;
+}
+
+module.exports = { shopTypical, dailyCap, capSeries, lowQuantile, isNewProduct, cautiousDailyRate, noDataDays, MIN_CAP, CAP_TIMES, MIN_SELLING_DAYS, MIN_HISTORY_DAYS, CLOSED_RUN_DAYS };
