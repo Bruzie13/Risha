@@ -4,41 +4,38 @@ const User = require('../models/User');
 
 exports.getDashboardStats = async (req, res) => {
     try {
-        const [
-            products,
-            totalSalesAmount,
-            lowStockProducts,
-            expiringProducts,
-            overstockProducts,
-            users,
-            recentSales
-        ] = await Promise.all([
-            Product.getAll(),
-            Sale.getTotalSales(),
-            Product.getLowStock(),
-            Product.getExpiringSoon(30),
-            Product.getOverstock(),
+        /* Counted by the database. This used to read every product (pictures
+           included) and every sale on record just to count them, on every
+           visit: it was the slowest request in the system. The counts come
+           from the same two queries the Inventory and Sales history pages
+           use, so the pages cannot disagree. */
+        const [stock, sales, users, recentSales] = await Promise.all([
+            Product.getStats(),
+            Sale.getStats(),
             User.getAll(),
-            Sale.getAll()
+            Sale.getAll({ limit: 10 })
         ]);
 
-        const total_products = products ? products.length : 0;
-        const total_sales = recentSales ? recentSales.length : 0;
-        const total_sales_amount = totalSalesAmount || 0;
-        const low_stock_count = lowStockProducts ? lowStockProducts.length : 0;
-        const expiring_count = expiringProducts ? expiringProducts.length : 0;
-        const overstock_count = overstockProducts ? overstockProducts.length : 0;
+        const total_products = Number(stock.total) || 0;
+        // completed sales only; voided ones are reported beside them
+        const total_sales = Number(sales.transactions) || 0;
+        const voided_sales = Number(sales.voided) || 0;
+        const total_sales_amount = sales.revenue || 0;
+        // at or below the reorder level, out of stock included
+        const low_stock_count = Number(stock.reorder_count) || 0;
+        const expiring_count = Number(stock.expiring_count) || 0;
+        const overstock_count = Number(stock.overstock_count) || 0;
         const active_users = users ? users.filter(u => u.is_active !== false).length : 0;
 
         const alerts = [];
         if (low_stock_count > 0) {
-            alerts.push({ type: 'warning', message: `${low_stock_count} product(s) are below reorder level` });
+            alerts.push({ type: 'warning', message: `${low_stock_count} product(s) are at or below reorder level` });
         }
         if (expiring_count > 0) {
             alerts.push({ type: 'warning', message: `${expiring_count} product(s) are expiring within 30 days` });
         }
         if (overstock_count > 0) {
-            alerts.push({ type: 'info', message: `${overstock_count} product(s) are overstocked` });
+            alerts.push({ type: 'info', message: `${overstock_count} product(s) are over their maximum stock level` });
         }
 
         res.status(200).json({
@@ -47,12 +44,13 @@ exports.getDashboardStats = async (req, res) => {
                 total_products,
                 active_products: total_products,
                 total_sales,
+                voided_sales,
                 total_sales_amount,
                 low_stock_count,
                 expiring_count,
                 overstock_count,
                 active_users,
-                recent_sales: recentSales ? recentSales.slice(0, 10) : [],
+                recent_sales: recentSales || [],
                 alerts
             }
         });
@@ -151,15 +149,8 @@ exports.getChartData = async (req, res) => {
              GROUP BY c.id ORDER BY c.name`
         );
 
-        const [inStock] = await conn.execute(
-            "SELECT COUNT(*) as count FROM products WHERE is_active = TRUE AND stock_quantity > reorder_level"
-        );
-        const [lowStock] = await conn.execute(
-            "SELECT COUNT(*) as count FROM products WHERE is_active = TRUE AND stock_quantity > 0 AND stock_quantity <= reorder_level"
-        );
-        const [outOfStock] = await conn.execute(
-            "SELECT COUNT(*) as count FROM products WHERE is_active = TRUE AND (stock_quantity = 0 OR stock_quantity IS NULL)"
-        );
+        // the same counts the Inventory page shows, from the same query
+        const stock = await Product.getStats();
 
         res.status(200).json({
             success: true,
@@ -167,9 +158,11 @@ exports.getChartData = async (req, res) => {
                 sales: salesData || [],
                 category_breakdown: categories || [],
                 stock_status: {
-                    in_stock: inStock[0].count,
-                    low_stock: lowStock[0].count,
-                    out_of_stock: outOfStock[0].count
+                    in_stock: Number(stock.in_count) || 0,
+                    low_stock: Number(stock.low_count) || 0,
+                    out_of_stock: Number(stock.out_count) || 0,
+                    expiring: Number(stock.expiring_count) || 0,
+                    expired: Number(stock.expired_count) || 0
                 }
             }
         });

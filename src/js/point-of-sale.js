@@ -317,7 +317,9 @@ async function updateStats() {
         setText('totalSalesAmount', formatCompactCurrency(revenue));
         const el = document.getElementById('totalSalesAmount');
         if (el) el.title = formatCurrency(revenue);
-        setText('totalTransactions', Number(s.transactions) || 0);
+        setText('totalTransactions', formatNumber(Number(s.transactions) || 0));
+        const voidedNote = document.getElementById('voidedNote');
+        if (voidedNote) { const v = Number(s.voided) || 0; voidedNote.textContent = v ? `${formatNumber(v)} more voided` : ''; voidedNote.style.display = v ? 'block' : 'none'; }
         setText('todaysSales', formatCurrency((parseFloat(s.today_revenue) || 0)));
     } catch (error) {
         console.error('Error updating stats:', error);

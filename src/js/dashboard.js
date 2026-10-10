@@ -131,7 +131,7 @@ async function loadDashboardStats() {
                     `<span class="trend-pill up">▲ ${formatNumber(s.active_products ?? 0)}</span> active`) +
                 kpiCard('Total revenue', 'payments', 'coral',
                     `<span title="${formatCurrency(s.total_sales_amount ?? 0)}">${formatCompactCurrency(s.total_sales_amount ?? 0)}</span>`,
-                    `${formatNumber(s.total_sales ?? 0)} transactions`) +
+                    `${formatNumber(s.total_sales ?? 0)} sale${Number(s.total_sales) === 1 ? '' : 's'}` + (Number(s.voided_sales) > 0 ? `, ${formatNumber(s.voided_sales)} more voided` : '')) +
                 kpiCard('Restock needed', 'warning', 'amber',
                     formatNumber(low),
                     low > 0 ? '<span class="trend-pill down">Needs attention</span>' : '<span class="trend-pill up">All good</span>',

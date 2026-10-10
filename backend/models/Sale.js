@@ -76,7 +76,10 @@ class Sale {
         const connection = await pool.getConnection();
         try {
             const params = [];
-            let sql = `SELECT COUNT(*) AS transactions,
+            // A voided sale took no money, so it is not counted as a transaction;
+            // it is counted on its own, so the page can still say how many there were.
+            let sql = `SELECT COALESCE(SUM(s.payment_status <> 'voided'), 0) AS transactions,
+                        COALESCE(SUM(s.payment_status = 'voided'), 0) AS voided,
                         COALESCE(SUM(CASE WHEN s.payment_status <> 'voided' THEN s.final_amount ELSE 0 END), 0) AS revenue,
                         COALESCE(SUM(CASE WHEN s.payment_status <> 'voided' AND DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00')) = DATE(CONVERT_TZ(NOW(),'+00:00','+08:00')) THEN s.final_amount ELSE 0 END), 0) AS today_revenue
                        FROM sales s LEFT JOIN users u ON s.created_by = u.id`;
