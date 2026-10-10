@@ -141,7 +141,7 @@
                 <div class="stat-card" onclick="filterLowStock()" style="cursor:pointer;">
                     <div class="stat-icon orange"><span class="material-symbols-outlined" style="font-size:18px;">warning_amber</span></div>
                     <div class="stat-body">
-                        <span class="stat-label">Low stock</span>
+                        <span class="stat-label" title="At or below the reorder level. Out-of-stock products are included: the Low stock and Out of stock buttons below count them apart.">Restock needed</span>
                         <span class="stat-value warning" id="lowStockCount">
 <span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
 </span>
@@ -168,7 +168,7 @@
                 <div class="stat-card">
                     <div class="stat-icon purple"><span class="material-symbols-outlined" style="font-size:18px;">assignment</span></div>
                     <div class="stat-body">
-                        <span class="stat-label">Overstock</span>
+                        <span class="stat-label" title="Stock above one and a half times the product's own maximum stock level. Reports, Stock planning has a separate list of products holding more than three months of expected sales.">Over max level</span>
                         <span class="stat-value" id="overstockCount">
 <span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
 </span>
