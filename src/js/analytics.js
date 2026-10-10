@@ -152,7 +152,7 @@ function renderPlan() {
                   + 'and many products show as not selling. They will correct themselves as daily sales are recorded.'
                 : '');
     document.getElementById('planCaption').textContent =
-        `Based on ${plan.history_days ? plan.history_days + ' days of sales on record (the model reads up to 12 months)' : 'sales on record'}. Forecasts cover the next ${plan.forecast_days} days.`
+        `Based on ${plan.history_days ? plan.history_days + ' days of sales on record' + (plan.model && plan.model.fit_days ? ` (the model reads the last ${plan.model.fit_days})` : '') : 'sales on record'}. Forecasts cover the next ${plan.forecast_days} days.`
         + (plan.last_sale_date && !stale ? ` Last sale recorded ${planDate(plan.last_sale_date)}.` : '')
         + leftOutText(plan.excluded);
     const lead = document.getElementById('howLead');
@@ -324,9 +324,9 @@ function renderModel() {
             + row('Gradient Boosting alone', cmp.gradient_boosting, 'Trees that each correct the last', false)
             + row('Both together (the ensemble)', cmp.ensemble, 'The average of the two models', cmp.ensemble === best)
             + row('Simple trend only', cmp.statistical_baseline, 'No machine learning, for comparison', false)
-            + row('What this page uses', cmp.system_forecast, 'The ensemble balanced with the simple trend', true);
+            + row('What this page uses', cmp.system_forecast, 'The ensemble, corrected for how far off it was the time before', true);
         note.textContent = `Tested on ${cmp.products} product${cmp.products === 1 ? '' : 's'} that sold ${formatNumber(cmp.actual_units)} items in the test period. `
-            + 'Accuracy is how close the forecast total came to the items actually sold.';
+            + 'Accuracy is how close the forecast total came to the items actually sold.' + correctionText(model.adjustment);
     }
     document.getElementById('modelSub').textContent = model.runtime && !/python/.test(model.runtime)
         ? 'The machine-learning model could not be run, so these forecasts use the simple trend only'
@@ -338,6 +338,14 @@ function renderModel() {
     renderBars('featureWeights', weights.slice(0, 8).map(w => ({
         label: w.feature.charAt(0).toUpperCase() + w.feature.slice(1), value: w.weight, text: Math.round(w.weight * 100) + '%'
     })));
+}
+
+/* The correction now applied to the forecast, in words, for the note under the table. */
+function correctionText(adj) {
+    if (!adj || !adj.groups || !adj.groups.length) return '';
+    const times = f => '×' + formatDecimal(f, 2);
+    if (adj.groups.every(g => Math.abs(g.factor - 1) < 0.005)) return ' No correction is applied to today\'s forecast: too little was sold in the test period to judge by.';
+    return ` Today's forecast is then corrected by half of the miss in this test, category by category: ${adj.groups.map(g => `${g.category} ${times(g.factor)}`).join(', ')}.`;
 }
 
 function renderAllProducts() {

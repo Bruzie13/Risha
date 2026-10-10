@@ -38,17 +38,26 @@ const MAX_BUFFER = 64 * 1024 * 1024;
 // nothing is blocked while it runs.
 const ASYNC_TIMEOUT_MS = 5 * 60 * 1000;
 
-/* How much history the model learns from: up to twelve months, the range the
-   study specifies (three to twelve months), so it has a chance of seeing a
-   season turn. This lives here, next to the cache key it feeds, because the
+/* How much history the model learns from, and how much more recent days count.
+
+   Both were chosen by a walk-forward test on the shop's own sales
+   (QA/FORECAST-METHOD.md). It was twelve months with every day counting the
+   same. The shop's sales changed level sharply in June, and a model fitted on
+   both levels as equals read the present too high. It now reads the last 120
+   days on record, which is inside the three-to-twelve-month range the study
+   specifies, and a day's weight halves every 60 days going back. Raise the
+   window (ML_FIT_WINDOW) once a full year of steady history exists and the
+   season should be learnt; rerun the test before doing so.
+
+   The window lives here, next to the cache key it feeds, because the
    window and the key have to be decided in the same place: when the caller
    trimmed the series and the lookup did not, every warm entry was filed under
    a key nobody ever asked for, and each product quietly fell back to fitting
    itself in its own Python process. */
-const FIT_WINDOW = Number(process.env.ML_FIT_WINDOW) || 365;
+const FIT_WINDOW = Number(process.env.ML_FIT_WINDOW) || 120;
 // Recent days count for more in the fit; a day's weight halves every this
 // many days going back (see ml/forecast.py). 0 switches the weighting off.
-const HALF_LIFE = process.env.ML_HALF_LIFE !== undefined ? Number(process.env.ML_HALF_LIFE) : 0;
+const HALF_LIFE = process.env.ML_HALF_LIFE !== undefined ? Number(process.env.ML_HALF_LIFE) : 60;
 function fitSlice(series) {
     return series.length > FIT_WINDOW ? series.slice(-FIT_WINDOW) : series;
 }
@@ -249,4 +258,4 @@ function clearMLCache() { cache = new Map(); weights = new Map(); }
 /** True when a real Python fit has succeeded and no failure is outstanding. */
 function mlAvailable() { return pythonBroken === null; }
 
-module.exports = { forecastML, warmMLCache, warmMLCacheAsync, clearMLCache, featureWeights, FIT_WINDOW, mlAvailable, WARMUP };
+module.exports = { forecastML, warmMLCache, warmMLCacheAsync, clearMLCache, featureWeights, FIT_WINDOW, HALF_LIFE, mlAvailable, WARMUP, MIN_TRAIN_ROWS, jobFor, SCRIPT, PYTHON };

@@ -416,7 +416,9 @@
                 <details class="rp-how">
                     <summary>How these numbers are worked out</summary>
                     <div class="rp-how-body">
-                        <p><strong>Expected sales.</strong> For each product the system reads its daily sales for up to the last 12 months and estimates the next 30 days. The estimate comes from two machine-learning models working together: Random Forest, which averages many decision trees so one unusual day does not swing the result, and Gradient Boosting, which learns from the first model's mistakes. They learn from all products together, and look at the day of the week, weekends, public holidays, the time of the month, the month of the year and each product's own recent sales. Their answer is then balanced with a simple trend of the last eight weeks. Today is left out until it is over, so a half-finished day is never mistaken for a slow one.</p>
+                        <p><strong>Expected sales.</strong> For each product the system reads its daily sales and estimates the next 30 days. The estimate comes from two machine-learning models working together: Random Forest, which averages many decision trees so one unusual day does not swing the result, and Gradient Boosting, which learns from the first model's mistakes. They learn from all products together, from the last four months of sales with recent days counting for more, and look at the day of the week, weekends, public holidays, the time of the month, the month of the year and each product's own recent sales. Their answer is then corrected by half of how far it was off in its latest test, category by category. Today is left out until it is over, so a half-finished day is never mistaken for a slow one.</p>
+                        <p><strong>New products.</strong> A product with under six weeks of sales is too new for the two models and is forecast from a simple trend of its recent weeks. One with under two weeks gets a cautious first estimate: what it has sold so far, spread over two weeks.</p>
+                        <p><strong>Unusual days.</strong> Before anything is forecast, a freak day is capped at four times what the product sells on a typical selling day, so one mistyped quantity or one bulk purchase cannot swing the forecast. Days with no usable record (sales entered without their items, or the shop closed for three days or more) are left out and not counted as days when nothing sold.</p>
                         <p><strong>Stock lasts.</strong> Current stock divided by expected daily sales.</p>
                         <p><strong>Reorder now.</strong> The product is at or below its reorder level, or would run out before a new delivery arrives (<span id="howLead">7</span> days). <strong>Reorder soon</strong> means it would run out within three weeks.</p>
                         <p><strong>Order by.</strong> The last day an order can be placed and still arrive before the stock runs out: the run-out date less the delivery time.</p>
@@ -425,7 +427,7 @@
                         <p><strong>Too much stock.</strong> Whatever is left after three months of expected sales, valued at what the shop paid for it.</p>
                         <p><strong>Likely to expire.</strong> Current stock less what is expected to sell before the expiry date.</p>
                         <p><strong>Selling fast / slowly.</strong> The top and bottom quarter of your products by expected sales. <strong>Not selling</strong> means nothing sold in the last 30 days.</p>
-                        <p><strong>Forecast accuracy.</strong> The system hides the most recent two weeks, forecasts them from older sales only, and compares the total with what actually sold. 100% means the forecast matched exactly.</p>
+                        <p><strong>Forecast accuracy.</strong> The system hides the most recent two weeks, forecasts them from older sales only, and compares the total with what actually sold. 100% means the forecast matched exactly. The forecast it tests carries the correction it would have had at the time, so the figure is for the same forecast this page uses.</p>
                     </div>
                 </details>
             </section>
@@ -543,7 +545,7 @@
 <script src="js/jump.js?v=30"></script>
 <script src="js/assistant.js?v=24"></script>
     <script src="js/reports.js?v=35"></script>
-    <script src="js/analytics.js?v=38"></script>
+    <script src="js/analytics.js?v=39"></script>
     <script src="js/audit.js?v=22"></script>
 </body>
 </html>
