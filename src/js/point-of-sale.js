@@ -538,7 +538,10 @@ async function exportSalesCsv() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `sales_export_${new Date().toISOString().slice(0,10)}.csv`;
+    // today's date where the shop is: toISOString() is UTC, which is still
+    // yesterday until 8 in the morning here
+    const today = new Date();
+    a.download = `sales_export_${today.getFullYear()}-${two(today.getMonth() + 1)}-${two(today.getDate())}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

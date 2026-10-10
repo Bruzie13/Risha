@@ -349,7 +349,12 @@ async function downloadBackup() {
         var blob = await res.blob();
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'risha-backup-' + new Date().toISOString().slice(0, 10) + '.json.gz';
+        // The server sends a ZIP. It was saved here under a .json.gz name,
+        // which will not open with a double-click, and under the UTC date,
+        // which is yesterday's until 8 in the morning.
+        var now = new Date();
+        var two = function (n) { return String(n).padStart(2, '0'); };
+        a.download = 'risha-backup-' + now.getFullYear() + '-' + two(now.getMonth() + 1) + '-' + two(now.getDate()) + '.zip';
         a.click();
         URL.revokeObjectURL(a.href);
         showSuccessDialog('Backup downloaded', 'Store the file somewhere safe — restore with scripts/restore-backup.js.', { icon: 'cloud_download' });

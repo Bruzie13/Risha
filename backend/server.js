@@ -130,6 +130,7 @@ const pool = require('./config/database');
 const crypto = require('crypto');
 
 const { zipSingleFile } = require('./utils/zip');
+const { shopToday } = require('./utils/expiry');
 
 // Full-database dump as a ZIP holding one JSON file. Used by the admin
 // download button and the daily scheduled backup email. Restore with
@@ -150,7 +151,7 @@ async function buildBackup() {
             dump.tables[t] = rows;
         }
         const json = Buffer.from(JSON.stringify(dump));
-        const day = new Date().toISOString().slice(0, 10);
+        const day = shopToday(); // the shop's date, not UTC's
         return {
             zip: zipSingleFile(`risha-backup-${day}.json`, json),
             filename: `risha-backup-${day}.zip`,

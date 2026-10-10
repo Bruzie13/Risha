@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const pool = require('../config/database');
+const { shopToday } = require('./expiry');
 
 // Ensure env is loaded
 require('dotenv').config({ path: __dirname + '/../.env', override: true });
@@ -741,8 +742,8 @@ async function sendBackupEmail(zipBuffer, meta) {
     const config = await getEmailConfig();
     if (!config.enabled) return false;
     const to = config.user;
-    const filename = meta.filename || ('risha-backup-' + new Date().toISOString().slice(0, 10) + '.zip');
-    const day = new Date().toISOString().slice(0, 10);
+    const day = shopToday(); // the shop's date, not UTC's
+    const filename = meta.filename || ('risha-backup-' + day + '.zip');
     const mail = templates.backup({ tables: meta.tables, rows: meta.rows, kb: (zipBuffer.length / 1024).toFixed(0), day });
     const html = mail.html;
     try {
