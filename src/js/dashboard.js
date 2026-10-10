@@ -223,6 +223,8 @@ window.addEventListener('online', () => { setLiveStatus(true); loadRecentSales()
 
 let dashSalesDisplayCount = 5;
 let recentSalesSeenIds = new Set();
+// What a sale's payment_status is called on screen.
+const SALE_STATES = { completed: 'Completed', pending: 'Pending', voided: 'Voided', failed: 'Failed' };
 
 async function loadRecentSales() {
     try {
@@ -252,9 +254,11 @@ async function loadRecentSales() {
         const limited = items.slice(0, dashSalesDisplayCount);
         list.innerHTML = limited.map((s, i) => {
             const isNew = i < newCount;
-            const state = s.status === 'completed' ? 'completed' : s.status === 'pending' ? 'pending' : 'other';
+            // The server sends a sale's state as payment_status. This read
+            // "status", which is never sent, so every sale said completed.
+            const state = SALE_STATES[s.payment_status] ? s.payment_status : 'other';
             const avatarClass = state === 'completed' ? '' : state;
-            return `<div class="timeline-item" data-sale-id="${s.id}"${isNew ? ' style="animation:feed-slide-in 0.35s ease;"' : ''}>
+            return `<div class="timeline-item${state === 'voided' ? ' is-voided' : ''}" data-sale-id="${s.id}"${isNew ? ' style="animation:feed-slide-in 0.35s ease;"' : ''}>
                 <div class="timeline-avatar ${avatarClass}"><span class="material-symbols-outlined" style="font-size:17px;">receipt_long</span></div>
                 <div class="timeline-content">
                     <div class="timeline-title">#${s.id} — ${escHtml(s.customer_name || 'Walk-in')}</div>
@@ -262,7 +266,7 @@ async function loadRecentSales() {
                 </div>
                 <div class="timeline-right">
                     <div class="timeline-value">${formatCurrency(s.final_amount ?? s.total_amount ?? 0)}</div>
-                    <div class="timeline-status ${state}">${s.status || 'completed'}</div>
+                    <div class="timeline-status ${state}">${SALE_STATES[state] || escHtml(s.payment_status || 'Unknown')}</div>
                 </div>
             </div>`;
         }).join('');

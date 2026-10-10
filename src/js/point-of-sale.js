@@ -344,6 +344,11 @@ async function viewSaleDetails(id) {
                 <div class="details-row"><span class="details-label">Customer</span><span class="details-value">${escHtml(sale.customer_name || 'N/A')}</span></div>
                 <div class="details-row"><span class="details-label">Phone</span><span class="details-value">${escHtml(sale.customer_phone || 'N/A')}</span></div>
                 <div class="details-row"><span class="details-label">Payment</span><span class="details-value">${escHtml(sale.payment_method)}</span></div>
+                <div class="details-row"><span class="details-label">Status</span><span class="details-value">${sale.payment_status === 'completed'
+                    ? '<span class="status-badge status-in-stock">Completed</span>'
+                    : sale.payment_status === 'voided'
+                        ? '<span class="status-badge status-expired" title="Voided: its items went back to stock">Voided</span>'
+                        : '<span class="status-badge status-expired">' + escHtml(sale.payment_status || 'N/A') + '</span>'}</span></div>
                 <div class="details-row"><span class="details-label">Discount</span><span class="details-value">${parseFloat(sale.discount || 0)}%</span></div>
                 <div class="details-row"><span class="details-label">Notes</span><span class="details-value">${escHtml(sale.notes || 'None')}</span></div>
                 <div class="details-items"><h4>Items sold</h4>

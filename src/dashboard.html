@@ -132,6 +132,7 @@
         }
         .timeline-avatar.pending { color: var(--warning); }
         .timeline-avatar.other { color: var(--text-muted); }
+        .timeline-avatar.voided, .timeline-avatar.failed { color: var(--danger); }
         .timeline-content { flex: 1; min-width: 0; }
         .timeline-title { font-size: 13.5px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .timeline-sub { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
@@ -141,6 +142,9 @@
         .timeline-status.completed { color: var(--success); }
         .timeline-status.pending { color: var(--warning); }
         .timeline-status.other { color: var(--purple); }
+        .timeline-status.voided, .timeline-status.failed { color: var(--danger); }
+        /* a voided sale took no money: its amount is struck through */
+        .timeline-item.is-voided .timeline-value { text-decoration: line-through; color: var(--text-muted); }
 
         /* Low stock bars */
         .stock-bar-item {
@@ -458,7 +462,7 @@
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=30"></script>
 <script src="js/assistant.js?v=24"></script>
-    <script src="js/dashboard.js?v=35"></script>
+    <script src="js/dashboard.js?v=36"></script>
 </body>
 </html>
 
