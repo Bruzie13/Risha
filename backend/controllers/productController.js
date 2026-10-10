@@ -1,8 +1,15 @@
 const { shopToday, expiryProblem } = require('../utils/expiry');
+const { productProblem } = require('../utils/product');
+const Supplier = require('../models/Supplier');
 const Product = require('../models/Product');
 const logAudit = require('../services/audit');
 const { notifyStockAdjusted, notifyProductCreated } = require('../services/notifier');
 const { storeImage } = require('../services/imageStore');
+
+/** The suppliers still on the shop's list, as a Set of ids. */
+async function currentSupplierIds() {
+    return new Set((await Supplier.getAll()).map(s => Number(s.id)));
+}
 
 exports.getAllProducts = async (req, res) => {
     try {
@@ -92,11 +99,10 @@ exports.createProduct = async (req, res) => {
     try {
         const { sku, name, description, brand, species, category_id, unit_price, cost_price, stock_quantity, reorder_level, unit_type, supplier_id, barcode, expiration_date, batch_number, image_url } = req.body;
 
-        if (!sku || !name || !category_id || !unit_price) {
-            return res.status(400).json({
-                success: false,
-                message: 'SKU, name, category, and unit price are required'
-            });
+        // nothing important may be missing, and the supplier has to be a current one
+        const problem = productProblem(req.body, true, await currentSupplierIds());
+        if (problem) {
+            return res.status(400).json({ success: false, message: problem });
         }
 
         // stock being added cannot already be past its date
@@ -155,6 +161,12 @@ exports.updateProduct = async (req, res) => {
     try {
         const { id } = req.params;
         const updateData = req.body;
+
+        // an edit cannot empty out what a product needs (only the fields it carries are judged)
+        const problem = productProblem(updateData, false, await currentSupplierIds());
+        if (problem) {
+            return res.status(400).json({ success: false, message: problem });
+        }
 
         // A newly pasted/uploaded image comes in as a base64 data URL — push it
         // to Cloudinary (when configured) and store the URL instead.
@@ -303,10 +315,17 @@ exports.bulkCreateProducts = async (req, res) => {
 
         const created = [];
         const errors = [];
+        const suppliers = await currentSupplierIds();
 
         for (const p of products) {
             if (!p.sku || !p.name) {
                 errors.push({ sku: p.sku, error: 'SKU and name are required' });
+                continue;
+            }
+            // the same rules as adding one product by hand
+            const problem = productProblem(p, true, suppliers);
+            if (problem) {
+                errors.push({ sku: p.sku, error: problem });
                 continue;
             }
             try {
@@ -326,8 +345,8 @@ exports.bulkCreateProducts = async (req, res) => {
                     description: p.description || null,
                     brand: p.brand || null,
                     species: p.species || null,
-                    category_id: p.category_id || 1,
-                    unit_price: p.unit_price || 0,
+                    category_id: p.category_id,
+                    unit_price: p.unit_price,
                     cost_price: p.cost_price || 0,
                     stock_quantity: p.stock_quantity || 0,
                     reorder_level: p.reorder_level || 10,

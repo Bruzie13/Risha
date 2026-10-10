@@ -15,7 +15,7 @@ The check was done in two passes:
 |---|---|---|
 | 1 | Every request a page sends has a server address that answers it | 139 of 139 |
 | 2 | Every button's function exists on the page that uses it | 360 of 360 |
-| 3 | Every link goes to a page that exists | 145 of 145 |
+| 3 | Every link goes to a page that exists | 146 of 146 |
 | 4 | Every stylesheet, script and image a page loads exists | 126 of 126 |
 | 5 | Protected server addresses refuse without a sign-in (real local server) | 92 of 92 refused |
 | 6 | A made-up sign-in token is refused | 45 of 45 refused |
@@ -25,7 +25,7 @@ The check was done in two passes:
 | 10 | Buttons pressed for real, with test records | 128 kinds of control pressed; every one did what it says, after the fixes below |
 | 11 | Real sign-in on the real local server, as manager, cashier and supplier | 98 of 98 checks |
 | 12 | Real emails | 14 sent, all to the owner's own addresses; none to anyone else |
-| 13 | Automated tests | 116 of 116 |
+| 13 | Automated tests | 127 of 127 |
 | 14 | Database after the clean-up | Every table has the same number of rows as before the test, except notifications (see "Clean-up") |
 
 ## Problems found and fixed
@@ -60,6 +60,8 @@ The check was done in two passes:
 17. **A product could be reordered although it had no supplier.** 108 products still pointed at a supplier that had been deleted. The Reorder list showed them as "No supplier", but the server only checked that a supplier number was set, so it created a purchase order addressed to the deleted supplier, which nobody received. Now a product can be ordered only from a supplier who is still on the list: the server skips the rest and says why, the Reorder list does not let them be ticked and says how many there are, Stock planning leaves them out, and Inventory shows them with no supplier everywhere. Deleting a supplier now says first how many products it will leave without a supplier and how many of its orders are still in progress. Checked on the real products with the saving switched off: of the 5 low-stock products only the 1 with a current supplier would be ordered.
 18. **An expiration date in the past was accepted** when receiving an order, and when adding or editing a product. A new batch cannot already be expired, so a date earlier than today is now refused, on the page (the date box starts at today and says why it refuses) and on the server (receive, add, edit and import). A product that has already expired can still be edited as long as its date is left alone or moved to today or later. Leaving the date blank is still allowed. Checked eight ways on the real records with the saving switched off.
 19. **On a laptop running the server, the edit form showed every expiration date one day early**, and saving moved the stored date back a day each time. The live site was not affected, because its server runs on universal time. The date now travels as a plain day.
+20. **A product could be added with no supplier.** Adding a product now needs five things: SKU, product name, category, a unit price above zero, and a supplier who is still on the list. The form marks them with a star and will not save without them; the server refuses the same way and names what is missing ("Fill in this first: Supplier."). An edit cannot clear them either, and a refused edit no longer uploads its picture first. Importing from a file now asks which supplier the products are for. A file row with no category, or with a category the shop does not have, used to be filed under the first category ("Food") without a word; it is now left out. When rows are left out, the result names each one and says why, where before it only gave a count, and the import dialog lists the category names a file may use. Checked on the real records with the saving switched off: 7 ways of adding, 6 of editing and one import of 6 rows, all as expected, and the products table was unchanged afterwards. Checked in a browser on the read-only copy, with the save answered inside the browser: 4 imports and the Add form, no script errors. Not done: an add or an import that really saves.
+21. **All products were given a supplier**, at the owner's request: the 115 active products with no current supplier (7 with none, 108 pointing at the deleted "Happy Paws Inc") were set to Roger Enteria, which makes 119 of 119. The previous values are saved in `backups/`, and `scripts/assign-supplier.js --undo <file>` puts them back.
 
 ## What was pressed in the second pass
 

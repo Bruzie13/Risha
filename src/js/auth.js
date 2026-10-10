@@ -498,7 +498,7 @@ function showPromptDialog(title, message, onConfirm, confirmText, icon, inputTyp
 }
 
 // Success/info/error popup shown after an action completes (or fails validation).
-// Auto-dismisses after 4s; click, Enter or Escape closes it immediately.
+// Auto-dismisses after 4s (unless opts.stay); click, Enter or Escape closes it immediately.
 function showSuccessDialog(title, message, opts) {
     const o = opts || {};
     const tone = o.tone || 'success';
@@ -512,7 +512,8 @@ function showSuccessDialog(title, message, opts) {
         overlay.remove();
         if (typeof o.onClose === 'function') o.onClose();
     };
-    const timer = setTimeout(close, 4000);
+    // opts.stay: there is something to read (a list of what was left out), so it waits to be closed
+    const timer = o.stay ? null : setTimeout(close, 4000);
     const onKey = (e) => { if (e.key === 'Escape' || e.key === 'Enter') close(); };
     document.addEventListener('keydown', onKey);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });

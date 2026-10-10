@@ -207,7 +207,8 @@ async function deleteSupplier(id) {
             });
             const data = await response.json();
             if (data.success) {
-                showSuccessDialog('Supplier deleted', escHtml(data.message || 'The supplier has been removed from your directory.'), { tone: 'danger' });
+                const leftSomething = !!(data.left && (data.left.products || data.left.open_orders));
+                showSuccessDialog('Supplier deleted', escHtml(data.message || 'The supplier has been removed from your directory.'), { tone: 'danger', stay: leftSomething });
                 await loadSuppliers();
             } else {
                 showToast('Error: ' + (data.message || 'Unknown'), 'error');

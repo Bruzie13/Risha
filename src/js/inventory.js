@@ -55,6 +55,8 @@ async function loadCategories() {
         if (data.success) {
             const categorySelect = document.getElementById('category_id');
             const filterSelect = document.getElementById('categoryFilter');
+            const names = document.getElementById('csvCategoryNames');
+            if (names) names.textContent = data.data.map(c => c.name).join(', ');
             data.data.forEach(category => {
                 const opt1 = document.createElement('option');
                 opt1.value = category.id;
@@ -78,13 +80,21 @@ async function loadSuppliers() {
         const response = await fetch(`${API_URL}/suppliers`, { headers: getAuthHeaders() });
         const data = await response.json();
         if (data.success) {
-            const sel = document.getElementById('supplier_id');
-            (Array.isArray(data.data) ? data.data : []).forEach(s => {
-                const opt = document.createElement('option');
-                opt.value = s.id;
-                opt.textContent = s.name;
-                sel.appendChild(opt);
+            // the product form and the import dialog offer the same suppliers
+            const list = Array.isArray(data.data) ? data.data : [];
+            ['supplier_id', 'csvSupplier'].forEach(id => {
+                const sel = document.getElementById(id);
+                if (!sel) return;
+                list.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.textContent = s.name;
+                    sel.appendChild(opt);
+                });
             });
+            // with nobody to choose, say what to do instead of leaving an empty list
+            const none = document.getElementById('supplierNone');
+            if (none) none.hidden = list.length > 0;
         }
     } catch (error) {
         console.error('Error loading suppliers:', error);
@@ -1266,6 +1276,7 @@ function openCsvImportModal() {
     document.getElementById('csvImportModal').classList.add('active');
     document.getElementById('csvPreview').innerHTML = '';
     document.getElementById('csvFile').value = '';
+    document.getElementById('csvSupplier').value = '';
     csvParsedData = [];
     document.getElementById('importBtn').disabled = false;
 }
@@ -1320,6 +1331,9 @@ document.getElementById('csvFile')?.addEventListener('change', function(e) {
 async function importCsvProducts() {
     if (!canManage()) { showToast("Your role can't import products.", 'error'); return; }
     if (!csvParsedData.length) { showToast('No valid products to import', 'error'); return; }
+    // every product needs a supplier, and the file has no column for one
+    const supplierId = parseInt(document.getElementById('csvSupplier').value) || null;
+    if (!supplierId) { showToast('Choose the supplier for these products first', 'warning'); document.getElementById('csvSupplier').focus(); return; }
     const btn = document.getElementById('importBtn');
     btn.disabled = true;
     btn.textContent = 'Importing...';
@@ -1328,36 +1342,57 @@ async function importCsvProducts() {
         const catRes = await fetch(`${API_URL}/products/categories`, { headers: getAuthHeaders() }).then(r => r.json());
         const cats = catRes.data || [];
 
-        const products = csvParsedData.map(row => {
-            let catId = cats.length > 0 ? cats[0].id : null;
-            if (row.category) {
-                const match = cats.find(c => c.name.toLowerCase() === row.category.toLowerCase());
-                if (match) catId = match.id;
+        // a row with no category, or one the shop does not have, is left out and
+        // named in the result; it is not filed under the first category
+        const total = csvParsedData.length;
+        const leftOut = [];
+        const products = [];
+        csvParsedData.forEach(row => {
+            const typed = String(row.category || '').trim();
+            const match = typed ? cats.find(c => String(c.name).toLowerCase() === typed.toLowerCase()) : null;
+            if (!match) {
+                leftOut.push({ sku: row.sku, error: typed ? `"${typed}" is not one of your categories` : 'no category' });
+                return;
             }
-            return {
+            products.push({
                 sku: row.sku,
                 name: row.name,
                 brand: row.brand || null,
                 species: row.species || null,
-                category_id: catId,
+                category_id: match.id,
                 unit_price: parseFloat(row.unit_price) || 0,
                 cost_price: parseFloat(row.cost_price) || 0,
-                    unit_type: row.unit_type || 'piece',
-                    stock_quantity: parseFloat(row.stock_quantity) || 0,
-                    reorder_level: parseInt(row.reorder_level) || 10,
-                    description: row.description || null,
-                    barcode: row.barcode || null
-            };
+                unit_type: row.unit_type || 'piece',
+                stock_quantity: parseFloat(row.stock_quantity) || 0,
+                reorder_level: parseInt(row.reorder_level) || 10,
+                description: row.description || null,
+                barcode: row.barcode || null,
+                supplier_id: supplierId
+            });
         });
 
-        const response = await fetch(`${API_URL}/products/bulk`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ products })
-        });
-        const data = await response.json();
+        // nothing is sent when no row is fit to send
+        let data = { success: true, data: { created: 0, errors: [] } };
+        if (products.length) {
+            const response = await fetch(`${API_URL}/products/bulk`, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ products })
+            });
+            data = await response.json();
+        }
         if (data.success) {
-            showSuccessDialog('Import complete', data.message || `Imported ${products.length} product${products.length === 1 ? '' : 's'} from CSV.`, { icon: 'upload_file' });
+            // rows left out here or refused by the server are named with the reason, not just counted
+            const skipped = leftOut.concat((data.data && Array.isArray(data.data.errors)) ? data.data.errors : []);
+            const created = (data.data && Number(data.data.created)) || 0;
+            const skippedHtml = skipped.length
+                ? '<span style="display:block;margin-top:10px;text-align:left;font-size:13px;"><strong>Not imported:</strong>'
+                    + skipped.slice(0, 8).map(e => `<span style="display:block;margin-top:4px;">${escHtml(e.sku || '(no SKU)')}: ${escHtml(e.error || 'refused')}</span>`).join('')
+                    + (skipped.length > 8 ? `<span style="display:block;margin-top:4px;">and ${skipped.length - 8} more</span>` : '') + '</span>'
+                : '';
+            const summary = `Imported ${created} of ${total} product${total === 1 ? '' : 's'}.`;
+            if (created) showSuccessDialog(skipped.length ? 'Import finished, with rows left out' : 'Import complete', summary + skippedHtml, { stay: skipped.length > 0, icon: 'upload_file' });
+            else showErrorDialog('Nothing was imported', summary + skippedHtml, { stay: true });
         } else {
             showToast('Import failed: ' + (data.message || 'Unknown'), 'error');
         }
