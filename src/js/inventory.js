@@ -885,10 +885,17 @@ async function handleProductSubmit(event) {
 
 // Stock adjustment functions
 let stockAdjustProductId = null;
+/* One press of Save is one change. A number is made each time the stock window
+   opens and sent with the change; the server acts on a number once. The button
+   is also locked while a change is being saved. */
+let stockRequestKey = null;
+let stockSaving = false;
+function newRequestKey() { return 1 + Math.floor(Math.random() * 2147483646); }
 
 function openStockModal(productId) {
     if (!canManage()) { showToast("Your role can't adjust stock.", 'error'); return; }
     stockAdjustProductId = productId;
+    stockRequestKey = newRequestKey();
     const product = allProducts.find(p => p.id === productId);
     document.getElementById('stockProductName').textContent = product ? product.name : 'Unknown product';
     document.getElementById('stockQuantity').value = 1;
@@ -908,12 +915,16 @@ async function saveStockAdjustment() {
     const reason = document.getElementById('stockReason').value || type;
     if (!qty || qty <= 0) { showToast('Invalid quantity', 'error'); return; }
     if (!stockAdjustProductId) { showToast('No product selected', 'error'); return; }
+    if (stockSaving) return;
 
+    const saveBtn = document.getElementById('stockSaveBtn');
+    stockSaving = true;
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
     try {
         const response = await fetch(`${API_URL}/products/${stockAdjustProductId}/stock`, {
             method: 'PUT',
             headers: getAuthHeaders(),
-            body: JSON.stringify({ quantity: qty, movement_type: type, notes: reason })
+            body: JSON.stringify({ quantity: qty, movement_type: type, notes: reason, request_key: stockRequestKey })
         });
         const data = await response.json();
         if (data.success) {
@@ -925,7 +936,11 @@ async function saveStockAdjustment() {
         }
     } catch (error) {
         console.error('Error adjusting stock:', error);
-        showToast('Failed to adjust stock', 'error');
+        // the number is kept, so pressing Save again cannot apply the change twice
+        showToast('The change could not be confirmed. Check the connection and press Save again.', 'error');
+    } finally {
+        stockSaving = false;
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save adjustment'; }
     }
 }
 
@@ -1202,12 +1217,14 @@ async function bulkAdjustStock() {
         if (isNaN(numQty) || numQty === 0) { showToast('Invalid quantity', 'error'); return; }
         const type = numQty > 0 ? 'in' : 'out';
         showConfirmDialog('Confirm adjustment', `Adjust stock by ${numQty} for ${ids.length} product(s)?`, async () => {
+            if (stockSaving) return;
+            stockSaving = true;
             try {
                 let successCount = 0;
                 for (const id of ids) {
                     const res = await fetch(`${API_URL}/products/${id}/stock`, {
                         method: 'PUT', headers: getAuthHeaders(),
-                        body: JSON.stringify({ quantity: Math.abs(numQty), movement_type: type, notes: 'Bulk adjustment' })
+                        body: JSON.stringify({ quantity: Math.abs(numQty), movement_type: type, notes: 'Bulk adjustment', request_key: newRequestKey() })
                     });
                     const data = await res.json();
                     if (data.success) successCount++;
@@ -1218,6 +1235,8 @@ async function bulkAdjustStock() {
             } catch (error) {
                 console.error('Bulk adjust error:', error);
                 showToast('Failed to adjust stock', 'error');
+            } finally {
+                stockSaving = false;
             }
         }, 'Yes, Adjust', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">assignment</span>');
     }, 'Continue', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">edit_note</span>', 'number', '10');

@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { newSaleRef } = require('../utils/requestKeys');
 
 // Timestamps are stored in UTC but the shop trades on Philippine time (UTC+8,
 // no DST), so every report groups by CONVERT_TZ(...,'+00:00','+08:00'). Without
@@ -141,7 +142,9 @@ class Sale {
                 }
             }
 
-            const saleNumber = 'SALE-' + Date.now();
+            // The till's reference for this cart when it sent one; the column
+            // is unique, so the same cart cannot be saved twice.
+            const saleNumber = saleData.sale_number || ('SALE-' + newSaleRef());
 
             const [result] = await connection.execute(
                 `INSERT INTO sales 
@@ -199,7 +202,20 @@ class Sale {
             return await this.findById(saleId);
         } catch (error) {
             await connection.rollback();
+            // the same cart, sent twice at once: the other request saved it first
+            if (error && error.code === 'ER_DUP_ENTRY' && /sale_number/.test(String(error.message))) error.code = 'DUPLICATE_SALE';
             throw error;
+        } finally {
+            connection.release();
+        }
+    }
+
+    /** The sale carrying this sale number, or null. */
+    static async findByNumber(saleNumber) {
+        const connection = await pool.getConnection();
+        try {
+            const [rows] = await connection.execute('SELECT id FROM sales WHERE sale_number = ?', [saleNumber]);
+            return rows.length ? await this.findById(rows[0].id) : null;
         } finally {
             connection.release();
         }

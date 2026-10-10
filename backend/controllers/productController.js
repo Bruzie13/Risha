@@ -1,5 +1,6 @@
 const { shopToday, expiryProblem } = require('../utils/expiry');
 const { productProblem } = require('../utils/product');
+const { stockRequestKey } = require('../utils/requestKeys');
 const Supplier = require('../models/Supplier');
 const Product = require('../models/Product');
 const logAudit = require('../services/audit');
@@ -275,27 +276,61 @@ exports.adjustStock = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Valid quantity is required' });
         }
 
-        const product = await Product.findById(id);
-        if (!product) {
-            return res.status(404).json({ success: false, message: 'Product not found' });
+        // One press of Save is one change (see utils/requestKeys.js).
+        const key = stockRequestKey(req.body.request_key);
+        if (key === false) {
+            return res.status(400).json({ success: false, message: 'The request number sent with this change is not valid' });
         }
 
         const pool = require('../config/database');
         const conn = await pool.getConnection();
+        let before = null;
+        let repeated = false;
         try {
-            const qty = movement_type === 'in' ? quantity : -quantity;
-            await conn.execute('UPDATE products SET stock_quantity = GREATEST(0, stock_quantity + ?) WHERE id = ?', [qty, id]);
-            await conn.execute(
-                `INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, notes, created_by)
-                 VALUES (?, ?, ?, 'manual', ?, ?)`,
-                [id, movement_type || 'adjustment', qty, notes || 'Manual stock adjustment', req.user.id]
-            );
+            /* The change and its history row are saved together or not at all,
+               and the product's row is held while that happens. Two requests
+               for the same product therefore take turns: the second one finds
+               the row the first one wrote, and changes nothing. */
+            await conn.beginTransaction();
+            const [rows] = await conn.execute('SELECT stock_quantity FROM products WHERE id = ? FOR UPDATE', [id]);
+            if (!rows.length) {
+                await conn.rollback();
+                return res.status(404).json({ success: false, message: 'Product not found' });
+            }
+            before = rows[0].stock_quantity;
+            if (key) {
+                const [seen] = await conn.execute(
+                    `SELECT id FROM stock_movements
+                     WHERE product_id = ? AND reference_type = 'manual' AND reference_id = ?
+                       AND created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY) LIMIT 1`,
+                    [id, key]
+                );
+                repeated = seen.length > 0;
+            }
+            if (!repeated) {
+                const qty = movement_type === 'in' ? quantity : -quantity;
+                await conn.execute('UPDATE products SET stock_quantity = GREATEST(0, stock_quantity + ?) WHERE id = ?', [qty, id]);
+                await conn.execute(
+                    `INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, reference_id, notes, created_by)
+                     VALUES (?, ?, ?, 'manual', ?, ?, ?)`,
+                    [id, movement_type || 'adjustment', qty, key, notes || 'Manual stock adjustment', req.user.id]
+                );
+            }
+            await conn.commit();
+        } catch (e) {
+            try { await conn.rollback(); } catch (x) { /* nothing open */ }
+            throw e;
+        } finally {
             conn.release();
-        } catch (e) { conn.release(); throw e; }
+        }
 
         const updated = await Product.findById(id);
-        logAudit(req.user.id, 'update', 'products', parseInt(id), { stock_quantity: product.stock_quantity }, { stock_quantity: updated.stock_quantity }, req.ip);
-        notifyStockAdjusted(updated, product.stock_quantity, updated.stock_quantity, req.user.id).catch(e => console.error('Notif error:', e.message));
+        if (repeated) {
+            // the same press arriving twice: say it is saved, and do nothing more
+            return res.status(200).json({ success: true, duplicate: true, message: 'This change was already saved', data: updated });
+        }
+        logAudit(req.user.id, 'update', 'products', parseInt(id), { stock_quantity: before }, { stock_quantity: updated.stock_quantity }, req.ip);
+        notifyStockAdjusted(updated, before, updated.stock_quantity, req.user.id).catch(e => console.error('Notif error:', e.message));
         res.status(200).json({ success: true, message: 'Stock adjusted successfully', data: updated });
     } catch (error) {
         console.error('Adjust stock error:', error);

@@ -15,6 +15,28 @@ function getQtyStep(unitType) {
 
 let allProducts = [];
 let cartItems = [];
+/* One cart, one sale. The reference is made the first time a cart is charged
+   and kept until that cart is sold or cleared. The server turns it into the
+   sale number, so the same cart sent twice (a second press, a retry after a
+   lost answer) comes back as the one sale it already made. */
+let cartRef = null;
+let saleSaving = false;         // a charge is on its way to the server
+let lastReceiptSaleId = null;   // so one sale prints one receipt
+function newCartRef() {
+    let tail = '';
+    while (tail.length < 5) tail += Math.floor(Math.random() * 36).toString(36);
+    return (Date.now().toString(36).padStart(8, '0').slice(-8) + tail).toUpperCase();
+}
+/* While a charge is being saved the button is locked and says so. */
+function setCharging(on) {
+    saleSaving = on;
+    const pay = document.getElementById('posPayBtn');
+    if (!pay) return;
+    pay.disabled = on || drawerClosed();
+    pay.setAttribute('aria-busy', on ? 'true' : 'false');
+    const label = pay.querySelector('span');
+    if (label) label.textContent = on ? 'Saving…' : 'Charge';
+}
 let barcodeBuffer = '';
 let lastKeyTime = 0;
 // This POS is cash-only: every sale is recorded with payment_method 'cash'.
@@ -468,7 +490,9 @@ function addToCart(productId) {
 
 function clearCart() {
     if (cartItems.length === 0) return;
+    if (saleSaving) { showToast('The sale is still being saved', 'info'); return; }
     cartItems = [];
+    cartRef = null;
     document.getElementById('posDiscount').value = 0;
     const tenderInput = document.getElementById('posTendered');
     if (tenderInput) tenderInput.value = '';
@@ -484,6 +508,7 @@ function clearBarcodeInput() {
 
 function removeFromCart(idx) {
     const removed = cartItems.splice(idx, 1)[0];
+    if (cartItems.length === 0) cartRef = null;   // an emptied cart is a new cart
     renderCart();
     updateCartTotals();
     showToast(`${removed.product_name} removed`, 'info');
@@ -620,6 +645,7 @@ function quickCash(amount) {
 
 async function completeSale() {
     if (isViewer()) { showToast('View-only account. Cannot process sales.', 'error'); return; }
+    if (saleSaving) { showToast('The last sale is still being saved', 'info'); return; }
     if (drawerClosed()) { showToast('Your drawer is closed for today', 'warning'); return; }
     if (cartItems.length === 0) { showToast('Cart is empty', 'error'); return; }
     const discount = getDiscountPercent();
@@ -643,7 +669,10 @@ async function completeSale() {
         <div><strong>Customer:</strong> ${escHtml(customer)}</div>
     </div>`;
     showConfirmDialog('Confirm cash sale', msg, async () => {
+        if (saleSaving) return;
+        cartRef = cartRef || newCartRef();
         const saleData = {
+            client_ref: cartRef,
             payment_method: PAYMENT_METHOD,
             notes: 'POS sale',
             customer_name: document.getElementById('posCustomerName')?.value || '',
@@ -655,15 +684,18 @@ async function completeSale() {
                 unit_price: i.unit_price
             }))
         };
+        setCharging(true);
         try {
             const response = await fetch(`${API_BASE}/sales`, {
                 method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(saleData)
             });
             const data = await response.json();
             if (data.success) {
-                showToast('Sale completed!' + (change > 0 ? ' Change: ₱' + change.toFixed(2) : ''), 'success');
+                // "duplicate" is the server saying this cart was saved already: same sale, nothing new
+                showToast(data.duplicate ? 'That sale was already saved' : 'Sale completed!' + (change > 0 ? ' Change: ₱' + change.toFixed(2) : ''), 'success');
                 const saleId = data.data?.id || data.data?.sale_id;
                 cartItems = [];
+                cartRef = null;
                 renderCart();
                 updateCartTotals();
                 document.getElementById('posCustomerName').value = '';
@@ -672,7 +704,7 @@ async function completeSale() {
                 const tenderInput = document.getElementById('posTendered');
                 if (tenderInput) tenderInput.value = '';
                 updateChange();
-                if (saleId) printReceipt(saleId, tendered, change);
+                if (saleId && saleId !== lastReceiptSaleId) { lastReceiptSaleId = saleId; printReceipt(saleId, tendered, change); }
             } else if (data.code === 'DRAWER_CLOSED') {
                 // counted from another tab or device: catch up and say so
                 if (posTill) posTill.counted = true;
@@ -683,7 +715,12 @@ async function completeSale() {
             }
         } catch (error) {
             console.error('Error creating sale:', error);
-            showToast('Failed to create sale', 'error');
+            // The cart and its reference are kept: charging again sends the same
+            // sale, so nothing is sold twice if the first one did get through.
+            showToast('The sale could not be confirmed. Check the connection and press Charge again.', 'error');
+        } finally {
+            setCharging(false);
+            applyDrawerState();
         }
     }, 'Complete sale', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">payments</span>');
 }
@@ -876,10 +913,10 @@ function applyDrawerState() {
     if (note) note.hidden = !closed;
     const pay = document.getElementById('posPayBtn');
     if (pay) {
-        pay.disabled = closed;
+        pay.disabled = closed || saleSaving;
         pay.title = closed ? "Today's count is saved. An administrator or a manager can reopen it." : '';
     }
-    if (closed && cartItems.length) { cartItems = []; renderCart(); updateCartTotals(); }
+    if (closed && cartItems.length) { cartItems = []; cartRef = null; renderCart(); updateCartTotals(); }
 }
 
 function openPosOpen(canCancel) {

@@ -2,6 +2,17 @@ const Sale = require('../models/Sale');
 const Product = require('../models/Product');
 const logAudit = require('../services/audit');
 const { notifySaleCreated, notifyLowStock, notifyStockout } = require('../services/notifier');
+const { saleRef } = require('../utils/requestKeys');
+
+/* The answer to a cart that has already been saved: the sale it became. Only
+   the cashier who made that sale is shown it; the reference is not a way to
+   read someone else's. */
+function alreadySaved(req, res, sale) {
+    if (Number(sale.created_by) !== Number(req.user.id)) {
+        return res.status(409).json({ success: false, message: 'That sale reference has already been used.' });
+    }
+    return res.status(200).json({ success: true, duplicate: true, message: 'This sale was already saved', data: sale });
+}
 
 function saleFilters(query) {
     const filters = {};
@@ -80,6 +91,17 @@ exports.createSale = async (req, res) => {
     try {
         const { items, payment_method, notes, customer_name, customer_phone, discount_percent } = req.body;
         const staff_id = req.user.id;
+
+        // One cart, one sale (see utils/requestKeys.js).
+        const ref = saleRef(req.body.client_ref);
+        if (ref === false) {
+            return res.status(400).json({ success: false, message: 'The sale reference sent with this sale is not valid' });
+        }
+        const saleNumber = ref ? 'SALE-' + ref : null;
+        if (saleNumber) {
+            const existing = await Sale.findByNumber(saleNumber);
+            if (existing) return alreadySaved(req, res, existing);
+        }
 
         if (!items || items.length === 0) {
             return res.status(400).json({
@@ -162,10 +184,21 @@ exports.createSale = async (req, res) => {
             notes: notes || null,
             customer_name: customer_name || null,
             customer_phone: customer_phone || null,
+            sale_number: saleNumber,
             items
         };
 
-        const sale = await Sale.create(saleData);
+        let sale;
+        try {
+            sale = await Sale.create(saleData);
+        } catch (e) {
+            // the same cart arrived twice at the same moment, and the other one won
+            if (e.code === 'DUPLICATE_SALE' && saleNumber) {
+                const existing = await Sale.findByNumber(saleNumber);
+                if (existing) return alreadySaved(req, res, existing);
+            }
+            throw e;
+        }
 
         logAudit(req.user.id, 'create', 'sales', sale.data?.id || sale.id, null, sale, req.ip);
 
