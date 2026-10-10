@@ -24,6 +24,10 @@ const app = express();
 // and secure cookies work correctly behind HTTPS termination.
 app.set('trust proxy', 1);
 
+// Every response used to carry "X-Powered-By: Express". It helps nobody who
+// uses the system, and tells anyone probing it which framework to look up.
+app.disable('x-powered-by');
+
 // CORS: frontend is served from this same server, so cross-origin access is only
 // allowed for explicitly whitelisted origins (comma-separated CORS_ORIGIN) or localhost in dev.
 const corsOrigins = process.env.CORS_ORIGIN
