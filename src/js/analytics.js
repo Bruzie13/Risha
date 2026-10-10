@@ -328,6 +328,13 @@ function renderModel() {
         note.textContent = `Tested on ${cmp.products} product${cmp.products === 1 ? '' : 's'} that sold ${formatNumber(cmp.actual_units)} items in the test period. `
             + 'Accuracy is how close the forecast total came to the items actually sold.' + correctionText(model.adjustment);
     }
+    const limits = document.getElementById('modelLimits');
+    if (limits) {
+        limits.textContent = (plan.history_days && plan.history_days < 365
+            ? `With ${plan.history_days} days of sales on record the forecast has not seen a full year, so it cannot allow for the season yet. `
+            : '')
+            + 'It is not told about promotions, price changes or holidays whose dates move, and learns of them only once they show in the sales.';
+    }
     document.getElementById('modelSub').textContent = model.runtime && !/python/.test(model.runtime)
         ? 'The machine-learning model could not be run, so these forecasts use the simple trend only'
         : 'The model is tested on the most recent two weeks, which it is not shown';
