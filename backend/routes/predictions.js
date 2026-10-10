@@ -74,10 +74,15 @@ function stdDev(values) {
 
 // Confidence blends data volume, model fit and demand stability
 // (coefficient of variation). Capped at 95 — never claim certainty.
+//
+// cv is null when nothing sold in the days looked at. There is then no
+// steadiness to judge, so that part scores nothing. It used to score full
+// marks, because "no sales" was read as "sales that never vary": the only
+// products called "high" were the ones that had stopped selling.
 function computeConfidence(dataPoints, r2, cv) {
     const dataScore = Math.min(1, dataPoints / 30) * 35;
     const modelScore = r2 * 30;
-    const stabilityScore = (1 - Math.min(1, (cv || 0) / 2)) * 35;
+    const stabilityScore = cv == null ? 0 : (1 - Math.min(1, cv / 2)) * 35;
     return Math.round(Math.min(95, Math.max(5, dataScore + modelScore + stabilityScore)));
 }
 
@@ -320,7 +325,7 @@ function forecastSeries(series, days = FORECAST_DAYS, opts = {}) {
         }
     }
 
-    const cv = avg > 0 ? sigma / avg : 0;
+    const cv = avg > 0 ? sigma / avg : null; // null: nothing sold, so no steadiness to speak of
     const trend = reg.slope > avg * 0.02 ? 'up' : reg.slope < -avg * 0.02 ? 'down' : 'stable';
 
     const last7 = quantities.slice(-7);
@@ -1058,7 +1063,7 @@ router.get('/trends', authenticateToken, async (req, res) => {
 });
 
 // exposed for offline evaluation scripts / tests
-router._internals = { forecastSeries, simpleTrend, TUNING, backtestAccuracy, holdoutTest, backtestSplit, buildDailySeries, findNoDataDays, prepareShop, testShop, planStock, demandBy, mlJobsFor, shopTypicals };
+router._internals = { forecastSeries, simpleTrend, computeConfidence, TUNING, backtestAccuracy, holdoutTest, backtestSplit, buildDailySeries, findNoDataDays, prepareShop, testShop, planStock, demandBy, mlJobsFor, shopTypicals };
 // the supplier page shows each supplier the forecast for its own products
 router.peekForecasts = peekForecasts;
 // server.js warms this on boot and on a timer so Analytics opens instantly

@@ -88,6 +88,22 @@ test('new product: one sale of 5 on the first day is not forecast as 5 a day', (
     assert.ok(fc.confidence < 45, 'confidence reads low');
 });
 
+test('confidence: a product that has stopped selling is not called reliable', () => {
+    const { computeConfidence } = require('../routes/predictions')._internals;
+    // sold steadily, then nothing at all for the 8 weeks the simple trend reads
+    const stopped = forecastSeries(series([...rep(3, 30), ...rep(0, 56)]), 30, { shopTypical: 4 });
+    assert.ok(stopped.confidence < 45, `no sales in 8 weeks reads low, got ${stopped.confidence}`);
+    // it read "high": no sales was scored as sales that never vary
+    assert.equal(computeConfidence(56, 0, null), 35);
+    assert.equal(computeConfidence(56, 0, 0), 70, 'the same days with truly steady sales');
+    // the steadier the sales, the higher it reads, and it never claims certainty
+    const steady = forecastSeries(series(rep(4, 60)), 30, { shopTypical: 4 });
+    const patchy = forecastSeries(series(Array.from({ length: 60 }, (_, i) => (i % 9 === 0 ? 6 : 0))), 30, { shopTypical: 4 });
+    assert.ok(steady.confidence >= 70, `the same every day reads high, got ${steady.confidence}`);
+    assert.ok(patchy.confidence < 45, `a sale every ninth day reads low, got ${patchy.confidence}`);
+    assert.ok(computeConfidence(365, 1, 0) <= 95);
+});
+
 test('new product: the estimate grows with what is sold and meets the plain average at 14 days', () => {
     const day1 = total(forecastSeries(series([1]), 30, { shopTypical: 4 }));
     const day13 = total(forecastSeries(series(rep(2, 13)), 30, { shopTypical: 4 }));
