@@ -3,6 +3,7 @@ const router = express.Router();
 const { forecastML, warmMLCacheAsync, mlAvailable, featureWeights } = require('../utils/mlForecast');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { shopTypical, capSeries } = require('../utils/forecastGuards');
 
 // Up to twelve months of sales, the range the study specifies (3–12 months),
 // so weekend, pay-day and seasonal patterns are all inside what the model sees.
@@ -61,18 +62,6 @@ function holtSmoothing(values, alpha = 0.35, beta = 0.15) {
         trend = beta * (level - prevLevel) + (1 - beta) * trend;
     }
     return { level, trend };
-}
-
-// Winsorize: clip bulk-purchase outlier days at mean + 2.5 sigma before model
-// fitting. A single wholesale-style purchase otherwise inflates the smoothed
-// level for weeks and the forecast overshoots several-fold.
-function winsorize(values) {
-    if (values.length < 7) return values;
-    const mean = values.reduce((a, b) => a + b, 0) / values.length;
-    const sd = stdDev(values);
-    if (sd === 0) return values;
-    const cap = Math.max(5, mean + 4 * sd);
-    return values.map(v => Math.min(v, cap));
 }
 
 function stdDev(values) {
@@ -150,13 +139,20 @@ function dayOfWeekIndices(series) {
 // Ensemble: Holt smoothing + linear regression + weighted moving average,
 // weighted by how much history exists, then shaped by day-of-week indices.
 function forecastSeries(series, days = FORECAST_DAYS, opts = {}) {
+    // Freak days are capped before either model sees them (utils/forecastGuards.js).
+    // The cap is worked out from the series given, so a forecast made from part
+    // of a history never uses days it has not seen. This replaced a clip at
+    // "average + 4 standard deviations" on the baseline only: a single extreme
+    // day drags both of those up with it, and the machine-learning model was
+    // given the raw series, extreme day included.
+    series = capSeries(series, opts.shopTypical).series;
     // The machine-learning model reads the whole history. The statistical
     // baseline beside it reads only the last 8 weeks: its job is to track the
     // current level, and stale months would drag that estimate.
     const fullSeries = series;
     const FIT_WINDOW = 56;
     if (series.length > FIT_WINDOW) series = series.slice(-FIT_WINDOW);
-    const quantities = winsorize(series.map(p => p.quantity));
+    const quantities = series.map(p => p.quantity);
     const n = quantities.length;
     const total = quantities.reduce((a, b) => a + b, 0);
     const avg = n > 0 ? total / n : 0;
@@ -254,27 +250,39 @@ function forecastSeries(series, days = FORECAST_DAYS, opts = {}) {
 
    Pass series through whole: mlForecast trims them to its own fit window, and
    trimming here as well is what made the warm cache miss every time. */
-function mlJobsFor(series, days = FORECAST_DAYS) {
-    const jobs = [{ series, days }];
+function mlJobsFor(series, days = FORECAST_DAYS, shop = {}) {
+    // capped exactly as forecastSeries will cap them, or the cache keys differ
+    const jobs = [{ series: capSeries(series, shop.live).series, days }];
     const holdout = series.length >= 42 ? 14 : 7;
     if (series.length >= holdout + 14) {
         // the backtest also asks what each learner would have said alone
-        jobs.push({ series: series.slice(0, -holdout), days: holdout, compare: true });
+        jobs.push({ series: capSeries(series.slice(0, -holdout), shop.back).series, days: holdout, compare: true });
     }
     return jobs;
+}
+
+/* The shop-wide "typical selling day" the outlier cap falls back on, for the
+   live forecast and for the accuracy test. The test's figure comes only from
+   the days the test is allowed to see. */
+function shopTypicals(seriesList) {
+    const trainParts = seriesList.map(s => {
+        const holdout = s.length >= 42 ? 14 : 7;
+        return s.length >= holdout + 14 ? s.slice(0, -holdout) : [];
+    });
+    return { live: shopTypical(seriesList), back: shopTypical(trainParts) };
 }
 
 // Backtest: hold out the last 7 days, forecast them from the prior history,
 // and score with WAPE (weighted absolute percentage error) — robust to
 // zero-sale days where classic MAPE explodes. Returns accuracy 0–100 or
 // null when there isn't enough history to validate.
-function backtestAccuracy(series) {
+function backtestAccuracy(series, shop = {}) {
     // Adaptive holdout: 14 days when there's 6+ weeks of history, else 7.
     const holdout = series.length >= 42 ? 14 : 7;
     if (series.length < holdout + 14) return null; // need 14+ training days
     const train = series.slice(0, -holdout);
     const test = series.slice(-holdout);
-    const fc = forecastSeries(train, holdout, { compare: true });
+    const fc = forecastSeries(train, holdout, { compare: true, shopTypical: shop.back });
     // Score on total holdout volume: for intermittent retail demand, WHICH
     // day a bulk purchase lands on is noise — the volume is what inventory
     // decisions depend on.
@@ -318,8 +326,9 @@ router.get('/product/:id', authenticateToken, async (req, res) => {
         // and the figure in the list could disagree. Build it if it is not
         // there yet; after that this product's series is already in the cache.
         if (!allCache.payload) await rebuildAllPredictions().catch(() => {});
-        await warmMLCacheAsync(mlJobsFor(series));
-        const fc = forecastSeries(series);
+        const shop = allCache.shop || {};
+        await warmMLCacheAsync(mlJobsFor(series, FORECAST_DAYS, shop));
+        const fc = forecastSeries(series, FORECAST_DAYS, { shopTypical: shop.live });
 
         const nextMonthTotal = Math.round(fc.predictions.reduce((a, p) => a + p.predicted_quantity, 0) * 100) / 100;
         const dailyAvg = nextMonthTotal / FORECAST_DAYS;
@@ -371,7 +380,7 @@ router.get('/product/:id', authenticateToken, async (req, res) => {
    computed behind it, and concurrent callers share one rebuild instead of each
    starting their own Python process. */
 const ALL_TTL_MS = 5 * 60 * 1000;
-let allCache = { at: 0, payload: null };
+let allCache = { at: 0, payload: null, shop: null };
 let rebuildInFlight = null;
 
 // Fewer items than this sold across the shop in the test fortnight is too
@@ -410,11 +419,9 @@ async function computeAllPredictions() {
         // Fit every product in a single Python process before the loop starts.
         const allSeries = {};
         const warmJobs = [];
-        Object.entries(byProduct).forEach(([pid, data]) => {
-            const series = buildDailySeries(data.rows);
-            allSeries[pid] = series;
-            warmJobs.push(...mlJobsFor(series));
-        });
+        Object.entries(byProduct).forEach(([pid, data]) => { allSeries[pid] = buildDailySeries(data.rows); });
+        const shop = shopTypicals(Object.values(allSeries));
+        Object.values(allSeries).forEach(series => { warmJobs.push(...mlJobsFor(series, FORECAST_DAYS, shop)); });
         await warmMLCacheAsync(warmJobs);
 
         let holdPred = 0, holdActual = 0, backtested = 0;
@@ -424,10 +431,10 @@ async function computeAllPredictions() {
         const cmp = { actual: 0, baseline: 0, rf: 0, gb: 0, ml: 0, final: 0, products: 0 };
         const result = Object.entries(byProduct).map(([pid, data]) => {
             const series = allSeries[pid];
-            const fc = forecastSeries(series);
+            const fc = forecastSeries(series, FORECAST_DAYS, { shopTypical: shop.live });
             const nextMonthTotal = Math.round(fc.predictions.reduce((a, p) => a + p.predicted_quantity, 0) * 100) / 100;
             const dailyAvg = nextMonthTotal / FORECAST_DAYS;
-            const bt = backtestAccuracy(series);
+            const bt = backtestAccuracy(series, shop);
             const accuracy = bt ? bt.accuracy : null;
             if (bt) {
                 holdPred += bt.predTotal;
@@ -487,12 +494,12 @@ async function computeAllPredictions() {
                         statistical_baseline: accuracyOf(cmp.baseline, cmp.actual),
                         system_forecast: accuracyOf(cmp.final, cmp.actual)
                     } : null,
-                    feature_weights: featureWeights(Object.values(allSeries), FORECAST_DAYS)
+                    feature_weights: featureWeights(Object.values(allSeries).map(series => capSeries(series, shop.live).series), FORECAST_DAYS)
                 },
                 predictions: result
             }
         };
-        allCache = { at: Date.now(), payload };
+        allCache = { at: Date.now(), payload, shop };
         return payload;
 }
 
@@ -854,7 +861,7 @@ router.get('/trends', authenticateToken, async (req, res) => {
 });
 
 // exposed for offline evaluation scripts / tests
-router._internals = { forecastSeries, backtestAccuracy, buildDailySeries, winsorize, planStock, demandBy };
+router._internals = { forecastSeries, backtestAccuracy, buildDailySeries, planStock, demandBy, mlJobsFor, shopTypicals };
 // the supplier page shows each supplier the forecast for its own products
 router.peekForecasts = peekForecasts;
 // server.js warms this on boot and on a timer so Analytics opens instantly
