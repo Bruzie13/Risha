@@ -902,6 +902,27 @@ function openStockModal(productId) {
     document.getElementById('stockAdjustType').value = 'in';
     document.getElementById('stockReason').value = '';
     document.getElementById('stockModal').classList.add('active');
+    updateStockPreview();
+}
+
+/* Why a stock change cannot be made, or null. The server applies the same rule. */
+function stockChangeProblem(stock, qty, type) {
+    if (!(qty > 0)) return 'Enter a quantity above zero.';
+    if (type !== 'in' && qty > stock) return `Only ${formatQty(stock)} in stock: you cannot remove ${formatQty(qty)}.`;
+    return null;
+}
+
+/* Under the quantity box: what the stock will become, or why it cannot be done. */
+function updateStockPreview() {
+    const el = document.getElementById('stockPreview');
+    if (!el) return;
+    const product = allProducts.find(p => p.id === stockAdjustProductId);
+    const stock = product ? parseFloat(product.stock_quantity) || 0 : 0;
+    const qty = parseFloat(document.getElementById('stockQuantity').value);
+    const type = document.getElementById('stockAdjustType').value;
+    const problem = stockChangeProblem(stock, qty, type);
+    el.style.color = problem ? 'var(--danger)' : 'var(--text-muted)';
+    el.textContent = problem || `Stock will go from ${formatQty(stock)} to ${formatQty(type === 'in' ? stock + qty : stock - qty)}.`;
 }
 
 function closeStockModal() {
@@ -913,8 +934,10 @@ async function saveStockAdjustment() {
     const qty = parseFloat(document.getElementById('stockQuantity').value);
     const type = document.getElementById('stockAdjustType').value;
     const reason = document.getElementById('stockReason').value || type;
-    if (!qty || qty <= 0) { showToast('Invalid quantity', 'error'); return; }
     if (!stockAdjustProductId) { showToast('No product selected', 'error'); return; }
+    const onShelf = allProducts.find(p => p.id === stockAdjustProductId);
+    const problem = stockChangeProblem(onShelf ? parseFloat(onShelf.stock_quantity) || 0 : 0, qty, type);
+    if (problem) { showToast(problem, 'error'); updateStockPreview(); document.getElementById('stockQuantity').focus(); return; }
     if (stockSaving) return;
 
     const saveBtn = document.getElementById('stockSaveBtn');
@@ -932,7 +955,9 @@ async function saveStockAdjustment() {
             closeStockModal();
             await loadProducts();
         } else {
-            showToast('Error: ' + (data.message || 'Unknown'), 'error');
+            showToast(data.message || 'The change was not saved', 'error');
+            // the stock moved since this page loaded: show the real number and judge again
+            if (data.code === 'NOT_ENOUGH_STOCK' && onShelf && data.data) { onShelf.stock_quantity = data.data.stock_quantity; updateStockPreview(); }
         }
     } catch (error) {
         console.error('Error adjusting stock:', error);
@@ -1221,6 +1246,7 @@ async function bulkAdjustStock() {
             stockSaving = true;
             try {
                 let successCount = 0;
+                const refused = [];
                 for (const id of ids) {
                     const res = await fetch(`${API_URL}/products/${id}/stock`, {
                         method: 'PUT', headers: getAuthHeaders(),
@@ -1228,8 +1254,15 @@ async function bulkAdjustStock() {
                     });
                     const data = await res.json();
                     if (data.success) successCount++;
+                    else { const p = allProducts.find(x => x.id === id); refused.push(`${p ? p.name : 'Product #' + id}: ${data.message || 'not changed'}`); }
                 }
-                showSuccessDialog('Stock adjusted', `Updated ${successCount} of ${ids.length} selected product${ids.length === 1 ? '' : 's'}.`, { icon: 'sync_alt' });
+                // a product that was not changed is named with the reason, not just left out of the count
+                const refusedHtml = refused.length
+                    ? '<span style="display:block;margin-top:10px;text-align:left;font-size:13px;"><strong>Not changed:</strong>'
+                        + refused.slice(0, 8).map(r => `<span style="display:block;margin-top:4px;">${escHtml(r)}</span>`).join('')
+                        + (refused.length > 8 ? `<span style="display:block;margin-top:4px;">and ${refused.length - 8} more</span>` : '') + '</span>'
+                    : '';
+                showSuccessDialog('Stock adjusted', `Updated ${successCount} of ${ids.length} selected product${ids.length === 1 ? '' : 's'}.` + refusedHtml, { icon: 'sync_alt', stay: refused.length > 0 });
                 clearSelection();
                 await loadProducts();
             } catch (error) {

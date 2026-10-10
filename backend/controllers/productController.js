@@ -309,7 +309,20 @@ exports.adjustStock = async (req, res) => {
             }
             if (!repeated) {
                 const qty = movement_type === 'in' ? quantity : -quantity;
-                await conn.execute('UPDATE products SET stock_quantity = GREATEST(0, stock_quantity + ?) WHERE id = ?', [qty, id]);
+                /* More cannot be taken off the shelf than is on it. This used
+                   to be accepted: the stock was quietly set to zero while the
+                   history row recorded the full amount. The row is held, so
+                   the stock read above is the stock this change applies to. */
+                if (qty < 0 && Number(quantity) > Number(before)) {
+                    await conn.rollback();
+                    return res.status(400).json({
+                        success: false,
+                        code: 'NOT_ENOUGH_STOCK',
+                        message: `Only ${Number(before)} in stock: you cannot remove ${Number(quantity)}.`,
+                        data: { stock_quantity: before }
+                    });
+                }
+                await conn.execute('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?', [qty, id]);
                 await conn.execute(
                     `INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, reference_id, notes, created_by)
                      VALUES (?, ?, ?, 'manual', ?, ?, ?)`,
