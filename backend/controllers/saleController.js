@@ -445,37 +445,6 @@ exports.getEodHistory = async (req, res) => {
     }
 };
 
-exports.updateSale = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const updateData = req.body;
-
-        const oldSale = await Sale.findById(id);
-        const sale = await Sale.update(id, updateData);
-
-        if (!sale) {
-            return res.status(404).json({
-                success: false,
-                message: 'Sale not found'
-            });
-        }
-
-        logAudit(req.user.id, 'update', 'sales', parseInt(id), oldSale, updateData, req.ip);
-
-        res.status(200).json({
-            success: true,
-            message: 'Sale updated successfully',
-            data: sale
-        });
-    } catch (error) {
-        console.error('Update sale error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error updating sale'
-        });
-    }
-};
-
 exports.deleteSale = async (req, res) => {
     try {
         const { id } = req.params;
@@ -513,56 +482,6 @@ exports.getDailySales = async (req, res) => {
     }
 };
 
-exports.getWeeklySales = async (req, res) => {
-    try {
-        const weeks = parseInt(req.query.weeks) || 12;
-        const sales = await Sale.getWeeklySales(weeks);
-        res.status(200).json({
-            success: true,
-            data: sales
-        });
-    } catch (error) {
-        console.error('Get weekly sales error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error retrieving weekly sales'
-        });
-    }
-};
-
-exports.getMonthlySales = async (req, res) => {
-    try {
-        const months = parseInt(req.query.months) || 12;
-        const sales = await Sale.getMonthlySales(months);
-        res.status(200).json({
-            success: true,
-            data: sales
-        });
-    } catch (error) {
-        console.error('Get monthly sales error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error retrieving monthly sales'
-        });
-    }
-};
-
-exports.getTotalSales = async (req, res) => {
-    try {
-        const total = await Sale.getTotalSales();
-        res.status(200).json({
-            success: true,
-            data: { total_sales: total }
-        });
-    } catch (error) {
-        console.error('Get total sales error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error retrieving total sales'
-        });
-    }
-};
-
 exports.getSalesReport = async (req, res) => {
     try {
         const { period, date_from, date_to } = req.query;
@@ -583,23 +502,6 @@ exports.getSalesReport = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error generating sales report'
-        });
-    }
-};
-
-exports.getTopProducts = async (req, res) => {
-    try {
-        const limit = parseInt(req.query.limit) || 10;
-        const topProducts = await Sale.getTopProducts(limit);
-        res.status(200).json({
-            success: true,
-            data: topProducts
-        });
-    } catch (error) {
-        console.error('Get top products error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error retrieving top products'
         });
     }
 };

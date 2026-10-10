@@ -25,9 +25,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css?v=50">
-    <link rel="stylesheet" href="css/sales.css?v=23">
+    <link rel="stylesheet" href="css/sales.css?v=24">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=33">
+        <link rel="stylesheet" href="css/system.css?v=34">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -163,130 +163,6 @@
         </div>
     </div>
 
-    <div id="saleModal" class="modal">
-        <div class="modal-content modal-lg">
-            <div class="modal-header">
-                <h2>Create new sale</h2>
-                <button class="close-btn" title="Close" onclick="closeSaleModal()">&times;</button>
-            </div>
-            <form id="saleForm" onsubmit="handleSaleSubmit(event)">
-                <div class="modal-body">
-                    <div class="form-section">
-                        <h3>Customer information</h3>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label">Customer name</label>
-                                <input type="text" class="form-input" id="customer_name" placeholder="Optional">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Customer phone</label>
-                                <input type="text" class="form-input" id="customer_phone" placeholder="Optional">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-section">
-                        <h3>Scan or search product</h3>
-                        <div style="position: relative;">
-                            <div class="barcode-row">
-                                <input type="text" class="form-input barcode-input" id="barcodeScanInput" placeholder="Scan barcode or type to search... (F2)" autofocus>
-                                <button type="button" class="btn-secondary" onclick="clearBarcodeInput()" title="Clear"><span class="material-symbols-outlined" style="font-size:14px;">close</span></button>
-                                <button type="button" class="btn-primary" onclick="focusBarcodeScanner()" title="Focus scanner (F2)"><span class="material-symbols-outlined" style="font-size:16px;">camera_alt</span> Scan</button>
-                            </div>
-                            <div id="productAutocomplete" class="barcode-results" style="display:none;"></div>
-                        </div>
-                    </div>
-
-                    <div class="form-section">
-                        <h3>Add items manually</h3>
-                        <div class="form-row">
-                            <div class="form-group" style="flex:2;">
-                                <label class="form-label">Product</label>
-                                <select class="form-select" id="product_select">
-                                    <option value="">Select a product</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Qty</label>
-                                <input type="number" class="form-input" id="quantity" min="1" value="1">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Price</label>
-                                <input type="number" class="form-input" id="unit_price" step="0.01">
-                            </div>
-                            <div class="form-group align-bottom">
-                                <button type="button" class="btn-secondary" onclick="addItemToSale()">Add item</button>
-                            </div>
-                        </div>
-                        <div id="qtyWarning" class="hidden" style="color:#d32f2f;font-size:13px;margin-top:5px;"><span class="material-symbols-outlined" style="font-size:14px;color:#d32f2f;vertical-align:middle;">warning</span> Quantity exceeds available stock</div>
-                        <div style="text-align:right;font-size:14px;color:#666;margin-top:5px;">
-                            Item total: <span id="itemTotal">
-<span class="skeleton" style="display:inline-block;width:70px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
-</span>
-                            <span style="margin-left:15px;">Max stock: <span id="maxStock">
-<span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
-</span></span>
-                        </div>
-                    </div>
-
-                    <div class="form-section">
-                        <h3>Sale Items (<span id="itemCount">
-<span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
-</span>)</h3>
-                        <div class="items-list" id="saleItemsList">
-                            <p class="text-center text-muted">No items added yet</p>
-                        </div>
-                    </div>
-
-                    <div class="form-section">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label">Payment method</label>
-                                <select class="form-select" id="payment_method" disabled>
-                                    <option value="cash" selected>Cash (cash-only)</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Notes</label>
-                                <input type="text" class="form-input" id="notes" placeholder="Optional notes">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="total-section">
-                        <div class="total-row">
-                            <span>Subtotal:</span>
-                            <span id="subtotal">
-<span class="skeleton" style="display:inline-block;width:70px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
-</span>
-                        </div>
-                        <div class="total-row">
-                            <span>Discount (<span id="discountPercent">
-<span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
-</span>%):</span>
-                            <span id="discountAmount">-₱0.00</span>
-                        </div>
-                        <div class="total-row">
-                            <span>Discount %:</span>
-                            <span><input type="number" class="form-input" id="discount" value="0" min="0" max="100" step="0.01" style="width:80px;display:inline;padding:5px;"></span>
-                        </div>
-                        <div class="total-row highlight">
-                            <span>Total amount:</span>
-                            <span id="totalAmount">
-<span class="skeleton" style="display:inline-block;width:70px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
-</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn-secondary" onclick="closeSaleModal()">Cancel</button>
-                    <button type="button" class="btn-warning" onclick="printCurrentReceipt()"><span class="material-symbols-outlined" style="font-size:16px;">print</span> Print receipt</button>
-                    <button type="submit" class="btn-primary"><span class="material-symbols-outlined" style="font-size:16px;">payments</span> Complete sale</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <div id="viewSaleModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -348,11 +224,11 @@
                     <div id="eodMovesHead" style="padding:9px 12px;background:var(--bg-raised);font-size:12.5px;font-weight:600;color:var(--text-primary);"></div>
                     <div id="eodMovesList" style="max-height:150px;overflow-y:auto;"></div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-needs="manage">
                     <label class="form-label">Cash counted in drawer (₱) *</label>
                     <input type="number" class="form-input" id="eodCounted" min="0" step="0.01" placeholder="0.00" oninput="updateEodDiff()">
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-needs="manage">
                     <label class="form-label">Notes (optional)</label>
                     <input type="text" class="form-input" id="eodNotes" placeholder="e.g. ₱200 used for water delivery">
                 </div>
@@ -364,18 +240,18 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeEodModal()">Cancel</button>
-                <button type="button" class="btn-primary" onclick="saveEod()"><span class="material-symbols-outlined" style="font-size:16px;">savings</span> Save count</button>
+                <button type="button" class="btn-primary" data-needs="manage" onclick="saveEod()"><span class="material-symbols-outlined" style="font-size:16px;">savings</span> Save count</button>
             </div>
         </div>
     </div>
 
         <script src="js/utils.js"></script>
 <script src="js/format.js"></script>
-<script src="js/auth.js?v=44"></script>
+<script src="js/auth.js?v=46"></script>
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=30"></script>
 <script src="js/assistant.js?v=24"></script>
-    <script src="js/point-of-sale.js?v=32"></script>
+    <script src="js/point-of-sale.js?v=34"></script>
 </body>
 </html>
 

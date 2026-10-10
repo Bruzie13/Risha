@@ -129,7 +129,9 @@ exports.addCashMove = async (req, res) => {
             message: kind === 'out'
                 ? `${peso} was recorded as taken out of a cashier's drawer. Who and why is under Sales history, End of day.`
                 : `${peso} was recorded as put into a cashier's drawer. Who and why is under Sales history, End of day.`,
-            type: 'info', related_id: ins.insertId, related_type: 'till_cash_move', user_id: req.user.id
+            // No user_id: a notice with one is shown only to that account, and
+            // this one is for the administrators, not for the cashier who made it.
+            type: 'info', related_id: ins.insertId, related_type: 'till_cash_move'
         }).catch(e => console.error('Notif error:', e.message));
         res.json({
             success: true,
@@ -176,7 +178,8 @@ exports.requestVoid = async (req, res) => {
             // the cashier's own words stay out of the alert; they are shown,
             // escaped, in the review list under Reports
             message: `A cashier asked for sale #${id} to be voided. Review it under Reports, in Void requests.`,
-            type: 'info', related_id: id, related_type: 'sale', user_id: req.user.id
+            // no user_id, so the people who decide (not the cashier who asked) see it
+            type: 'info', related_id: id, related_type: 'sale'
         }).catch(e => console.error('Notif error:', e.message));
         res.json({ success: true, message: 'Sent to a manager for voiding.' });
     } catch (e) { fail(res, 'requestVoid', e); }

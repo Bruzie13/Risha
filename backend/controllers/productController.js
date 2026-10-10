@@ -87,39 +87,6 @@ exports.getProductById = async (req, res) => {
     }
 };
 
-exports.getProductByBarcode = async (req, res) => {
-    try {
-        const { barcode } = req.query;
-
-        if (!barcode) {
-            return res.status(400).json({
-                success: false,
-                message: 'Barcode parameter is required'
-            });
-        }
-
-        const product = await Product.findByBarcode(barcode);
-
-        if (!product) {
-            return res.status(404).json({
-                success: false,
-                message: 'Product not found with that barcode'
-            });
-        }
-
-        res.status(200).json({
-            success: true,
-            data: product
-        });
-    } catch (error) {
-        console.error('Get product by barcode error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error retrieving product by barcode'
-        });
-    }
-};
-
 exports.createProduct = async (req, res) => {
     try {
         const { sku, name, description, brand, species, category_id, unit_price, cost_price, stock_quantity, reorder_level, unit_type, supplier_id, barcode, expiration_date, batch_number, image_url } = req.body;
@@ -270,55 +237,6 @@ exports.getLowStockProducts = async (req, res) => {
     }
 };
 
-exports.getExpiringProducts = async (req, res) => {
-    try {
-        const days = parseInt(req.query.days) || 30;
-        const products = await Product.getExpiringSoon(days);
-        res.status(200).json({
-            success: true,
-            data: products
-        });
-    } catch (error) {
-        console.error('Get expiring products error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error retrieving expiring products'
-        });
-    }
-};
-
-exports.getOverstockProducts = async (req, res) => {
-    try {
-        const products = await Product.getOverstock();
-        res.status(200).json({
-            success: true,
-            data: products
-        });
-    } catch (error) {
-        console.error('Get overstock products error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error retrieving overstock products'
-        });
-    }
-};
-
-exports.getSpecies = async (req, res) => {
-    try {
-        const species = await Product.getSpecies();
-        res.status(200).json({
-            success: true,
-            data: species
-        });
-    } catch (error) {
-        console.error('Get species error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error retrieving species'
-        });
-    }
-};
-
 exports.adjustStock = async (req, res) => {
     try {
         const { id } = req.params;
@@ -353,22 +271,6 @@ exports.adjustStock = async (req, res) => {
     } catch (error) {
         console.error('Adjust stock error:', error);
         res.status(500).json({ success: false, message: 'Error adjusting stock' });
-    }
-};
-
-exports.getSuppliers = async (req, res) => {
-    try {
-        const suppliers = await Product.getSuppliers();
-        res.status(200).json({
-            success: true,
-            data: suppliers
-        });
-    } catch (error) {
-        console.error('Get suppliers error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error retrieving suppliers'
-        });
     }
 };
 

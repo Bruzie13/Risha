@@ -194,22 +194,6 @@ class PurchaseOrder {
         }
     }
 
-    static async delete(id) {
-        const connection = await pool.getConnection();
-        try {
-            await connection.execute(
-                'DELETE FROM po_items WHERE po_id = ?',
-                [id]
-            );
-            await connection.execute(
-                'DELETE FROM purchase_orders WHERE id = ?',
-                [id]
-            );
-            return true;
-        } finally {
-            connection.release();
-        }
-    }
 }
 
 module.exports = PurchaseOrder;

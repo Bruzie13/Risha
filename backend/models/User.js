@@ -192,19 +192,6 @@ class User {
         }
     }
 
-    static async updateRole(id, role) {
-        const connection = await pool.getConnection();
-        try {
-            await connection.execute(
-                'UPDATE users SET role = ? WHERE id = ?',
-                [role, id]
-            );
-            return await this.findById(id);
-        } finally {
-            connection.release();
-        }
-    }
-
     static async updateStatus(id, isActive) {
         const connection = await pool.getConnection();
         try {
@@ -213,6 +200,17 @@ class User {
                 [isActive, id]
             );
             return await this.findById(id);
+        } finally {
+            connection.release();
+        }
+    }
+
+    /** How many administrator accounts can sign in right now. */
+    static async countActiveAdmins() {
+        const connection = await pool.getConnection();
+        try {
+            const [rows] = await connection.execute("SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND is_active = TRUE");
+            return Number(rows[0].n) || 0;
         } finally {
             connection.release();
         }

@@ -194,23 +194,6 @@ class Product {
         }
     }
 
-    static async findByBarcode(barcode) {
-        const connection = await pool.getConnection();
-        try {
-            const [rows] = await connection.execute(
-                `SELECT p.*, c.name as category_name, s.name as supplier_name 
-                 FROM products p 
-                 LEFT JOIN categories c ON p.category_id = c.id 
-                 LEFT JOIN suppliers s ON p.supplier_id = s.id 
-                 WHERE p.barcode = ?`,
-                [barcode]
-            );
-            return rows[0] || null;
-        } finally {
-            connection.release();
-        }
-    }
-
     static async create(productData) {
         const connection = await pool.getConnection();
         try {
@@ -368,29 +351,6 @@ class Product {
         }
     }
 
-    static async getSuppliers() {
-        const connection = await pool.getConnection();
-        try {
-            const [rows] = await connection.execute(
-                'SELECT * FROM suppliers WHERE is_active = TRUE ORDER BY name'
-            );
-            return rows;
-        } finally {
-            connection.release();
-        }
-    }
-
-    static async getSpecies() {
-        const connection = await pool.getConnection();
-        try {
-            const [rows] = await connection.execute(
-                "SELECT DISTINCT species FROM products WHERE species IS NOT NULL AND species != '' ORDER BY species"
-            );
-            return rows.map(r => r.species);
-        } finally {
-            connection.release();
-        }
-    }
 }
 
 module.exports = Product;

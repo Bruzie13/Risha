@@ -21,7 +21,6 @@ window.addEventListener('load', async () => {
         return;
     }
     if (!canManage()) {
-        document.querySelectorAll('.page-header-actions .btn-primary, .page-header-actions .btn-secondary, .page-header-actions .btn-warning').forEach(b => b.style.display = 'none');
         document.getElementById('bulkBar').style.display = 'none';
         document.querySelector('#productDetailsModal .btn-primary')?.remove();
         document.querySelector('#productDetailsModal .btn-danger')?.remove();
@@ -950,7 +949,7 @@ async function autoReorder() {
                 <input type="checkbox" id="reord-${p.id}" ${checked} style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">
                 <div style="flex:1;min-width:0;">
                     <div style="font-weight:600;font-size:14px;color:var(--text-primary);">${escHtml(p.name)}</div>
-                    <div style="font-size:12px;color:var(--text-muted,#888);">${escHtml(p.sku || '')} · ${p.supplier_name || 'No supplier'}</div>
+                    <div style="font-size:12px;color:var(--text-muted,#888);">${escHtml(p.sku || '')} · ${escHtml(p.supplier_name || 'No supplier')}</div>
                 </div>
                 <div style="text-align:right;flex-shrink:0;">
                     <div style="font-size:12px;color:var(--text-muted,#888);">Stock: <strong>${formatNumber(p.stock_quantity)}</strong></div>

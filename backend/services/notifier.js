@@ -91,17 +91,6 @@ async function notifyPOStatusChanged(po, oldStatus, newStatus, userId) {
     });
 }
 
-async function notifyPOGenerated(po, userId) {
-    await Notification.create({
-        title: 'Purchase Order Created',
-        message: `${po.po_number} — ₱${parseFloat(po.total_amount || 0).toFixed(2)}`,
-        type: 'reorder',
-        related_id: po.id,
-        related_type: 'purchase_order',
-        user_id: userId
-    });
-}
-
 async function notifyProductCreated(product, userId) {
     await Notification.create({
         title: 'New Product Added',
@@ -169,7 +158,6 @@ module.exports = {
     notifyExpiringSoon,
     notifyOverstock,
     notifyPOStatusChanged,
-    notifyPOGenerated,
     notifyProductCreated,
     notifyUserLogin
 };

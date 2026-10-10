@@ -90,7 +90,7 @@ function displayUsers(users) {
                     ? `<button class="btn-edit" onclick="restoreUser(${u.id})" title="Reactivate this account — its username and email were never released">Restore</button>`
                     : `${Number(u.email_verified) === 1 ? '' : `<button class="btn-edit" onclick="resendVerification(${u.id})" title="Send the confirmation link again">Resend</button>`}
                 <button class="btn-edit" onclick="openEditUserModal(${u.id})">Edit</button>
-                <button class="btn-delete" onclick="deleteUser(${u.id})">Delete</button>`}
+                ${Number(u.id) === Number((getUser() || {}).id) ? '' : `<button class="btn-delete" onclick="deleteUser(${u.id})">Delete</button>`}`}
             </td>
         </tr>
     `).join('');
@@ -353,6 +353,9 @@ function openAddUserModal() {
     const unameEl = document.getElementById('userUsername');
     unameEl.disabled = false;
     unameEl.title = '';
+    // editing your own account locks the role box; a new account always has a free choice
+    document.getElementById('userRole').disabled = false;
+    document.getElementById('userRole').title = '';
     document.getElementById('userPassword').required = true;
     document.getElementById('passwordRequired').style.display = 'inline';
     document.getElementById('userSubmitBtn').textContent = 'Create user';
@@ -377,6 +380,10 @@ function openEditUserModal(id) {
     document.getElementById('userFullName').value = user.full_name || '';
     document.getElementById('userEmail').value = user.email || '';
     document.getElementById('userRole').value = user.role || 'cashier';
+    // your own role is changed by another administrator, never by yourself (the server refuses it too)
+    const ownAccount = Number(user.id) === Number((getUser() || {}).id);
+    document.getElementById('userRole').disabled = ownAccount;
+    document.getElementById('userRole').title = ownAccount ? 'Another administrator has to change your role' : '';
     refreshRoleFields();
     if (user.role === 'supplier') {
         loadSupplierOptions().then(() => { document.getElementById('userSupplier').value = user.supplier_id || ''; });

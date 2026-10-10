@@ -513,22 +513,6 @@ function warmAllPredictions() {
     return rebuildAllPredictions().catch(() => {});
 }
 
-router.get('/all', authenticateToken, async (req, res) => {
-    try {
-        const age = Date.now() - allCache.at;
-        if (allCache.payload) {
-            // Stale is served too — a few minutes old beats a 30-second wait —
-            // with a refresh kicked off behind it.
-            if (age >= ALL_TTL_MS) rebuildAllPredictions().catch(() => {});
-            return res.json(allCache.payload);
-        }
-        res.json(await rebuildAllPredictions());
-    } catch (err) {
-        console.error('[Predictions] request failed:', err.message);
-        res.status(500).json({ success: false, error: 'Could not load forecast data' });
-    }
-});
-
 /* ---------- Stock planning overview ----------
 
    Everything the Reports → Stock planning screen shows, decided in one place.
@@ -797,77 +781,6 @@ router.get('/overview', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error('[Predictions] overview failed:', err.message);
         res.status(500).json({ success: false, error: 'Could not load stock planning data' });
-    }
-});
-
-router.get('/summary', authenticateToken, async (req, res) => {
-    try {
-        // Products with 30-day sales velocity in one query, so reorder
-        // recommendations reflect actual demand instead of a static 2x rule.
-        const [products] = await pool.query(`
-            SELECT p.id, p.name, p.stock_quantity, p.reorder_level,
-                   COALESCE(SUM(CASE
-                       WHEN s.payment_status = 'completed'
-                        AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-                       THEN si.quantity END), 0) AS qty_30d
-            FROM products p
-            LEFT JOIN sale_items si ON si.product_id = p.id
-            LEFT JOIN sales s ON si.sale_id = s.id
-            WHERE p.is_active = TRUE
-            GROUP BY p.id, p.name, p.stock_quantity, p.reorder_level
-        `);
-
-        const LEAD_TIME = 7;
-        const recommendations = products
-            .filter(p => Number(p.stock_quantity) <= Number(p.reorder_level))
-            .map(p => {
-                const stock = Number(p.stock_quantity);
-                const reorder = Number(p.reorder_level);
-                const qty30 = Number(p.qty_30d);
-                const dailyVelocity = qty30 / 30;
-                const daysUntilStockout = dailyVelocity > 0 ? Math.floor(stock / dailyVelocity) : 999;
-                const demandBasedQty = Math.ceil(qty30 + dailyVelocity * LEAD_TIME - stock);
-                const recommendedQty = Math.max(reorder * 2 - stock, demandBasedQty, 0);
-                const priority = (stock <= reorder / 2 || daysUntilStockout <= LEAD_TIME) ? 'High' : 'Medium';
-                return {
-                    product_name: p.name,
-                    current_stock: stock,
-                    reorder_level: reorder,
-                    sales_last_30d: qty30,
-                    days_until_stockout: daysUntilStockout,
-                    recommended_qty: recommendedQty,
-                    priority
-                };
-            })
-            .sort((a, b) => {
-                if (a.priority !== b.priority) return a.priority === 'High' ? -1 : 1;
-                return a.days_until_stockout - b.days_until_stockout;
-            });
-
-        const [monthlyData] = await pool.query(`
-            SELECT MONTH(s.created_at) as month,
-                   SUM(si.quantity) as total_qty,
-                   COUNT(DISTINCT DATE(s.created_at)) as active_days
-            FROM sale_items si
-            JOIN sales s ON si.sale_id = s.id
-            WHERE s.payment_status = 'completed'
-            AND s.created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-            GROUP BY MONTH(s.created_at)
-            ORDER BY month
-        `);
-
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const seasonal_trends = monthlyData.map(m => ({
-            month: monthNames[m.month - 1] || `Month ${m.month}`,
-            month_number: m.month,
-            avg_quantity: m.active_days > 0 ? Math.round((m.total_qty / m.active_days) * 100) / 100 : 0,
-            total_sales: Number(m.total_qty)
-        }));
-
-        res.json({ success: true, data: { seasonal_trends, reorder_recommendations: recommendations.slice(0, 20) } });
-    } catch (err) {
-        console.error('[Predictions] request failed:', err.message);
-        res.status(500).json({ success: false, error: 'Could not load forecast data' });
     }
 });
 

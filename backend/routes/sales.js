@@ -8,11 +8,7 @@ const tillController = require('../controllers/tillController');
 router.get('/', authenticateToken, saleController.getAllSales);
 router.get('/stats', authenticateToken, saleController.getSalesStats);
 router.get('/daily-sales', authenticateToken, saleController.getDailySales);
-router.get('/weekly-sales', authenticateToken, saleController.getWeeklySales);
-router.get('/monthly-sales', authenticateToken, saleController.getMonthlySales);
-router.get('/total-sales', authenticateToken, saleController.getTotalSales);
 router.get('/report', authenticateToken, saleController.getSalesReport);
-router.get('/top-products', authenticateToken, saleController.getTopProducts);
 // Till (cashier) — static paths, so they sit above '/:id'
 router.get('/till', authenticateToken, authorizeRole('cashier'), tillController.getTill);
 router.post('/till/open', authenticateToken, authorizeRole('cashier'), tillController.openTill);
@@ -32,7 +28,6 @@ router.post('/:id/void-request', authenticateToken, authorizeRole('cashier'), ti
 router.post('/:id/void-request/dismiss', authenticateToken, authorizeRole('admin', 'manager'), tillController.dismissVoidRequest);
 // Selling is the cashier's job. Admins and managers manage inventory instead.
 router.post('/', authenticateToken, authorizeRole(...SELLING_ROLES), saleController.createSale);
-router.put('/:id', authenticateToken, authorizeRole('admin', 'manager'), saleController.updateSale);
 router.delete('/:id', authenticateToken, authorizeRole('admin', 'manager'), saleController.deleteSale);
 
 module.exports = router;

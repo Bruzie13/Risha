@@ -17,9 +17,9 @@ class Sale {
         if (from) { conditions.push(`DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00')) >= ?`); params.push(from); }
         if (to) { conditions.push(`DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00')) <= ?`); params.push(to); }
         if (filters.search) {
-            conditions.push('(CAST(s.id AS CHAR) LIKE ? OR s.sale_number LIKE ? OR u.full_name LIKE ?)');
+            conditions.push('(CAST(s.id AS CHAR) LIKE ? OR s.sale_number LIKE ? OR u.full_name LIKE ? OR s.customer_name LIKE ?)');
             const like = `%${filters.search}%`;
-            params.push(like, like, like);
+            params.push(like, like, like, like);
         }
         return conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
     }
@@ -205,36 +205,6 @@ class Sale {
         }
     }
 
-    static async update(id, saleData) {
-        const connection = await pool.getConnection();
-        try {
-            const fields = [];
-            const params = [];
-            const allowedFields = [
-                'customer_name', 'customer_phone', 'total_amount', 'final_amount',
-                'payment_method', 'payment_status', 'notes', 'created_by'
-            ];
-
-            for (const field of allowedFields) {
-                if (saleData[field] !== undefined) {
-                    fields.push(`${field} = ?`);
-                    params.push(saleData[field]);
-                }
-            }
-
-            if (fields.length === 0) return null;
-
-            params.push(id);
-            await connection.execute(
-                `UPDATE sales SET ${fields.join(', ')} WHERE id = ?`,
-                params
-            );
-            return await this.findById(id);
-        } finally {
-            connection.release();
-        }
-    }
-
     static async delete(id) {
         const connection = await pool.getConnection();
         try {
@@ -394,27 +364,6 @@ class Sale {
                  WHERE DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00')) BETWEEN ? AND ?
                  ORDER BY s.created_at DESC`,
                 [startDate, endDate]
-            );
-            return rows;
-        } finally {
-            connection.release();
-        }
-    }
-
-    static async getTopProducts(limit) {
-        const connection = await pool.getConnection();
-        try {
-            const maxLimit = Math.min(Math.max(parseInt(limit) || 10, 1), 100);
-            const [rows] = await connection.execute(
-                `SELECT p.id, p.name, p.sku, p.unit_price,
-                 COALESCE(SUM(si.quantity), 0) as total_quantity_sold,
-                 COALESCE(SUM(si.subtotal), 0) as total_revenue
-                 FROM products p
-                 LEFT JOIN sale_items si ON si.product_id = p.id
-                 LEFT JOIN sales s ON si.sale_id = s.id AND s.payment_status <> 'voided'
-                 GROUP BY p.id
-                 ORDER BY total_quantity_sold DESC
-                 LIMIT ${maxLimit}`
             );
             return rows;
         } finally {

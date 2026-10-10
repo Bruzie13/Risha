@@ -3,205 +3,18 @@ function getUnitLabel(unitType) {
     return labels[unitType] || '';
 }
 
-function getUnitLabelShort(unitType) {
-    const labels = { piece: 'pcs', kg: 'kg', g: 'g', liter: 'L', ml: 'mL' };
-    return labels[unitType] || 'pcs';
-}
-
-function getQtyStep(unitType) {
-    const steps = { piece: 1, kg: 0.01, g: 0.1, liter: 0.01, ml: 1 };
-    return steps[unitType] || 1;
-}
-
 const PAGE_SIZE = 10;
 let displayCount = PAGE_SIZE;
 let allSales = [];
-let currentSaleItems = [];
 let viewingSaleId = null;
-let allProducts = [];
-let barcodeBuffer = '';
-let lastKeyTime = 0;
 
 window.addEventListener('load', async () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
-    if (isViewer()) {
-        document.querySelector('.page-header-actions .btn-primary')?.remove();
-    }
-    const viewer = isViewer();
     if (!canManage()) document.querySelector('#viewSaleModal .btn-danger')?.remove();
-    await Promise.all([loadProducts(), loadSales()]);
-    setupBarcodeListener();
-    setupAutocomplete();
+    await loadSales();
     // Live refresh: sales made on other terminals appear without a reload
     setInterval(refreshSalesLive, 10000);
 });
-
-async function loadProducts() {
-    try {
-        // light = whole catalog without the heavy images (dropdown/barcode need
-        // every product, but never the pictures)
-        const response = await fetch(`${API_BASE}/products?fields=light`, { headers: getAuthHeaders() });
-        const data = await response.json();
-        if (data.success) {
-            allProducts = Array.isArray(data.data) ? data.data : [];
-            populateProductSelect(allProducts);
-        }
-    } catch (error) {
-        console.error('Error loading products:', error);
-    }
-}
-
-function populateProductSelect(products) {
-    const sel = document.getElementById('product_select');
-    if (!sel) return;
-    sel.innerHTML = '<option value="">Select a product</option>';
-    products.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.id;
-        const unitLabel = getUnitLabel(p.unit_type);
-        opt.textContent = `${p.name} (${formatQty(p.stock_quantity)}${unitLabel})`;
-        opt.dataset.price = p.unit_price;
-        opt.dataset.stock = p.stock_quantity;
-        opt.dataset.unitType = p.unit_type || 'piece';
-        opt.dataset.expiration = p.expiration_date || '';
-        sel.appendChild(opt);
-    });
-    sel.addEventListener('change', (e) => {
-        const selected = e.target.options[e.target.selectedIndex];
-        if (selected.value) {
-            document.getElementById('unit_price').value = parseFloat(selected.dataset.price).toFixed(2);
-            const unitType = selected.dataset.unitType || 'piece';
-            const stock = parseFloat(selected.dataset.stock);
-            document.getElementById('maxStock').textContent = formatQty(stock) + getUnitLabel(unitType);
-            const qtyInput = document.getElementById('quantity');
-            qtyInput.step = getQtyStep(unitType);
-            qtyInput.value = getQtyStep(unitType);
-            updateItemTotal();
-        } else {
-            document.getElementById('unit_price').value = '';
-            document.getElementById('maxStock').textContent = '0';
-        }
-    });
-    document.getElementById('quantity')?.addEventListener('input', updateItemTotal);
-}
-
-function setupAutocomplete() {
-    const scanInput = document.getElementById('barcodeScanInput');
-    if (!scanInput) return;
-    let acTimeout;
-    scanInput.addEventListener('input', () => {
-        clearTimeout(acTimeout);
-        const val = scanInput.value.trim().toLowerCase();
-        const list = document.getElementById('productAutocomplete');
-        if (!list) return;
-        if (val.length < 2) { list.innerHTML = ''; list.style.display = 'none'; return; }
-        acTimeout = setTimeout(() => {
-            const matches = allProducts.filter(p =>
-                (p.name || '').toLowerCase().includes(val) ||
-                (p.barcode || '').toLowerCase().includes(val) ||
-                (p.sku || '').toLowerCase().includes(val)
-            ).slice(0, 10);
-            if (matches.length === 0) { list.innerHTML = ''; list.style.display = 'none'; return; }
-            list.innerHTML = matches.map(p => {
-                const unitLabel = getUnitLabel(p.unit_type);
-                // Names go in as text and the click handler looks the product up
-                // by id: a product name can no longer end up inside an inline
-                // handler or be read as markup.
-                return `<div class="ac-item" data-ac-id="${Number(p.id)}">
-                    ${escHtml(p.name)} <small>Stock: ${formatQty(p.stock_quantity)}${escHtml(unitLabel)} | ${formatCurrency(parseFloat(p.unit_price))}${unitLabel ? '/' + escHtml(unitLabel.trim()) : ''}</small>
-                </div>`;
-            }).join('');
-            list.querySelectorAll('.ac-item').forEach(el => el.addEventListener('click', () => {
-                const p = allProducts.find(x => Number(x.id) === Number(el.dataset.acId));
-                if (p) selectAutocomplete(p.id, p.name, p.unit_price, p.stock_quantity, p.expiration_date || '', p.unit_type || 'piece');
-            }));
-            list.style.display = 'block';
-        }, 200);
-    });
-    scanInput.addEventListener('blur', () => {
-        setTimeout(() => { const list = document.getElementById('productAutocomplete'); if (list) list.style.display = 'none'; }, 200);
-    });
-    scanInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            const barcode = scanInput.value.trim();
-            if (barcode.length > 3) {
-                const found = allProducts.find(p => p.barcode === barcode);
-                if (found) {
-                    selectAutocomplete(found.id, found.name, found.unit_price, found.stock_quantity, found.expiration_date || '', found.unit_type || 'piece');
-                }
-            }
-        }
-    });
-}
-
-function selectAutocomplete(id, name, price, stock, expiration, unitType) {
-    unitType = unitType || 'piece';
-    document.getElementById('barcodeScanInput').value = '';
-    document.getElementById('productAutocomplete').style.display = 'none';
-    // Set product select
-    const sel = document.getElementById('product_select');
-    if (sel) sel.value = id;
-    document.getElementById('unit_price').value = parseFloat(price).toFixed(2);
-    document.getElementById('maxStock').textContent = formatQty(stock) + getUnitLabel(unitType);
-    // Set qty step based on unit type, auto-add with base qty
-    const qtyInput = document.getElementById('quantity');
-    if (qtyInput) {
-        qtyInput.step = getQtyStep(unitType);
-        qtyInput.value = getQtyStep(unitType);
-    }
-    addItemToSale();
-}
-
-function setupBarcodeListener() {
-    document.addEventListener('keydown', (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-        if (e.key === 'F2') {
-            e.preventDefault();
-            const input = document.getElementById('barcodeScanInput');
-            if (input) { input.value = ''; input.focus(); showToast('Scanner ready', 'info'); }
-            return;
-        }
-        const now = Date.now();
-        if (now - lastKeyTime > 100) barcodeBuffer = '';
-        lastKeyTime = now;
-        if (e.key === 'Enter' && barcodeBuffer.length > 3) {
-            const barcode = barcodeBuffer;
-            barcodeBuffer = '';
-            const found = allProducts.find(p => p.barcode === barcode);
-            if (found) {
-                document.getElementById('barcodeScanInput').value = barcode;
-                selectAutocomplete(found.id, found.name, found.unit_price, found.stock_quantity, found.expiration_date || '', found.unit_type || 'piece');
-                showToast('Scanned: ' + found.name, 'success');
-            } else {
-                showToast('Product not found for barcode: ' + barcode, 'error');
-            }
-            e.preventDefault();
-            return;
-        }
-        if (e.key.length === 1) barcodeBuffer += e.key;
-    });
-}
-
-function focusBarcodeScanner() {
-    const input = document.getElementById('barcodeScanInput');
-    if (input) { input.value = ''; input.focus(); showToast('Scanner ready — scan barcode or press F2', 'info'); }
-}
-
-function updateItemTotal() {
-    const qty = parseFloat(document.getElementById('quantity')?.value) || 0;
-    const price = parseFloat(document.getElementById('unit_price')?.value) || 0;
-    const total = qty * price;
-    const el = document.getElementById('itemTotal');
-    if (el) el.textContent = formatCurrency(total);
-    // Validate against stock
-    const maxStockText = document.getElementById('maxStock')?.textContent || '0';
-    const maxStock = parseFloat(maxStockText.replace(/[^0-9.]/g, ''));
-    if (qty > maxStock) {
-        document.getElementById('qtyWarning')?.classList.remove('hidden');
-    } else {
-        document.getElementById('qtyWarning')?.classList.add('hidden');
-    }
-}
 
 // Search + date range are applied on the server; allSales only holds the pages
 // fetched so far for the current query.
@@ -517,148 +330,6 @@ document.getElementById('searchInput')?.addEventListener('keyup', () => {
     salesSearchDebounce = setTimeout(() => loadSales(), 250);
 });
 
-function closeSaleModal() {
-    document.getElementById('saleModal').classList.remove('active');
-    currentSaleItems = [];
-}
-
-function addItemToSale() {
-    const sel = document.getElementById('product_select');
-    const qty = parseFloat(document.getElementById('quantity').value);
-    const unitPrice = parseFloat(document.getElementById('unit_price').value);
-
-    if (!sel?.value) { showToast('Please select a product', 'error'); return; }
-    if (!qty || qty <= 0) { showToast('Enter valid quantity', 'error'); return; }
-    if (!unitPrice || unitPrice <= 0) { showToast('Invalid price', 'error'); return; }
-
-    const option = sel.options[sel.selectedIndex];
-    const stock = parseFloat(option.dataset.stock);
-    const unitType = option.dataset.unitType || 'piece';
-    const expiration = option.dataset.expiration;
-
-    // Check expiration
-    if (expiration) {
-        const expDate = new Date(expiration);
-        if (expDate < new Date()) {
-            showToast('This product has expired and cannot be sold.', 'error');
-            return;
-        }
-    }
-
-    if (qty > stock) {
-        showToast(`Insufficient stock. Available: ${formatQty(stock)}${getUnitLabel(unitType)}`, 'error');
-        return;
-    }
-
-    // Check if already in cart
-    const existing = currentSaleItems.find(i => i.product_id === parseInt(sel.value));
-    if (existing) {
-        const newQty = existing.quantity + qty;
-        if (newQty > stock) {
-            showToast(`Total would exceed stock. Available: ${formatQty(stock)}${getUnitLabel(unitType)}, in cart: ${formatQty(existing.quantity)}${getUnitLabel(unitType)}`, 'error');
-            return;
-        }
-        existing.quantity = newQty;
-        existing.total_price = existing.quantity * existing.unit_price;
-    } else {
-        currentSaleItems.push({
-            product_id: parseInt(sel.value),
-            product_name: option.text.split('(')[0].trim(),
-            unit_type: unitType,
-            quantity: qty,
-            unit_price: unitPrice,
-            total_price: qty * unitPrice
-        });
-    }
-
-    updateItemsList();
-    updateTotals();
-    const qtyInput = document.getElementById('quantity');
-    qtyInput.step = getQtyStep(unitType);
-    qtyInput.value = 1;
-    document.getElementById('unit_price').value = '';
-    document.getElementById('itemTotal').textContent = '₱0.00';
-    sel.value = '';
-}
-
-function removeItemFromSale(index) {
-    currentSaleItems.splice(index, 1);
-    updateItemsList();
-    updateTotals();
-}
-
-function updateItemsList() {
-    const list = document.getElementById('saleItemsList');
-    if (!list) return;
-    if (currentSaleItems.length === 0) {
-        list.innerHTML = '<p class="text-center text-muted">No items added yet</p>';
-        return;
-    }
-    list.innerHTML = currentSaleItems.map((item, idx) => {
-        const unitLabel = getUnitLabel(item.unit_type);
-        return `
-        <div class="item-row">
-            <div class="item-info">
-                <div class="item-name">${escHtml(item.product_name)}</div>
-                <div class="item-detail">Qty: ${item.quantity}${unitLabel} × ${formatCurrency(item.unit_price)}${unitLabel ? '/' + unitLabel.trim() : ''}</div>
-            </div>
-            <div class="item-price">${formatCurrency(item.total_price)}</div>
-            <button type="button" class="btn-remove" onclick="removeItemFromSale(${idx})">Remove</button>
-        </div>`;
-    }).join('');
-}
-
-function updateTotals() {
-    const subtotal = currentSaleItems.reduce((sum, i) => sum + i.total_price, 0);
-    const discount = parseFloat(document.getElementById('discount')?.value) || 0;
-    const discountAmt = discount > 0 ? subtotal * (discount / 100) : 0;
-    const total = subtotal - discountAmt;
-    document.getElementById('subtotal').textContent = formatCurrency(subtotal);
-    document.getElementById('discountAmount').textContent = '-' + (discount > 0 ? formatCurrency(discountAmt) : '₱0.00');
-    document.getElementById('totalAmount').textContent = formatCurrency(total);
-}
-
-document.getElementById('discount')?.addEventListener('input', updateTotals);
-
-function clearBarcodeInput() {
-    document.getElementById('barcodeScanInput').value = '';
-    document.getElementById('productAutocomplete').style.display = 'none';
-}
-
-async function handleSaleSubmit(event) {
-    event.preventDefault();
-    if (isViewer()) { showToast('View-only account. Cannot create sales.', 'error'); return; }
-    if (!currentSaleItems || currentSaleItems.length === 0) {
-        showToast('Please add at least one item', 'error');
-        return;
-    }
-    const discount = parseFloat(document.getElementById('discount')?.value) || 0;
-    const saleData = {
-        payment_method: document.getElementById('payment_method').value || 'cash',
-        notes: document.getElementById('notes').value || '',
-        customer_name: document.getElementById('customer_name')?.value || '',
-        customer_phone: document.getElementById('customer_phone')?.value || '',
-        discount_percent: discount,
-        items: currentSaleItems
-    };
-    try {
-        const response = await fetch(`${API_BASE}/sales`, {
-            method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(saleData)
-        });
-        const data = await response.json();
-        if (data.success) {
-            showSuccessDialog('Sale completed', 'The cash sale has been recorded and stock levels updated.', { icon: 'point_of_sale' });
-            closeSaleModal();
-            await loadSales();
-        } else {
-            showToast('Error: ' + (data.message || 'Unknown'), 'error');
-        }
-    } catch (error) {
-        console.error('Error creating sale:', error);
-        showToast('Failed to create sale', 'error');
-    }
-}
-
 async function viewSaleDetails(id) {
     try {
         const response = await fetch(`${API_BASE}/sales/${id}`, { headers: getAuthHeaders() });
@@ -673,7 +344,7 @@ async function viewSaleDetails(id) {
                 <div class="details-row"><span class="details-label">Customer</span><span class="details-value">${escHtml(sale.customer_name || 'N/A')}</span></div>
                 <div class="details-row"><span class="details-label">Phone</span><span class="details-value">${escHtml(sale.customer_phone || 'N/A')}</span></div>
                 <div class="details-row"><span class="details-label">Payment</span><span class="details-value">${escHtml(sale.payment_method)}</span></div>
-                <div class="details-row"><span class="details-label">Discount</span><span class="details-value">${sale.discount_percent || 0}%</span></div>
+                <div class="details-row"><span class="details-label">Discount</span><span class="details-value">${parseFloat(sale.discount || 0)}%</span></div>
                 <div class="details-row"><span class="details-label">Notes</span><span class="details-value">${escHtml(sale.notes || 'None')}</span></div>
                 <div class="details-items"><h4>Items sold</h4>
                     <table class="sales-table" style="margin:0;">
@@ -802,74 +473,12 @@ async function printReceipt(saleId) {
     receiptWindow.document.close();
 }
 
-function printCurrentReceipt() {
-    if (currentSaleItems.length === 0) { showToast('No items in sale', 'error'); return; }
-    const itemsHTML = currentSaleItems.map(item => {
-        const ul = getUnitLabel(item.unit_type);
-        return `<tr><td style="padding:3px 4px;border-bottom:1px dashed #ccc;">${escHtml(item.product_name)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:center;">${parseFloat(item.quantity)}${ul}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">${formatCurrency(parseFloat(item.unit_price))}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">${formatCurrency(parseFloat(item.total_price))}</td></tr>`;
-    }).join('');
-    const subtotal = currentSaleItems.reduce((sum, i) => sum + i.total_price, 0);
-    const discPct = parseFloat(document.getElementById('discount')?.value || 0);
-    const discAmt = subtotal * (discPct / 100);
-    const total = subtotal - discAmt;
-    const customer = document.getElementById('customer_name')?.value || 'Walk-in';
-    const payment = document.getElementById('payment_method')?.value || 'cash';
-    const now = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    const user = getUser();
-    const receiptNum = 'PENDING-' + Date.now().toString().slice(-6);
-
-    const receiptWindow = window.open('', 'Receipt', 'width=400,height=600');
-    receiptWindow.document.write(`
-        <html><head><title>Receipt - Preview</title>
-        <style>
-            @page{margin:0;size:58mm auto;}
-            body{font-family:'Courier New',monospace;font-size:10px;width:58mm;max-width:58mm;padding:4px 4px;margin:0 auto;text-align:center;word-break:break-word;}
-            h2{margin:5px 0 2px;font-size:16px;letter-spacing:1px;text-transform:uppercase;}
-            .info{font-size:12px;color:#555;margin:2px 0;line-height:1.4;}
-            table{width:100%;border-collapse:collapse;margin:8px 0;text-align:left;font-size:12px;table-layout:auto;}
-            td:not(:first-child),th:not(:first-child){white-space:nowrap;}
-            th{padding:4px;border-bottom:2px solid #000;font-size:12px;text-transform:uppercase;}
-            .total-row{display:flex;justify-content:space-between;padding:3px 4px;font-size:12px;}
-            .grand-total{font-size:16px;font-weight:bold;border-top:2px solid #000;border-bottom:2px solid #000;padding:8px 4px;margin:8px 0;}
-            .footer{font-size:12px;color:#555;margin-top:10px;line-height:1.5;}
-            hr{border:none;border-top:1px dashed #ccc;margin:8px 0;}
-            button{display:none;}
-        </style></head>
-        <body>
-            <h2>RISHA Pet Supplies</h2>
-            <div class="info">7 Bagumbong Road, Brgy. 171, North Caloocan</div>
-            <div class="info">Tel: (02) 8123-4567</div>
-            <hr>
-            <div style="text-align:left;font-size:12px;line-height:1.6;">
-                <div>Receipt #: <strong>${receiptNum}</strong></div>
-                <div>Date: ${now}</div>
-                <div>Cashier: ${escHtml(user ? user.full_name || user.username : 'N/A')}</div>
-                <div>Customer: ${escHtml(customer)}</div>
-                <div>Payment: ${payment.toUpperCase()}</div>
-            </div>
-            <hr>
-            <table><thead><tr><th style="text-align:left;">Item</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Price</th><th style="text-align:right;">Total</th></tr></thead><tbody>${itemsHTML}</tbody></table>
-            <hr>
-            <div class="total-row"><span>Subtotal:</span><span>${formatCurrency(subtotal)}</span></div>
-            <div class="total-row"><span>Discount (${discPct}%):</span><span>-${formatCurrency(discAmt)}</span></div>
-            <div class="grand-total">TOTAL: ${formatCurrency(total)}</div>
-            <div class="footer">
-                Thank you for your purchase!<br>
-                Visit us again at RISHA Pet Supplies
-            </div>
-            <br><button onclick="window.print()">Print</button>
-        </body></html>
-    `);
-    receiptWindow.document.close();
-}
-
 function setText(id, val) {
     const el = document.getElementById(id);
     if (el) el.textContent = val;
 }
 
 document.addEventListener('click', (e) => {
-    if (e.target === document.getElementById('saleModal')) closeSaleModal();
     if (e.target === document.getElementById('viewSaleModal')) closeViewSaleModal();
 });
 
@@ -886,18 +495,36 @@ async function exportSalesCsv() {
         return;
     }
     if (!sales.length) { showToast('No sales to export', 'error'); return; }
-    const headers = ['Sale #', 'Date', 'Customer', 'Items', 'Total Amount', 'Payment', 'Status'];
+    /* The list gives a sale's time as a number, its item count as item_count
+       and its state as payment_status. The export used to look for other
+       names, so every date came out as a raw number, every sale had 0 items
+       and a voided sale was written as completed. */
+    const two = n => String(n).padStart(2, '0');
+    const when = ms => {
+        const d = new Date(Number(ms));
+        return isNaN(d) ? '' : `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}`;
+    };
+    // a cell that starts like a formula is written as text; quotes are doubled
+    const cell = v => {
+        let s = v == null ? '' : String(v);
+        if (/^[=+\-@\t\r]/.test(s) && isNaN(Number(s))) s = "'" + s;
+        return '"' + s.replace(/"/g, '""') + '"';
+    };
+    const headers = ['Sale #', 'Date', 'Customer', 'Cashier', 'Items', 'Subtotal', 'Discount %', 'Total', 'Payment', 'Status'];
     const rows = sales.map(s => [
-        s.receipt_number || s.id,
-        s.transaction_date || s.created_at || '',
+        s.id,
+        when(s.created_at),
         s.customer_name || 'Walk-in',
-        (s.items || []).length,
+        s.staff_name || '',
+        Number(s.item_count) || 0,
         parseFloat(s.total_amount || 0).toFixed(2),
+        parseFloat(s.discount || 0),
+        parseFloat(s.final_amount ?? s.total_amount ?? 0).toFixed(2),
         s.payment_method || 'cash',
-        s.status || 'completed'
+        s.payment_status || ''
     ]);
-    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const csv = [headers.map(cell).join(','), ...rows.map(r => r.map(cell).join(','))].join('\r\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

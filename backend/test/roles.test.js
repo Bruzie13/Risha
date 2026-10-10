@@ -109,3 +109,12 @@ test('the point of sale belongs to the cashier, not to admin or manager', () => 
     assert.ok(pageAllowed('admin', '/inventory.html'));
     assert.equal(pageAllowed('admin', '/supplier.html'), false);
 });
+
+test('the Users page belongs to the administrator alone', () => {
+    assert.ok(pageAllowed('admin', '/users.html'));
+    assert.equal(pageAllowed('manager', '/users.html'), false, 'a manager cannot use anything on it');
+    assert.equal(pageAllowed('viewer', '/users.html'), false);
+    assert.equal(pageAllowed('cashier', '/users.html'), false);
+    assert.equal(pageAllowed('supplier', '/users.html'), false);
+    assert.equal(homePage('manager'), '/dashboard.html', 'and is sent to the dashboard instead');
+});

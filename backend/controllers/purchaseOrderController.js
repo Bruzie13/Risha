@@ -5,7 +5,7 @@ const Supplier = require('../models/Supplier');
 const Notification = require('../models/Notification');
 const { sendPOEmail } = require('../utils/mailer');
 const logAudit = require('../services/audit');
-const { notifyPOStatusChanged, notifyPOGenerated } = require('../services/notifier');
+const { notifyPOStatusChanged } = require('../services/notifier');
 
 exports.getAllPOs = async (req, res) => {
     try {
@@ -22,84 +22,6 @@ exports.getAllPOs = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error retrieving purchase orders'
-        });
-    }
-};
-
-exports.getPOById = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const order = await PurchaseOrder.findById(id);
-
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                message: 'Purchase order not found'
-            });
-        }
-
-        const items = await PurchaseOrder.getPOItems(id);
-        res.status(200).json({
-            success: true,
-            data: { ...order, items }
-        });
-    } catch (error) {
-        console.error('Get purchase order error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error retrieving purchase order'
-        });
-    }
-};
-
-exports.createPO = async (req, res) => {
-    try {
-        const { supplier_id, items, notes, expected_date } = req.body;
-        const created_by = req.user.id;
-
-        if (!supplier_id || !items || items.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Supplier and at least one item are required'
-            });
-        }
-
-        let total_amount = 0;
-        for (const item of items) {
-            total_amount += item.total_price || (item.unit_cost * item.quantity);
-        }
-
-        const orderData = {
-            supplier_id,
-            total_amount,
-            notes: notes || null,
-            expected_date: expected_date || null,
-            created_by,
-            items
-        };
-
-        const order = await PurchaseOrder.create(orderData);
-        const supplier = await Supplier.findById(order.supplier_id);
-        logAudit(req.user.id, 'create', 'purchase_orders', order.id, null, {
-            po_number: order.po_number,
-            supplier_name: supplier ? supplier.name : 'Unknown',
-            total_amount: order.total_amount,
-            items_count: orderData.items.length,
-            status: order.status
-        }, req.ip);
-
-        notifyPOGenerated(order, req.user.id).catch(e => console.error('Notif error:', e.message));
-
-        res.status(201).json({
-            success: true,
-            message: 'Purchase order created successfully',
-            data: order
-        });
-    } catch (error) {
-        console.error('Create purchase order error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error creating purchase order'
         });
     }
 };
@@ -161,26 +83,6 @@ exports.updatePOStatus = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error updating purchase order status'
-        });
-    }
-};
-
-exports.deletePO = async (req, res) => {
-    try {
-        const { id } = req.params;
-        await PurchaseOrder.delete(id);
-
-        logAudit(req.user.id, 'delete', 'purchase_orders', parseInt(id), null, null, req.ip);
-
-        res.status(200).json({
-            success: true,
-            message: 'Purchase order deleted successfully'
-        });
-    } catch (error) {
-        console.error('Delete purchase order error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error deleting purchase order'
         });
     }
 };

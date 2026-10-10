@@ -97,25 +97,6 @@ class Notification {
         }
     }
 
-    static async getUnread(userId = null) {
-        const connection = await pool.getConnection();
-        try {
-            let sql = `SELECT n.id, n.type, n.title, n.message, n.product_id, n.user_id, n.related_id, n.related_type, n.is_read,
-                       UNIX_TIMESTAMP(n.created_at) * 1000 as created_at, p.name as product_name
-                       FROM notifications n LEFT JOIN products p ON n.product_id = p.id WHERE n.is_read = FALSE`;
-            const params = [];
-            if (userId) {
-                sql += ' AND (n.user_id = ? OR n.user_id IS NULL)';
-                params.push(userId);
-            }
-            sql += ' ORDER BY n.created_at DESC';
-            const [rows] = await connection.execute(sql, params);
-            return rows;
-        } finally {
-            connection.release();
-        }
-    }
-
     static async getUnreadCount(userId = null) {
         const connection = await pool.getConnection();
         try {
@@ -183,16 +164,6 @@ class Notification {
         }
     }
 
-    static async delete(id) {
-        const connection = await pool.getConnection();
-        try {
-            await connection.execute('DELETE FROM notifications WHERE id = ?', [id]);
-            return true;
-        } finally {
-            connection.release();
-        }
-    }
-
     static async deleteOld(days = 30) {
         const connection = await pool.getConnection();
         try {
@@ -201,28 +172,6 @@ class Notification {
                 [days]
             );
             return result.affectedRows;
-        } finally {
-            connection.release();
-        }
-    }
-
-    static async getAlerts(userId = null) {
-        const connection = await pool.getConnection();
-        try {
-            let sql = `SELECT n.id, n.type, n.title, n.message, n.product_id, n.user_id, n.related_id, n.related_type, n.is_read,
-                       UNIX_TIMESTAMP(n.created_at) * 1000 as created_at, p.name as product_name
-                       FROM notifications n
-                       LEFT JOIN products p ON n.product_id = p.id
-                       WHERE n.type IN ('low_stock', 'stockout', 'expiration')
-                       AND n.is_read = FALSE`;
-            const params = [];
-            if (userId) {
-                sql += ' AND (n.user_id = ? OR n.user_id IS NULL)';
-                params.push(userId);
-            }
-            sql += ' ORDER BY n.created_at DESC';
-            const [rows] = await connection.execute(sql, params);
-            return rows;
         } finally {
             connection.release();
         }

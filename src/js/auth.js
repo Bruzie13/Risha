@@ -99,6 +99,7 @@ function canOpenPage(href) {
     if (isFencedRole(role)) return FENCED_ROLE_PAGES[role].includes(page);
     if (page === 'pos.html') return SELLING_ROLES.includes(role);
     if (page === 'supplier.html') return false;
+    if (page === 'users.html') return role === 'admin';   // every action on it is the administrator's
     return true;
 }
 
@@ -182,6 +183,13 @@ function applyRoleInterface() {
     document.querySelectorAll('a[href]').forEach(a => {
         if (!canOpenPage(a.getAttribute('href'))) a.remove();
     });
+    /* Controls this account cannot use are taken off the screen instead of
+       being left to refuse when pressed. The mark is data-needs="manage"
+       (administrator or manager) or data-needs="admin". Hidden, not removed:
+       the page's own script may still look the element up. The server refuses
+       the action itself either way. */
+    if (!canManage()) document.querySelectorAll('[data-needs="manage"]').forEach(el => el.classList.add('role-hidden'));
+    if (role !== 'admin') document.querySelectorAll('[data-needs="admin"]').forEach(el => el.classList.add('role-hidden'));
     if (!isFencedRole(role)) return;
     const nav = document.querySelector('.sidebar-nav');
     if (nav && role === 'supplier' && !nav.querySelector('a[href="supplier.html"]')) {
@@ -261,6 +269,15 @@ function getUser() {
         const userStr = sessionStorage.getItem('user') || localStorage.getItem('user');
         return userStr ? JSON.parse(userStr) : null;
     } catch { return null; }
+}
+
+/* Save changed account details (name, photo) back to wherever this session
+   lives. A session that is not "kept signed in" is in sessionStorage; writing
+   to localStorage instead left the screen showing the old details, and left a
+   copy of them behind after the browser closed. */
+function setUser(user) {
+    const store = sessionStorage.getItem('authToken') ? sessionStorage : localStorage;
+    store.setItem('user', JSON.stringify(user));
 }
 
 // Identity avatar: an initials monogram on a deterministic gradient — the
@@ -639,9 +656,8 @@ function showToast(message, type) {
     setTimeout(() => toast.remove(), type === 'error' || type === 'warning' ? 4000 : 2200);
 }
 
-/* Kept in step with the copy in utils.js. Both exist because analytics.html and
-   audit.html load auth.js without utils.js, and auth.js loads second everywhere
-   else — so whichever page you are on, this is the definition that wins.
+/* Kept in step with the copy in utils.js. auth.js loads after it on every
+   page, so whichever page you are on, this is the definition that wins.
 
    The textContent/innerHTML trick this used to use escapes < > and &, but NOT
    quotes, which is silently wrong for the call sites that interpolate into an

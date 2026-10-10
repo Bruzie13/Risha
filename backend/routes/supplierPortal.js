@@ -30,9 +30,11 @@ function fail(res, where, e) {
     res.status(500).json({ success: false, message: 'That could not be completed. Please try again.' });
 }
 
-/** Tell the shop something happened. The wording is ours, never the supplier's. */
-function tellShop(title, message, poId, userId) {
-    Notification.create({ title, message, type: 'info', related_id: poId || null, related_type: 'purchase_order', user_id: userId })
+/** Tell the shop something happened. The wording is ours, never the supplier's.
+    The notice carries no user_id: one that does is shown only to that account,
+    which here would be the supplier, who cannot open notifications at all. */
+function tellShop(title, message, poId) {
+    Notification.create({ title, message, type: 'info', related_id: poId || null, related_type: 'purchase_order' })
         .catch(e => console.error('Notif error:', e.message));
 }
 
@@ -127,7 +129,7 @@ router.post('/products/:id/price', async (req, res) => {
              VALUES (?, ?, ?, ?, ?, ?)`,
             [req.supplier.id, productId, own[0].cost_price, price, text(req.body?.note, 300) || null, req.user.id]);
         logAudit(req.user.id, 'create', 'price_proposals', productId, { price: own[0].cost_price }, { price }, req.ip);
-        tellShop('Price change proposed', `${req.supplier.name} proposed a new price for a product. Review it on the Suppliers page.`, null, req.user.id);
+        tellShop('Price change proposed', `${req.supplier.name} proposed a new price for a product. Review it on the Suppliers page.`, null);
         res.json({ success: true, message: 'Sent to the shop for approval. The current price stays until they agree.' });
     } catch (e) { fail(res, 'propose price', e); }
 });
@@ -206,7 +208,7 @@ router.post('/orders/:id/confirm', async (req, res) => {
             { po_number: order.po_number, status: 'confirmed', promised_date: day, short_lines: result.short, total: result.total }, req.ip);
         tellShop('Order confirmed by supplier',
             `${order.po_number}: ${req.supplier.name} will deliver on ${day}` + (result.short ? `, with ${result.short} line(s) short of what was ordered.` : ', in full.'),
-            order.id, req.user.id);
+            order.id);
         res.json({ success: true, message: 'Order confirmed.' });
     } catch (e) { fail(res, 'confirm', e); }
 });
@@ -225,7 +227,7 @@ router.put('/orders/:id/promise', async (req, res) => {
         await pool.query('UPDATE purchase_orders SET promised_date = ?, promise_note = ? WHERE id = ? AND supplier_id = ?',
             [day, note, order.id, req.supplier.id]);
         logAudit(req.user.id, 'update', 'purchase_orders', order.id, { po_number: order.po_number }, { promised_date: day }, req.ip);
-        tellShop('Delivery date changed', `${order.po_number}: ${req.supplier.name} now expects to deliver on ${day}.`, order.id, req.user.id);
+        tellShop('Delivery date changed', `${order.po_number}: ${req.supplier.name} now expects to deliver on ${day}.`, order.id);
         res.json({ success: true, message: 'Delivery date updated.' });
     } catch (e) { fail(res, 'promise', e); }
 });
@@ -244,7 +246,7 @@ router.post('/orders/:id/ship', async (req, res) => {
         if (!moved.affectedRows) return bad(res, 'That order was already updated. Reload the page.');
         logAudit(req.user.id, 'update', 'purchase_orders', order.id,
             { po_number: order.po_number, status: 'confirmed' }, { po_number: order.po_number, status: 'shipped', delivery_ref: ref || null }, req.ip);
-        tellShop('Order shipped', `${order.po_number}: ${req.supplier.name} has shipped this order.`, order.id, req.user.id);
+        tellShop('Order shipped', `${order.po_number}: ${req.supplier.name} has shipped this order.`, order.id);
         res.json({ success: true, message: 'Order marked as shipped.' });
     } catch (e) { fail(res, 'ship', e); }
 });
@@ -271,7 +273,7 @@ router.post('/orders/:id/messages', async (req, res) => {
         const body = text(req.body?.body, 1000);
         if (!body) return bad(res, 'Write a note first.');
         await pool.query('INSERT INTO po_messages (po_id, user_id, from_supplier, body) VALUES (?, ?, 1, ?)', [order.id, req.user.id, body]);
-        tellShop('Note from supplier', `${order.po_number}: ${req.supplier.name} left a note on this order.`, order.id, req.user.id);
+        tellShop('Note from supplier', `${order.po_number}: ${req.supplier.name} left a note on this order.`, order.id);
         res.json({ success: true });
     } catch (e) { fail(res, 'post message', e); }
 });
@@ -306,7 +308,7 @@ router.post('/offers', async (req, res) => {
         await pool.query('UPDATE purchase_orders SET proposed_by_supplier = 1, promised_date = ? WHERE id = ?', [day, order.id]);
         logAudit(req.user.id, 'create', 'purchase_orders', order.id, null,
             { po_number: order.po_number, proposed_by_supplier: true, total: result.total, lines: result.lines.length }, req.ip);
-        tellShop('Order offered by supplier', `${req.supplier.name} offered an order (${order.po_number}). Accept or decline it on the Suppliers page.`, order.id, req.user.id);
+        tellShop('Order offered by supplier', `${req.supplier.name} offered an order (${order.po_number}). Accept or decline it on the Suppliers page.`, order.id);
         res.status(201).json({ success: true, message: 'Offer sent. It becomes an order if the shop accepts it.' });
     } catch (e) { fail(res, 'offer', e); }
 });

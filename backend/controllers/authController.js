@@ -5,6 +5,7 @@ const pool = require('../config/database');
 const logAudit = require('../services/audit');
 const { notifyUserLogin, notifyPasswordResetRequested, notifyAdminResetLinkSent, notifyPasswordChangedByLink } = require('../services/notifier');
 const { validatePassword } = require('../utils/passwordPolicy');
+const { adminRemovalProblem } = require('../utils/accounts');
 const { ROLES } = require('../utils/roles');
 const { sendPasswordResetEmail, sendVerificationEmail, sendEmailCode, sendWelcomeEmail, isValidEmail } = require('../utils/mailer');
 
@@ -881,31 +882,6 @@ exports.getAllUsers = async (req, res) => {
     }
 };
 
-exports.getUserById = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const user = await User.findById(id);
-
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
-        res.status(200).json({
-            success: true,
-            data: user
-        });
-    } catch (error) {
-        console.error('Get user error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error retrieving user'
-        });
-    }
-};
-
 exports.updateUser = async (req, res) => {
     try {
         const { id } = req.params;
@@ -956,6 +932,12 @@ exports.updateUser = async (req, res) => {
             }
             updateData.supplier_id = link.supplier_id;
             roleChanged = finalRole !== oldUser.role;
+            if (roleChanged && oldUser.role === 'admin') {
+                const blocked = adminRemovalProblem(req.user.id, oldUser, await User.countActiveAdmins(), 'demote');
+                if (blocked) {
+                    return res.status(400).json({ success: false, message: blocked });
+                }
+            }
         }
 
         const user = await User.update(id, updateData);
@@ -1009,59 +991,17 @@ exports.updateUser = async (req, res) => {
     }
 };
 
-exports.updateUserRole = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { role } = req.body;
-
-        if (!role) {
-            return res.status(400).json({
-                success: false,
-                message: 'Role is required'
-            });
-        }
-
-        const validRoles = ROLES;
-        if (!validRoles.includes(role)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid role. Must be one of: ' + validRoles.join(', ')
-            });
-        }
-        const link = await resolveSupplierLink(role, req.body.supplier_id);
-        if (link.error) {
-            return res.status(400).json({ success: false, message: link.error });
-        }
-
-        const user = await User.update(id, { role, supplier_id: link.supplier_id });
-
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
-        // A demotion has to bite now, not whenever their token happens to expire.
-        await bumpTokenVersion(parseInt(id));
-
-        res.status(200).json({
-            success: true,
-            message: 'User role updated successfully',
-            data: user
-        });
-    } catch (error) {
-        console.error('Update user role error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error updating user role'
-        });
-    }
-};
-
 exports.deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
+        const target = await User.findById(id);
+        if (!target) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        const blocked = adminRemovalProblem(req.user.id, target, await User.countActiveAdmins(), 'delete');
+        if (blocked) {
+            return res.status(400).json({ success: false, message: blocked });
+        }
         await User.delete(id);
         await bumpTokenVersion(parseInt(id));
         logAudit(req.user.id, 'delete', 'users', parseInt(id), null, null, req.ip);
@@ -1088,6 +1028,13 @@ exports.toggleUserStatus = async (req, res) => {
                 success: false,
                 message: 'User not found'
             });
+        }
+
+        if (user.is_active) {
+            const blocked = adminRemovalProblem(req.user.id, user, await User.countActiveAdmins(), 'deactivate');
+            if (blocked) {
+                return res.status(400).json({ success: false, message: blocked });
+            }
         }
 
         const updatedUser = await User.update(id, { is_active: !user.is_active });

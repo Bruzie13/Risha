@@ -7,16 +7,17 @@ class SupplierPerformance {
     static async getBySupplier(supplierId) {
         const connection = await pool.getConnection();
         try {
-            // Join the PO's tracked email so we know if the SUPPLIER confirmed
-            // it (clicked the confirm link) or merely viewed it — separate from
-            // the shop-set fulfillment status.
+            // An order counts as confirmed by the supplier when they clicked the
+            // confirm link in the emailed order, confirmed it in their own login,
+            // or the shop recorded their confirmation (confirmed_at covers the
+            // last two). The tracked email also says whether they merely viewed it.
             const [rows] = await connection.execute(
                 `SELECT po.id, po.po_number, po.status, po.total_amount,
                         po.order_date, po.expected_delivery_date,
                         UNIX_TIMESTAMP(po.created_at) * 1000 as created_at,
                         UNIX_TIMESTAMP(po.updated_at) * 1000 as updated_at,
                         DATEDIFF(po.updated_at, po.order_date) as lead_days,
-                        MAX(el.clicked_at IS NOT NULL) as confirmed,
+                        GREATEST(COALESCE(MAX(el.clicked_at IS NOT NULL), 0), po.confirmed_at IS NOT NULL) as confirmed,
                         MAX(el.opened_at IS NOT NULL) as viewed
                  FROM purchase_orders po
                  LEFT JOIN email_logs el
@@ -28,20 +29,6 @@ class SupplierPerformance {
                 [supplierId]
             );
             return rows;
-        } finally {
-            connection.release();
-        }
-    }
-
-    static async addMetric(supplierId, orderId, metricType, metricValue, notes) {
-        const connection = await pool.getConnection();
-        try {
-            const [result] = await connection.execute(
-                `INSERT INTO supplier_performance (supplier_id, order_id, metric_type, metric_value, notes) 
-                 VALUES (?, ?, ?, ?, ?)`,
-                [supplierId, orderId || null, metricType, metricValue || null, notes || null]
-            );
-            return result.insertId;
         } finally {
             connection.release();
         }
@@ -64,10 +51,10 @@ class SupplierPerformance {
                     SUM(CASE WHEN status = 'received' AND expected_delivery_date IS NOT NULL
                              AND updated_at <= expected_delivery_date THEN 1 ELSE 0 END) AS on_time_count,
                     SUM(CASE WHEN status = 'received' AND expected_delivery_date IS NOT NULL THEN 1 ELSE 0 END) AS datable_deliveries,
-                    SUM(EXISTS(SELECT 1 FROM email_logs el WHERE el.email_type = 'po'
+                    SUM(po.confirmed_at IS NOT NULL OR EXISTS(SELECT 1 FROM email_logs el WHERE el.email_type = 'po'
                               AND el.subject LIKE CONCAT('%', po.po_number, '%')
                               AND el.clicked_at IS NOT NULL)) AS confirmed_count,
-                    SUM(status = 'received' AND NOT EXISTS(SELECT 1 FROM email_logs el WHERE el.email_type = 'po'
+                    SUM(status = 'received' AND po.confirmed_at IS NULL AND NOT EXISTS(SELECT 1 FROM email_logs el WHERE el.email_type = 'po'
                               AND el.subject LIKE CONCAT('%', po.po_number, '%')
                               AND el.clicked_at IS NOT NULL)) AS received_unconfirmed
                  FROM purchase_orders po WHERE supplier_id = ?`,
@@ -91,7 +78,7 @@ class SupplierPerformance {
                 avg_delivery_days: r.avg_lead_days != null ? parseFloat(Number(r.avg_lead_days).toFixed(1)) : null,
                 // on-time only measurable when an expected date was set
                 on_time_delivery_pct: datable > 0 ? parseFloat(((Number(r.on_time_count) / datable) * 100).toFixed(1)) : null,
-                // supplier acknowledgement (from tracked PO emails)
+                // supplier acknowledgement (email link, their own login, or recorded by the shop)
                 confirmed_count: Number(r.confirmed_count) || 0,
                 confirmation_pct: totalOrders > 0 ? parseFloat(((Number(r.confirmed_count) / totalOrders) * 100).toFixed(1)) : null,
                 received_unconfirmed: Number(r.received_unconfirmed) || 0,

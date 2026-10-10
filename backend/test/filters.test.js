@@ -34,13 +34,14 @@ test('Sale._filterWhere: date range is bounded in Philippine time, not UTC', () 
     assert.ok(where.includes("'+08:00'"), 'must convert to Philippine time');
 });
 
-test('Sale._filterWhere: search matches id, sale_number and staff name', () => {
+test('Sale._filterWhere: search matches id, sale_number, staff name and customer name', () => {
     const params = [];
     const where = Sale._filterWhere({ search: '180' }, params);
     assert.match(where, /s\.id AS CHAR\) LIKE \?/);
     assert.match(where, /s\.sale_number LIKE \?/);
     assert.match(where, /u\.full_name LIKE \?/);
-    assert.deepEqual(params, ['%180%', '%180%', '%180%']);
+    assert.match(where, /s\.customer_name LIKE \?/, 'the Customer column is on screen, so people search by it');
+    assert.deepEqual(params, ['%180%', '%180%', '%180%', '%180%']);
 });
 
 test('Notification._scopeWhere: user scope includes global (NULL) rows', () => {

@@ -108,7 +108,8 @@
     function actions(o) {
         var id = Number(o.id);
         var notes = '<button class="btn-secondary" data-act="notes" data-id="' + id + '">Notes' + (Number(o.message_count) ? ' (' + Number(o.message_count) + ')' : '') + '</button>';
-        if (!manages()) return notes;
+        // reading an order's notes is for administrators and managers (the server refuses anyone else)
+        if (!manages()) return '';
         if (o.status === 'proposed') return '<button class="btn-primary" data-act="accept" data-id="' + id + '">Accept offer</button>'
             + '<button class="btn-secondary" data-act="cancel" data-id="' + id + '">Decline</button>' + notes;
         if (o.status === 'pending') return '<button class="btn-secondary" data-act="confirmed" data-id="' + id + '">Mark confirmed</button>'

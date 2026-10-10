@@ -6,7 +6,6 @@ let editingSupplierId = null;
 window.addEventListener('load', async () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
     if (!canManage()) {
-        document.querySelector('.page-header-actions .btn-primary')?.remove();
         const actionsTh = document.querySelector('.data-table thead th:last-child');
         if (actionsTh) actionsTh.textContent = '';
     }

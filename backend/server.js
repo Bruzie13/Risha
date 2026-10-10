@@ -670,23 +670,6 @@ app.get('/api/email-logs/:supplierId', authenticateToken, async (req, res) => {
     }
 });
 
-// Get all email logs
-app.get('/api/email-logs', authenticateToken, async (req, res) => {
-    try {
-        const conn = await pool.getConnection();
-        const [rows] = await conn.execute(
-            `SELECT el.*, s.name as supplier_name 
-             FROM email_logs el 
-             LEFT JOIN suppliers s ON el.supplier_id = s.id 
-             ORDER BY el.created_at DESC LIMIT 100`
-        );
-        conn.release();
-        res.json({ success: true, data: rows });
-    } catch (e) {
-        res.json({ success: true, data: [] });
-    }
-});
-
 
 app.get('/api/health', (req, res) => {
     res.status(200).json({ success: true, message: 'Server is running', timestamp: new Date().toISOString() });

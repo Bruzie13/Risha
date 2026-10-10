@@ -38,7 +38,7 @@ const SELF = [
 const API_ALLOW = {
     cashier: [
         ['GET', /^\/api\/products$/],
-        ['GET', /^\/api\/products\/(stock-levels|categories|barcode)$/],
+        ['GET', /^\/api\/products\/(stock-levels|categories)$/],
         ['POST', /^\/api\/sales$/],
         ['GET', /^\/api\/sales\/\d+$/],   // own sales only — enforced in the controller
         ['GET', /^\/api\/sales\/eod$/],     // own drawer, today only — enforced in the controller
@@ -83,6 +83,7 @@ function pageAllowed(role, path) {
     if (isRestricted(role)) return PAGE_ALLOW[role].includes(path);
     if (path === '/pos.html') return SELLING_ROLES.includes(role);
     if (path === '/supplier.html') return false;
+    if (path === '/users.html') return role === 'admin';   // every action on it is admin-only
     return true;
 }
 

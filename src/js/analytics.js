@@ -340,6 +340,9 @@ function renderModel() {
 }
 
 function renderAllProducts() {
+    // The search box and the group buttons are usable before the forecast has
+    // arrived. What was typed or picked is kept, and applied when it does.
+    if (!plan) return;
     const all = plan.products;
     const count = d => all.filter(p => p.demand === d).length;
     document.getElementById('countAll').textContent = all.length;

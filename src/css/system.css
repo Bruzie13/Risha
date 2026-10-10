@@ -81,6 +81,9 @@ h1, h2, h3 { font-family: var(--font-display); }
 .sidebar-btn.sidebar-logout:hover { background: var(--brand-red); color: #fff; box-shadow: 0 2px 0 var(--brand-red-dark); }
 :root.dark-mode .sidebar-user .avatar .avatar-status { border-color: var(--brand-sky-2); }
 
+/* a control this account cannot use (see applyRoleInterface in js/auth.js) */
+.role-hidden { display: none !important; }
+
 .sidebar-hamburger {
   background: var(--bg-card);
   border: 1.5px solid var(--border-glass-strong);

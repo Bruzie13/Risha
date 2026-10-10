@@ -315,7 +315,7 @@ async function saveProfile() {
         if (data.success) {
             user.full_name = name;
             user.email = (data.data && data.data.email) || email;
-            localStorage.setItem('user', JSON.stringify(user));
+            setUser(user);
             loadSettings();
             var nameEl = document.getElementById('userName');
             if (nameEl) nameEl.textContent = name;
@@ -626,7 +626,7 @@ async function saveAvatar(dataUrl) {
         var data = await res.json();
         if (data.success) {
             user.avatar = dataUrl;
-            localStorage.setItem('user', JSON.stringify(user));
+            setUser(user);
             if (typeof applyUserIdentity === 'function') applyUserIdentity();
             updateAvatarControls();
             showToast(dataUrl ? 'Profile photo updated' : 'Profile photo removed', 'success');
