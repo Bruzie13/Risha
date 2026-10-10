@@ -3,7 +3,7 @@ const router = express.Router();
 const { forecastML, warmMLCacheAsync, mlAvailable, featureWeights } = require('../utils/mlForecast');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { shopTypical, capSeries } = require('../utils/forecastGuards');
+const { shopTypical, capSeries, isNewProduct, cautiousDailyRate } = require('../utils/forecastGuards');
 
 // Up to twelve months of sales, the range the study specifies (3–12 months),
 // so weekend, pay-day and seasonal patterns are all inside what the model sees.
@@ -135,6 +135,36 @@ function dayOfWeekIndices(series) {
     });
 }
 
+/* A product with under two weeks on record (utils/forecastGuards.js): its sales
+   so far spread over two weeks, the same every day. No trend, no day-of-week
+   shape and no model, because there is nothing yet to fit them to. */
+function cautiousForecast(series, days) {
+    const rate = cautiousDailyRate(series);
+    const lastMs = Date.parse((series.length ? series[series.length - 1].date : shopDay(-1)) + 'T00:00:00Z');
+    const total = series.reduce((a, p) => a + p.quantity, 0);
+    const predictions = [];
+    for (let i = 1; i <= days; i++) {
+        predictions.push({
+            date: new Date(lastMs + i * DAY_MS).toISOString().split('T')[0],
+            predicted_quantity: Math.round(rate * 100) / 100,
+            lower_bound: 0,
+            upper_bound: Math.round(rate * 2 * 100) / 100,
+            day: i
+        });
+    }
+    return {
+        predictions,
+        sigma: 0,
+        trend: 'stable',
+        momentum: '0.0',
+        historyDays: series.length,
+        historyAvg: series.length ? total / series.length : 0,
+        parts: { baseline: rate * days, ml: null, rf: null, gb: null },
+        confidence: 10,
+        basis: 'new'
+    };
+}
+
 // Core forecaster shared by /product/:id and /all.
 // Ensemble: Holt smoothing + linear regression + weighted moving average,
 // weighted by how much history exists, then shaped by day-of-week indices.
@@ -146,6 +176,7 @@ function forecastSeries(series, days = FORECAST_DAYS, opts = {}) {
     // day drags both of those up with it, and the machine-learning model was
     // given the raw series, extreme day included.
     series = capSeries(series, opts.shopTypical).series;
+    if (isNewProduct(series)) return cautiousForecast(series, days);
     // The machine-learning model reads the whole history. The statistical
     // baseline beside it reads only the last 8 weeks: its job is to track the
     // current level, and stale months would drag that estimate.
@@ -239,7 +270,9 @@ function forecastSeries(series, days = FORECAST_DAYS, opts = {}) {
         historyDays: fullSeries.length,
         historyAvg: avg,
         parts,
-        confidence: computeConfidence(n, reg.r2, cv)
+        confidence: computeConfidence(n, reg.r2, cv),
+        // what the figure rests on: both halves, or the simple trend alone
+        basis: mlPreds ? 'model' : 'trend'
     };
 }
 
@@ -352,6 +385,7 @@ router.get('/product/:id', authenticateToken, async (req, res) => {
                 next_month_prediction: nextMonthTotal,
                 daily_average: Math.round(dailyAvg * 100) / 100,
                 confidence_score: fc.confidence,
+                basis: fc.basis,
                 trend: fc.trend,
                 trend_momentum: `${fc.momentum}%`,
                 days_until_stockout: daysUntilStockout,
@@ -465,7 +499,8 @@ async function computeAllPredictions() {
                 confidence_score: fc.confidence,
                 backtest_accuracy: accuracy,
                 sigma: Math.round(fc.sigma * 1000) / 1000,
-                days_of_history: fc.historyDays
+                days_of_history: fc.historyDays,
+                basis: fc.basis
             };
         });
 
@@ -659,7 +694,10 @@ function planStock(products, forecasts, sold30, extra = {}) {
             expired_units: expired,
             demand: 'none',
             trend: f ? f.trend : 'stable',
-            confidence: f ? confidenceWord(f.confidence_score) : null
+            confidence: f ? confidenceWord(f.confidence_score) : null,
+            // 'new' while it has under two weeks on record, 'trend' under six, then 'model'
+            basis: f ? f.basis || null : null,
+            days_on_record: f ? Number(f.days_of_history) || 0 : 0
         };
     });
 

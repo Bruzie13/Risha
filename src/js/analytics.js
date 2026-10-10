@@ -430,7 +430,10 @@ function detailSentence(p) {
             + (p.recommended_reorder_point !== p.reorder_level ? ` (it is currently set to ${formatQty(p.reorder_level)}).` : ' (matches the current setting).'));
     }
     if (p.expiry_risk_units > 0) parts.push(`About ${formatQty(p.expiry_risk_units)} may still be unsold when it expires on ${planDate(p.expires_on)}.`);
-    if (p.confidence && p.expected_30d >= 0.5) {
+    // a product too new to read a rate from says so, in place of the usual remark
+    if (p.basis === 'new') {
+        parts.push(`This product has only ${p.days_on_record} day${p.days_on_record === 1 ? '' : 's'} of sales on record, so this is a cautious first estimate: what it has sold so far, spread over two weeks. It becomes a normal forecast once it has 14 days.`);
+    } else if (p.confidence && p.expected_30d >= 0.5) {
         parts.push({ high: 'Sales have been regular, so this estimate is fairly reliable.',
                      medium: 'Sales have been somewhat uneven, so treat this as a guide.',
                      low: 'Sales have been irregular, so this is a rough estimate.' }[p.confidence]);

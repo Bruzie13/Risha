@@ -21,12 +21,29 @@
    days (0.3% of the items sold), leaves a lasting change of level alone, and
    brings a day of 10,000 in a product that sells 1 a day down to 5. The
    percentile is used instead of the average because a single extreme day
-   drags an average, and a standard deviation, up with it. */
+   drags an average, and a standard deviation, up with it.
+
+   NEW PRODUCTS
+   A daily rate cannot be read from a handful of days. A product that sold 5
+   on its first day used to be forecast at 5 a day: 150 in the next 30 days,
+   with an order suggested for 165.
+
+   Until a product has 14 days on record, counted from its first sale, no
+   trend, day-of-week pattern or model is fitted to it. What it has sold so
+   far is spread over 14 days, not over the days it has existed:
+
+       daily rate = items sold so far / 14
+
+   One sale of 5 gives 0.36 a day, about 11 in 30 days. The estimate rises as
+   more is sold and meets the plain average on day 14, when the ordinary
+   forecast takes over. Such a forecast is marked "new" so the page can say
+   it is a first estimate. */
 
 const MIN_CAP = 5;
 const CAP_TIMES = 4;
 const TYPICAL_QUANTILE = 0.75;
 const MIN_SELLING_DAYS = 5;
+const MIN_HISTORY_DAYS = 14;
 
 /** The value at this fraction of the way through a sorted list, never interpolated upward. */
 function lowQuantile(sorted, fraction) {
@@ -61,4 +78,14 @@ function capSeries(series, shopTypicalQty = 1) {
     return { series: clipped ? out : series, cap, clipped };
 }
 
-module.exports = { shopTypical, dailyCap, capSeries, lowQuantile, MIN_CAP, CAP_TIMES, MIN_SELLING_DAYS };
+/** True while a product has too few days on record to read a rate from. */
+function isNewProduct(series) {
+    return series.length < MIN_HISTORY_DAYS;
+}
+
+/** The cautious daily rate for a new product: what it has sold so far, spread over MIN_HISTORY_DAYS. */
+function cautiousDailyRate(series) {
+    return series.reduce((total, p) => total + p.quantity, 0) / MIN_HISTORY_DAYS;
+}
+
+module.exports = { shopTypical, dailyCap, capSeries, lowQuantile, isNewProduct, cautiousDailyRate, MIN_CAP, CAP_TIMES, MIN_SELLING_DAYS, MIN_HISTORY_DAYS };
