@@ -544,16 +544,47 @@ class Sale {
                 params
             );
 
+            /* What turns the category lines into the revenue figure.
+
+               The categories add up the items sold, before any discount.
+               Revenue is what was actually charged. Two things lie between
+               them: sales that were recorded with no item lines at all
+               (their money belongs to no category), and the discounts given
+               on the rest. Reported separately so the page can show
+               categories + sales without items - discounts = revenue. */
+            const [bridgeRows] = await connection.execute(
+                `SELECT COALESCE(SUM(CASE WHEN x.item_lines = 0 THEN 1 ELSE 0 END), 0) AS unitemised_sales,
+                        COALESCE(SUM(CASE WHEN x.item_lines = 0 THEN s.final_amount ELSE 0 END), 0) AS unitemised_revenue,
+                        COALESCE(SUM(CASE WHEN x.item_lines > 0 THEN s.total_amount - s.final_amount ELSE 0 END), 0) AS discounts_given
+                 FROM sales s
+                 JOIN (SELECT s2.id, COUNT(si.id) AS item_lines
+                       FROM sales s2 LEFT JOIN sale_items si ON si.sale_id = s2.id
+                       GROUP BY s2.id) x ON x.id = s.id
+                 ${dateFilter}`,
+                params
+            );
+
             const r = revenueRows[0] || {};
+            const bridge = bridgeRows[0] || {};
+            const totalRevenue = parseFloat(r.total_revenue) || 0;
+            const categoryTotal = (categoryRows || []).reduce((a, c) => a + (parseFloat(c.total_revenue) || 0), 0);
+            const unitemisedRevenue = parseFloat(bridge.unitemised_revenue) || 0;
+            const discountsGiven = parseFloat(bridge.discounts_given) || 0;
+            const round2 = v => Math.round(v * 100) / 100;
             return {
                 total_transactions: r.total_transactions || 0,
-                total_revenue: parseFloat(r.total_revenue) || 0,
+                total_revenue: totalRevenue,
                 total_items_sold: r.total_items_sold || 0,
                 avg_transaction_value: r.total_transactions > 0
                     ? parseFloat((r.total_revenue / r.total_transactions).toFixed(2))
                     : 0,
                 payment_breakdown: paymentRows || [],
-                category_breakdown: categoryRows || []
+                category_breakdown: categoryRows || [],
+                category_total: round2(categoryTotal),
+                unitemised: { sales: Number(bridge.unitemised_sales) || 0, revenue: round2(unitemisedRevenue) },
+                discounts_given: round2(discountsGiven),
+                // anything still unexplained after those two; zero when every sale's total matches its items
+                unexplained: round2(totalRevenue - (categoryTotal + unitemisedRevenue - discountsGiven))
             };
         } finally {
             connection.release();

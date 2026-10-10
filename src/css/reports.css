@@ -222,6 +222,13 @@
 .rp-bar-track { height: 6px; background: var(--gray-100); border-radius: 2px; overflow: hidden; }
 .rp-bar-fill { height: 100%; background: var(--chart-1); border-radius: 2px; }
 
+/* Under the category bars: the lines that take them to the revenue figure. */
+.rp-adds-up { margin: 0 18px 4px; padding-top: 10px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 6px; }
+.rp-adds-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 13.5px; color: var(--text-secondary); }
+.rp-adds-row span:last-child { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rp-adds-row small { display: block; font-size: 12px; color: var(--text-muted); }
+.rp-adds-total { margin-top: 2px; padding-top: 8px; border-top: 1px solid var(--border-color); color: var(--text-primary); font-weight: 600; }
+
 /* ----- Tables ----- */
 .rp-table-wrap { overflow-x: auto; margin-top: 10px; }
 
@@ -320,6 +327,7 @@
   .rp-export { margin-left: 0; }
   .rp-table th, .rp-table td { padding-left: 12px; padding-right: 12px; }
   .rp-card-head, .rp-bars, .rp-filters { padding-left: 12px; padding-right: 12px; }
+  .rp-adds-up { margin-left: 12px; margin-right: 12px; }
   .rp-chart { padding-left: 8px; padding-right: 8px; }
   .rp-search { width: 100%; }
 }

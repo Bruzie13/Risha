@@ -165,6 +165,7 @@ async function loadSales() {
         renderBars('categoryList', (data.data.summary?.category_breakdown || []).map(c => ({
             label: c.category_name || 'Uncategorised', value: Number(c.total_revenue) || 0, text: formatCurrency(c.total_revenue)
         })));
+        renderCategoryTotals(data.data.summary || {});
         renderPaymentNote(data.data.summary?.payment_breakdown || []);
     } catch (error) {
         console.error('Error loading report:', error);
@@ -330,6 +331,29 @@ function renderBars(containerId, items) {
             <div class="rp-bar-top"><span class="rp-bar-label">${escHtml(i.label)}</span><span class="rp-bar-value">${escHtml(i.text)}</span></div>
             <div class="rp-bar-track"><div class="rp-bar-fill" style="width:${Math.max(2, Math.round(i.value / max * 100))}%"></div></div>
         </div>`).join('');
+}
+
+/* Under the category bars: the lines that take the categories to the revenue
+   figure. The bars add up items sold before discounts; revenue is what was
+   charged. Sales recorded with no items belong to no category, and discounts
+   come off. Shown whenever either exists, so the card always adds up. */
+function renderCategoryTotals(summary) {
+    const el = document.getElementById('categoryTotals');
+    if (!el) return;
+    const noItems = summary.unitemised || { sales: 0, revenue: 0 };
+    const discounts = Number(summary.discounts_given) || 0;
+    const unexplained = Number(summary.unexplained) || 0;
+    if (!(Number(noItems.revenue) > 0) && !(discounts > 0) && Math.abs(unexplained) < 0.005) { el.hidden = true; el.innerHTML = ''; return; }
+    const row = (label, value, cls = '') => `<div class="rp-adds-row ${cls}"><span>${label}</span><span>${value}</span></div>`;
+    let html = row('Items sold, all categories', formatCurrency(summary.category_total || 0));
+    if (Number(noItems.revenue) > 0) {
+        html += row(`Sales recorded without items <small>${formatNumber(noItems.sales)} sale${Number(noItems.sales) === 1 ? '' : 's'}, in no category</small>`, '+ ' + formatCurrency(noItems.revenue));
+    }
+    if (discounts > 0) html += row('Discounts given', '− ' + formatCurrency(discounts));
+    if (Math.abs(unexplained) >= 0.005) html += row('Other differences', (unexplained < 0 ? '− ' : '+ ') + formatCurrency(Math.abs(unexplained)));
+    html += row('Revenue', formatCurrency(summary.total_revenue || 0), 'rp-adds-total');
+    el.innerHTML = html;
+    el.hidden = false;
 }
 
 function renderPaymentNote(payments) {
