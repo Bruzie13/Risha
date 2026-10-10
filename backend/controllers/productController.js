@@ -1,6 +1,7 @@
 const { shopToday, expiryProblem } = require('../utils/expiry');
 const { productProblem } = require('../utils/product');
 const { stockRequestKey } = require('../utils/requestKeys');
+const { stockChangeProblem } = require('../utils/product');
 const Supplier = require('../models/Supplier');
 const Product = require('../models/Product');
 const logAudit = require('../services/audit');
@@ -272,8 +273,9 @@ exports.adjustStock = async (req, res) => {
         const { id } = req.params;
         const { quantity, movement_type, notes } = req.body;
 
-        if (!quantity || quantity <= 0) {
-            return res.status(400).json({ success: false, message: 'Valid quantity is required' });
+        const problem = stockChangeProblem(quantity, movement_type);
+        if (problem) {
+            return res.status(400).json({ success: false, message: problem });
         }
 
         // One press of Save is one change (see utils/requestKeys.js).
@@ -308,7 +310,7 @@ exports.adjustStock = async (req, res) => {
                 repeated = seen.length > 0;
             }
             if (!repeated) {
-                const qty = movement_type === 'in' ? quantity : -quantity;
+                const qty = movement_type === 'in' ? Number(quantity) : -Number(quantity);
                 /* More cannot be taken off the shelf than is on it. This used
                    to be accepted: the stock was quietly set to zero while the
                    history row recorded the full amount. The row is held, so
@@ -326,7 +328,7 @@ exports.adjustStock = async (req, res) => {
                 await conn.execute(
                     `INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, reference_id, notes, created_by)
                      VALUES (?, ?, ?, 'manual', ?, ?, ?)`,
-                    [id, movement_type || 'adjustment', qty, key, notes || 'Manual stock adjustment', req.user.id]
+                    [id, movement_type, qty, key, notes || 'Manual stock adjustment', req.user.id]
                 );
             }
             await conn.commit();

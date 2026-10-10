@@ -35,4 +35,23 @@ function productProblem(data, adding, activeSupplierIds) {
     return null;
 }
 
-module.exports = { productProblem };
+/* A stock change made by hand.
+
+   Only "in" adds; the other three kinds take stock off the shelf (taken out,
+   counted lower than the system said, damaged). The kind has to be one of the
+   four: anything else used to be treated as a removal and then fail when its
+   history row was written. The quantity has to be a number above zero that
+   the stock column can hold. */
+const STOCK_CHANGES = ['in', 'out', 'adjustment', 'damage'];
+const MAX_STOCK = 9999999.999;
+
+function stockChangeProblem(quantity, kind) {
+    if (!STOCK_CHANGES.includes(kind)) return 'Choose what kind of change this is: stock added, taken out, counted lower, or damaged.';
+    if (quantity === null || quantity === undefined || quantity === '' || typeof quantity === 'boolean') return 'Enter the quantity.';
+    const n = Number(quantity);
+    if (!Number.isFinite(n) || n <= 0) return 'The quantity has to be a number above zero.';
+    if (n > MAX_STOCK) return 'That quantity is larger than the system can hold.';
+    return null;
+}
+
+module.exports = { productProblem, stockChangeProblem, STOCK_CHANGES, MAX_STOCK };

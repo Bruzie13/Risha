@@ -42,3 +42,24 @@ test('editing a product: only what the edit carries is checked', () => {
     assert.match(productProblem({ unit_price: 0 }, false, suppliers), /more than zero/);
     assert.equal(productProblem({ ...good, unit_price: 130 }, false, suppliers), null);
 });
+
+const { stockChangeProblem } = require('../utils/product');
+
+test('stock change: the kind has to be one of the four, and only "in" adds', () => {
+    for (const kind of ['in', 'out', 'adjustment', 'damage']) assert.equal(stockChangeProblem(5, kind), null);
+    assert.match(stockChangeProblem(5, 'nonsense'), /what kind of change/);
+    assert.match(stockChangeProblem(5, undefined), /what kind of change/, 'no kind is not quietly taken as a removal');
+});
+
+test('stock change: the quantity is a number above zero that the column can hold', () => {
+    assert.equal(stockChangeProblem(0.25, 'in'), null, 'part of a kilo is fine');
+    assert.equal(stockChangeProblem('12', 'in'), null, 'a number sent as text');
+    assert.match(stockChangeProblem(0, 'in'), /above zero/);
+    assert.match(stockChangeProblem(-5, 'in'), /above zero/);
+    assert.match(stockChangeProblem('abc', 'in'), /above zero/);
+    assert.match(stockChangeProblem('5abc', 'in'), /above zero/);
+    assert.match(stockChangeProblem(Infinity, 'in'), /above zero/);
+    assert.match(stockChangeProblem(undefined, 'in'), /Enter the quantity/);
+    assert.match(stockChangeProblem('', 'out'), /Enter the quantity/);
+    assert.match(stockChangeProblem(1e12, 'in'), /larger than the system can hold/);
+});

@@ -416,10 +416,10 @@
                 <div class="form-group">
                     <label class="form-label">Adjustment type</label>
                     <select class="form-select" id="stockAdjustType" onchange="updateStockPreview()">
-                        <option value="in">Add Stock (In)</option>
-                        <option value="out">Remove Stock (Out)</option>
-                        <option value="adjustment">Adjustment</option>
-                        <option value="damage">Damage</option>
+                        <option value="in">Add stock (received, found, returned)</option>
+                        <option value="out">Remove stock (taken out)</option>
+                        <option value="adjustment">Remove stock: count was lower than the system</option>
+                        <option value="damage">Remove stock: damaged or spoiled</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -549,7 +549,7 @@
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=30"></script>
 <script src="js/assistant.js?v=24"></script>
-    <script src="js/inventory.js?v=31"></script>
+    <script src="js/inventory.js?v=32"></script>
 </body>
 </html>
 

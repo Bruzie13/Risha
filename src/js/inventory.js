@@ -951,7 +951,7 @@ async function saveStockAdjustment() {
         });
         const data = await response.json();
         if (data.success) {
-            showSuccessDialog('Stock adjusted', `Recorded ${type === 'in' ? '+' : '−'}${qty} — inventory levels are up to date.`, { icon: 'sync_alt' });
+            showSuccessDialog('Stock adjusted', `Recorded ${type === 'in' ? '+' : '−'}${formatQty(qty)}. Stock is now ${formatQty(data.data && data.data.stock_quantity)}.`, { icon: 'sync_alt' });
             closeStockModal();
             await loadProducts();
         } else {
