@@ -144,8 +144,13 @@ function closeSupplierModal() {
     editingSupplierId = null;
 }
 
+let supplierSaving = false;     // a save is on its way: a second press of Save is ignored
+
 async function handleSupplierSubmit(event) {
     event.preventDefault();
+    if (supplierSaving) return;
+    const saveBtn = event.target.querySelector('button[type="submit"]');
+    const saveLabel = saveBtn ? saveBtn.textContent : '';
     const data = {
         name: document.getElementById('name').value,
         contact_person: document.getElementById('contact_person').value || null,
@@ -158,6 +163,8 @@ async function handleSupplierSubmit(event) {
         latitude: document.getElementById('latitude').value || null,
         longitude: document.getElementById('longitude').value || null
     };
+    supplierSaving = true;
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
     try {
         let response;
         if (editingSupplierId) {
@@ -179,11 +186,15 @@ async function handleSupplierSubmit(event) {
             closeSupplierModal();
             await loadSuppliers();
         } else {
-            showToast('Error: ' + (result.message || 'Unknown'), 'error');
+            showToast(result.message || 'The supplier was not saved', 'error');
+            if (result.code === 'DUPLICATE_SUPPLIER') document.getElementById('name').focus();
         }
     } catch (error) {
         console.error('Error saving supplier:', error);
         showToast('Failed to save supplier', 'error');
+    } finally {
+        supplierSaving = false;
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = saveLabel; }
     }
 }
 

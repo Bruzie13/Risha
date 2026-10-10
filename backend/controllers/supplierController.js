@@ -1,4 +1,5 @@
 const Supplier = require('../models/Supplier');
+const { supplierProblem } = require('../utils/supplier');
 const SupplierPerformance = require('../models/SupplierPerformance');
 const PurchaseOrder = require('../models/PurchaseOrder');
 const logAudit = require('../services/audit');
@@ -40,14 +41,13 @@ function normaliseCoords(body) {
 
 exports.createSupplier = async (req, res) => {
     try {
-        const { name, contact_person, email, phone, address, city, payment_terms } = req.body;
+        const { contact_person, email, phone, address, city, payment_terms } = req.body;
 
-        if (!name) {
-            return res.status(400).json({
-                success: false,
-                message: 'Supplier name is required'
-            });
+        const problem = supplierProblem(req.body, true);
+        if (problem) {
+            return res.status(400).json({ success: false, message: problem });
         }
+        const name = String(req.body.name).trim().replace(/\s+/g, ' ');
 
         const coords = normaliseCoords(req.body);
         if (coords.error) {
@@ -73,6 +73,12 @@ exports.createSupplier = async (req, res) => {
             data: supplier
         });
     } catch (error) {
+        if (error.code === 'DUPLICATE_SUPPLIER') {
+            return res.status(409).json({ success: false, code: 'DUPLICATE_SUPPLIER', message: 'A supplier with this name is already on the list.' });
+        }
+        if (error.code === 'SUPPLIER_BUSY') {
+            return res.status(503).json({ success: false, message: 'Another supplier is being saved right now. Try again in a moment.' });
+        }
         console.error('Create supplier error:', error);
         res.status(500).json({
             success: false,
@@ -90,6 +96,17 @@ exports.updateSupplier = async (req, res) => {
             return res.status(400).json({ success: false, message: coords.error });
         }
         const updateData = { ...req.body, ...coords.value };
+
+        const problem = supplierProblem(updateData, false);
+        if (problem) {
+            return res.status(400).json({ success: false, message: problem });
+        }
+        if (updateData.name !== undefined) {
+            updateData.name = String(updateData.name).trim().replace(/\s+/g, ' ');
+            if (await Supplier.nameTaken(updateData.name, id)) {
+                return res.status(409).json({ success: false, code: 'DUPLICATE_SUPPLIER', message: 'Another supplier already has this name.' });
+            }
+        }
 
         const oldSupplier = await Supplier.findById(id);
         const supplier = await Supplier.update(id, updateData);

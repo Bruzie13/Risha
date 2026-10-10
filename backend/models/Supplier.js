@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { nameKey } = require('../utils/supplier');
 
 class Supplier {
     static async getAll() {
@@ -30,9 +31,34 @@ class Supplier {
         }
     }
 
-    static async create(data) {
+    /** The id of another current supplier already using this name, or null. */
+    static async nameTaken(name, exceptId = null) {
         const connection = await pool.getConnection();
         try {
+            const [rows] = await connection.execute(
+                'SELECT id, name FROM suppliers WHERE is_active = TRUE AND id <> ?', [exceptId == null ? 0 : exceptId]);
+            const same = rows.find(r => nameKey(r.name) === nameKey(name));
+            return same ? same.id : null;
+        } finally {
+            connection.release();
+        }
+    }
+
+    static async create(data) {
+        const connection = await pool.getConnection();
+        let locked = false;
+        try {
+            /* Two suppliers with one name cannot be told apart on an order.
+               The check and the insert are done under one named lock, so two
+               requests arriving together (a double press of Save) take turns
+               and the second finds the first. */
+            const [lock] = await connection.execute("SELECT GET_LOCK('fetch_supplier_name', 5) AS held");
+            locked = Number(lock[0].held) === 1;
+            if (!locked) { const e = new Error('Another supplier is being saved'); e.code = 'SUPPLIER_BUSY'; throw e; }
+            const [current] = await connection.execute('SELECT id, name FROM suppliers WHERE is_active = TRUE');
+            if (current.some(r => nameKey(r.name) === nameKey(data.name))) {
+                const e = new Error('A supplier with this name already exists'); e.code = 'DUPLICATE_SUPPLIER'; throw e;
+            }
             const [result] = await connection.execute(
                 `INSERT INTO suppliers (name, email, phone, address, city, latitude, longitude, contact_person, payment_terms)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -51,6 +77,7 @@ class Supplier {
             );
             return await this.findById(result.insertId);
         } finally {
+            if (locked) { try { await connection.execute("SELECT RELEASE_LOCK('fetch_supplier_name')"); } catch (e) { /* released with the connection */ } }
             connection.release();
         }
     }
