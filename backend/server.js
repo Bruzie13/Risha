@@ -727,6 +727,13 @@ async function runMigrations() {
 }
 runMigrations();
 
+// An API address that does not exist says so, in the same shape as every
+// other answer. Without this it fell through to the page fallback below and
+// came back as the sign-in page with a 200.
+app.use('/api', (req, res) => {
+    res.status(404).json({ success: false, message: 'Not found' });
+});
+
 app.use(express.static(path.join(__dirname, '..', 'src'), {
     etag: false,
     lastModified: false,

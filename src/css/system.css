@@ -553,6 +553,11 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); widt
 
 @media (max-width: 768px) {
   .page-header { padding: 14px 16px 14px 68px; min-height: 66px; }
+  /* A collapsed sidebar (always the case for the till and supplier accounts)
+     sets its own side padding for wide screens. On a small window the menu
+     button floats over the band, so the title keeps the room beside it. */
+  html.sidebar-hidden .page-header { padding-left: 68px; padding-right: 16px; }
+  html.sidebar-hidden .content { padding-left: 16px; padding-right: 16px; }
   .page-header h1 { font-size: 21px; }
   .content { padding: 16px 16px 28px; }
   .rp-tabs, .settings-sidebar { display: flex; flex-wrap: nowrap; overflow-x: auto; }

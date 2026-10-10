@@ -107,13 +107,15 @@ function canOpenPage(href) {
     const page = (window.location.pathname.split('/').pop() || '').toLowerCase();
     const open = ['', 'login.html', 'reset-password.html', 'verify-email.html'];
     if (open.includes(page) || !getToken() || !getUser()) return;
-    if (canOpenPage(page)) { sessionStorage.removeItem('roleBounce'); return; }
+    if (canOpenPage(page)) { sessionStorage.removeItem('roleBounce'); sessionStorage.removeItem('navIntent'); return; }
 
     /* Two accounts open in two tabs share one page cookie, and it belongs to
        whichever signed in last — so the server can send this tab to the other
        account's home page. Asking the server to check this tab's own token
-       re-issues the cookie for this account; only then go home. Without that
-       step the two tabs' rules disagree for ever and the page ping-pongs. */
+       re-issues the cookie for this account; only then carry on to the page
+       the click was heading for (or home, when there was no such click).
+       Without that step the two tabs' rules disagree for ever and the page
+       ping-pongs. */
     document.documentElement.style.visibility = 'hidden';
     let bounces = [];
     try { bounces = JSON.parse(sessionStorage.getItem('roleBounce') || '[]'); } catch (e) {}
@@ -128,7 +130,47 @@ function canOpenPage(href) {
     }
     fetch(`${API_BASE}/auth/verify`, { headers: getAuthHeaders() })
         .catch(function () {})
-        .finally(function () { window.location.replace(roleHome()); });
+        .finally(function () {
+            let target = roleHome();
+            try {
+                const intent = JSON.parse(sessionStorage.getItem('navIntent') || 'null');
+                // only ever one of our own pages, and only one this account may open
+                if (intent && typeof intent.href === 'string' && /^[a-z0-9_-]+\.html([?#].*)?$/i.test(intent.href)
+                    && Date.now() - intent.t < 15000 && canOpenPage(intent.href)) target = intent.href;
+            } catch (e) {}
+            // used once: if it bounces again, the next stop is home
+            sessionStorage.removeItem('navIntent');
+            window.location.replace(target);
+        });
+})();
+
+/* Where this tab was heading when a link to another screen was clicked. If
+   the server sends the tab somewhere else because the page cookie belongs to
+   another account (above), it can still arrive once the cookie is its own. */
+document.addEventListener('click', function (e) {
+    const link = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    const href = link ? (link.getAttribute('href') || '') : '';
+    if (!/^[a-z0-9_-]+\.html([?#].*)?$/i.test(href)) return;
+    try { sessionStorage.setItem('navIntent', JSON.stringify({ href: href, t: Date.now() })); } catch (err) {}
+}, true);
+
+/* The page cookie is one per browser; the session is one per tab. Whenever
+   this tab is the one being looked at, make the cookie this tab's, so the
+   next click is judged as this account and not as whoever signed in last in
+   another tab. /auth/verify re-issues the cookie only when it differs. */
+(function () {
+    let last = 0;
+    function claimPageCookie() {
+        if (document.hidden || !getToken()) return;
+        const page = (window.location.pathname.split('/').pop() || '').toLowerCase();
+        if (['', 'login.html', 'reset-password.html', 'verify-email.html'].includes(page)) return;
+        if (Date.now() - last < 3000) return;
+        last = Date.now();
+        fetch(`${API_BASE}/auth/verify`, { headers: getAuthHeaders() }).catch(function () {});
+    }
+    document.addEventListener('visibilitychange', claimPageCookie);
+    window.addEventListener('focus', claimPageCookie);
+    window.addEventListener('pageshow', function (e) { if (e.persisted) claimPageCookie(); });
 })();
 
 /* Trim the interface to what this account can use: links to screens it cannot
