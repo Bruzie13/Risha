@@ -82,8 +82,8 @@
                 <div class="breadcrumb">Low-stock, out-of-stock and expiry alerts</div>
             </div>
             <div class="notif-center-actions">
-                <button class="btn-secondary" onclick="markAllRead()"><span class="material-symbols-outlined" style="font-size:16px;">check</span> Mark all read</button>
-                <button class="btn-secondary" onclick="clearRead()"><span class="material-symbols-outlined" style="font-size:16px;">delete_sweep</span> Clear read</button>
+                <button class="btn-secondary" data-needs="manage" onclick="markAllRead()"><span class="material-symbols-outlined" style="font-size:16px;">check</span> Mark all read</button>
+                <button class="btn-secondary" data-needs="manage" onclick="clearRead()"><span class="material-symbols-outlined" style="font-size:16px;">delete_sweep</span> Clear read</button>
                 <button class="btn-secondary" onclick="refreshList()"><span class="material-symbols-outlined" style="font-size:16px;">refresh</span> Refresh</button>
             </div>
         </div>
@@ -157,11 +157,11 @@
     </script>
     <script src="js/utils.js"></script>
     <script src="js/format.js"></script>
-    <script src="js/auth.js?v=48"></script>
+    <script src="js/auth.js?v=49"></script>
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=30"></script>
 <script src="js/assistant.js?v=24"></script>
-    <script src="js/notifications.js?v=23"></script>
+    <script src="js/notifications.js?v=24"></script>
 </body>
 </html>
 

@@ -97,7 +97,7 @@ function renderNotifications() {
                 <div class="notif-time">${formatNotifTime(n.created_at)} ${n.product_name ? '· ' + escHtml(n.product_name) : ''}</div>
             </div>
             <div class="notif-actions">
-                ${n.is_read ? '' : `<button onclick="markAsRead(${n.id})" title="Mark as read"><span class="material-symbols-outlined" style="font-size:16px;">check</span></button>`}
+                ${n.is_read || !canManage() ? '' : `<button onclick="markAsRead(${n.id})" title="Mark as read"><span class="material-symbols-outlined" style="font-size:16px;">check</span></button>`}
             </div>
         </div>
     `).join('');
@@ -119,9 +119,13 @@ function showLessNotifications() {
     showMoreNotifications();
 }
 
+/* The answer is read before anything is said: these used to report success
+   whatever the server replied, a refusal included. */
 async function markAsRead(id) {
     try {
-        await fetch(`${API_BASE}/notifications/${id}/read`, { method: 'PUT', headers: getAuthHeaders() });
+        const res = await fetch(`${API_BASE}/notifications/${id}/read`, { method: 'PUT', headers: getAuthHeaders() });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) { showToast(data.message || 'Could not mark it as read', 'error'); return; }
         refreshList();
     } catch (e) {
         showToast('Failed to mark as read', 'error');
@@ -130,7 +134,9 @@ async function markAsRead(id) {
 
 async function markAllRead() {
     try {
-        await fetch(`${API_BASE}/notifications/read-all`, { method: 'PUT', headers: getAuthHeaders() });
+        const res = await fetch(`${API_BASE}/notifications/read-all`, { method: 'PUT', headers: getAuthHeaders() });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) { showToast(data.message || 'Could not mark them as read', 'error'); return; }
         refreshList();
         showToast('All notifications marked as read', 'success');
     } catch (e) {
@@ -155,7 +161,8 @@ function clearRead() {
 async function doClearRead() {
     try {
         const res = await fetch(`${API_BASE}/notifications/read`, { method: 'DELETE', headers: getAuthHeaders() });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) { showToast(data.message || 'Could not clear them', 'error'); return; }
         refreshList();
         showSuccessDialog('Notifications cleared',
             data.message || 'Your read notifications have been deleted.',

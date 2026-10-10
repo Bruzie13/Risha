@@ -769,7 +769,7 @@ async function openNotifDropdown() {
             <div class="notif-dropdown-header">
                 <span>Notifications</span>
                 <div class="notif-dropdown-actions">
-                    <button onclick="markAllNotifRead()" title="Mark all read"><span class="material-symbols-outlined" style="font-size:16px;">check</span> All</button>
+                    ${canManage() ? '<button onclick="markAllNotifRead()" title="Mark all read"><span class="material-symbols-outlined" style="font-size:16px;">check</span> All</button>' : ''}
                     <button onclick="closeNotifDropdown()" title="Close"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
                 </div>
             </div>
@@ -815,6 +815,8 @@ function closeNotifOutside(e) {
 }
 
 async function markNotifRead(id) {
+    // a view-only account reads notices; it does not mark them (the mark is shared)
+    if (!canManage()) return;
     try {
         await fetch(`${API_BASE}/notifications/${id}/read`, { method: 'PUT', headers: getAuthHeaders() });
         refreshNotifCount();
@@ -828,7 +830,9 @@ async function markNotifRead(id) {
 
 async function markAllNotifRead() {
     try {
-        await fetch(`${API_BASE}/notifications/read-all`, { method: 'PUT', headers: getAuthHeaders() });
+        const res = await fetch(`${API_BASE}/notifications/read-all`, { method: 'PUT', headers: getAuthHeaders() });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) { showToast(data.message || 'Could not mark them as read', 'error'); return; }
         refreshNotifCount();
         closeNotifDropdown();
         showToast('All notifications marked as read', 'success');
