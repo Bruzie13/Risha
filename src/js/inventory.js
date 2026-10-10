@@ -786,9 +786,26 @@ function deleteFromDetails() {
 }
 
 // Delete product with confirmation
+/* What deleting does, said before the question is answered. A product with
+   items still on the shelf can be deleted, but not without being told. */
+function deleteProductQuestion(products) {
+    const withStock = products.filter(p => (parseFloat(p.stock_quantity) || 0) > 0);
+    const one = products.length === 1;
+    let text = one
+        ? `Delete <strong>${escHtml(products[0].name)}</strong>? It leaves Inventory, the till and the reorder lists. Its past sales stay in the reports.`
+        : `Delete ${products.length} products? They leave Inventory, the till and the reorder lists. Their past sales stay in the reports.`;
+    if (withStock.length) {
+        text += '<span style="display:block;margin-top:10px;">' + (one
+            ? `<strong>It still has ${formatQty(withStock[0].stock_quantity)} in stock.</strong> Deleting it does not take those off the shelf.`
+            : `<strong>${withStock.length} of them still ${withStock.length === 1 ? 'has' : 'have'} stock.</strong> Deleting them does not take those items off the shelf.`) + '</span>';
+    }
+    return text;
+}
+
 async function deleteProduct(id) {
     if (!canManage()) { showToast("Your role can't delete products.", 'error'); return; }
-    showConfirmDialog('Delete product', 'Are you sure you want to delete this product? This cannot be undone.', async () => {
+    const target = allProducts.find(p => p.id === id);
+    showConfirmDialog('Delete product', target ? deleteProductQuestion([target]) : 'Delete this product?', async () => {
         try {
             const response = await fetch(`${API_URL}/products/${id}`, {
                 method: 'DELETE',
@@ -845,25 +862,26 @@ async function handleProductSubmit(event) {
         description: document.getElementById('description').value || null
     };
 
-    try {
-        let response;
-        if (editingProductId) {
-            response = await fetch(`${API_URL}/products/${editingProductId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${getToken()}`
-                },
-                body: JSON.stringify(productData)
-            });
-        } else {
-            response = await fetch(`${API_URL}/products`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify(productData)
-            });
-        }
+    await saveProduct(productData);
+}
 
+let productSaving = false;      // a save is on its way: a second press of Save is ignored
+
+/* Sends the product. When its name is already in use the server asks first;
+   saying yes sends it again with that question answered. */
+async function saveProduct(productData) {
+    if (productSaving) return;
+    const saveBtn = document.querySelector('#productForm button[type="submit"]');
+    const saveLabel = saveBtn ? saveBtn.textContent : '';
+    productSaving = true;
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+    let askAgain = null;
+    try {
+        const response = await fetch(editingProductId ? `${API_URL}/products/${editingProductId}` : `${API_URL}/products`, {
+            method: editingProductId ? 'PUT' : 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(productData)
+        });
         const data = await response.json();
 
         if (data.success) {
@@ -874,12 +892,23 @@ async function handleProductSubmit(event) {
             );
             closeProductModal();
             await loadProducts();
+        } else if (data.code === 'SAME_NAME') {
+            askAgain = data.message;
         } else {
-            showToast('Error: ' + (data.message || 'Unknown'), 'error');
+            showToast(data.message || 'The product was not saved', 'error');
         }
     } catch (error) {
         console.error('Error saving product:', error);
         showToast('Failed to save product', 'error');
+    } finally {
+        productSaving = false;
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = saveLabel; }
+    }
+    if (askAgain) {
+        showConfirmDialog('This name is already in use',
+            `${escHtml(askAgain)} Two products with one name are hard to tell apart at the till. Save this one under the same name anyway?`,
+            () => saveProduct(Object.assign({}, productData, { allow_same_name: true })),
+            'Yes, save it');
     }
 }
 
@@ -1279,7 +1308,7 @@ async function bulkDelete() {
     if (!canManage()) { showToast("Your role can't delete products.", 'error'); return; }
     const ids = getSelectedIds();
     if (ids.length === 0) return;
-    showConfirmDialog('Bulk delete', `Delete ${ids.length} product(s)? This cannot be undone.`, async () => {
+    showConfirmDialog('Bulk delete', deleteProductQuestion(ids.map(id => allProducts.find(p => p.id === id)).filter(Boolean)) || `Delete ${ids.length} product(s)?`, async () => {
         try {
             let successCount = 0;
             for (const id of ids) {

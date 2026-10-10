@@ -8,6 +8,16 @@ const logAudit = require('../services/audit');
 const { notifyStockAdjusted, notifyProductCreated } = require('../services/notifier');
 const { storeImage } = require('../services/imageStore');
 
+/* The answer when a product is being given a name another product already has. */
+function sameNameAnswer(twin) {
+    return {
+        success: false,
+        code: 'SAME_NAME',
+        message: `A product named "${twin.name}" is already in Inventory (SKU ${twin.sku}).`,
+        data: { id: twin.id, sku: twin.sku, name: twin.name }
+    };
+}
+
 /** The suppliers still on the shop's list, as a Set of ids. */
 async function currentSupplierIds() {
     return new Set((await Supplier.getAll()).map(s => Number(s.id)));
@@ -120,6 +130,10 @@ exports.createProduct = async (req, res) => {
                 message: 'A product with this SKU already exists'
             });
         }
+        // Two products under one name are hard to tell apart at the till. It is
+        // allowed (two sizes, two suppliers), but only when asked for.
+        const twin = req.body.allow_same_name ? null : await Product.findByName(name);
+        if (twin) return res.status(409).json(sameNameAnswer(twin));
 
         const product = await Product.create({
             sku,
@@ -178,6 +192,13 @@ exports.updateProduct = async (req, res) => {
 
         const oldProduct = await Product.findById(id);
 
+        // renaming a product to a name another one has: the same question as on adding
+        if (updateData.name !== undefined && oldProduct && !updateData.allow_same_name
+            && String(updateData.name).trim().toLowerCase() !== String(oldProduct.name).trim().toLowerCase()) {
+            const twin = await Product.findByName(updateData.name, id);
+            if (twin) return res.status(409).json(sameNameAnswer(twin));
+        }
+
         // A changed expiration date has to be today or later. The date the
         // product already has may stay, so an expired product can be edited.
         if (updateData.expiration_date !== undefined) {
@@ -215,13 +236,23 @@ exports.updateProduct = async (req, res) => {
 exports.deleteProduct = async (req, res) => {
     try {
         const { id } = req.params;
+        // A product that is not there, or was deleted already, is not "deleted
+        // successfully": this used to say so and write it in the Activity log.
+        const product = await Product.findById(id);
+        if (!product || !product.is_active) {
+            return res.status(404).json({ success: false, message: 'Product not found' });
+        }
         await Product.delete(id);
 
-        logAudit(req.user.id, 'delete', 'products', parseInt(id), null, null, req.ip);
+        // what was removed, so the log says more than a number
+        logAudit(req.user.id, 'delete', 'products', parseInt(id),
+            { sku: product.sku, name: product.name, stock_quantity: product.stock_quantity, unit_price: product.unit_price, supplier_id: product.supplier_id },
+            null, req.ip);
 
         res.status(200).json({
             success: true,
-            message: 'Product deleted successfully'
+            message: 'Product deleted successfully',
+            stock_left: Number(product.stock_quantity) || 0
         });
     } catch (error) {
         console.error('Delete product error:', error);
@@ -387,6 +418,12 @@ exports.bulkCreateProducts = async (req, res) => {
                 const expiryIssue = expiryProblem(p.expiration_date, shopToday());
                 if (expiryIssue) {
                     errors.push({ sku: p.sku, error: expiryIssue });
+                    continue;
+                }
+                // a file cannot be asked "are you sure", so a name already in use is left out and named
+                const twin = await Product.findByName(p.name);
+                if (twin) {
+                    errors.push({ sku: p.sku, error: `A product named "${twin.name}" already exists (SKU ${twin.sku})` });
                     continue;
                 }
                 const product = await Product.create({

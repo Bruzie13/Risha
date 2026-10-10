@@ -185,6 +185,23 @@ class Product {
         }
     }
 
+    /** Another current product with this name (capitals and spacing aside), or null. */
+    static async findByName(name, exceptId = null) {
+        const connection = await pool.getConnection();
+        try {
+            const [rows] = await connection.execute(
+                `SELECT id, sku, name FROM products
+                 WHERE is_active = TRUE
+                   AND LOWER(TRIM(REGEXP_REPLACE(name, '[[:space:]]+', ' '))) = LOWER(TRIM(REGEXP_REPLACE(?, '[[:space:]]+', ' ')))
+                   AND id <> ? LIMIT 1`,
+                [String(name == null ? '' : name), exceptId == null ? 0 : exceptId]
+            );
+            return rows[0] || null;
+        } finally {
+            connection.release();
+        }
+    }
+
     static async findBySku(sku) {
         const connection = await pool.getConnection();
         try {
