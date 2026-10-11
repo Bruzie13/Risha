@@ -372,7 +372,7 @@ By group, chosen walk-forward: Food MAE 1.307, bias +46.6%; Health & Wellness 1.
 
 ## 11. Limits
 
-State these wherever the forecast is presented.
+State these wherever the forecast is presented. The figures for made-up products, here and in section 5, are the forecast before its last step (section 8); on the page each would then be multiplied by its category's factor.
 
 **1. Per product, the error is as large as the sales.** See the end of section 9.3. Use the forecast for categories and the shop total; treat a single product's figure as a rough guide.
 
@@ -403,7 +403,7 @@ The model has learned from this shop that a burst of sales usually fades. For re
 
 A recent gap in one product's sales also pulls its forecast down further than it did: 10 a day, then 30 days of nothing, then 10 a day again for 30 days gives 181 (it gave 268; the true rate is 300).
 
-The last row is the QA report's finding L4, and it is **not fixed**. The row above it has become worse. A rule for "a clear drop in level" was tried: on the four held-out fortnights it never acted on a single real product, so it could be neither tested nor tuned on this shop's data, and it carries a risk of its own (see 7). It was not added.
+The last row is the QA report's finding L4, and it is **not fixed**. The row above it has become worse. A rule for "a clear drop in level" was tried, in a separate run that is not kept in the repository: on the four held-out fortnights it never acted on a single real product, so it could be neither tested nor tuned on this shop's data, and it carries a risk of its own (see 7). It was not added.
 
 **6. A product far above the shop's usual sales is read low.** The busiest real product sells about 0.34 a day (19 in 8 weeks). A made-up product selling exactly 1 a day for 120 days is forecast 25.5 for 30 days, not 30; one selling 3 a day is forecast 87.9, not 90. Such a product also carries more weight in what the one shared model learns: adding the steady 3-a-day product moved the other products' total by +6.5%.
 
