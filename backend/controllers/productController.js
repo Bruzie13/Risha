@@ -184,12 +184,6 @@ exports.updateProduct = async (req, res) => {
             return res.status(400).json({ success: false, message: problem });
         }
 
-        // A newly pasted/uploaded image comes in as a base64 data URL — push it
-        // to Cloudinary (when configured) and store the URL instead.
-        if (updateData.image_url) {
-            updateData.image_url = await storeImage(updateData.image_url);
-        }
-
         const oldProduct = await Product.findById(id);
 
         // renaming a product to a name another one has: the same question as on adding
@@ -206,6 +200,15 @@ exports.updateProduct = async (req, res) => {
             if (expiryIssue) {
                 return res.status(400).json({ success: false, message: expiryIssue });
             }
+        }
+
+        // A newly pasted/uploaded image comes in as a base64 data URL — push it
+        // to Cloudinary (when configured) and store the URL instead. This is
+        // done last, once nothing above has refused the edit: it used to come
+        // before the name and expiry checks, so an edit they refused had
+        // already uploaded its picture.
+        if (updateData.image_url) {
+            updateData.image_url = await storeImage(updateData.image_url);
         }
 
         const product = await Product.update(id, updateData);
