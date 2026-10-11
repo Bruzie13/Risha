@@ -66,7 +66,7 @@ A day on which nothing sold is normally a real zero and the forecast should lear
 
 **What "left out" means.** Those 22 days are dropped from every product's history before any model sees them. The forecast does not learn "nothing sells" from them, and "the last 28 days" means the last 28 days on record. The calendar inputs (day of week, month) and "how many days ahead" are still worked out from the real dates. Nothing in the database is changed: the days are only skipped when read, and the 199 sales are untouched.
 
-**Where it shows.** Stock planning says under its heading: "Not counted: May 10, 2026 to May 31, 2026 (22 days: sales were recorded without their items)." Reports → Sales shows the ₱1,259,362.00 as its own line, "Sales with no items recorded (199)", so that revenue by category adds up to total revenue:
+**Where it shows.** Stock planning says under its heading: "Not counted: May 10, 2026 to May 31, 2026 (22 days: sales were recorded without their items)." Reports → Sales shows the ₱1,259,362.00 as its own line under the category bars, "Sales recorded without items" (199 sales, in no category), so that revenue by category adds up to total revenue:
 
 > categories ₱8,847,885.00 + sales with no items ₱1,259,362.00 − discounts ₱123,724.50 = revenue ₱9,983,522.50
 
@@ -169,12 +169,14 @@ The seeds are fixed, so the same sales give the same forecast every time.
 | | month |
 | | public holiday or not (14 fixed-date Philippine holidays; movable ones are not included) |
 | The product's recent sales | sales on the last day on record |
-| | sales 7 days before that |
-| | sales 14 days before that |
-| | sales 28 days before that |
+| | sales a week before the first day being forecast |
+| | sales two weeks before it |
+| | sales four weeks before it |
 | The product's level | average of the last 7 days |
 | | average of the last 28 days |
 | How far ahead | number of days between the last day on record and the day being forecast (1 to 30) |
+
+The three "weeks before" inputs are counted back from the first day being forecast (the day after the last day on record), so each falls on the same weekday as that day.
 
 There is no input that names the product. What tells the model how much a product sells is its own recent sales and averages.
 
@@ -398,6 +400,8 @@ The model has learned from this shop that a burst of sales usually fades. For re
 | 10 a day, then nothing for 20 days | 0 | 4.9 (was 2.3) |
 | 20 a day falling to 1 over 60 days | 30 or less | 73.3 (was 43.5) |
 | 20 a day falling to 0 over 20 days, only 20 days on record | 0 | 113.4 (unchanged: simple trend, with its floor) |
+
+A recent gap in one product's sales also pulls its forecast down further than it did: 10 a day, then 30 days of nothing, then 10 a day again for 30 days gives 181 (it gave 268; the true rate is 300).
 
 The last row is the QA report's finding L4, and it is **not fixed**. The row above it has become worse. A rule for "a clear drop in level" was tried: on the four held-out fortnights it never acted on a single real product, so it could be neither tested nor tuned on this shop's data, and it carries a risk of its own (see 7). It was not added.
 
