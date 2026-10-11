@@ -6,8 +6,9 @@ const { authenticateToken } = require('../middleware/auth');
 const { shopTypical, capSeries, isNewProduct, cautiousDailyRate, noDataDays } = require('../utils/forecastGuards');
 const { ADJUST, errorFactors, factorFor } = require('../utils/forecastAdjust');
 
-// Up to twelve months of sales, the range the study specifies (3–12 months),
-// so weekend, pay-day and seasonal patterns are all inside what the model sees.
+// Up to twelve months of sales are read to build each product's history, the
+// range the study specifies (3–12 months). The model itself learns from the
+// last FIT_WINDOW days of it (utils/mlForecast.js).
 const HISTORY_WINDOW_DAYS = 365;
 const FORECAST_DAYS = 30;
 const DAY_MS = 86400000;
@@ -215,7 +216,7 @@ const TUNING = {
     slowShare: 0.85     // ... and how much of its simple trend is that average
 };
 
-/* The simple trend: the half of the forecast with no machine learning in it.
+/* The simple trend: the part of the forecast with no machine learning in it.
 
    It reads the last 8 weeks only, because its job is to follow the current
    level and older months would drag that. Three estimates are mixed: Holt's
@@ -282,8 +283,9 @@ function forecastSeries(series, days = FORECAST_DAYS, opts = {}) {
     // given the raw series, extreme day included.
     series = capSeries(series, opts.shopTypical).series;
     if (isNewProduct(series)) return cautiousForecast(series, days);
-    // The machine-learning model reads the whole history; the simple trend
-    // beside it reads only the last 8 weeks (see simpleTrend).
+    // The machine-learning model is handed the whole history and reads the
+    // last FIT_WINDOW days of it; the simple trend beside it reads only the
+    // last 8 weeks (see simpleTrend).
     const tune = opts.tune || TUNING;
     const fullSeries = series;
     const st = simpleTrend(series, days, tune);

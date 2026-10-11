@@ -40,8 +40,9 @@ FEATURES (one row per product-day)
 
 The calendar features are how the model sees the patterns the study names:
 weekend and holiday spikes, pay-day weeks within a month, and the season. It
-is trained on up to twelve months of the shop's own sales, the range the study
-specifies (three to twelve months).
+is trained on what the caller sends: at present the last 120 days on record of
+each product (backend/utils/mlForecast.js), which is inside the three to
+twelve months the study specifies.
 
 EVERY DAY IS FORECAST DIRECTLY FROM WHAT IS KNOWN TODAY
 The usual shortcut is to forecast tomorrow, pretend that forecast happened,

@@ -22,7 +22,7 @@ FETCH is the shop's inventory system with sales forecasting. It records every sa
 
 ## Positioning
 
-The forecast is made from this shop's own sales history (Random Forest and Gradient Boosting blended with a simple trend) and is turned into plain instructions: order this many, by this date. It shows its own measured accuracy.
+The forecast is made from this shop's own sales history (Random Forest and Gradient Boosting, with a simple trend for products too new for them) and is turned into plain instructions: order this many, by this date. It shows its own measured accuracy.
 
 ## Operating Context
 
