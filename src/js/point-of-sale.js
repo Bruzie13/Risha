@@ -190,9 +190,10 @@ async function loadEod() {
         const d = data.data;
         eodExpected = d.expected_cash;
         document.getElementById('eodExpected').textContent = formatCurrency(d.expected_cash);
-        const cashIn = Number(d.cash_in) || 0, cashOut = Number(d.cash_out) || 0;
+        const cashIn = Number(d.cash_in) || 0, cashOut = Number(d.cash_out) || 0, opening = Number(d.opening_cash) || 0;
+        // how the expected figure is made up, whenever it is more than the sales alone
         document.getElementById('eodTxns').textContent = `${d.transactions} cash sale${d.transactions === 1 ? '' : 's'}` + (d.voided_sales ? ` · ${d.voided_sales} voided` : '')
-            + (cashIn || cashOut ? ` · sales ${formatCurrency(d.cash_sales)}${cashIn ? ' + ' + formatCurrency(cashIn) + ' put in' : ''}${cashOut ? ' − ' + formatCurrency(cashOut) + ' taken out' : ''}` : '');
+            + (opening || cashIn || cashOut ? ` · ${opening ? 'starting cash ' + formatCurrency(opening) + ' + ' : ''}sales ${formatCurrency(d.cash_sales)}${cashIn ? ' + ' + formatCurrency(cashIn) + ' put in' : ''}${cashOut ? ' − ' + formatCurrency(cashOut) + ' taken out' : ''}` : '');
         renderEodMoves(d.cash_moves || [], cashIn, cashOut);
         const counted = document.getElementById('eodCounted');
         const notes = document.getElementById('eodNotes');
@@ -213,6 +214,8 @@ function updateEodDiff() {
     const counted = parseFloat(document.getElementById('eodCounted').value);
     const el = document.getElementById('eodDiff');
     if (isNaN(counted)) { el.textContent = '—'; el.style.color = 'var(--text-muted)'; return; }
+    // cash in a drawer cannot be less than nothing: a minus used to read as "Balanced"
+    if (counted < 0) { el.textContent = 'Enter what was counted (0 or more)'; el.style.color = 'var(--danger)'; return; }
     const diff = Math.round((counted - eodExpected) * 100) / 100;
     if (diff === 0) { el.textContent = 'Balanced ✓'; el.style.color = 'var(--success)'; }
     else if (diff > 0) { el.textContent = 'Over by ' + formatCurrency(diff); el.style.color = 'var(--warning)'; }

@@ -312,6 +312,15 @@ async function cashMovesFor(conn, date, cashierId) {
     return { cash_in: parseFloat(rows[0].cash_in) || 0, cash_out: parseFloat(rows[0].cash_out) || 0 };
 }
 
+/* What every drawer started the day with, added up. The whole-shop count has
+   to include it: cash taken out of a drawer comes out of this money too, and
+   leaving it out made the shop's expected cash go below zero (a cashier who
+   opened with 1,000 and took 1,000 out left the shop "expecting" minus 1,000). */
+async function openingCashFor(conn, date) {
+    const [rows] = await conn.execute('SELECT COALESCE(SUM(opening_cash), 0) AS opening FROM till_openings WHERE business_date = ?', [date]);
+    return parseFloat(rows[0].opening) || 0;
+}
+
 async function cashierDrawer(conn, cashierId, date) {
     const [sales] = await conn.execute(
         `SELECT COUNT(*) AS transactions, COALESCE(SUM(final_amount), 0) AS cash_sales
@@ -387,15 +396,17 @@ exports.getEod = async (req, res) => {
                  FROM till_cash_moves m LEFT JOIN users u ON u.id = m.cashier_id
                  WHERE m.business_date = ? ORDER BY m.id`, [date]);
             const cashSales = parseFloat(sales[0].cash_sales) || 0;
+            const opening = await openingCashFor(conn, date);
             res.json({
                 success: true,
                 data: {
                     date,
+                    opening_cash: opening,
                     cash_sales: cashSales,
                     cash_in: moves.cash_in,
                     cash_out: moves.cash_out,
                     cash_moves: moveRows.map(r => ({ ...r, amount: parseFloat(r.amount) })),
-                    expected_cash: drawerExpected(0, cashSales, moves.cash_in, moves.cash_out),
+                    expected_cash: drawerExpected(opening, cashSales, moves.cash_in, moves.cash_out),
                     transactions: sales[0].transactions || 0,
                     voided_sales: voided[0].c || 0,
                     first_sale: sales[0].first_sale,
@@ -441,17 +452,18 @@ exports.saveEod = async (req, res) => {
             const [sales] = await conn.execute(
                 `SELECT COALESCE(SUM(final_amount), 0) as expected FROM sales
                  WHERE DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) = ? AND payment_method = 'cash' AND payment_status = 'completed'`, [bizDate]);
-            // the whole shop: every cashier's cash sales, plus cash put into the
-            // drawers, less cash taken out of them
+            // the whole shop: what the drawers started with, every cashier's cash
+            // sales, plus cash put into the drawers, less cash taken out of them
             const moves = await cashMovesFor(conn, bizDate);
-            const expected = drawerExpected(0, sales[0].expected, moves.cash_in, moves.cash_out);
+            const opening = await openingCashFor(conn, bizDate);
+            const expected = drawerExpected(opening, sales[0].expected, moves.cash_in, moves.cash_out);
             const diff = discrepancy(counted, expected);
             await conn.execute(
-                `INSERT INTO cash_reconciliations (business_date, expected_cash, counted_cash, discrepancy, notes, counted_by, cash_in, cash_out)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                `INSERT INTO cash_reconciliations (business_date, expected_cash, counted_cash, discrepancy, notes, counted_by, opening_cash, cash_in, cash_out)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                  ON DUPLICATE KEY UPDATE expected_cash = VALUES(expected_cash), counted_cash = VALUES(counted_cash),
-                     discrepancy = VALUES(discrepancy), notes = VALUES(notes), cash_in = VALUES(cash_in), cash_out = VALUES(cash_out)`,
-                [bizDate, expected, counted, diff, cleanNotes, req.user.id, moves.cash_in, moves.cash_out]);
+                     discrepancy = VALUES(discrepancy), notes = VALUES(notes), opening_cash = VALUES(opening_cash), cash_in = VALUES(cash_in), cash_out = VALUES(cash_out)`,
+                [bizDate, expected, counted, diff, cleanNotes, req.user.id, opening, moves.cash_in, moves.cash_out]);
             logAudit(req.user.id, 'create', 'cash_reconciliations', null, null, { date: bizDate, expected, counted, discrepancy: diff }, req.ip);
             res.json({ success: true, data: { date: bizDate, expected_cash: expected, counted_cash: counted, discrepancy: diff } });
         } finally { conn.release(); }
