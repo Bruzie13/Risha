@@ -341,6 +341,7 @@ exports.adjustStock = async (req, res) => {
         const conn = await pool.getConnection();
         let before = null;
         let repeated = false;
+        let removedExpired = 0;
         try {
             /* The change and its history row are saved together or not at all,
                and the product's row is held while that happens. Two requests
@@ -368,6 +369,18 @@ exports.adjustStock = async (req, res) => {
                 await conn.rollback();
                 return res.status(400).json({ success: false, code: 'EXPIRY_NEEDED',
                     message: `"${rows[0].name}" expired on ${rows[0].expires}. Enter the expiration date of the stock being added, or the new stock would be counted as expired too.` });
+            }
+            /* Adding a new batch to a product whose date has passed: the
+               expired units are written off (as spoiled) first, so the new
+               stock replaces them instead of being added on top. */
+            if (!repeated && movement_type === 'in' && newExpiry && rows[0].expires && rows[0].expires < shopToday() && Number(rows[0].stock_quantity) > 0) {
+                removedExpired = Number(rows[0].stock_quantity);
+                await conn.execute('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?', [removedExpired, id]);
+                await conn.execute(
+                    `INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, reference_id, notes, created_by)
+                     VALUES (?, 'damage', ?, 'manual', NULL, ?, ?)`,
+                    [id, -removedExpired, `Expired stock removed (expired ${rows[0].expires}) when new stock was added`, req.user.id]
+                );
             }
             if (!repeated) {
                 const qty = movement_type === 'in' ? Number(quantity) : -Number(quantity);
@@ -410,7 +423,7 @@ exports.adjustStock = async (req, res) => {
         }
         logAudit(req.user.id, 'update', 'products', parseInt(id), { stock_quantity: before }, { stock_quantity: updated.stock_quantity }, req.ip);
         notifyStockAdjusted(updated, before, updated.stock_quantity, req.user.id).catch(e => console.error('Notif error:', e.message));
-        res.status(200).json({ success: true, message: 'Stock adjusted successfully', data: updated });
+        res.status(200).json({ success: true, message: removedExpired ? `Stock adjusted. The ${removedExpired} expired were removed and replaced by the new stock.` : 'Stock adjusted successfully', removed_expired: removedExpired, data: updated });
     } catch (error) {
         console.error('Adjust stock error:', error);
         res.status(500).json({ success: false, message: 'Error adjusting stock' });

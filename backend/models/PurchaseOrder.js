@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { shopToday } = require('../utils/expiry');
 
 class PurchaseOrder {
     static async getAll(filters = {}) {
@@ -156,6 +157,21 @@ class PurchaseOrder {
                     // amount would put stock on the shelf that is not there.
                     const qty = item.confirmed_quantity == null ? item.quantity : item.confirmed_quantity;
                     if (qty <= 0) continue;
+                    /* Stock whose date has passed is not kept with the new batch:
+                       it is written off (as spoiled) and the new stock replaces it. */
+                    const [[held]] = await connection.execute(
+                        "SELECT stock_quantity, DATE_FORMAT(expiration_date, '%Y-%m-%d') AS expires FROM products WHERE id = ? FOR UPDATE",
+                        [item.product_id]
+                    );
+                    const expiredQty = held && held.expires && held.expires < shopToday() ? Number(held.stock_quantity) : 0;
+                    if (expiredQty > 0) {
+                        await connection.execute('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?', [expiredQty, item.product_id]);
+                        await connection.execute(
+                            `INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, reference_id, notes)
+                             VALUES (?, 'damage', ?, 'purchase_order', ?, ?)`,
+                            [item.product_id, -expiredQty, id, `Expired stock removed (expired ${held.expires}) when Purchase Order #${id} was received`]
+                        );
+                    }
                     if (newExpiry) {
                         // fresh batch resets stock and expiry together
                         await connection.execute(

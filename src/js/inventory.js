@@ -959,7 +959,10 @@ function updateStockPreview() {
     const type = document.getElementById('stockAdjustType').value;
     const problem = stockChangeProblem(stock, qty, type);
     el.style.color = problem ? 'var(--danger)' : 'var(--text-muted)';
-    el.textContent = problem || `Stock will go from ${formatQty(stock)} to ${formatQty(type === 'in' ? stock + qty : stock - qty)}.`;
+    const replacing = type === 'in' && stockProductExpired(product) && stock > 0;
+    el.textContent = problem || (replacing
+        ? `The ${formatQty(stock)} expired will be removed. Stock will go from ${formatQty(stock)} to ${formatQty(qty)}.`
+        : `Stock will go from ${formatQty(stock)} to ${formatQty(type === 'in' ? stock + qty : stock - qty)}.`);
     // the expiry field belongs to stock being added; it is required once the product has expired
     const group = document.getElementById('stockExpiryGroup');
     if (group) {
@@ -1005,7 +1008,7 @@ async function saveStockAdjustment() {
         });
         const data = await response.json();
         if (data.success) {
-            showSuccessDialog('Stock adjusted', `Recorded ${type === 'in' ? '+' : '−'}${formatQty(qty)}. Stock is now ${formatQty(data.data && data.data.stock_quantity)}.`, { icon: 'sync_alt' });
+            showSuccessDialog('Stock adjusted', `Recorded ${type === 'in' ? '+' : '−'}${formatQty(qty)}.` + (data.removed_expired ? ` The ${formatQty(data.removed_expired)} expired were removed.` : '') + ` Stock is now ${formatQty(data.data && data.data.stock_quantity)}.`, { icon: 'sync_alt' });
             closeStockModal();
             await loadProducts();
         } else {
