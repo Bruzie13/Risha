@@ -147,10 +147,10 @@ function voidSale(id) {
                     await loadSales();
                     await updateStats();
                 } else {
-                    showErrorDialog('Could not void sale', data.message || 'Unknown error');
+                    showErrorDialog('Could not void sale', data.message || 'the server gave no reason');
                 }
             } catch (e) {
-                showToast('Failed to void sale', 'error');
+                showToast(couldNot('void sale', e), 'error');
             }
         },
         'Void Sale',
@@ -225,7 +225,7 @@ function updateEodDiff() {
 async function saveEod() {
     const date = document.getElementById('eodDate').value;
     const counted = parseFloat(document.getElementById('eodCounted').value);
-    if (isNaN(counted) || counted < 0) { showErrorDialog('Invalid amount', 'Enter the cash amount actually counted in the drawer.'); return; }
+    if (isNaN(counted) || counted < 0) { showErrorDialog('Cash counted is not a valid amount', 'Enter the cash counted in the drawer as a number of 0 or more. Letters and minus amounts are not accepted.'); return; }
     try {
         const res = await fetch(`${API_BASE}/sales/eod`, {
             method: 'POST', headers: getAuthHeaders(),
@@ -240,9 +240,9 @@ async function saveEod() {
             showSuccessDialog('Day closed', msg, { icon: 'point_of_sale' });
             await loadEodHistory();
         } else {
-            showErrorDialog('Could not save', data.message || 'Unknown error');
+            showErrorDialog('Could not save', data.message || 'the server gave no reason');
         }
-    } catch (e) { showToast('Failed to save reconciliation', 'error'); }
+    } catch (e) { showToast(couldNot('save reconciliation', e), 'error'); }
 }
 
 // Cash put into or taken out of the drawers that day: who, when and why.
@@ -282,7 +282,7 @@ async function loadEodHistory() {
             const opening = parseFloat(r.opening_cash) || 0;
             return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border-subtle);font-size:12.5px;">
                 <span style="min-width:0;">
-                    <span style="font-weight:600;color:var(--text-primary);">${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · ${escHtml(r.counted_by_name || 'Unknown')}</span>
+                    <span style="font-weight:600;color:var(--text-primary);">${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · ${escHtml(r.counted_by_name || 'the server gave no reason')}</span>
                     <span style="display:block;color:var(--text-muted);">counted ${formatCurrency(parseFloat(r.counted_cash))}, expected ${formatCurrency(parseFloat(r.expected_cash))}${opening ? ' (incl. ' + formatCurrency(opening) + ' starting cash)' : ''}${r.notes ? ' — ' + escHtml(r.notes) : ''}</span>
                 </span>
                 <span style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
@@ -378,7 +378,7 @@ async function viewSaleDetails(id) {
         }
     } catch (error) {
         console.error('Error loading sale:', error);
-        showToast('Failed to load sale details', 'error');
+        showToast(couldNot('load sale details', error), 'error');
     }
 }
 
@@ -411,7 +411,7 @@ async function deleteSale(id) {
             }
         } catch (error) {
             console.error('Error deleting sale:', error);
-            showToast('Failed to delete sale', 'error');
+            showToast(couldNot('delete sale', error), 'error');
         }
     }, 'Yes, Delete', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
 }
@@ -504,7 +504,7 @@ async function exportSalesCsv() {
         if (!data.success && data.message) { showToast(data.message, 'warning'); return; }
         sales = (data.success && Array.isArray(data.data)) ? data.data : [];
     } catch (e) {
-        showToast('Failed to export sales', 'error');
+        showToast(couldNot('export sales', e), 'error');
         return;
     }
     if (!sales.length) { showToast('No sales to export', 'error'); return; }

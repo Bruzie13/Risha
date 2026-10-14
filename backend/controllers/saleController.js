@@ -79,7 +79,7 @@ exports.getSaleById = async (req, res) => {
 
         // A till account can look up a sale only to reprint its own receipt.
         if (req.user.role === 'cashier' && Number(sale.created_by) !== Number(req.user.id)) {
-            return res.status(403).json({ success: false, message: 'This account cannot do that.' });
+            return res.status(403).json({ success: false, message: 'A cashier can only open the sales they rang up themselves.' });
         }
 
         const items = await Sale.getSaleItems(id);
@@ -145,7 +145,7 @@ exports.createSale = async (req, res) => {
 
         for (const item of items) {
             if (item.unit_price !== undefined && (isNaN(item.unit_price) || item.unit_price < 0)) {
-                return res.status(400).json({ success: false, message: 'Unit price must be a non-negative number' });
+                return res.status(400).json({ success: false, message: 'The unit price of each item must be a number of 0 or more.' });
             }
             const product = await Product.findById(item.product_id);
             if (!product) {
@@ -427,7 +427,7 @@ exports.saveEod = async (req, res) => {
         const bizDate = eodDate(req, date);
         const counted = parseFloat(counted_cash);
         if (isNaN(counted) || counted < 0) {
-            return res.status(400).json({ success: false, message: 'Counted cash must be a valid amount' });
+            return res.status(400).json({ success: false, message: 'Enter the cash counted as a number of 0 or more. Letters and minus amounts are not accepted.' });
         }
         const cleanNotes = String(notes || '').slice(0, 500) || null;
         const conn = await pool.getConnection();

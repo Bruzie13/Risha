@@ -128,7 +128,7 @@ async function markAsRead(id) {
         if (!res.ok || data.success === false) { showToast(data.message || 'Could not mark it as read', 'error'); return; }
         refreshList();
     } catch (e) {
-        showToast('Failed to mark as read', 'error');
+        showToast(couldNot('mark as read', e), 'error');
     }
 }
 
@@ -140,7 +140,7 @@ async function markAllRead() {
         refreshList();
         showToast('All notifications marked as read', 'success');
     } catch (e) {
-        showToast('Failed to mark all as read', 'error');
+        showToast(couldNot('mark all as read', e), 'error');
     }
 }
 
@@ -168,7 +168,7 @@ async function doClearRead() {
             data.message || 'Your read notifications have been deleted.',
             { tone: 'danger' });
     } catch (e) {
-        showToast('Failed to clear notifications', 'error');
+        showToast(couldNot('clear notifications', e), 'error');
     }
 }
 

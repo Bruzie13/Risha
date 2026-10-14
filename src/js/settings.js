@@ -325,7 +325,7 @@ async function saveProfile() {
             showToast(data.message || 'Failed to update profile', 'error');
         }
     } catch (e) {
-        showToast('Error updating profile', 'error');
+        showToast(couldNot('update profile', e), 'error');
     }
 }
 
@@ -500,7 +500,7 @@ async function sendTestEmail() {
             showToast(data.message || 'Failed to send test email', 'error');
         }
     } catch (e) {
-        showToast('Error sending test email', 'error');
+        showToast(couldNot('send test email', e), 'error');
     } finally {
         btn.disabled = false;
         btn.innerHTML = original;
@@ -639,6 +639,6 @@ async function saveAvatar(dataUrl) {
             showToast(data.message || 'Could not save photo', 'error');
         }
     } catch (e) {
-        showToast('Error saving photo', 'error');
+        showToast(couldNot('save photo', e), 'error');
     }
 }

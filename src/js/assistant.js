@@ -137,7 +137,7 @@
             });
             const d = await r.json();
             typing.remove();
-            addMsg('bot', d.success ? d.answer : (d.message || 'Something went wrong.'));
+            addMsg('bot', d.success ? d.answer : (d.message || 'The assistant could not answer: the server gave no reason.'));
         } catch {
             typing.remove();
             addMsg('bot', "I couldn't reach the server. Please try again.");

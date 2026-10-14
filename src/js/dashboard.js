@@ -266,7 +266,7 @@ async function loadRecentSales() {
                 </div>
                 <div class="timeline-right">
                     <div class="timeline-value">${formatCurrency(s.final_amount ?? s.total_amount ?? 0)}</div>
-                    <div class="timeline-status ${state}">${SALE_STATES[state] || escHtml(s.payment_status || 'Unknown')}</div>
+                    <div class="timeline-status ${state}">${SALE_STATES[state] || escHtml(s.payment_status || 'the server gave no reason')}</div>
                 </div>
             </div>`;
         }).join('');
@@ -353,10 +353,10 @@ async function sendPOAdvance(id, nextStatus, poNumber, expiration_date) {
                 await loadRecentPOs();
                 if (typeof loadDashboardStats === 'function') await loadDashboardStats();
             } else {
-                showErrorDialog('Could not update order', data.message || 'Unknown error');
+                showErrorDialog('Could not update order', data.message || 'the server gave no reason');
             }
         } catch (e) {
-            showToast('Failed to update purchase order', 'error');
+            showToast(couldNot('update purchase order', e), 'error');
         }
     }
 }

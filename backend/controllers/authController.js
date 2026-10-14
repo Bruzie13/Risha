@@ -431,7 +431,7 @@ exports.decideResetRequest = async (req, res) => {
         const id = Number(req.params.id);
         const approve = req.params.decision === 'approve';
         if (!Number.isInteger(id) || id <= 0 || !['approve', 'decline'].includes(req.params.decision)) {
-            return res.status(400).json({ success: false, message: 'Invalid request' });
+            return res.status(400).json({ success: false, message: 'That reset request number, or the choice (approve or decline), is not valid.' });
         }
 
         const [rows] = await pool.query(

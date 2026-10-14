@@ -17,7 +17,7 @@ const authenticateToken = (req, res, next) => {
         if (err) {
             return res.status(403).json({
                 success: false,
-                message: 'Invalid or expired token'
+                message: 'Your session has ended or is not valid. Sign in again.'
             });
         }
 
@@ -54,7 +54,7 @@ const authenticateToken = (req, res, next) => {
             // every protected route passes through, rather than route by
             // route where a new endpoint could be left open by omission.
             if (!apiAllowed(user.role, req.method, req.originalUrl.split('?')[0])) {
-                return res.status(403).json({ success: false, message: 'This account cannot do that.' });
+                return res.status(403).json({ success: false, message: ({ admin: 'An administrator', manager: 'A manager', viewer: 'A view-only account', cashier: 'A cashier account', supplier: 'A supplier account' }[user.role] || 'This account') + ' cannot do this (' + req.method + ' ' + req.originalUrl.split('?')[0] + ').' });
             }
 
             req.user = user;
@@ -71,7 +71,8 @@ const authorizeRole = (...allowedRoles) => {
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({
                 success: false,
-                message: 'Insufficient permissions'
+                // say who may, so the person knows whom to ask
+                message: 'Only ' + allowedRoles.map(r => ({ admin: 'an administrator', manager: 'a manager', viewer: 'a view-only account', cashier: 'a cashier', supplier: 'a supplier' }[r] || r)).join(' or ') + ' can do this. You are signed in as ' + ({ admin: 'an administrator', manager: 'a manager', viewer: 'a view-only account', cashier: 'a cashier', supplier: 'a supplier' }[req.user.role] || req.user.role) + '.'
             });
         }
         next();

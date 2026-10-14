@@ -150,7 +150,7 @@ async function connectThermalPrinter() {
             } else if (busy) {
                 msg = 'The system is holding this printer through its own driver. Remove/disable it in your OS printer settings, then click Connect Printer again — or just complete the sale to print through the normal driver.';
             } else {
-                msg = (e.message || 'Unknown error') + '. Use Chrome or Edge, and make sure the printer is plugged in.';
+                msg = (e.message || 'the server gave no reason') + '. Use Chrome or Edge, and make sure the printer is plugged in.';
             }
             showErrorDialog('Could not connect printer', msg);
         }
@@ -750,7 +750,7 @@ async function completeSale() {
                 applyDrawerState();
                 showToast(data.message, 'warning');
             } else {
-                showToast('Error: ' + (data.message || 'Unknown'), 'error');
+                showToast('Error: ' + (data.message || 'the server gave no reason'), 'error');
             }
         } catch (error) {
             console.error('Error creating sale:', error);
@@ -883,7 +883,7 @@ async function printReceipt(saleId, tendered, change) {
         setTimeout(doPrint, 350); // fallback if onload doesn't fire for a written doc
     } catch (error) {
         console.error('Error printing receipt:', error);
-        showToast('Failed to print receipt', 'error');
+        showToast(couldNot('print receipt', error), 'error');
     }
 }
 

@@ -50,7 +50,7 @@ function portalRow(id, cols, text) {
 async function portalGet(path) {
     const res = await fetch(PORTAL_API + path, { headers: getAuthHeaders() });
     const data = await res.json();
-    if (!data.success) throw new Error(data.message || 'Request failed');
+    if (!data.success) throw new Error(data.message || 'the server gave no reason (error ' + res.status + ')');
     return data.data;
 }
 

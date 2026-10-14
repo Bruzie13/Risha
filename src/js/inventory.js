@@ -142,7 +142,7 @@ async function loadProducts(reset = true) {
         }
     } catch (error) {
         console.error('Error loading products:', error);
-        showToast('Failed to load products', 'error');
+        showToast(couldNot('load products', error), 'error');
     }
 }
 
@@ -661,7 +661,7 @@ async function openEditProductModal(id) {
         }
     } catch (error) {
         console.error('Error loading product:', error);
-        showToast('Failed to load product', 'error');
+        showToast(couldNot('load product', error), 'error');
     }
 }
 
@@ -754,7 +754,7 @@ async function viewProductDetails(id) {
         }
     } catch (error) {
         console.error('Error loading product details:', error);
-        showToast('Failed to load product details', 'error');
+        showToast(couldNot('load product details', error), 'error');
     }
 }
 
@@ -817,11 +817,11 @@ async function deleteProduct(id) {
                 closeProductDetailsModal();
                 await loadProducts();
             } else {
-                showToast('Error: ' + (data.message || 'Unknown'), 'error');
+                showToast('Error: ' + (data.message || 'the server gave no reason'), 'error');
             }
         } catch (error) {
             console.error('Error deleting product:', error);
-            showToast('Failed to delete product', 'error');
+            showToast(couldNot('delete product', error), 'error');
         }
     }, 'Yes, Delete', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
 }
@@ -899,7 +899,7 @@ async function saveProduct(productData) {
         }
     } catch (error) {
         console.error('Error saving product:', error);
-        showToast('Failed to save product', 'error');
+        showToast(couldNot('save product', error), 'error');
     } finally {
         productSaving = false;
         if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = saveLabel; }
@@ -1016,7 +1016,7 @@ async function autoReorder() {
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) lowStock = data.data;
     } catch (e) {
-        showToast('Failed to load low-stock products', 'error');
+        showToast(couldNot('load low-stock products', e), 'error');
         return;
     }
     if (!lowStock.length) { showToast('No products need reordering', 'info'); return; }
@@ -1188,11 +1188,11 @@ async function doReorder(productIds) {
             }
             await loadProducts();
         } else {
-            showToast('Error: ' + (data.message || 'Unknown'), 'error');
+            showToast('Error: ' + (data.message || 'the server gave no reason'), 'error');
         }
     } catch (error) {
         console.error('Error in reorder:', error);
-        showToast('Failed to reorder', 'error');
+        showToast(couldNot('reorder', error), 'error');
     }
 }
 
@@ -1255,7 +1255,7 @@ async function bulkReorder() {
             await loadProducts();
         } catch (error) {
             console.error('Bulk reorder error:', error);
-            showToast('Failed to reorder', 'error');
+            showToast(couldNot('reorder', error), 'error');
         }
         }, 'Yes, Send Orders', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">outgoing_mail</span>');
     }, 'Yes, Reorder', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">inventory</span>');
@@ -1268,7 +1268,7 @@ async function bulkAdjustStock() {
     showPromptDialog('Bulk stock adjust', `Enter quantity to add/remove for ${ids.length} product(s):<br>(positive = add stock, negative = remove stock)`, (qty) => {
         if (qty === null || qty === '') return;
         const numQty = parseInt(qty);
-        if (isNaN(numQty) || numQty === 0) { showToast('Invalid quantity', 'error'); return; }
+        if (isNaN(numQty) || numQty === 0) { showToast('Enter the quantity as a number other than 0: a positive number adds stock, a negative number removes it.', 'error'); return; }
         const type = numQty > 0 ? 'in' : 'out';
         showConfirmDialog('Confirm adjustment', `Adjust stock by ${numQty} for ${ids.length} product(s)?`, async () => {
             if (stockSaving) return;
@@ -1296,7 +1296,7 @@ async function bulkAdjustStock() {
                 await loadProducts();
             } catch (error) {
                 console.error('Bulk adjust error:', error);
-                showToast('Failed to adjust stock', 'error');
+                showToast(couldNot('adjust stock', error), 'error');
             } finally {
                 stockSaving = false;
             }
@@ -1323,7 +1323,7 @@ async function bulkDelete() {
             await loadProducts();
         } catch (error) {
             console.error('Bulk delete error:', error);
-            showToast('Failed to delete products', 'error');
+            showToast(couldNot('delete products', error), 'error');
         }
     }, 'Yes, Delete All', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
 }
@@ -1475,7 +1475,7 @@ async function importCsvProducts() {
             if (created) showSuccessDialog(skipped.length ? 'Import finished, with rows left out' : 'Import complete', summary + skippedHtml, { stay: skipped.length > 0, icon: 'upload_file' });
             else showErrorDialog('Nothing was imported', summary + skippedHtml, { stay: true });
         } else {
-            showToast('Import failed: ' + (data.message || 'Unknown'), 'error');
+            showToast('Import failed: ' + (data.message || 'the server gave no reason'), 'error');
         }
         closeCsvImportModal();
         await loadProducts();
@@ -1610,7 +1610,7 @@ async function saveRowBarcode(id, value, row) {
         }
     } catch (e) {
         status.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:var(--danger);">error</span>';
-        showToast('Failed to save barcode', 'error');
+        showToast(couldNot('save barcode', e), 'error');
     }
 }
 
@@ -1739,7 +1739,7 @@ async function saveRowImage(id, value, row) {
         }
     } catch (e) {
         status.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:var(--danger);">error</span>';
-        showToast('Failed to save image', 'error');
+        showToast(couldNot('save image', e), 'error');
     }
 }
 

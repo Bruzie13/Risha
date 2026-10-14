@@ -778,7 +778,7 @@ async function openNotifDropdown() {
             document.addEventListener('click', closeNotifOutside, { once: true });
         }, 10);
     } catch (e) {
-        showToast('Failed to load notifications', 'error');
+        showToast(couldNot('load notifications', e), 'error');
     }
 }
 
@@ -818,7 +818,7 @@ async function markAllNotifRead() {
         closeNotifDropdown();
         showToast('All notifications marked as read', 'success');
     } catch (e) {
-        showToast('Failed to mark all as read', 'error');
+        showToast(couldNot('mark all as read', e), 'error');
     }
 }
 
@@ -1001,3 +1001,12 @@ document.addEventListener('click', function(e) {
         closeHelpGuide();
     }
 });
+
+/* A message for something that could not be done, saying why. A fetch that
+   throws never reached the server (offline, or the server is down); anything
+   else carries the server's own reason. */
+function couldNot(action, err) {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'Could not ' + action + ': this computer is offline. Reconnect and try again.';
+    if (!err || err.name === 'TypeError' || /fetch|network|load failed/i.test(String(err.message || ''))) return 'Could not ' + action + ': the server could not be reached. Check the connection and try again.';
+    return 'Could not ' + action + ': ' + String(err.message || err).replace(/\.$/, '') + '.';
+}

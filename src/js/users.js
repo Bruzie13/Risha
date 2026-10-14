@@ -39,7 +39,7 @@ async function loadUsers() {
         }
     } catch (error) {
         console.error('Error loading users:', error);
-        showToast('Failed to load users', 'error');
+        showToast(couldNot('load users', error), 'error');
     }
 }
 
@@ -258,11 +258,11 @@ async function restoreUser(id) {
                     showSuccessDialog('Account restored', data.message, { icon: 'person_check' });
                     await loadUsers();
                 } else {
-                    showErrorDialog('Could not restore account', data.message || 'Unknown error');
+                    showErrorDialog('Could not restore account', data.message || 'the server gave no reason');
                 }
             } catch (error) {
                 console.error('Error restoring user:', error);
-                showToast('Failed to restore account', 'error');
+                showToast(couldNot('restore account', error), 'error');
             }
         },
         'Yes, Restore',
@@ -281,7 +281,7 @@ async function resendVerification(id) {
             showSuccessDialog('Confirmation link sent', data.message, { icon: 'mark_email_read' });
             await loadUsers();
         } else {
-            showErrorDialog('Could not send the link', data.message || 'Unknown error');
+            showErrorDialog('Could not send the link', data.message || 'the server gave no reason');
         }
     } catch (error) {
         console.error('Error resending verification:', error);
@@ -458,7 +458,7 @@ async function handleUserSubmit(event) {
         }
         const data = await response.json();
         if (!data.success) {
-            showErrorDialog('Could not save user', data.message || 'Unknown error');
+            showErrorDialog('Could not save user', data.message || 'the server gave no reason');
         } else {
             // The server's message carries the real outcome — whether the
             // address ended up verified, and which one.
@@ -472,7 +472,7 @@ async function handleUserSubmit(event) {
         }
     } catch (error) {
         console.error('Error saving user:', error);
-        showToast('Failed to save user', 'error');
+        showToast(couldNot('save user', error), 'error');
     }
 }
 
@@ -492,7 +492,7 @@ async function deleteUser(id) {
                 showSuccessDialog('Account deactivated', 'The account can no longer sign in. Tick "Show deactivated" to restore it.', { tone: 'danger', icon: 'person_off' });
                 await loadUsers();
             } else {
-                showToast('Error: ' + (data.message || 'Unknown'), 'error');
+                showToast('Error: ' + (data.message || 'the server gave no reason'), 'error');
             }
         } catch (error) {
             console.error('Error deactivating user:', error);

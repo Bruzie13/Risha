@@ -23,7 +23,7 @@ async function loadSuppliers() {
         }
     } catch (error) {
         console.error('Error loading suppliers:', error);
-        showToast('Failed to load suppliers', 'error');
+        showToast(couldNot('load suppliers', error), 'error');
     }
 }
 
@@ -191,7 +191,7 @@ async function handleSupplierSubmit(event) {
         }
     } catch (error) {
         console.error('Error saving supplier:', error);
-        showToast('Failed to save supplier', 'error');
+        showToast(couldNot('save supplier', error), 'error');
     } finally {
         supplierSaving = false;
         if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = saveLabel; }
@@ -222,11 +222,11 @@ async function deleteSupplier(id) {
                 showSuccessDialog('Supplier deleted', escHtml(data.message || 'The supplier has been removed from your directory.'), { tone: 'danger', stay: leftSomething });
                 await loadSuppliers();
             } else {
-                showToast('Error: ' + (data.message || 'Unknown'), 'error');
+                showToast('Error: ' + (data.message || 'the server gave no reason'), 'error');
             }
         } catch (error) {
             console.error('Error deleting supplier:', error);
-            showToast('Failed to delete supplier', 'error');
+            showToast(couldNot('delete supplier', error), 'error');
         }
     }, 'Yes, Delete', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
 }
@@ -270,9 +270,9 @@ async function sendModalAdvance(id, nextStatus, poNumber, supplierId, expiration
             showSuccessDialog('Order updated', note, { icon: nextStatus === 'received' ? 'inventory' : 'local_shipping' });
             showPerformance(supplierId);
         } else {
-            showErrorDialog('Could not update order', data.message || 'Unknown error');
+            showErrorDialog('Could not update order', data.message || 'the server gave no reason');
         }
-    } catch (e) { showToast('Failed to update purchase order', 'error'); }
+    } catch (e) { showToast(couldNot('update purchase order', e), 'error'); }
 }
 
 function emailPOFromModal(id, poNumber, supplierId) {
@@ -291,9 +291,9 @@ async function sendPOEmailNow(id, poNumber, supplierId) {
             showSuccessDialog('Email sent', data.message || (poNumber + ' was emailed to the supplier.'), { icon: 'mail' });
             showPerformance(supplierId);
         } else {
-            showErrorDialog('Could not send email', data.message || 'Unknown error');
+            showErrorDialog('Could not send email', data.message || 'the server gave no reason');
         }
-    } catch (e) { showToast('Failed to send email', 'error'); }
+    } catch (e) { showToast(couldNot('send email', e), 'error'); }
 }
 
 async function showPerformance(supplierId) {
@@ -310,7 +310,7 @@ async function showPerformance(supplierId) {
     try {
         var res = await fetch(API_BASE + '/suppliers/' + supplierId + '/performance', { headers: getAuthHeaders() });
         var data = await res.json();
-        if (!data.success) { showToast('Failed to load performance data', 'error'); return; }
+        if (!data.success) { showToast(couldNot('load performance data'), 'error'); return; }
 
         var rating = data.data.rating || {};
         var records = Array.isArray(data.data.records) ? data.data.records : [];
@@ -400,7 +400,7 @@ async function showPerformance(supplierId) {
         }
     } catch (e) {
         console.error('Performance load error:', e);
-        showToast('Error loading performance data', 'error');
+        showToast(couldNot('load performance data', e), 'error');
     }
 }
 
