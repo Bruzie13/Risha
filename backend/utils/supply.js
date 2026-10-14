@@ -127,4 +127,37 @@ function reorderSupplierProblem(product, activeSupplierIds) {
     return null;
 }
 
-module.exports = { termDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, scorecard, reorderSupplierProblem };
+/* A supplier's star rating, from the scorecard above (orders received in the
+   last 12 months). One rule, shown to the shop and to the supplier alike:
+
+     1 star   at least one order received
+     +1 star  at least 75% of orders arrived by the promised date
+     +1 star  at least 90% of orders arrived by the promised date
+     +1 star  at least 90% of orders arrived in full
+     +1 star  on average, orders arrived within 7 days of being placed
+              (the delivery time Stock planning plans with)
+
+   A supplier MEETS THE STANDARD at 4 stars or more. A figure that cannot be
+   worked out (no order had a promised date) earns no star, and says so. */
+const STAR_RULE = { onTimeOne: 75, onTimeTwo: 90, inFull: 90, maxDays: 7, standard: 4 };
+
+function starRating(score, rule = STAR_RULE) {
+    if (!score || !score.delivered) {
+        return { stars: 0, rated: false, meets_standard: false, standard: rule.standard,
+            summary: 'Not rated yet: no order from this supplier was received in the last 12 months.', checks: [] };
+    }
+    const pct = v => (v == null ? 'not measured' : v + '%');
+    const checks = [
+        { label: 'At least one order received in the last 12 months', met: true, value: score.delivered + ' received' },
+        { label: 'At least ' + rule.onTimeOne + '% of orders arrived by the promised date', met: score.on_time_percent != null && score.on_time_percent >= rule.onTimeOne, value: score.on_time_of ? pct(score.on_time_percent) + ' of ' + score.on_time_of : 'no order had a promised date' },
+        { label: 'At least ' + rule.onTimeTwo + '% of orders arrived by the promised date', met: score.on_time_percent != null && score.on_time_percent >= rule.onTimeTwo, value: score.on_time_of ? pct(score.on_time_percent) + ' of ' + score.on_time_of : 'no order had a promised date' },
+        { label: 'At least ' + rule.inFull + '% of orders arrived in full', met: score.complete_percent != null && score.complete_percent >= rule.inFull, value: pct(score.complete_percent) },
+        { label: 'Orders arrive within ' + rule.maxDays + ' days on average', met: score.average_days != null && score.average_days <= rule.maxDays, value: score.average_days != null ? score.average_days + ' days' : 'not measured' }
+    ];
+    const stars = checks.filter(c => c.met).length;
+    const meets = stars >= rule.standard;
+    return { stars, rated: true, meets_standard: meets, standard: rule.standard, checks,
+        summary: stars + ' of 5 stars. ' + (meets ? 'Meets the standard (' + rule.standard + ' stars or more).' : 'Below the standard: it needs ' + rule.standard + ' stars or more.') };
+}
+
+module.exports = { termDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, scorecard, starRating, STAR_RULE, reorderSupplierProblem };

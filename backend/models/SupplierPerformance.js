@@ -90,4 +90,22 @@ class SupplierPerformance {
     }
 }
 
+/* What the star rating is worked out from: each order received in the last
+   12 months, the day it was ordered and received, the day it was promised
+   (or, without a promise, expected), and how many lines came short. The
+   supplier's own page and the shop's Performance window both use this. */
+SupplierPerformance.scorecardOrders = async function (supplierId) {
+    const DAY = col => `DATE_FORMAT(CONVERT_TZ(${col},'+00:00','+08:00'), '%Y-%m-%d')`;
+    const [rows] = await pool.query(
+        `SELECT ${DAY('po.created_at')} AS ordered_day,
+                ${DAY('COALESCE(po.received_at, po.updated_at)')} AS received_day,
+                DATE_FORMAT(COALESCE(po.promised_date, po.expected_delivery_date), '%Y-%m-%d') AS target_day,
+                (SELECT COUNT(*) FROM po_items pi WHERE pi.po_id = po.id
+                   AND pi.confirmed_quantity IS NOT NULL AND pi.confirmed_quantity < pi.quantity) AS short_lines
+         FROM purchase_orders po
+         WHERE po.supplier_id = ? AND po.status = 'received'
+           AND COALESCE(po.received_at, po.updated_at) >= DATE_SUB(NOW(), INTERVAL 12 MONTH)`, [supplierId]);
+    return rows;
+};
+
 module.exports = SupplierPerformance;

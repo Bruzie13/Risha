@@ -115,3 +115,23 @@ test('reorder: a product needs a supplier who is still on the list', () => {
     assert.match(reorderSupplierProblem({ id: 1, supplier_id: 2 }, new Set()), /has been deleted/);
     assert.match(reorderSupplierProblem({ id: 1, supplier_id: 2 }, null), /has been deleted/, 'with no list to check against, nothing is orderable');
 });
+
+const { starRating, STAR_RULE } = require('../utils/supply');
+test('star rating: one star for delivering, then one for each standard met', () => {
+    assert.equal(starRating({ delivered: 0 }).rated, false);
+    assert.match(starRating({ delivered: 0 }).summary, /Not rated yet/);
+    const best = starRating({ delivered: 10, on_time_percent: 95, on_time_of: 10, complete_percent: 100, average_days: 5 });
+    assert.equal(best.stars, 5); assert.equal(best.meets_standard, true);
+    const late = starRating({ delivered: 10, on_time_percent: 80, on_time_of: 10, complete_percent: 100, average_days: 5 });
+    assert.equal(late.stars, 4, '75% on time earns the first on-time star, not the second'); assert.equal(late.meets_standard, true);
+    const poor = starRating({ delivered: 4, on_time_percent: 50, on_time_of: 4, complete_percent: 75, average_days: 12 });
+    assert.equal(poor.stars, 1); assert.equal(poor.meets_standard, false); assert.match(poor.summary, /Below the standard: it needs 4 stars or more/);
+    const undated = starRating({ delivered: 3, on_time_percent: null, on_time_of: 0, complete_percent: 100, average_days: 6 });
+    assert.equal(undated.stars, 3, 'no promised dates: the on-time stars are not given');
+    assert.match(undated.checks[1].value, /no order had a promised date/);
+});
+test('star rating: the edges of each standard count as met', () => {
+    const edge = starRating({ delivered: 1, on_time_percent: 90, on_time_of: 1, complete_percent: 90, average_days: 7 });
+    assert.equal(edge.stars, 5);
+    assert.equal(STAR_RULE.standard, 4);
+});

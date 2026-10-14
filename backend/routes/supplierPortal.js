@@ -16,7 +16,8 @@ const PurchaseOrder = require('../models/PurchaseOrder');
 const Notification = require('../models/Notification');
 const logAudit = require('../services/audit');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
-const { dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, scorecard } = require('../utils/supply');
+const { dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, scorecard, starRating } = require('../utils/supply');
+const SupplierPerformance = require('../models/SupplierPerformance');
 
 const DAY = col => `DATE_FORMAT(CONVERT_TZ(${col},'+00:00','+08:00'), '%Y-%m-%d')`;
 const PAYMENTS_SINCE = "(SELECT setting_value FROM app_settings WHERE setting_key = 'payment_tracking_since')";
@@ -317,16 +318,9 @@ router.post('/offers', async (req, res) => {
 
 router.get('/scorecard', async (req, res) => {
     try {
-        const [rows] = await pool.query(
-            `SELECT ${DAY('po.created_at')} AS ordered_day,
-                    ${DAY('po.received_at')} AS received_day,
-                    DATE_FORMAT(COALESCE(po.promised_date, po.expected_delivery_date), '%Y-%m-%d') AS target_day,
-                    (SELECT COUNT(*) FROM po_items pi WHERE pi.po_id = po.id
-                       AND pi.confirmed_quantity IS NOT NULL AND pi.confirmed_quantity < pi.quantity) AS short_lines
-             FROM purchase_orders po
-             WHERE po.supplier_id = ? AND po.status = 'received'
-               AND po.received_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)`, [req.supplier.id]);
-        res.json({ success: true, data: scorecard(rows) });
+        // the same orders and the same rule as the shop's Performance window
+        const score = scorecard(await SupplierPerformance.scorecardOrders(req.supplier.id));
+        res.json({ success: true, data: { ...score, stars: starRating(score) } });
     } catch (e) { fail(res, 'scorecard', e); }
 });
 

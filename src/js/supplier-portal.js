@@ -460,16 +460,13 @@ function renderScorecard() {
             <span class="rp-figure-value">${value}</span>
             <span class="rp-figure-note">${note}</span>
         </div>`;
-    if (!s.delivered) {
-        document.getElementById('scorecard').innerHTML = '<p class="sp-form-hint" style="margin:0;">Figures appear once the shop has received an order from you.</p>';
-        return;
-    }
-    document.getElementById('scorecard').innerHTML =
+    // the star rating, with the same rule the shop sees, above the figures
+    document.getElementById('scorecard').innerHTML = '<div style="grid-column:1/-1;">' + starRatingHtml(s.stars) + '</div>' + (!s.delivered ? '' :
         cell('Delivered on time', s.on_time_percent != null ? s.on_time_percent + '%' : '—',
             s.on_time_of ? `Arrived by the promised date, out of ${s.on_time_of} order${s.on_time_of === 1 ? '' : 's'} with a date` : 'No orders had a delivery date to judge against')
         + cell('Delivered in full', s.complete_percent != null ? s.complete_percent + '%' : '—', 'Every item arrived in the quantity ordered')
         + cell('Average time to deliver', s.average_days != null ? s.average_days + ' days' : '—', 'From the order being placed to being received')
-        + cell('Orders delivered', formatNumber(s.delivered), 'In the last 12 months');
+        + cell('Orders delivered', formatNumber(s.delivered), 'In the last 12 months'));
 }
 
 /* ---------- The one dialog ---------- */
@@ -504,3 +501,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+/* The supplier's star rating and the conditions behind it (utils/supply.js
+   starRating on the server: the same rule the supplier sees on their page). */
+function starRatingHtml(r) {
+    if (!r) return '';
+    var esc = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+    var stars = '';
+    for (var i = 1; i <= 5; i++) stars += '<span style="color:' + (i <= r.stars ? '#E8A317' : 'var(--border-color, #c9c9c9)') + ';">' + (i <= r.stars ? '★' : '☆') + '</span>';
+    var badge = !r.rated ? '<span class="status-badge" style="background:var(--bg-raised);color:var(--text-secondary);">Not rated yet</span>'
+        : r.meets_standard ? '<span class="status-badge status-in-stock">Meets the standard</span>'
+        : '<span class="status-badge status-low-stock">Below the standard</span>';
+    var rows = (r.checks || []).map(function (c) {
+        return '<li style="display:flex;justify-content:space-between;gap:10px;padding:3px 0;"><span>' + (c.met ? '<span style="color:var(--success);">✓</span> ' : '<span style="color:var(--danger);">✗</span> ') + esc(c.label) + '</span><span style="color:var(--text-secondary);white-space:nowrap;">' + esc(c.value) + '</span></li>';
+    }).join('');
+    return '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><span style="font-size:26px;letter-spacing:2px;line-height:1;" aria-label="' + r.stars + ' of 5 stars">' + stars + '</span>' + badge + '</div>'
+        + '<p style="margin:6px 0 8px;font-size:13px;">' + esc(r.summary) + '</p>'
+        + (rows ? '<ul style="list-style:none;margin:0;padding:0;font-size:12.5px;">' + rows + '</ul>' : '')
+        + '<p style="margin:8px 0 0;font-size:11.5px;color:var(--text-secondary);">One star for each line ticked. A supplier meets the standard at ' + r.standard + ' stars or more. Counted from orders received in the last 12 months.</p>';
+}

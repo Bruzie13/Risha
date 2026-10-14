@@ -315,6 +315,14 @@ async function showPerformance(supplierId) {
         var rating = data.data.rating || {};
         var records = Array.isArray(data.data.records) ? data.data.records : [];
 
+        // the star rating replaces the four figure cards
+        var figures = document.getElementById('perfAvgDelivery');
+        var grid = figures ? figures.closest('.stat-row') : null;
+        var box = document.getElementById('perfStars');
+        if (!box && grid) { box = document.createElement('div'); box.id = 'perfStars'; box.style.cssText = 'margin-bottom:14px;padding:12px 14px;background:var(--bg-raised);border-radius:10px;'; grid.parentNode.insertBefore(box, grid); }
+        if (grid) grid.style.display = 'none';
+        if (box) box.innerHTML = starRatingHtml(data.data.stars);
+
         // honest empty state when the supplier has no purchase orders
         var empty = document.getElementById('perfEmpty');
         if (!rating.has_orders) {
@@ -496,4 +504,23 @@ function emailStatusBadge(l, read) {
 
 function closeEmailLogsModal() {
     document.getElementById('emailLogsModal').classList.remove('active');
+}
+
+/* The supplier's star rating and the conditions behind it (utils/supply.js
+   starRating on the server: the same rule the supplier sees on their page). */
+function starRatingHtml(r) {
+    if (!r) return '';
+    var esc = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+    var stars = '';
+    for (var i = 1; i <= 5; i++) stars += '<span style="color:' + (i <= r.stars ? '#E8A317' : 'var(--border-color, #c9c9c9)') + ';">' + (i <= r.stars ? '★' : '☆') + '</span>';
+    var badge = !r.rated ? '<span class="status-badge" style="background:var(--bg-raised);color:var(--text-secondary);">Not rated yet</span>'
+        : r.meets_standard ? '<span class="status-badge status-in-stock">Meets the standard</span>'
+        : '<span class="status-badge status-low-stock">Below the standard</span>';
+    var rows = (r.checks || []).map(function (c) {
+        return '<li style="display:flex;justify-content:space-between;gap:10px;padding:3px 0;"><span>' + (c.met ? '<span style="color:var(--success);">✓</span> ' : '<span style="color:var(--danger);">✗</span> ') + esc(c.label) + '</span><span style="color:var(--text-secondary);white-space:nowrap;">' + esc(c.value) + '</span></li>';
+    }).join('');
+    return '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><span style="font-size:26px;letter-spacing:2px;line-height:1;" aria-label="' + r.stars + ' of 5 stars">' + stars + '</span>' + badge + '</div>'
+        + '<p style="margin:6px 0 8px;font-size:13px;">' + esc(r.summary) + '</p>'
+        + (rows ? '<ul style="list-style:none;margin:0;padding:0;font-size:12.5px;">' + rows + '</ul>' : '')
+        + '<p style="margin:8px 0 0;font-size:11.5px;color:var(--text-secondary);">One star for each line ticked. A supplier meets the standard at ' + r.standard + ' stars or more. Counted from orders received in the last 12 months.</p>';
 }

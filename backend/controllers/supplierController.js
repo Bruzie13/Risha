@@ -1,6 +1,7 @@
 const Supplier = require('../models/Supplier');
 const { supplierProblem } = require('../utils/supplier');
 const SupplierPerformance = require('../models/SupplierPerformance');
+const { scorecard, starRating } = require('../utils/supply');
 const PurchaseOrder = require('../models/PurchaseOrder');
 const logAudit = require('../services/audit');
 
@@ -163,16 +164,20 @@ exports.deleteSupplier = async (req, res) => {
 exports.getSupplierPerformance = async (req, res) => {
     try {
         const { id } = req.params;
-        const [records, rating] = await Promise.all([
+        const [records, rating, received] = await Promise.all([
             SupplierPerformance.getBySupplier(id),
-            SupplierPerformance.getSupplierRating(id)
+            SupplierPerformance.getSupplierRating(id),
+            SupplierPerformance.scorecardOrders(id)
         ]);
+        const score = scorecard(received);
 
         res.status(200).json({
             success: true,
             data: {
                 records,
-                rating
+                rating,
+                score,
+                stars: starRating(score)
             }
         });
     } catch (error) {
