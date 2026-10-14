@@ -245,7 +245,7 @@ function perfNextStep(status) {
 function advancePOFromModal(id, nextStatus, poNumber, supplierId) {
     if (nextStatus === 'received') {
         showPromptDialog('Receive ' + poNumber,
-            'Stock will be added. Enter the new batch\'s expiration date (leave blank to keep the current date):',
+            'Stock will be added. Enter the new batch\'s expiration date. Leave it blank only to keep a current date that has not passed yet:',
             function (dateVal) { sendModalAdvance(id, 'received', poNumber, supplierId, dateVal); },
             'Mark Received', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">inventory</span>', 'date', '',
             { min: localTodayYmd(), validate: expiryDateProblem });
