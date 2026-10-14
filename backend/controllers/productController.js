@@ -8,6 +8,12 @@ const logAudit = require('../services/audit');
 const { notifyStockAdjusted, notifyProductCreated } = require('../services/notifier');
 const { storeImage } = require('../services/imageStore');
 
+/* The answer when a product is being given a barcode another one carries. */
+function barcodeTakenAnswer(code, other) {
+    return { success: false, code: 'BARCODE_TAKEN',
+        message: `The barcode ${String(code).trim()} is already used by "${other.name}" (SKU ${other.sku}). Each product needs its own barcode.` };
+}
+
 /* The answer when a product is being given a name another product already has. */
 function sameNameAnswer(twin) {
     return {
@@ -130,6 +136,8 @@ exports.createProduct = async (req, res) => {
                 message: 'A product with this SKU already exists'
             });
         }
+        const barcodeOwner = await Product.findByBarcode(barcode);
+        if (barcodeOwner) return res.status(409).json(barcodeTakenAnswer(barcode, barcodeOwner));
         // Two products under one name are hard to tell apart at the till. It is
         // allowed (two sizes, two suppliers), but only when asked for.
         const twin = req.body.allow_same_name ? null : await Product.findByName(name);
@@ -185,6 +193,11 @@ exports.updateProduct = async (req, res) => {
         }
 
         const oldProduct = await Product.findById(id);
+
+        if (updateData.barcode != null && String(updateData.barcode).trim()) {
+            const barcodeOwner = await Product.findByBarcode(updateData.barcode, id);
+            if (barcodeOwner) return res.status(409).json(barcodeTakenAnswer(updateData.barcode, barcodeOwner));
+        }
 
         // renaming a product to a name another one has: the same question as on adding
         if (updateData.name !== undefined && oldProduct && !updateData.allow_same_name

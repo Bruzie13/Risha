@@ -188,6 +188,23 @@ class Product {
     }
 
     /** Another current product with this name (capitals and spacing aside), or null. */
+    /* Another active product that already carries this barcode, if any. A
+       barcode has to point at one product, or the till adds the wrong one. */
+    static async findByBarcode(barcode, exceptId = null) {
+        const code = String(barcode == null ? '' : barcode).trim();
+        if (!code) return null;
+        const connection = await pool.getConnection();
+        try {
+            const [rows] = await connection.execute(
+                'SELECT id, sku, name FROM products WHERE is_active = TRUE AND barcode = ? AND id <> ? LIMIT 1',
+                [code, exceptId == null ? 0 : exceptId]
+            );
+            return rows[0] || null;
+        } finally {
+            connection.release();
+        }
+    }
+
     static async findByName(name, exceptId = null) {
         const connection = await pool.getConnection();
         try {
