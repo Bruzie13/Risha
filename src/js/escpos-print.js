@@ -100,9 +100,31 @@
 
     /* ---- ESC/POS receipt builder ---------------------------------------- */
 
-    // Peso sign isn't in the printer's default codepage; render as "P".
+    const COLS = 32;        // characters per line: 58mm paper, font A, normal width
+
+    // Peso sign isn't in the printer's default codepage; render as "P". Browsers
+    // put a non-breaking space before AM/PM in dates; keep it as a plain space.
     function ascii(s) {
-        return String(s == null ? '' : s).replace(/₱/g, 'P').replace(/[^\x00-\x7f]/g, '');
+        return String(s == null ? '' : s).replace(/₱/g, 'P').replace(/[  ]/g, ' ').replace(/[^\x00-\x7f]/g, '');
+    }
+
+    // Break text into lines the paper can hold, at spaces where it can. The
+    // printer wraps by itself otherwise, mid-word and ignoring the alignment.
+    function wrap(s, width) {
+        const out = [];
+        let cur = '';
+        ascii(s).split(/\s+/).filter(Boolean).forEach(word => {
+            while (word.length > width) {            // one word wider than the paper
+                if (cur) { out.push(cur); cur = ''; }
+                out.push(word.slice(0, width));
+                word = word.slice(width);
+            }
+            if (!cur) cur = word;
+            else if (cur.length + 1 + word.length <= width) cur += ' ' + word;
+            else { out.push(cur); cur = word; }
+        });
+        if (cur) out.push(cur);
+        return out.length ? out : [''];
     }
 
     class Receipt {
@@ -110,18 +132,25 @@
         push(arr) { this.parts.push(Uint8Array.from(arr)); return this; }
         text(s) { this.parts.push(enc.encode(ascii(s))); return this; }
         line(s) { return this.text((s == null ? '' : s) + '\n'); }
+        // Text that may be longer than the paper is wide: one line per wrapped line
+        para(s) { wrap(s, COLS).forEach(l => this.line(l)); return this; }
         align(a) { return this.push([ESC, 0x61, a === 'center' ? 1 : a === 'right' ? 2 : 0]); }
         bold(on) { return this.push([ESC, 0x45, on ? 1 : 0]); }
-        // GS ! n — low nibble = height mult, high nibble = width mult (0..7)
+        // GS ! n — low nibble = height mult, high nibble = width mult (0..7).
+        // Width above 0 divides the columns a line holds (COLS assumes 0).
         size(w, h) { return this.push([GS, 0x21, ((w & 7) << 4) | (h & 7)]); }
         feed(n) { return this.push([ESC, 0x64, n || 1]); }
-        rule(ch) { return this.line((ch || '-').repeat(32)); }        // 32 cols @ 58mm/font A
+        rule(ch) { return this.line((ch || '-').repeat(COLS)); }
         cut() { return this.push([GS, 0x56, 0x00]); }                 // full cut (ignored if no cutter)
-        // Two-column row padded to 32 columns
+        // Two-column row padded to the full width. When both do not fit on one
+        // line the left text goes above and the right stays against the edge.
         row(left, right) {
             left = ascii(left); right = ascii(right);
-            const space = Math.max(1, 32 - left.length - right.length);
-            return this.line(left + ' '.repeat(space) + right);
+            if (left.length + right.length + 1 > COLS) {
+                this.para(left);
+                return this.line(' '.repeat(Math.max(0, COLS - right.length)) + right);
+            }
+            return this.line(left + ' '.repeat(COLS - left.length - right.length) + right);
         }
         build() {
             let len = 0;
@@ -137,22 +166,23 @@
     function buildReceipt(sale, tendered, change) {
         const money = v => 'P' + Number(v || 0).toFixed(2);
         const r = new Receipt();
-        r.align('center').size(1, 1).bold(true).line('RISHA PET SUPPLIES').bold(false).size(0, 0);
-        r.line('7 Bagumbong Road, Brgy. 171, North Caloocan');
+        // Double height only: at double width the name is wider than the paper.
+        r.align('center').size(0, 1).bold(true).line('RISHA PET SUPPLIES').bold(false).size(0, 0);
+        r.para('7 Bagumbong Road, Brgy. 171, North Caloocan');
         r.line('Tel: (02) 8123-4567');
         r.rule();
         r.align('left');
         r.line('Receipt #: ' + String(sale.sale_number || sale.id || '').padStart(6, '0'));
-        r.line('Date: ' + new Date(sale.created_at || Date.now()).toLocaleString());
-        r.line('Cashier: ' + (sale.staff_name || 'N/A'));
-        r.line('Customer: ' + (sale.customer_name || 'Walk-in'));
+        r.para('Date: ' + new Date(sale.created_at || Date.now()).toLocaleString());
+        r.para('Cashier: ' + (sale.staff_name || 'N/A'));
+        r.para('Customer: ' + (sale.customer_name || 'Walk-in'));
         r.line('Payment: ' + String(sale.payment_method || 'cash').toUpperCase());
         r.rule();
         (sale.items || []).forEach(it => {
             const qty = parseFloat(it.quantity);
             const price = parseFloat(it.unit_price);
             const sub = parseFloat(it.subtotal || qty * price);
-            r.line(ascii(it.product_name));
+            r.para(it.product_name);
             r.row('  ' + qty + ' x ' + money(price), money(sub));
         });
         r.rule();
@@ -163,17 +193,18 @@
             r.row('Discount (' + discPct + '%):', '-' + money(subtotal * discPct / 100));
         }
         const total = parseFloat(sale.final_amount || sale.total_amount || 0);
-        r.bold(true).size(1, 1).row('TOTAL:', money(total)).size(0, 0).bold(false);
+        // Tall and bold, but normal width, so the amount stays on the TOTAL line.
+        r.bold(true).size(0, 1).row('TOTAL:', money(total)).size(0, 0).bold(false);
         if (typeof tendered === 'number' && tendered > 0) {
             r.row('Cash:', money(tendered));
             r.row('Change:', money(change || 0));
         }
         r.rule();
         r.align('center');
-        r.line('Thank you for your purchase!');
-        r.line('Items are non-returnable');
+        r.para('Thank you for your purchase!');
+        r.para('Items are non-returnable');
         r.feed(1).line('*' + String(sale.sale_number || sale.id || '').padStart(6, '0') + '*');
-        r.line('This serves as your official receipt');
+        r.para('This serves as your official receipt');
         r.feed(4).cut();
         return r.build();
     }

@@ -126,6 +126,8 @@ app.use('/api/email-settings', emailSettingsRoutes);
 
 app.use('/api/supplier-portal', require('./routes/supplierPortal'));
 
+app.use('/api/receipt-printer', require('./routes/receiptPrinter'));
+
 const assistantRoutes = require('./routes/assistant');
 app.use('/api/assistant', assistantRoutes);
 

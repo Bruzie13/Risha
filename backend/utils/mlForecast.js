@@ -30,7 +30,12 @@ const path = require('path');
 const fs = require('fs');
 
 const SCRIPT = path.join(__dirname, '..', '..', 'ml', 'forecast.py');
-const PYTHON = process.env.PYTHON_BIN || 'python3';
+// PYTHON_BIN wins (the Docker image sets it). Without it, use the project's own
+// virtual environment at ml/.venv when there is one, so a laptop needs no
+// environment variable. Windows has no python3 command, only python.
+const WIN = process.platform === 'win32';
+const VENV_PYTHON = path.join(__dirname, '..', '..', 'ml', '.venv', WIN ? 'Scripts' : 'bin', WIN ? 'python.exe' : 'python3');
+const PYTHON = process.env.PYTHON_BIN || (fs.existsSync(VENV_PYTHON) ? VENV_PYTHON : (WIN ? 'python' : 'python3'));
 const WARMUP = 28;                 // must match ml/forecast.py
 const MIN_TRAIN_ROWS = 14;
 const MAX_BUFFER = 64 * 1024 * 1024;

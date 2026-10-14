@@ -280,64 +280,45 @@ function setUser(user) {
     store.setItem('user', JSON.stringify(user));
 }
 
-// Identity avatar: an initials monogram on a deterministic gradient — the
-// avatar style used by Google Workspace, Notion, Linear and Slack. Clean,
-// professional, and unique per person by name-derived colour.
-function hashName(name) {
-    let h = 2166136261;
-    for (const ch of String(name || 'User')) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
-    return h;
-}
-
-// Muted, evenly-weighted tones: enough to tell two people apart at a glance
-// without the avatar becoming the loudest thing on the page.
-const AVATAR_COLORS = ['#4A6FA5', '#5B7A66', '#8A6A4F', '#6E5A8A', '#4F7D85', '#8A5A5A', '#5F6B7A', '#7A6F4A'];
+// Default avatar, for an account without a photo: the person's initials on one
+// plain dark disc, the same for everyone — light letters on charcoal, turned
+// round in dark mode (--avatar-bg and --avatar-ink in global.css). No colour
+// per person: the name beside it says who is signed in.
 
 // First letters of the first and last name; falls back to the first two
 // characters of a single-word name / username.
 function initialsOf(name) {
     const parts = String(name || 'User').trim().split(/\s+/).filter(Boolean);
-    let ini = parts.length >= 2
+    const ini = parts.length >= 2
         ? parts[0][0] + parts[parts.length - 1][0]
         : (parts[0] || 'U').slice(0, 2);
-    return ini.toUpperCase().replace(/[<>&]/g, '');
+    return ini.toUpperCase();
 }
 
-function identiconURI(name) {
-    const color = AVATAR_COLORS[hashName(name) % AVATAR_COLORS.length];
-    const ini = initialsOf(name);
-    const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>` +
-        `<rect width='100' height='100' fill='${color}'/>` +
-        `<text x='50' y='50' dy='0.35em' text-anchor='middle' ` +
-        `font-family='Inter, Segoe UI, system-ui, -apple-system, sans-serif' ` +
-        `font-size='40' font-weight='500' fill='#ffffff'>${ini}</text>` +
-        `</svg>`;
-    return { uri: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`, bg: color };
-}
-
-// Paint every user avatar (sidebar, hero, settings) with the identicon
+// Paint every user avatar (sidebar, hero, settings): their photo, or their initials
 function applyUserIdentity() {
     const user = getUser();
     if (!user) return;
-    const name = user.full_name || user.username || user.email || 'User';
     const photo = user.avatar;
-    const ic = identiconURI(name);
+    const initials = photo ? '' : initialsOf(user.full_name || user.username || user.email);
     document.querySelectorAll('.avatar, .settings-avatar, .hero-avatar').forEach(el => {
         if (photo) {
             el.style.backgroundImage = 'url("' + photo + '")';
             el.style.backgroundColor = '';
+            el.style.color = '';
         } else {
-            el.style.backgroundImage = ic.uri;
-            el.style.backgroundColor = ic.bg;
+            el.style.backgroundImage = 'none';
+            el.style.backgroundColor = 'var(--avatar-bg)';
+            el.style.color = 'var(--avatar-ink)';
         }
         el.style.backgroundSize = 'cover';
         el.style.backgroundPosition = 'center';
         el.dataset.mascot = '1';
         const glyph = el.querySelector('.avatar-initials, .settings-avatar-initials');
-        if (glyph) glyph.textContent = '';
+        if (glyph) { glyph.textContent = initials; glyph.style.color = 'inherit'; }
     });
     const hero = document.getElementById('heroInitials');
-    if (hero) hero.textContent = '';
+    if (hero) hero.textContent = initials;
 }
 
 function getUserRole() {

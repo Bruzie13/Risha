@@ -49,6 +49,8 @@ const API_ALLOW = {
         ['POST', /^\/api\/sales\/till\/cash$/],
         ['GET', /^\/api\/sales\/mine$/],
         ['POST', /^\/api\/sales\/\d+\/void-request$/],
+        ['GET', /^\/api\/receipt-printer\/status$/],   // the till's own receipt printer
+        ['POST', /^\/api\/receipt-printer\/print$/],
         ...SELF
     ],
     supplier: [

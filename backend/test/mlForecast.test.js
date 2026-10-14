@@ -86,7 +86,7 @@ test('the model really is scikit-learn, not a JavaScript reimplementation', () =
 });
 
 test('the Python model runs and reports its library versions', () => {
-    const py = process.env.PYTHON_BIN || 'python3';
+    const py = ml.PYTHON;
     const out = execFileSync(py, ['-c',
         'import sklearn,numpy;print(sklearn.__version__,numpy.__version__)'], { encoding: 'utf8' });
     assert.match(out.trim(), /^\d+\.\d+/);
@@ -112,7 +112,7 @@ test('forecastML: a history with days left out still forecasts the days after it
 });
 
 test('the Python model works out real dates when days are left out, and never forecasts across a long break', () => {
-    const py = process.env.PYTHON_BIN || 'python3';
+    const py = ml.PYTHON;
     const script = [
         'import sys, json',
         `sys.path.insert(0, ${JSON.stringify(path.join(__dirname, '..', '..', 'ml'))})`,

@@ -65,20 +65,54 @@ window.addEventListener('load', async () => {
 // (Chrome/Edge over HTTPS). Silently reconnect a printer authorised earlier.
 async function initThermalPrinter() {
     const btn = document.getElementById('connectPrinterBtn');
-    if (!btn || !window.escposPrint || !escposPrint.available()) return;
+    if (!btn || !window.escposPrint) return;
+    // A printer set up on the computer running the system needs no connecting.
+    if (await serverPrinterReady()) {
+        btn.style.display = 'inline-flex';
+        reflectPrinterState();
+        return;
+    }
+    if (!escposPrint.available()) return;
     btn.style.display = 'inline-flex';
     try {
         if (await escposPrint.tryReconnect()) reflectPrinterState();
     } catch (e) { /* needs an explicit connect */ }
 }
 
+/* The receipt printer plugged into the computer the system runs on, printed
+   to through the server (backend/utils/localPrinter.js). This is the path on
+   Windows, where the system's own driver keeps Chrome from the USB device.
+   null until asked; the name of the printer once it is known to be ready. */
+let serverPrinter = null;
+async function serverPrinterReady(refresh) {
+    if (serverPrinter !== null && !refresh) return !!serverPrinter;
+    try {
+        const res = await fetch(`${API_BASE}/receipt-printer/status`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        serverPrinter = data.success && data.data.available ? data.data.printer : '';
+    } catch (e) { serverPrinter = ''; }
+    return !!serverPrinter;
+}
+
+async function printOnServerPrinter(sale, tendered, change) {
+    const res = await fetch(`${API_BASE}/receipt-printer/print`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/octet-stream' },
+        body: escposPrint.buildReceipt(sale, tendered, change)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) throw new Error(data.message || 'The printer did not accept the receipt');
+}
+
 function reflectPrinterState() {
     const btn = document.getElementById('connectPrinterBtn');
     const label = document.getElementById('connectPrinterLabel');
     if (!btn || !label) return;
-    const on = window.escposPrint && escposPrint.isConnected();
+    const on = !!serverPrinter || (window.escposPrint && escposPrint.isConnected());
     label.textContent = on ? 'Printer connected' : 'Connect printer';
-    btn.title = on
+    btn.title = serverPrinter
+        ? `Receipt printer ${serverPrinter} is ready — receipts print directly, no dialog.`
+        : on
         ? 'Thermal printer connected — receipts print directly, no dialog. Click to disconnect.'
         : 'Connect a USB thermal printer for one-tap receipts (no print dialog)';
     btn.style.opacity = on ? '1' : '';
@@ -87,6 +121,11 @@ function reflectPrinterState() {
 
 async function connectThermalPrinter() {
     if (!window.escposPrint) return;
+    if (await serverPrinterReady(true)) {
+        reflectPrinterState();
+        showToast(`Receipt printer ${serverPrinter} is ready — receipts print directly`, 'success');
+        return;
+    }
     try {
         if (escposPrint.isConnected()) {
             await escposPrint.disconnect();
@@ -743,6 +782,18 @@ async function printReceipt(saleId, tendered, change) {
             } catch (e) {
                 console.error('Direct print failed, using browser dialog:', e);
                 showToast('Direct printer error — using print dialog', 'info');
+            }
+        } else if (window.escposPrint && await serverPrinterReady()) {
+            // Same receipt bytes, sent through the server to this computer's printer.
+            try {
+                await printOnServerPrinter(sale, tendered, change);
+                showToast('Receipt printed', 'success');
+                return;
+            } catch (e) {
+                console.error('Server print failed, using browser dialog:', e);
+                showToast('Receipt printer error — using print dialog', 'info');
+                serverPrinter = null;   // ask again next time: it may have been unplugged
+                reflectPrinterState();
             }
         }
 
