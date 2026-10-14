@@ -224,11 +224,19 @@
                 '<span class="material-symbols-outlined" style="color:var(--danger);">cancel</span>');
         } else if (act === 'received') {
             var short = (o.items || []).some(function (i) { return i.confirmed_quantity != null && Number(i.confirmed_quantity) < Number(i.quantity); });
+            var today = localTodayYmd();
+            var expired = (o.items || []).filter(function (i) { return i.expires && i.expires < today; });
+            var named = expired.map(function (i) { return '<strong>' + escHtml(i.name) + '</strong> (expired ' + escHtml(i.expires) + ')'; }).join(', ');
             showPromptDialog('Receive ' + name,
                 (short ? 'The supplier sent less than ordered on some lines; only what they confirmed is added to stock. ' : 'The items are added to stock. ')
-                + 'Enter the new batch\'s expiration date, or leave it blank to keep the current one:',
+                + (expired.length
+                    ? named + (expired.length === 1 ? ' has' : ' have') + ' already expired, so enter the new batch\'s expiration date:'
+                    : 'Enter the new batch\'s expiration date, or leave it blank to keep the current one:'),
                 function (dateVal) { setStatus(id, 'received', dateVal ? { expiration_date: dateVal } : null); },
-                'Receive into stock', null, 'date', '', { min: localTodayYmd(), validate: expiryDateProblem });
+                'Receive into stock', null, 'date', '', { min: today, validate: function (v) {
+                    if (!v && expired.length) return 'Enter the new batch\'s expiration date: the current one has already passed.';
+                    return expiryDateProblem(v);
+                } });
         } else if (act === 'confirmed' || act === 'shipped') {
             showConfirmDialog('Update order', 'Mark ' + name + ' as ' + act + '? Use this when the supplier told you by phone or message rather than through their own login.',
                 function () { setStatus(id, act); }, 'Yes, update');

@@ -324,6 +324,12 @@ exports.adjustStock = async (req, res) => {
         if (problem) {
             return res.status(400).json({ success: false, message: problem });
         }
+        // Stock being added may come with its own expiration date (a new batch).
+        const newExpiry = movement_type === 'in' && req.body.expiration_date ? String(req.body.expiration_date) : null;
+        const expiryIssue = expiryProblem(newExpiry, shopToday());
+        if (expiryIssue) {
+            return res.status(400).json({ success: false, message: expiryIssue });
+        }
 
         // One press of Save is one change (see utils/requestKeys.js).
         const key = stockRequestKey(req.body.request_key);
@@ -341,7 +347,7 @@ exports.adjustStock = async (req, res) => {
                for the same product therefore take turns: the second one finds
                the row the first one wrote, and changes nothing. */
             await conn.beginTransaction();
-            const [rows] = await conn.execute('SELECT stock_quantity FROM products WHERE id = ? FOR UPDATE', [id]);
+            const [rows] = await conn.execute("SELECT name, stock_quantity, DATE_FORMAT(expiration_date, '%Y-%m-%d') AS expires FROM products WHERE id = ? FOR UPDATE", [id]);
             if (!rows.length) {
                 await conn.rollback();
                 return res.status(404).json({ success: false, message: 'Product not found' });
@@ -355,6 +361,13 @@ exports.adjustStock = async (req, res) => {
                     [id, key]
                 );
                 repeated = seen.length > 0;
+            }
+            /* Adding stock to a product whose date has passed, without a new
+               date, would put the new stock on the shelf as expired too. */
+            if (!repeated && movement_type === 'in' && !newExpiry && rows[0].expires && rows[0].expires < shopToday()) {
+                await conn.rollback();
+                return res.status(400).json({ success: false, code: 'EXPIRY_NEEDED',
+                    message: `"${rows[0].name}" expired on ${rows[0].expires}. Enter the expiration date of the stock being added, or the new stock would be counted as expired too.` });
             }
             if (!repeated) {
                 const qty = movement_type === 'in' ? Number(quantity) : -Number(quantity);
@@ -371,11 +384,15 @@ exports.adjustStock = async (req, res) => {
                         data: { stock_quantity: before }
                     });
                 }
-                await conn.execute('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?', [qty, id]);
+                if (newExpiry) {
+                    await conn.execute('UPDATE products SET stock_quantity = stock_quantity + ?, expiration_date = ? WHERE id = ?', [qty, newExpiry, id]);
+                } else {
+                    await conn.execute('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?', [qty, id]);
+                }
                 await conn.execute(
                     `INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, reference_id, notes, created_by)
                      VALUES (?, ?, ?, 'manual', ?, ?, ?)`,
-                    [id, movement_type, qty, key, notes || 'Manual stock adjustment', req.user.id]
+                    [id, movement_type, qty, key, (notes || 'Manual stock adjustment') + (newExpiry ? ` (new batch, expires ${newExpiry})` : ''), req.user.id]
                 );
             }
             await conn.commit();

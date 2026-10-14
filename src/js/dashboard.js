@@ -317,7 +317,7 @@ function advancePO(id, nextStatus, poNumber) {
     if (nextStatus === 'received') {
         showPromptDialog(
             `Receive ${escHtml(poNumber)}`,
-            'Stock will be added. Enter the new batch\'s expiration date (leave blank to keep the current date):',
+            'Stock will be added. Enter the new batch\'s expiration date. Leave it blank only to keep a current date that has not passed yet:',
             (dateVal) => sendPOAdvance(id, 'received', poNumber, dateVal),
             'Mark Received',
             '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">inventory</span>',

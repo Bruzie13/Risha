@@ -930,8 +930,16 @@ function openStockModal(productId) {
     document.getElementById('stockQuantity').value = 1;
     document.getElementById('stockAdjustType').value = 'in';
     document.getElementById('stockReason').value = '';
+    const exp = document.getElementById('stockExpiry');
+    if (exp) { exp.value = ''; exp.min = localTodayYmd(); }
     document.getElementById('stockModal').classList.add('active');
     updateStockPreview();
+}
+
+/* The product's date has passed: stock added to it needs the new batch's date. */
+function stockProductExpired(product) {
+    const d = product && product.expiration_date ? String(product.expiration_date).slice(0, 10) : '';
+    return !!d && d < localTodayYmd();
 }
 
 /* Why a stock change cannot be made, or null. The server applies the same rule. */
@@ -952,6 +960,16 @@ function updateStockPreview() {
     const problem = stockChangeProblem(stock, qty, type);
     el.style.color = problem ? 'var(--danger)' : 'var(--text-muted)';
     el.textContent = problem || `Stock will go from ${formatQty(stock)} to ${formatQty(type === 'in' ? stock + qty : stock - qty)}.`;
+    // the expiry field belongs to stock being added; it is required once the product has expired
+    const group = document.getElementById('stockExpiryGroup');
+    if (group) {
+        group.style.display = type === 'in' ? '' : 'none';
+        const expired = stockProductExpired(product);
+        document.getElementById('stockExpiryLabel').textContent = expired ? 'Expiration date of the stock being added *' : 'Expiration date of the stock being added (optional)';
+        const hint = document.getElementById('stockExpiryHint');
+        hint.textContent = expired ? `This product expired on ${String(product.expiration_date).slice(0, 10)}. Enter the new stock's date.` : "Leave it blank to keep the product's current date.";
+        hint.style.color = expired ? 'var(--danger)' : 'var(--text-muted)';
+    }
 }
 
 function closeStockModal() {
@@ -967,6 +985,13 @@ async function saveStockAdjustment() {
     const onShelf = allProducts.find(p => p.id === stockAdjustProductId);
     const problem = stockChangeProblem(onShelf ? parseFloat(onShelf.stock_quantity) || 0 : 0, qty, type);
     if (problem) { showToast(problem, 'error'); updateStockPreview(); document.getElementById('stockQuantity').focus(); return; }
+    const expiry = type === 'in' ? (document.getElementById('stockExpiry').value || '') : '';
+    if (type === 'in' && !expiry && stockProductExpired(onShelf)) {
+        showToast(`${onShelf.name} expired on ${String(onShelf.expiration_date).slice(0, 10)}. Enter the expiration date of the stock being added.`, 'error');
+        document.getElementById('stockExpiry').focus(); return;
+    }
+    const expiryIssue = expiryDateProblem(expiry);
+    if (expiryIssue) { showToast(expiryIssue, 'error'); document.getElementById('stockExpiry').focus(); return; }
     if (stockSaving) return;
 
     const saveBtn = document.getElementById('stockSaveBtn');
@@ -976,7 +1001,7 @@ async function saveStockAdjustment() {
         const response = await fetch(`${API_URL}/products/${stockAdjustProductId}/stock`, {
             method: 'PUT',
             headers: getAuthHeaders(),
-            body: JSON.stringify({ quantity: qty, movement_type: type, notes: reason, request_key: stockRequestKey })
+            body: JSON.stringify(Object.assign({ quantity: qty, movement_type: type, notes: reason, request_key: stockRequestKey }, expiry ? { expiration_date: expiry } : {}))
         });
         const data = await response.json();
         if (data.success) {

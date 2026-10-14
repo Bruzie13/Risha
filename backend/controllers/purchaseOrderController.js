@@ -73,6 +73,18 @@ exports.updatePOStatus = async (req, res) => {
             if (expiryIssue) {
                 return res.status(400).json({ success: false, message: expiryIssue });
             }
+            /* Left blank, the date means "keep the current one". For a product
+               whose date has already passed that would put the new stock on
+               the shelf as expired, so the new batch's date has to be given. */
+            if (!req.body.expiration_date) {
+                const today = shopToday();
+                const expired = (await PurchaseOrder.getPOItems(id)).filter(i => i.product_expiry && i.product_expiry < today);
+                if (expired.length) {
+                    const named = expired.map(i => `"${i.product_name}" (expired ${i.product_expiry})`).join(', ');
+                    return res.status(400).json({ success: false, code: 'EXPIRY_NEEDED',
+                        message: `${named} on this order ${expired.length === 1 ? 'has' : 'have'} already expired. Enter the new batch's expiration date, or the new stock would be counted as expired too.` });
+                }
+            }
         }
 
         const updatedOrder = await PurchaseOrder.updateStatus(id, status, { expiration_date: req.body.expiration_date });

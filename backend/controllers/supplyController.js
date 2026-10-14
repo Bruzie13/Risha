@@ -41,10 +41,10 @@ exports.getBoard = async (req, res) => {
              LIMIT 300`);
         if (orders.length) {
             const [items] = await pool.query(
-                `SELECT pi.po_id, p.name, pi.quantity, pi.confirmed_quantity
+                `SELECT pi.po_id, p.name, pi.quantity, pi.confirmed_quantity, DATE_FORMAT(p.expiration_date, '%Y-%m-%d') AS expires
                  FROM po_items pi JOIN products p ON p.id = pi.product_id WHERE pi.po_id IN (?)`, [orders.map(o => o.id)]);
             const byOrder = new Map(orders.map(o => [o.id, (o.items = [])]));
-            items.forEach(i => byOrder.get(i.po_id)?.push({ name: i.name, quantity: i.quantity, confirmed_quantity: i.confirmed_quantity }));
+            items.forEach(i => byOrder.get(i.po_id)?.push({ name: i.name, quantity: i.quantity, confirmed_quantity: i.confirmed_quantity, expires: i.expires }));
         }
         orders.forEach(o => {
             o.proposed_by_supplier = !!o.proposed_by_supplier;

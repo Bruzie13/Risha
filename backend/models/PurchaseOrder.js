@@ -62,7 +62,8 @@ class PurchaseOrder {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                `SELECT poi.*, p.name as product_name, p.sku
+                `SELECT poi.*, p.name as product_name, p.sku,
+                        DATE_FORMAT(p.expiration_date, '%Y-%m-%d') AS product_expiry
                  FROM po_items poi
                  JOIN products p ON poi.product_id = p.id
                  WHERE poi.po_id = ?`,

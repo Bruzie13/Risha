@@ -428,6 +428,12 @@
                     <!-- what the change would do, as it is typed; red when it cannot be done -->
                     <p class="form-hint" id="stockPreview" role="status" style="font-size:12.5px;margin-top:6px;color:var(--text-muted);"></p>
                 </div>
+                <!-- only for stock being added: the new batch's date, required when the product has expired -->
+                <div class="form-group" id="stockExpiryGroup">
+                    <label class="form-label" for="stockExpiry" id="stockExpiryLabel">Expiration date of the stock being added (optional)</label>
+                    <input type="date" class="form-input" id="stockExpiry">
+                    <p class="form-hint" id="stockExpiryHint" style="font-size:12.5px;margin-top:6px;color:var(--text-muted);">Leave it blank to keep the product's current date.</p>
+                </div>
                 <div class="form-group">
                     <label class="form-label">Reason</label>
                     <input type="text" class="form-input" id="stockReason" placeholder="Reason for adjustment">
@@ -549,7 +555,7 @@
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=30"></script>
 <script src="js/assistant.js?v=25"></script>
-    <script src="js/inventory.js?v=34"></script>
+    <script src="js/inventory.js?v=35"></script>
 </body>
 </html>
 
