@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const localPrinter = require('../utils/localPrinter');
 
 // The receipt printer on the computer this server runs on (utils/localPrinter.js).
@@ -13,7 +13,10 @@ router.get('/status', async (req, res) => {
 });
 
 // The body is the receipt's ESC/POS bytes, exactly as the page built them.
-router.post('/print', express.raw({ type: 'application/octet-stream', limit: localPrinter.MAX_BYTES }), async (req, res) => {
+// Only the people who sell or manage sales print receipts. A view-only
+// account passed the role fence (which only fences cashiers and suppliers)
+// and could have sent anything to the shop's printer.
+router.post('/print', authorizeRole('cashier', 'admin', 'manager'), express.raw({ type: 'application/octet-stream', limit: localPrinter.MAX_BYTES }), async (req, res) => {
     try {
         await localPrinter.print(req.body);
         res.json({ success: true });
