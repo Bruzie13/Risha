@@ -49,7 +49,7 @@ function displaySuppliers(suppliers) {
     if (!tbody) return;
     const viewer = !canManage();
     if (suppliers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center">No suppliers found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center">No suppliers found</td></tr>';
         updatePagination('supplierPagination', suppliers, displayCount, 'showMoreSuppliers', 'showLessSuppliers', PAGE_SIZE);
     if (window.fetchMotion && !fetchMotion.reduced) { tbody.classList.remove('rows-in'); void tbody.offsetWidth; tbody.classList.add('rows-in'); }
         return;
@@ -84,6 +84,7 @@ function displaySuppliers(suppliers) {
             <td>${escHtml(s.phone || 'N/A')}</td>
             <td>${paymentTermsMap[s.payment_terms] || 'Net 30'}</td>
             <td>${(s.is_active === 1 || s.is_active === true) ? '<span class="status-badge status-active">Active</span>' : '<span class="status-badge status-inactive">Inactive</span>'}</td>
+            <td>${starCellHtml(s.stars, s.id)}</td>
             <td><button class="btn-action" onclick="showEmailLogs(${s.id}, '${escHtml(s.name).replace(/'/g, "\\'")}')" style="font-size:12px"><span class="material-symbols-outlined" style="font-size:13px;">mark_email_read</span> Emails</button></td>
             <td>
                 <button class="btn-view" onclick="showPerformance(${s.id})">Performance</button>
@@ -508,6 +509,19 @@ function closeEmailLogsModal() {
 
 /* The supplier's star rating and the conditions behind it (utils/supply.js
    starRating on the server: the same rule the supplier sees on their page). */
+/* The stars in the supplier list: the count, and whether the supplier meets
+   the standard. A click opens the Performance window with the conditions. */
+function starCellHtml(r, id) {
+    if (!r) return '—';
+    var stars = '';
+    for (var i = 1; i <= 5; i++) stars += '<span style="color:' + (i <= r.stars ? '#E8A317' : 'var(--border-color, #c9c9c9)') + ';">' + (i <= r.stars ? '★' : '☆') + '</span>';
+    var note = !r.rated ? 'Not rated yet' : r.meets_standard ? 'Meets the standard' : 'Below the standard';
+    var tone = !r.rated ? 'var(--text-secondary)' : r.meets_standard ? 'var(--success)' : 'var(--warning)';
+    return '<button type="button" onclick="showPerformance(' + Number(id) + ')" title="' + String(r.summary || '').replace(/"/g, '&quot;') + ' Click for the conditions." aria-label="' + (r.rated ? r.stars + ' of 5 stars, ' : '') + note + '" style="background:none;border:0;padding:0;cursor:pointer;text-align:left;font:inherit;color:inherit;">'
+        + '<span style="font-size:15px;letter-spacing:1px;white-space:nowrap;">' + stars + '</span>'
+        + '<span style="display:block;font-size:11px;line-height:1.3;max-width:120px;color:' + tone + ';">' + (r.rated ? r.stars + ' of 5 · ' : '') + note + '</span></button>';
+}
+
 function starRatingHtml(r) {
     if (!r) return '';
     var esc = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };

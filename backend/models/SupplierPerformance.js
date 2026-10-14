@@ -95,17 +95,28 @@ class SupplierPerformance {
    (or, without a promise, expected), and how many lines came short. The
    supplier's own page and the shop's Performance window both use this. */
 SupplierPerformance.scorecardOrders = async function (supplierId) {
+    return scorecardRows('AND po.supplier_id = ?', [supplierId]);
+};
+
+/* The same rows for every supplier at once, each with its supplier_id, so
+   the supplier list can show every supplier's stars from one query. */
+SupplierPerformance.scorecardOrdersAll = async function () {
+    return scorecardRows('', []);
+};
+
+async function scorecardRows(where, params) {
     const DAY = col => `DATE_FORMAT(CONVERT_TZ(${col},'+00:00','+08:00'), '%Y-%m-%d')`;
     const [rows] = await pool.query(
-        `SELECT ${DAY('po.created_at')} AS ordered_day,
+        `SELECT po.supplier_id,
+                ${DAY('po.created_at')} AS ordered_day,
                 ${DAY('COALESCE(po.received_at, po.updated_at)')} AS received_day,
                 DATE_FORMAT(COALESCE(po.promised_date, po.expected_delivery_date), '%Y-%m-%d') AS target_day,
                 (SELECT COUNT(*) FROM po_items pi WHERE pi.po_id = po.id
                    AND pi.confirmed_quantity IS NOT NULL AND pi.confirmed_quantity < pi.quantity) AS short_lines
          FROM purchase_orders po
-         WHERE po.supplier_id = ? AND po.status = 'received'
-           AND COALESCE(po.received_at, po.updated_at) >= DATE_SUB(NOW(), INTERVAL 12 MONTH)`, [supplierId]);
+         WHERE po.status = 'received' ${where}
+           AND COALESCE(po.received_at, po.updated_at) >= DATE_SUB(NOW(), INTERVAL 12 MONTH)`, params);
     return rows;
-};
+}
 
 module.exports = SupplierPerformance;

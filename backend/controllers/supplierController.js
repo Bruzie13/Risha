@@ -7,10 +7,20 @@ const logAudit = require('../services/audit');
 
 exports.getAllSuppliers = async (req, res) => {
     try {
-        const suppliers = await Supplier.getAll();
+        const [suppliers, received] = await Promise.all([Supplier.getAll(), SupplierPerformance.scorecardOrdersAll()]);
+        /* each supplier's stars, by the same rule as its Performance window */
+        const bySupplier = new Map();
+        for (const o of received) {
+            if (!bySupplier.has(o.supplier_id)) bySupplier.set(o.supplier_id, []);
+            bySupplier.get(o.supplier_id).push(o);
+        }
+        const data = suppliers.map(s => {
+            const r = starRating(scorecard(bySupplier.get(s.id) || []));
+            return { ...s, stars: { stars: r.stars, rated: r.rated, meets_standard: r.meets_standard, standard: r.standard, summary: r.summary } };
+        });
         res.status(200).json({
             success: true,
-            data: suppliers
+            data
         });
     } catch (error) {
         console.error('Get suppliers error:', error);
