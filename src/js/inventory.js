@@ -613,6 +613,9 @@ function openAddProductModal() {
     editingOriginalExpiry = '';
     document.getElementById('modalTitle').textContent = 'Add new product';
     document.getElementById('productForm').reset();
+    editingOriginalSku = '';
+    clearProductErrors();
+    document.getElementById('productMore').open = false;
     // new stock cannot already be past its date
     document.getElementById('expiration_date').min = localTodayYmd();
     updateImagePreview();
@@ -635,9 +638,6 @@ async function openEditProductModal(id) {
             document.getElementById('name').value = product.name;
             document.getElementById('brand').value = product.brand || '';
             document.getElementById('species').value = product.species || '';
-            document.getElementById('breed_size').value = product.breed_size || '';
-            document.getElementById('age_group').value = product.age_group || '';
-            document.getElementById('health_category').value = product.health_category || '';
             document.getElementById('barcode').value = product.barcode || '';
             document.getElementById('image_url').value = product.image_url || '';
             updateImagePreview();
@@ -648,14 +648,16 @@ async function openEditProductModal(id) {
             document.getElementById('reorder_level').value = product.reorder_level;
             document.getElementById('unit_type').value = product.unit_type || 'piece';
             document.getElementById('max_stock_level').value = product.max_stock_level || '';
+            editingOriginalSku = product.sku || '';
+            clearProductErrors();
+            // open the optional section when it holds something
+            document.getElementById('productMore').open = !!(product.brand || product.species || product.image_url || (product.unit_type && product.unit_type !== 'piece'));
             document.getElementById('supplier_id').value = product.supplier_id || '';
-            document.getElementById('batch_number').value = product.batch_number || '';
             editingOriginalExpiry = product.expiration_date ? product.expiration_date.split('T')[0] : '';
             document.getElementById('expiration_date').value = editingOriginalExpiry;
             // A product that has already expired keeps its date while other things
             // are edited; a date that is changed has to be today or later.
             document.getElementById('expiration_date').min = editingOriginalExpiry && editingOriginalExpiry < localTodayYmd() ? '' : localTodayYmd();
-            document.getElementById('description').value = product.description || '';
             
             document.getElementById('productModal').classList.add('active');
         }
@@ -697,18 +699,6 @@ async function viewProductDetails(id) {
                     <span class="details-value">${escHtml(product.species || 'N/A')}</span>
                 </div>
                 <div class="details-row">
-                    <span class="details-label">Breed size</span>
-                    <span class="details-value">${escHtml(product.breed_size || 'N/A')}</span>
-                </div>
-                <div class="details-row">
-                    <span class="details-label">Age group</span>
-                    <span class="details-value">${escHtml(product.age_group || 'N/A')}</span>
-                </div>
-                <div class="details-row">
-                    <span class="details-label">Health category</span>
-                    <span class="details-value">${escHtml(product.health_category || 'N/A')}</span>
-                </div>
-                <div class="details-row">
                     <span class="details-label">Supplier</span>
                     <span class="details-value">${escHtml(product.supplier_name || 'N/A')}</span>
                 </div>
@@ -737,17 +727,13 @@ async function viewProductDetails(id) {
                     <span class="details-value">${escHtml(product.max_stock_level || 'N/A')}</span>
                 </div>
                 <div class="details-row">
-                    <span class="details-label">Batch/Lot Number</span>
-                    <span class="details-value">${escHtml(product.batch_number || 'N/A')}</span>
-                </div>
-                <div class="details-row">
                     <span class="details-label">Expiration date</span>
                     <span class="details-value">${product.expiration_date ? new Date(product.expiration_date).toLocaleDateString() : 'N/A'}</span>
                 </div>
-                <div class="details-row">
+                ${product.description ? `<div class="details-row">
                     <span class="details-label">Description</span>
-                    <span class="details-value">${escHtml(product.description || 'N/A')}</span>
-                </div>
+                    <span class="details-value">${escHtml(product.description)}</span>
+                </div>` : ''}
             `;
             document.getElementById('productDetailsContent').innerHTML = detailsHTML;
             document.getElementById('productDetailsModal').classList.add('active');
@@ -829,13 +815,129 @@ async function deleteProduct(id) {
 // Handle product form submission
 let editingOriginalExpiry = '';   // the date the product being edited already has ('' when adding)
 
+/* ---- Product form: every field is checked, and says exactly what is wrong ---- */
+let editingOriginalSku = '';
+const PRODUCT_FIELDS = ['name', 'category_id', 'sku', 'barcode', 'unit_price', 'cost_price', 'stock_quantity', 'reorder_level', 'supplier_id', 'expiration_date', 'brand', 'max_stock_level'];
+const PRICE_MAX = 99999999.99;
+
+// what is wrong with one field, or null (the server applies the same limits)
+function productFieldProblem(id) {
+    const raw = (document.getElementById(id) || {}).value || '';
+    const v = String(raw).trim();
+    const num = Number(v);
+    const twoDecimals = /^\d+(\.\d{1,2})?$/;
+    switch (id) {
+        case 'name':
+            if (!v) return 'Enter the product name.';
+            if (v.length < 2) return 'The product name is too short: use at least 2 characters.';
+            return null;
+        case 'category_id':
+            return v ? null : 'Choose a category from the list.';
+        case 'sku':
+            if (!v) return 'Enter the SKU (the shop\'s own code for this product).';
+            // an older code is kept as it is; a new or changed one has to be plain
+            if (v !== editingOriginalSku && !/^[A-Za-z0-9._\-/]+$/.test(v)) return 'The SKU can use letters, numbers and - _ . / only, with no spaces.';
+            return null;
+        case 'barcode':
+            if (!v) return null;
+            if (!/^[A-Za-z0-9\-]+$/.test(v)) return 'The barcode can use letters, numbers and dashes only, with no spaces.';
+            if (v.length < 4) return 'The barcode is too short: scan it again or click Generate.';
+            return null;
+        case 'unit_price':
+            if (!v) return 'Enter the unit price (the selling price).';
+            if (!Number.isFinite(num)) return 'The unit price has to be a number, for example 120.50.';
+            if (num <= 0) return 'The unit price has to be more than ₱0.';
+            if (num > PRICE_MAX) return 'The unit price is too large (₱99,999,999.99 at most).';
+            if (!twoDecimals.test(v)) return 'Use at most 2 decimal places, for example 120.50.';
+            return null;
+        case 'cost_price': {
+            if (!v) return null;
+            if (!Number.isFinite(num)) return 'The cost price has to be a number, for example 95.00.';
+            if (num < 0) return 'The cost price cannot be less than ₱0.';
+            if (num > PRICE_MAX) return 'The cost price is too large (₱99,999,999.99 at most).';
+            if (!twoDecimals.test(v)) return 'Use at most 2 decimal places, for example 95.00.';
+            const price = Number(document.getElementById('unit_price').value);
+            if (price > 0 && num > price) return `The cost price (₱${num.toFixed(2)}) is higher than the unit price (₱${price.toFixed(2)}): the shop would lose money on each sale. Check both prices.`;
+            return null;
+        }
+        case 'stock_quantity': {
+            if (!v) return null;
+            if (!Number.isFinite(num)) return 'The stock on hand has to be a number.';
+            if (num < 0) return 'The stock on hand cannot be less than 0.';
+            if (num > 9999999) return 'The stock on hand is too large.';
+            const unit = document.getElementById('unit_type').value || 'piece';
+            if (unit === 'piece' && !Number.isInteger(num)) return 'Stock sold by the piece has to be a whole number.';
+            return null;
+        }
+        case 'reorder_level':
+        case 'max_stock_level': {
+            const label = id === 'reorder_level' ? 'The reorder level' : 'The max stock level';
+            if (!v) return null;
+            if (!Number.isFinite(num)) return `${label} has to be a number.`;
+            if (num < 0) return `${label} cannot be less than 0.`;
+            if (!Number.isInteger(num)) return `${label} has to be a whole number.`;
+            if (num > 1000000) return `${label} is too large (1,000,000 at most).`;
+            if (id === 'max_stock_level' && num > 0) {
+                const reorder = Number(document.getElementById('reorder_level').value);
+                if (Number.isFinite(reorder) && num <= reorder) return `The max stock level has to be higher than the reorder level (${reorder}).`;
+            }
+            return null;
+        }
+        case 'supplier_id':
+            return v ? null : 'Choose a supplier. A product needs one so it can be reordered.';
+        case 'expiration_date':
+            // a product that has already expired keeps its date while other things are edited
+            return v && v !== editingOriginalExpiry ? expiryDateProblem(v) : null;
+        case 'brand':
+            return v.length > 100 ? 'The brand is too long (100 characters at most).' : null;
+    }
+    return null;
+}
+
+// show or clear one field's message; returns true when it is right
+function checkProductField(id) {
+    const problem = productFieldProblem(id);
+    const box = document.getElementById('err_' + id);
+    const input = document.getElementById(id);
+    if (box) box.innerHTML = problem ? '<span class="material-symbols-outlined" style="font-size:14px;">error</span> ' + escHtml(problem) : '';
+    if (input) { input.classList.toggle('input-invalid', !!problem); input.setAttribute('aria-invalid', problem ? 'true' : 'false'); }
+    return !problem;
+}
+
+function clearProductErrors() {
+    PRODUCT_FIELDS.forEach(id => {
+        const box = document.getElementById('err_' + id); if (box) box.innerHTML = '';
+        const input = document.getElementById(id); if (input) { input.classList.remove('input-invalid'); input.removeAttribute('aria-invalid'); }
+    });
+}
+
+// checked when the user leaves a field, and again while a wrong one is corrected
+document.addEventListener('DOMContentLoaded', () => {
+    PRODUCT_FIELDS.forEach(id => {
+        const input = document.getElementById(id);
+        if (!input) return;
+        input.addEventListener('blur', () => checkProductField(id));
+        input.addEventListener(input.tagName === 'SELECT' || input.type === 'date' ? 'change' : 'input', () => {
+            if (input.classList.contains('input-invalid')) checkProductField(id);
+        });
+    });
+    // the two prices and the two stock levels are judged against each other
+    ['unit_price', 'reorder_level', 'unit_type'].forEach(id => document.getElementById(id)?.addEventListener('change', () => {
+        if (id === 'unit_price') checkProductField('cost_price');
+        if (id === 'reorder_level') checkProductField('max_stock_level');
+        if (id === 'unit_type') checkProductField('stock_quantity');
+    }));
+});
+
 async function handleProductSubmit(event) {
     event.preventDefault();
 
-    const typedExpiry = document.getElementById('expiration_date').value;
-    if (typedExpiry !== editingOriginalExpiry && expiryDateProblem(typedExpiry)) {
-        showToast(expiryDateProblem(typedExpiry), 'error');
-        document.getElementById('expiration_date').focus();
+    // every field is checked; the first one that is wrong gets the cursor
+    const wrong = PRODUCT_FIELDS.filter(id => !checkProductField(id));
+    if (wrong.length) {
+        if (['brand', 'species', 'unit_type', 'max_stock_level'].includes(wrong[0])) document.getElementById('productMore').open = true;
+        document.getElementById(wrong[0]).focus();
+        showToast(wrong.length === 1 ? 'One field needs fixing: ' + productFieldProblem(wrong[0]) : wrong.length + ' fields need fixing. Each one says what is wrong.', 'error');
         return;
     }
 
@@ -846,9 +948,6 @@ async function handleProductSubmit(event) {
         barcode: document.getElementById('barcode').value || null,
         image_url: document.getElementById('image_url').value.trim() || null,
         species: document.getElementById('species').value || null,
-        breed_size: document.getElementById('breed_size').value || null,
-        age_group: document.getElementById('age_group').value || null,
-        health_category: document.getElementById('health_category').value || null,
         category_id: parseInt(document.getElementById('category_id').value),
         unit_price: parseFloat(document.getElementById('unit_price').value),
         cost_price: parseFloat(document.getElementById('cost_price').value) || 0,
@@ -857,10 +956,12 @@ async function handleProductSubmit(event) {
         unit_type: document.getElementById('unit_type').value || 'piece',
         max_stock_level: parseInt(document.getElementById('max_stock_level').value) || null,
         supplier_id: parseInt(document.getElementById('supplier_id').value) || null,
-        batch_number: document.getElementById('batch_number').value || null,
-        expiration_date: document.getElementById('expiration_date').value || null,
-        description: document.getElementById('description').value || null
+        expiration_date: document.getElementById('expiration_date').value || null
     };
+    productData.sku = productData.sku.trim();
+    productData.name = productData.name.trim();
+    if (productData.barcode) productData.barcode = productData.barcode.trim();
+    if (productData.brand) productData.brand = productData.brand.trim();
 
     await saveProduct(productData);
 }

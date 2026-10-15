@@ -115,7 +115,7 @@ exports.getProductById = async (req, res) => {
 
 exports.createProduct = async (req, res) => {
     try {
-        const { sku, name, description, brand, species, category_id, unit_price, cost_price, stock_quantity, reorder_level, unit_type, supplier_id, barcode, expiration_date, batch_number, image_url } = req.body;
+        const { sku, name, description, brand, species, category_id, unit_price, cost_price, stock_quantity, reorder_level, max_stock_level, unit_type, supplier_id, barcode, expiration_date, batch_number, image_url } = req.body;
 
         // nothing important may be missing, and the supplier has to be a current one
         const problem = productProblem(req.body, true, await currentSupplierIds());
@@ -154,6 +154,8 @@ exports.createProduct = async (req, res) => {
             cost_price,
             stock_quantity,
             reorder_level,
+            // the max stock level typed when adding used to be dropped here
+            max_stock_level,
             unit_type: unit_type || 'piece',
             supplier_id,
             barcode,

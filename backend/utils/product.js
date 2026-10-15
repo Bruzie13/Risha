@@ -55,6 +55,17 @@ function productProblem(data, adding, activeSupplierIds) {
         if (sent(k) && !blank(d[k]) && !Number.isInteger(Number(d[k]))) return `${label} has to be a whole number.`;
     }
     if (sent('unit_type') && !blank(d.unit_type) && !UNIT_TYPES.includes(d.unit_type)) return 'Choose the unit from the list (piece, kg, g, liter or ml).';
+    // a new SKU and any barcode have to be plain codes (an older SKU is left as it is)
+    if (adding && !blank(d.sku) && !/^[A-Za-z0-9._\-/]+$/.test(String(d.sku).trim())) return 'The SKU can use letters, numbers and - _ . / only, with no spaces.';
+    if (sent('barcode') && !blank(d.barcode) && !/^[A-Za-z0-9-]+$/.test(String(d.barcode).trim())) return 'The barcode can use letters, numbers and dashes only, with no spaces.';
+    // values that are judged against each other, when both are sent
+    if (sent('cost_price') && sent('unit_price') && !blank(d.cost_price) && Number(d.cost_price) > Number(d.unit_price)) {
+        return `The cost price (₱${Number(d.cost_price).toFixed(2)}) is higher than the unit price (₱${Number(d.unit_price).toFixed(2)}): the shop would lose money on each sale.`;
+    }
+    if (sent('max_stock_level') && sent('reorder_level') && !blank(d.max_stock_level) && Number(d.max_stock_level) > 0 && !blank(d.reorder_level)
+        && Number(d.max_stock_level) <= Number(d.reorder_level)) {
+        return `The max stock level has to be higher than the reorder level (${Number(d.reorder_level)}).`;
+    }
     if (checked('supplier_id') && !(activeSupplierIds && activeSupplierIds.has(Number(d.supplier_id)))) {
         return 'Choose a supplier from the list. A product needs a supplier so it can be reordered.';
     }

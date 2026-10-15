@@ -24,7 +24,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=51">
+    <link rel="stylesheet" href="css/global.css?v=52">
     <link rel="stylesheet" href="css/inventory.css?v=23">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
         <link rel="stylesheet" href="css/system.css?v=34">
@@ -237,24 +237,103 @@
                 <h2 id="modalTitle">Add new product</h2>
                 <button class="close-btn" title="Close" onclick="closeProductModal()">&times;</button>
             </div>
-            <form id="productForm" onsubmit="handleProductSubmit(event)">
+            <form id="productForm" onsubmit="handleProductSubmit(event)" novalidate>
                 <div class="modal-body">
+                    <p class="form-hint" style="font-size:12.5px;color:var(--text-muted);margin:0 0 12px;">Fields marked * are required. Each field is checked as you leave it.</p>
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label">SKU *</label>
-                            <input type="text" class="form-input" id="sku" required>
+                            <label class="form-label" for="name">Product name *</label>
+                            <input type="text" class="form-input" id="name" maxlength="255" autocomplete="off">
+                            <div class="field-error" id="err_name" role="alert"></div>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Barcode</label>
-                            <div style="display:flex;gap:8px;">
-                                <input type="text" class="form-input" id="barcode" placeholder="Scan or enter barcode" style="flex:1;">
-                                <button type="button" class="btn-secondary" onclick="generateBarcodeField()" title="Generate an in-store barcode" style="white-space:nowrap;"><span class="material-symbols-outlined" style="font-size:16px;">auto_fix_high</span> Generate</button>
-                            </div>
+                            <label class="form-label" for="category_id">Category *</label>
+                            <select class="form-select" id="category_id"><option value="">Choose a category</option></select>
+                            <div class="field-error" id="err_category_id" role="alert"></div>
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label">Image</label>
+                            <label class="form-label" for="sku">SKU *</label>
+                            <input type="text" class="form-input" id="sku" maxlength="50" autocomplete="off" placeholder="e.g. DOG-FOOD-01">
+                            <div class="field-error" id="err_sku" role="alert"></div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="barcode">Barcode</label>
+                            <div style="display:flex;gap:8px;">
+                                <input type="text" class="form-input" id="barcode" maxlength="100" autocomplete="off" placeholder="Scan or type the barcode" style="flex:1;">
+                                <button type="button" class="btn-secondary" onclick="generateBarcodeField()" title="Generate an in-store barcode" style="white-space:nowrap;"><span class="material-symbols-outlined" style="font-size:16px;">auto_fix_high</span> Generate</button>
+                            </div>
+                            <div class="field-error" id="err_barcode" role="alert"></div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="unit_price">Unit price (₱) *</label>
+                            <input type="number" class="form-input" id="unit_price" inputmode="decimal" step="0.01" min="0.01">
+                            <div class="field-error" id="err_unit_price" role="alert"></div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="cost_price">Cost price (₱)</label>
+                            <input type="number" class="form-input" id="cost_price" inputmode="decimal" step="0.01" min="0">
+                            <div class="field-error" id="err_cost_price" role="alert"></div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="stock_quantity">Stock on hand</label>
+                            <input type="number" class="form-input" id="stock_quantity" inputmode="decimal" value="0" min="0">
+                            <div class="field-error" id="err_stock_quantity" role="alert"></div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="reorder_level">Reorder level</label>
+                            <input type="number" class="form-input" id="reorder_level" inputmode="decimal" value="10" min="0" step="1">
+                            <p class="form-hint" style="font-size:12px;color:var(--text-muted);margin:4px 0 0;">Reorder when stock falls to this number.</p>
+                            <div class="field-error" id="err_reorder_level" role="alert"></div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="supplier_id">Supplier *</label>
+                            <select class="form-select" id="supplier_id"><option value="">Choose a supplier</option></select>
+                            <!-- shown only when the shop has no supplier to choose -->
+                            <p class="form-hint" id="supplierNone" hidden style="font-size:12.5px;color:var(--danger);margin-top:6px;">There is no supplier yet. Add one on the <a href="suppliers.html">Suppliers</a> page first: a product needs a supplier so it can be reordered.</p>
+                            <div class="field-error" id="err_supplier_id" role="alert"></div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="expiration_date">Expiration date</label>
+                            <input type="date" class="form-input" id="expiration_date">
+                            <div class="field-error" id="err_expiration_date" role="alert"></div>
+                        </div>
+                    </div>
+                    <details id="productMore" style="margin-top:6px;">
+                        <summary style="cursor:pointer;font-weight:600;font-size:13.5px;padding:6px 0;">More details (optional)</summary>
+                        <div class="form-row" style="margin-top:8px;">
+                        <div class="form-group">
+                            <label class="form-label" for="brand">Brand</label>
+                            <input type="text" class="form-input" id="brand" maxlength="100" autocomplete="off">
+                            <div class="field-error" id="err_brand" role="alert"></div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="species">Species</label>
+                            <select class="form-select" id="species"><option value="">Any</option><option value="Dog">Dog</option><option value="Cat">Cat</option><option value="Bird">Bird</option><option value="Fish">Fish</option></select>
+                            <div class="field-error" id="err_species" role="alert"></div>
+                        </div>
+                        </div>
+                        <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="unit_type">Sold by</label>
+                            <select class="form-select" id="unit_type"><option value="piece">Piece (pcs)</option><option value="kg">Kilogram (kg)</option><option value="g">Gram (g)</option><option value="liter">Liter (L)</option><option value="ml">Milliliter (mL)</option></select>
+                            <div class="field-error" id="err_unit_type" role="alert"></div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="max_stock_level">Max stock level</label>
+                            <input type="number" class="form-input" id="max_stock_level" inputmode="decimal" value="100" min="0" step="1">
+                            <div class="field-error" id="err_max_stock_level" role="alert"></div>
+                        </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="image_url">Image</label>
                             <div style="display:flex;gap:10px;align-items:center;">
                                 <img id="imagePreview" alt="" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:1px solid var(--border-glass-strong);display:none;flex-shrink:0;">
                                 <input type="text" class="form-input" id="image_url" placeholder="Paste image URL, or upload →" style="flex:1;" oninput="updateImagePreview()">
@@ -262,125 +341,7 @@
                                 <button type="button" class="btn-secondary" onclick="document.getElementById('imageFile').click()" title="Upload a picture from this device" style="white-space:nowrap;"><span class="material-symbols-outlined" style="font-size:16px;">upload</span> Upload</button>
                             </div>
                         </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Product name *</label>
-                            <input type="text" class="form-input" id="name" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Brand</label>
-                            <input type="text" class="form-input" id="brand">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Category *</label>
-                            <select class="form-select" id="category_id" required>
-                                <option value="">Select Category</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Species</label>
-                            <select class="form-select" id="species">
-                                <option value="">Select Species</option>
-                                <option value="Dog">Dog</option>
-                                <option value="Cat">Cat</option>
-                                <option value="Bird">Bird</option>
-                                <option value="Fish">Fish</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Breed size</label>
-                            <select id="breed_size" class="form-select">
-                                <option value="">Any Size</option>
-                                <option value="small">Small</option>
-                                <option value="medium">Medium</option>
-                                <option value="large">Large</option>
-                                <option value="giant">Giant</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Age group</label>
-                            <select id="age_group" class="form-select">
-                                <option value="">All Ages</option>
-                                <option value="puppy_kitten">Puppy/Kitten</option>
-                                <option value="adult">Adult</option>
-                                <option value="senior">Senior</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Health category</label>
-                            <select id="health_category" class="form-select">
-                                <option value="">None</option>
-                                <option value="dietary">Dietary</option>
-                                <option value="dental">Dental</option>
-                                <option value="joint">Joint Care</option>
-                                <option value="skin">Skin & Coat</option>
-                                <option value="digestive">Digestive</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Unit price *</label>
-                            <input type="number" class="form-input" id="unit_price" step="0.01" min="0.01" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Cost price</label>
-                            <input type="number" class="form-input" id="cost_price" step="0.01" min="0">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Stock quantity</label>
-                            <input type="number" class="form-input" id="stock_quantity" value="0" min="0">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Reorder level</label>
-                            <input type="number" class="form-input" id="reorder_level" value="10" min="0">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Unit type</label>
-                            <select class="form-select" id="unit_type">
-                                <option value="piece">Piece (pcs)</option>
-                                <option value="kg">Kilogram (kg)</option>
-                                <option value="g">Gram (g)</option>
-                                <option value="liter">Liter (L)</option>
-                                <option value="ml">Milliliter (mL)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Max stock level</label>
-                            <input type="number" class="form-input" id="max_stock_level" value="100" min="0">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Supplier *</label>
-                            <select class="form-select" id="supplier_id" required>
-                                <option value="">Select a supplier</option>
-                            </select>
-                            <!-- shown only when the shop has no supplier to choose -->
-                            <p class="form-hint" id="supplierNone" hidden style="font-size:12.5px;color:var(--danger);margin-top:6px;">There is no supplier yet. Add one on the <a href="suppliers.html">Suppliers</a> page first: a product needs a supplier so it can be reordered.</p>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Batch/Lot Number</label>
-                            <input type="text" class="form-input" id="batch_number" placeholder="e.g., LOT-2025-001">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Expiration date</label>
-                            <input type="date" class="form-input" id="expiration_date">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Description</label>
-                        <textarea class="form-textarea" id="description" rows="3" placeholder="Product description..."></textarea>
-                    </div>
+                    </details>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn-secondary" onclick="closeProductModal()">Cancel</button>
@@ -555,7 +516,7 @@
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=30"></script>
 <script src="js/assistant.js?v=25"></script>
-    <script src="js/inventory.js?v=36"></script>
+    <script src="js/inventory.js?v=37"></script>
 </body>
 </html>
 

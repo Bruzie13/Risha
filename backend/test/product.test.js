@@ -94,3 +94,15 @@ test('adding a product: levels are whole numbers and the unit is from the list',
     assert.equal(productProblem({ ...good, unit_type: 'kg', stock_quantity: 12.5, reorder_level: 5 }, true, suppliers), null);
     assert.equal(productProblem({ unit_type: 'box' }, false, suppliers) !== null, true, 'an edit is held to the same list');
 });
+
+test('prices, stock levels, SKU and barcode are judged against each other and their pattern', () => {
+    const suppliers = new Set([1]);
+    const good = { sku: 'DOG-01', name: 'Dog treats', category_id: 1, unit_price: 120, supplier_id: 1 };
+    assert.equal(productProblem({ ...good, cost_price: 95, reorder_level: 10, max_stock_level: 100, barcode: '4800000000011' }, true, suppliers), null);
+    assert.match(productProblem({ ...good, cost_price: 150 }, true, suppliers), /cost price \(₱150\.00\) is higher than the unit price \(₱120\.00\)/);
+    assert.match(productProblem({ ...good, reorder_level: 10, max_stock_level: 10 }, true, suppliers), /max stock level has to be higher than the reorder level \(10\)/);
+    assert.match(productProblem({ ...good, sku: 'DOG 01' }, true, suppliers), /SKU can use letters, numbers/);
+    assert.equal(productProblem({ sku: 'OLD SKU 1', name: 'x2' }, false, suppliers), null, 'an older SKU is kept as it is on an edit');
+    assert.match(productProblem({ ...good, barcode: '48 00' }, true, suppliers), /barcode can use letters, numbers and dashes/);
+    assert.equal(productProblem({ cost_price: 500 }, false, suppliers), null, 'an edit that sends only the cost is not judged against a price it did not send');
+});
