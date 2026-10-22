@@ -1,4 +1,5 @@
 const { shopToday, expiryProblem } = require('../utils/expiry');
+const { SKU_TYPES, skuTypeProblem, skuFor } = require('../utils/sku');
 const { productProblem } = require('../utils/product');
 const { stockRequestKey } = require('../utils/requestKeys');
 const { stockChangeProblem } = require('../utils/product');
@@ -115,6 +116,13 @@ exports.getProductById = async (req, res) => {
 
 exports.createProduct = async (req, res) => {
     try {
+        /* The SKU is made by the system from the product type the user chose
+           (see utils/sku.js); a SKU typed by hand is not taken. */
+        const typeIssue = skuTypeProblem(req.body.sku_type);
+        if (typeIssue) {
+            return res.status(400).json({ success: false, message: typeIssue });
+        }
+        req.body.sku = skuFor(req.body.sku_type, (await Product.highestSkuNumber()) + 1);
         const { sku, name, description, brand, species, category_id, unit_price, cost_price, stock_quantity, reorder_level, max_stock_level, unit_type, supplier_id, barcode, expiration_date, batch_number, image_url } = req.body;
 
         // nothing important may be missing, and the supplier has to be a current one
@@ -129,13 +137,8 @@ exports.createProduct = async (req, res) => {
             return res.status(400).json({ success: false, message: expiryIssue });
         }
 
-        const existingProduct = await Product.findBySku(sku);
-        if (existingProduct) {
-            return res.status(409).json({
-                success: false,
-                message: 'A product with this SKU already exists'
-            });
-        }
+        // the SKU was just made from the next free number (a clash with someone
+        // saving at the same moment is settled below by taking the next one)
         const barcodeOwner = await Product.findByBarcode(barcode);
         if (barcodeOwner) return res.status(409).json(barcodeTakenAnswer(barcode, barcodeOwner));
         // Two products under one name are hard to tell apart at the till. It is
@@ -143,7 +146,7 @@ exports.createProduct = async (req, res) => {
         const twin = req.body.allow_same_name ? null : await Product.findByName(name);
         if (twin) return res.status(409).json(sameNameAnswer(twin));
 
-        const product = await Product.create({
+        const fields = {
             sku,
             name,
             description,
@@ -163,7 +166,21 @@ exports.createProduct = async (req, res) => {
             batch_number,
             // base64 → hosted URL when Cloudinary is configured (else unchanged)
             image_url: await storeImage(image_url)
-        });
+        };
+        let product;
+        for (let attempt = 0; ; attempt++) {
+            try {
+                product = await Product.create({ ...fields, sku: req.body.sku });
+                break;
+            } catch (e) {
+                // someone else took this number a moment ago: use the next one
+                if (e && e.code === 'ER_DUP_ENTRY' && /sku/i.test(e.message) && attempt < 5) {
+                    req.body.sku = skuFor(req.body.sku_type, (await Product.highestSkuNumber()) + 1);
+                    continue;
+                }
+                throw e;
+            }
+        }
 
         logAudit(req.user.id, 'create', 'products', product.id, null, product, req.ip);
 
@@ -183,6 +200,19 @@ exports.createProduct = async (req, res) => {
     }
 };
 
+// The SKU the next product of a type would get (shown in the form; the
+// number is given for good only when the product is saved).
+exports.getNextSku = async (req, res) => {
+    try {
+        const problem = skuTypeProblem(req.query.type);
+        if (problem) return res.status(400).json({ success: false, message: problem });
+        res.json({ success: true, data: { sku: skuFor(req.query.type, (await Product.highestSkuNumber()) + 1), types: SKU_TYPES } });
+    } catch (error) {
+        console.error('Next SKU error:', error);
+        res.status(500).json({ success: false, message: 'Could not work out the next SKU.' });
+    }
+};
+
 exports.updateProduct = async (req, res) => {
     try {
         const { id } = req.params;
@@ -195,6 +225,10 @@ exports.updateProduct = async (req, res) => {
         }
 
         const oldProduct = await Product.findById(id);
+
+        if (updateData.sku !== undefined && oldProduct && String(updateData.sku).trim() !== String(oldProduct.sku)) {
+            return res.status(400).json({ success: false, message: `The SKU cannot be changed once the product is saved. It stays ${oldProduct.sku}.` });
+        }
 
         if (updateData.barcode != null && String(updateData.barcode).trim()) {
             const barcodeOwner = await Product.findByBarcode(updateData.barcode, id);

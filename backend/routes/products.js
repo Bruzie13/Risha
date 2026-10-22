@@ -8,6 +8,7 @@ router.get('/stock-levels', authenticateToken, productController.getStockLevels)
 router.get('/stats', authenticateToken, productController.getProductStats);
 router.get('/low-stock', authenticateToken, productController.getLowStockProducts);
 router.get('/categories', authenticateToken, productController.getCategories);
+router.get('/next-sku', authenticateToken, authorizeRole('admin', 'manager'), productController.getNextSku);
 router.get('/:id', authenticateToken, productController.getProductById);
 router.post('/', authenticateToken, authorizeRole('admin', 'manager'), productController.createProduct);
 router.post('/bulk', authenticateToken, authorizeRole('admin', 'manager'), productController.bulkCreateProducts);

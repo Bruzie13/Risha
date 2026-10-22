@@ -616,6 +616,9 @@ function openAddProductModal() {
     editingOriginalSku = '';
     clearProductErrors();
     document.getElementById('productMore').open = false;
+    document.getElementById('sku_type').closest('.form-group').hidden = false;
+    document.getElementById('sku').value = '';
+    document.getElementById('skuHint').textContent = 'Made by the system from the product type. It never changes once saved.';
     // new stock cannot already be past its date
     document.getElementById('expiration_date').min = localTodayYmd();
     updateImagePreview();
@@ -650,6 +653,8 @@ async function openEditProductModal(id) {
             document.getElementById('max_stock_level').value = product.max_stock_level || '';
             editingOriginalSku = product.sku || '';
             clearProductErrors();
+            document.getElementById('sku_type').closest('.form-group').hidden = true;
+            document.getElementById('skuHint').textContent = 'The SKU stays the same for as long as the product exists.';
             // open the optional section when it holds something
             document.getElementById('productMore').open = !!(product.brand || product.species || product.image_url || (product.unit_type && product.unit_type !== 'piece'));
             document.getElementById('supplier_id').value = product.supplier_id || '';
@@ -817,7 +822,7 @@ let editingOriginalExpiry = '';   // the date the product being edited already h
 
 /* ---- Product form: every field is checked, and says exactly what is wrong ---- */
 let editingOriginalSku = '';
-const PRODUCT_FIELDS = ['name', 'category_id', 'sku', 'barcode', 'unit_price', 'cost_price', 'stock_quantity', 'reorder_level', 'supplier_id', 'expiration_date', 'brand', 'max_stock_level'];
+const PRODUCT_FIELDS = ['name', 'category_id', 'sku_type', 'barcode', 'unit_price', 'cost_price', 'stock_quantity', 'reorder_level', 'supplier_id', 'expiration_date', 'brand', 'max_stock_level'];
 const PRICE_MAX = 99999999.99;
 
 // what is wrong with one field, or null (the server applies the same limits)
@@ -833,11 +838,10 @@ function productFieldProblem(id) {
             return null;
         case 'category_id':
             return v ? null : 'Choose a category from the list.';
-        case 'sku':
-            if (!v) return 'Enter the SKU (the shop\'s own code for this product).';
-            // an older code is kept as it is; a new or changed one has to be plain
-            if (v !== editingOriginalSku && !/^[A-Za-z0-9._\-/]+$/.test(v)) return 'The SKU can use letters, numbers and - _ . / only, with no spaces.';
-            return null;
+        case 'sku_type':
+            // a saved product keeps its SKU; only a new one is given a type
+            if (editingProductId) return null;
+            return v ? null : 'Choose the product type. The SKU is made from it.';
         case 'barcode':
             if (!v) return null;
             if (!/^[A-Za-z0-9\-]+$/.test(v)) return 'The barcode can use letters, numbers and dashes only, with no spaces.';
@@ -911,8 +915,28 @@ function clearProductErrors() {
     });
 }
 
+// the SKU a new product would get, shown as soon as its type is chosen
+async function showNextSku() {
+    const type = document.getElementById('sku_type').value;
+    const out = document.getElementById('sku');
+    if (editingProductId) return;
+    if (!type) { out.value = ''; return; }
+    try {
+        const res = await fetch(`${API_URL}/products/next-sku?type=${encodeURIComponent(type)}`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        out.value = data.success ? data.data.sku : '';
+        document.getElementById('skuHint').textContent = data.success
+            ? 'The number is given for good when you click Save product. It never changes after that.'
+            : (data.message || 'The SKU is made when the product is saved.');
+    } catch (e) {
+        out.value = type + '-…';
+        document.getElementById('skuHint').textContent = 'The number is given when the product is saved.';
+    }
+}
+
 // checked when the user leaves a field, and again while a wrong one is corrected
 document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('sku_type')?.addEventListener('change', showNextSku);
     PRODUCT_FIELDS.forEach(id => {
         const input = document.getElementById(id);
         if (!input) return;
@@ -958,7 +982,9 @@ async function handleProductSubmit(event) {
         supplier_id: parseInt(document.getElementById('supplier_id').value) || null,
         expiration_date: document.getElementById('expiration_date').value || null
     };
-    productData.sku = productData.sku.trim();
+    // the SKU is the system's: a new product sends its type, an edit sends no SKU
+    delete productData.sku;
+    if (!editingProductId) productData.sku_type = document.getElementById('sku_type').value;
     productData.name = productData.name.trim();
     if (productData.barcode) productData.barcode = productData.barcode.trim();
     if (productData.brand) productData.brand = productData.brand.trim();
@@ -988,7 +1014,7 @@ async function saveProduct(productData) {
         if (data.success) {
             showSuccessDialog(
                 editingProductId ? 'Product updated' : 'Product added',
-                editingProductId ? `${escHtml(productData.name)} has been saved with the new details.` : `${escHtml(productData.name)} is now in your inventory.`,
+                editingProductId ? `${escHtml(productData.name)} has been saved with the new details.` : `${escHtml(productData.name)} is now in your inventory with the SKU <strong>${escHtml((data.data && data.data.sku) || '')}</strong>.`,
                 { icon: 'inventory_2' }
             );
             closeProductModal();

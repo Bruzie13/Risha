@@ -106,3 +106,17 @@ test('prices, stock levels, SKU and barcode are judged against each other and th
     assert.match(productProblem({ ...good, barcode: '48 00' }, true, suppliers), /barcode can use letters, numbers and dashes/);
     assert.equal(productProblem({ cost_price: 500 }, false, suppliers), null, 'an edit that sends only the cost is not judged against a price it did not send');
 });
+
+const { SKU_TYPES, SKU_PATTERN, skuTypeProblem, skuFor } = require('../utils/sku');
+
+test('the SKU pattern: a product type and the shop running number', () => {
+    assert.equal(skuFor('DRY', 121), 'DRY-121');
+    assert.equal(skuFor('WET', 7), 'WET-007', 'the number has at least three digits');
+    assert.equal(skuFor('SUP', 1250), 'SUP-1250');
+    assert.ok(SKU_PATTERN.test('DRY-121') && SKU_PATTERN.test('CAT-117'), 'the SKUs already on record follow it');
+    assert.ok(!SKU_PATTERN.test('WET - 005') && !SKU_PATTERN.test('220003'));
+    assert.match(skuTypeProblem(''), /Choose the product type/);
+    assert.match(skuTypeProblem('XYZ'), /from the list/);
+    assert.equal(skuTypeProblem('GRO'), null);
+    assert.equal(SKU_TYPES.length, 8);
+});

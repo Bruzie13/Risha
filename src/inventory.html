@@ -254,17 +254,24 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label" for="sku">SKU *</label>
-                            <input type="text" class="form-input" id="sku" maxlength="50" autocomplete="off" placeholder="e.g. DOG-FOOD-01">
-                            <div class="field-error" id="err_sku" role="alert"></div>
+                            <label class="form-label" for="sku_type">Product type *</label>
+                            <select class="form-select" id="sku_type">
+                                <option value="">Choose a product type</option>
+                                <option value="DRY">Dry food</option>
+                                <option value="WET">Wet food</option>
+                                <option value="SUP">Supplements</option>
+                                <option value="GRO">Grooming</option>
+                                <option value="LIT">Litter</option>
+                                <option value="TOY">Toys</option>
+                                <option value="CAG">Cages</option>
+                                <option value="ACC">Accessories</option>
+                            </select>
+                            <div class="field-error" id="err_sku_type" role="alert"></div>
                         </div>
                         <div class="form-group">
-                            <label class="form-label" for="barcode">Barcode</label>
-                            <div style="display:flex;gap:8px;">
-                                <input type="text" class="form-input" id="barcode" maxlength="100" autocomplete="off" placeholder="Scan or type the barcode" style="flex:1;">
-                                <button type="button" class="btn-secondary" onclick="generateBarcodeField()" title="Generate an in-store barcode" style="white-space:nowrap;"><span class="material-symbols-outlined" style="font-size:16px;">auto_fix_high</span> Generate</button>
-                            </div>
-                            <div class="field-error" id="err_barcode" role="alert"></div>
+                            <label class="form-label" for="sku">SKU</label>
+                            <input type="text" class="form-input" id="sku" readonly tabindex="-1" placeholder="Made from the product type" style="background:var(--bg-raised, #f4f4f4);cursor:default;">
+                            <p class="form-hint" id="skuHint" style="font-size:12px;color:var(--text-muted);margin:4px 0 0;">Made by the system from the product type. It never changes once saved.</p>
                         </div>
                     </div>
                     <div class="form-row">
@@ -304,6 +311,16 @@
                             <label class="form-label" for="expiration_date">Expiration date</label>
                             <input type="date" class="form-input" id="expiration_date">
                             <div class="field-error" id="err_expiration_date" role="alert"></div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="barcode">Barcode</label>
+                            <div style="display:flex;gap:8px;">
+                                <input type="text" class="form-input" id="barcode" maxlength="100" autocomplete="off" placeholder="Scan or type the barcode" style="flex:1;">
+                                <button type="button" class="btn-secondary" onclick="generateBarcodeField()" title="Generate an in-store barcode" style="white-space:nowrap;"><span class="material-symbols-outlined" style="font-size:16px;">auto_fix_high</span> Generate</button>
+                            </div>
+                            <div class="field-error" id="err_barcode" role="alert"></div>
                         </div>
                     </div>
                     <details id="productMore" style="margin-top:6px;">
@@ -516,7 +533,7 @@
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=30"></script>
 <script src="js/assistant.js?v=25"></script>
-    <script src="js/inventory.js?v=37"></script>
+    <script src="js/inventory.js?v=38"></script>
 </body>
 </html>
 

@@ -221,6 +221,16 @@ class Product {
         }
     }
 
+    /* The highest running number in a SKU of the pattern (DRY-121 → 121),
+       counting every product ever saved: the SKU column is unique, so a
+       deleted product's number is not given out again. */
+    static async highestSkuNumber() {
+        const [rows] = await pool.query(
+            "SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(sku, '-', -1) AS UNSIGNED)), 0) AS n FROM products WHERE sku REGEXP '^[A-Z]{3}-[0-9]{3,}$'"
+        );
+        return Number(rows[0].n) || 0;
+    }
+
     static async findBySku(sku) {
         const connection = await pool.getConnection();
         try {
