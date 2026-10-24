@@ -285,8 +285,20 @@
             var submit = document.getElementById('fpSubmit');
 
             document.getElementById('forgotLink').addEventListener('click', function () {
+                // The reset is for a named account, so the username comes first.
+                // Says nothing about whether that account exists.
+                var userField = document.getElementById('username');
+                var errorEl = document.getElementById('loginError');
+                if (!userField.value.trim()) {
+                    errorEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">person</span> Enter your username first.';
+                    errorEl.classList.add('show');
+                    userField.removeAttribute('readonly');
+                    userField.focus();
+                    return;
+                }
+                errorEl.classList.remove('show');
                 msg.className = 'fp-msg';
-                input.value = document.getElementById('username').value;
+                input.value = userField.value.trim();
                 overlay.classList.add('show');
                 input.focus();
             });
