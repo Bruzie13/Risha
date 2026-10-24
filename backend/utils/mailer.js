@@ -343,8 +343,15 @@ function trackingPixel(trackingId) {
  */
 function confirmButton(trackingId, label) {
     if (!trackingId) return '';
-    return ctaButton(`${BASE_URL}/track/click/${trackingId}`, label) +
-        fine(`Pressing it tells ${BRAND.org} you have seen this email.`);
+    const url = `${BASE_URL}/track/click/${trackingId}`;
+    // Brevo rewrites every <a href> through its click tracker, and that
+    // tracker does not answer on some networks, so the button can hang on a
+    // blank tab. The address is also given as plain text, which Brevo leaves
+    // alone: copied (or opened from the mail app's own link) it goes straight
+    // to the shop.
+    return ctaButton(url, label) +
+        fine(`Pressing it tells ${BRAND.org} you have seen this email.`) +
+        fine(`If the button does not open, copy this address into your browser:<br /><span style="color:${BRAND.link};word-break:break-all;">${esc(url)}</span>`, 'left');
 }
 
 /**
