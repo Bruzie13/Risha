@@ -1,5 +1,8 @@
 /* FETCH Assistant — floating chat widget injected on every page.
-   Talks to /api/assistant, which answers questions about this shop only. */
+   Talks to /api/assistant, which answers questions about this shop only. A
+   stock change the assistant prepares comes back as a card; it is sent to the
+   normal stock API (same checks and history as the Inventory page) only when
+   the user presses Confirm. */
 (function () {
     if (window.location.pathname.includes('login.html') || window.location.pathname === '/' || window.location.pathname.endsWith('/')) return;
     // The assistant answers from shop-wide data, which till and supplier
@@ -9,6 +12,8 @@
     let open = false;
     let enabled = null; // unknown until /status
     let asking = false;
+    let canChange = false;
+    const history = []; // earlier turns, sent with each question so follow-ups make sense
 
     function el(tag, attrs, html) {
         const e = document.createElement(tag);
@@ -95,8 +100,9 @@
             const r = await fetch(`${API_BASE}/assistant/status`, { headers: getAuthHeaders() });
             const d = await r.json();
             enabled = !!d.enabled;
+            canChange = !!d.can_change;
             if (!enabled) {
-                addMsg('bot', "I'm not switched on yet — an admin needs to add a free AI key. Once that's done, I can answer questions about your stock, sales, and suppliers.");
+                addMsg('bot', "I'm not switched on yet. An administrator needs to add a Claude API key. Then I can answer questions about your stock, sales and suppliers, and prepare stock changes for you to confirm.");
             }
         } catch { enabled = false; }
     }
@@ -133,17 +139,68 @@
         const typing = addMsg('bot', '<span class="fa-typing"><i></i><i></i><i></i></span>', true);
         try {
             const r = await fetch(`${API_BASE}/assistant`, {
-                method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ question: q })
+                method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ question: q, history: history.slice(-8) })
             });
             const d = await r.json();
             typing.remove();
-            addMsg('bot', d.success ? d.answer : (d.message || 'The assistant could not answer: the server gave no reason.'));
+            const answer = d.success ? d.answer : (d.message || 'The assistant could not answer: the server gave no reason.');
+            addMsg('bot', answer);
+            if (d.success) {
+                history.push({ role: 'user', text: q }, { role: 'assistant', text: answer });
+                (d.proposals || []).forEach(addProposal);
+            }
         } catch {
             typing.remove();
             addMsg('bot', "I couldn't reach the server. Please try again.");
         } finally {
             asking = false;
         }
+    }
+
+    const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const KIND = { in: 'Add stock', out: 'Take out stock', adjustment: 'Count lower', damage: 'Write off as damaged' };
+
+    /* A change the assistant prepared. Only two kinds exist, and each goes to a
+       fixed endpoint: the card never sends anything the user cannot see. */
+    function addProposal(p) {
+        if (!p || !Number.isInteger(Number(p.product_id))) return;
+        const body = document.getElementById('faBody');
+        const card = el('div', { className: 'fa-msg fa-bot fa-proposal' });
+        const lines = p.type === 'stock'
+            ? `<div class="fa-prop-title">${esc(KIND[p.kind] || 'Stock change')}: ${esc(p.quantity)}</div>
+               <div class="fa-prop-line"><strong>${esc(p.product)}</strong> (${esc(p.sku)})</div>
+               <div class="fa-prop-line">Stock ${esc(p.stock_before)} → <strong>${esc(p.stock_after)}</strong>${p.removed_expired ? ` (the ${esc(p.removed_expired)} expired are written off first)` : ''}</div>
+               ${p.expiration_date ? `<div class="fa-prop-line">New batch expires ${esc(p.expiration_date)}</div>` : ''}
+               <div class="fa-prop-line">Reason: ${esc(p.reason)}</div>`
+            : `<div class="fa-prop-title">New reorder level</div>
+               <div class="fa-prop-line"><strong>${esc(p.product)}</strong> (${esc(p.sku)})</div>
+               <div class="fa-prop-line">Reorder level ${esc(p.from)} → <strong>${esc(p.to)}</strong></div>`;
+        card.innerHTML = lines + `<div class="fa-prop-actions"><button type="button" class="btn-secondary fa-prop-cancel">Cancel</button><button type="button" class="btn-primary fa-prop-ok">Confirm</button></div><div class="fa-prop-result" role="status"></div>`;
+        body.appendChild(card);
+        body.scrollTop = body.scrollHeight;
+        const ok = card.querySelector('.fa-prop-ok'), cancel = card.querySelector('.fa-prop-cancel'), result = card.querySelector('.fa-prop-result');
+        const done = (text, good) => {
+            ok.remove(); cancel.remove();
+            result.textContent = text; result.className = 'fa-prop-result ' + (good ? 'ok' : 'err');
+            history.push({ role: 'user', text: good ? `[I confirmed: ${p.type === 'stock' ? KIND[p.kind] + ' ' + p.quantity + ' of ' + p.product : 'reorder level of ' + p.product + ' to ' + p.to}. ${text}]` : `[Not done: ${text}]` });
+        };
+        cancel.addEventListener('click', () => done('Cancelled. Nothing was changed.', false));
+        ok.addEventListener('click', async () => {
+            ok.disabled = cancel.disabled = true;
+            ok.innerHTML = '<span class="fa-spin"></span>Saving…';
+            const id = Number(p.product_id);
+            const req = p.type === 'stock'
+                ? { url: `${API_BASE}/products/${id}/stock`, body: Object.assign({ quantity: Number(p.quantity), movement_type: p.kind, notes: 'FETCH Assistant: ' + p.reason, request_key: 1 + Math.floor(Math.random() * 2147483646) }, p.expiration_date ? { expiration_date: p.expiration_date } : {}) }
+                : { url: `${API_BASE}/products/${id}`, body: { reorder_level: Number(p.to) } };
+            try {
+                const r = await fetch(req.url, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(req.body) });
+                const d = await r.json().catch(() => ({}));
+                if (r.ok && d.success !== false) done(p.type === 'stock' ? (d.message || 'Stock adjusted.') : 'Reorder level saved.', true);
+                else done(d.message || 'The change was refused.', false);
+            } catch {
+                done("I couldn't reach the server. Nothing was changed.", false);
+            }
+        });
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
