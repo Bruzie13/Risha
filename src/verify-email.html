@@ -113,7 +113,7 @@
                 var data = await res.json();
                 if (data.success) {
                     settle('ok', 'mark_email_read', 'Email confirmed',
-                        'Your address is verified. You can now sign in to FETCH with your username and password.', true);
+                        'Your address is confirmed. You can now sign in to FETCH with your username and password.', true);
                 } else {
                     settle('err', 'link_off', 'We could not confirm this link',
                         data.message || 'This confirmation link is invalid or has expired.', false);

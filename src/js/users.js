@@ -75,7 +75,7 @@ function displayUsers(users) {
             <td>
                 ${escHtml(u.email)}
                 ${Number(u.email_verified) === 1
-                    ? '<span class="verify-badge verified" title="This address has been confirmed by the account holder"><span class="material-symbols-outlined">verified</span> Verified</span>'
+                    ? '<span class="verify-badge verified" title="This address has been confirmed by the account holder"><span class="material-symbols-outlined">verified</span> Confirmed</span>'
                     : '<span class="verify-badge pending" title="Cannot sign in until the confirmation link is clicked"><span class="material-symbols-outlined">mark_email_unread</span> Unconfirmed</span>'}
             </td>
             <td><span class="role-badge role-${escHtml(u.role)}">${escHtml(roleLabel(u.role))}</span>${u.role === 'supplier' && u.supplier_name ? `<span style="display:block;font-size:12.5px;color:var(--text-muted);margin-top:2px;">${escHtml(u.supplier_name)}</span>` : ''}</td>
@@ -412,8 +412,8 @@ async function handleUserSubmit(event) {
         const code = document.getElementById('userEmailCode').value.trim();
         // Backstop — the Create User button is disabled until these hold.
         if (!codedEmail) {
-            showErrorDialog('Verify the email first',
-                'Press "Send code" next to the email field. We email a 6-digit code to that address; type it into the "Email verification code" box below, then create the account.');
+            showErrorDialog('Confirm the email first',
+                'Press "Send code" next to the email field. We email a 6-digit code to that address; type it into the "Email code" box below, then create the account.');
             return;
         }
         if (userData.email.trim().toLowerCase() !== codedEmail) {

@@ -448,7 +448,7 @@ async function saveEmailSettings() {
     }
 
     btn.disabled = true;
-    setEmailStatus('Verifying credentials with Gmail…', 'info');
+    setEmailStatus('Checking the Gmail details…', 'info');
     try {
         var res = await fetch(API_BASE + '/email-settings', {
             method: 'PUT',
@@ -462,8 +462,8 @@ async function saveEmailSettings() {
         });
         var data = await res.json();
         if (data.success) {
-            setEmailStatus('Saved — credentials verified with Gmail ✓', 'success');
-            showSuccessDialog('Email settings saved', 'Credentials verified with Gmail — supplier emails are good to go.', { icon: 'mark_email_read' });
+            setEmailStatus('Saved — Gmail details checked ✓', 'success');
+            showSuccessDialog('Email settings saved', 'Gmail details checked — supplier emails are good to go.', { icon: 'mark_email_read' });
             document.getElementById('emailSenderPass').value = '';
             loadEmailSettings();
         } else {

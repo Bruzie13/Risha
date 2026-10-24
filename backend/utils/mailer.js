@@ -574,7 +574,7 @@ async function sendVerificationEmail(toEmail, fullName, verifyToken) {
 
 templates.emailCode = function ({ code }) {
     const contentHtml =
-        heading('Your verification code') +
+        heading('Your 6-digit code') +
         paragraph(`An account is being set up for you on <strong>${BRAND.app}</strong>, the inventory and sales system used at ${BRAND.org}.`) +
         paragraph('Give this code to the person setting up your account:') +
         `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:20px 0;">
@@ -585,7 +585,7 @@ templates.emailCode = function ({ code }) {
         </table>` +
         paragraph(`Until this code is entered, <strong>no account exists</strong>. It is asked for so that nobody can register an address they do not own.`);
     const text = [
-        'Your verification code', '',
+        'Your 6-digit code', '',
         `An account is being set up for you on ${BRAND.app}, the inventory and sales system used at ${BRAND.org}.`, '',
         `Your code: ${code}`,
         'It works for 10 minutes.', '',
@@ -594,11 +594,11 @@ templates.emailCode = function ({ code }) {
         BRAND.org
     ].join('\n');
     return {
-        subject: `${code} is your ${BRAND.app} verification code`,
+        subject: `${code} is your ${BRAND.app} code`,
         text,
         html: emailShell({
-            preheader: `${code} is your verification code for ${BRAND.app}. It works for 10 minutes.`,
-            title: `Your ${BRAND.app} verification code`,
+            preheader: `${code} is your code for ${BRAND.app}. It works for 10 minutes.`,
+            title: `Your ${BRAND.app} code`,
             contentHtml,
             footerNote: `You received this because someone at ${BRAND.org} entered this address when setting up an account. If that wasn't expected, ignore this email. No account is created without the code.`
         })

@@ -75,7 +75,7 @@ router.put('/', async (req, res) => {
         invalidateEmailConfigCache();
         logAudit(req.user.id, 'update', 'settings', null, null, { email_user: settings.email_user, email_from_name: settings.email_from_name, email_enabled: settings.email_enabled }, req.ip);
 
-        res.json({ success: true, message: 'Email settings saved and verified with Gmail' });
+        res.json({ success: true, message: 'Email settings saved and checked with Gmail' });
     } catch (e) {
         console.error('Save email settings error:', e.message);
         res.status(500).json({ success: false, message: 'Error saving email settings' });
