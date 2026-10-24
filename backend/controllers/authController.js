@@ -355,7 +355,7 @@ async function issueResetLink(user, ttlMs) {
 exports.forgotPassword = async (req, res) => {
     const genericResponse = {
         success: true,
-        message: 'If that account exists: an administrator account is emailed a reset link straight away. Any other account waits for an administrator to approve it, and is then emailed the link.'
+        message: 'Request sent. If the account exists, the reset email will follow.'
     };
     try {
         const { username } = req.body;
