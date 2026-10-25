@@ -203,7 +203,7 @@ exports.autoGeneratePO = async (req, res) => {
                 continue;
             }
             if (expired.has(Number(product.id))) {
-                warnings.push(`"${product.name}" is expired — ordering a fresh batch; remove the expired units from shelves`);
+                warnings.push(`"${product.name}" has expired: a fresh batch was ordered. Remove the expired units from the shelf.`);
             }
 
             let reorderQuantity;
@@ -213,7 +213,8 @@ exports.autoGeneratePO = async (req, res) => {
                 reorderQuantity = planned.get(Number(product.id));
             } else if (!hasSalesData || dailyAvg < 0.5) {
                 if (hasSalesData && dailyAvg < 0.5) {
-                    warnings.push(`"${product.name}" has low sales velocity (${dailyAvg.toFixed(2)} units/day), ordering minimum quantity`);
+                    const sold = Number(unitsSold30d);
+                    warnings.push(`"${product.name}" ${sold ? `sold only ${sold}` : 'had no sales'} in the last 30 days, so a small order was placed: enough to bring it to twice its reorder level.`);
                 }
                 reorderQuantity = Math.max(product.reorder_level * 2 - product.stock_quantity, product.reorder_level);
             } else if (dailyAvg < 2) {

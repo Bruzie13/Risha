@@ -1160,9 +1160,24 @@ async function saveStockAdjustment() {
     }
 }
 
-function showWarnings(warnings) {
-    const list = warnings.map(w => `<div style="padding:6px 0;border-bottom:1px solid var(--border-color,#eee);font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;color:var(--danger);">warning_amber</span> ${escHtml(w)}</div>`).join('');
-    showConfirmDialog('Reorder warnings', list, () => {}, 'Got It', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">smart_toy</span>');
+/* The result of a reorder in one message: what was sent, then any notes
+   about single products under it. The notes used to open a second box half a
+   second later, on top of the first, so the result was hidden. A message with
+   notes waits to be closed. */
+function showReorderResult(data, count) {
+    const notes = data.warnings || [];
+    const notesHtml = notes.length
+        ? '<span style="display:block;margin-top:10px;text-align:left;font-size:13px;"><strong>Notes:</strong>'
+            + notes.slice(0, 8).map(w => `<span style="display:block;margin-top:4px;">${escHtml(w)}</span>`).join('')
+            + (notes.length > 8 ? `<span style="display:block;margin-top:4px;">and ${notes.length - 8} more</span>` : '') + '</span>'
+        : '';
+    if (count > 0) {
+        showSuccessDialog('Purchase orders sent', escHtml(reorderResultText(data, count)) + notesHtml,
+            { icon: data.email_failed ? 'outgoing_mail' : 'mark_email_read', stay: notes.length > 0 });
+    } else {
+        showSuccessDialog('No orders generated', escHtml(data.message || 'Nothing needed reordering.') + notesHtml,
+            { tone: 'info', stay: notes.length > 0 });
+    }
 }
 
 // Auto-reorder function — shows product selection list
@@ -1340,14 +1355,7 @@ async function doReorder(productIds) {
         const data = await response.json();
         if (data.success) {
             const count = data.count || (Array.isArray(data.data) ? data.data.length : 0);
-            if (count > 0) {
-                showSuccessDialog('Purchase orders sent', reorderResultText(data, count), { icon: data.email_failed ? 'outgoing_mail' : 'mark_email_read' });
-            } else {
-                showSuccessDialog('No orders generated', data.message || 'Nothing needed reordering — see the notes for details.', { tone: 'info' });
-            }
-            if (data.warnings && data.warnings.length > 0) {
-                setTimeout(() => showWarnings(data.warnings), 500);
-            }
+            showReorderResult(data, count);
             await loadProducts();
         } else {
             showToast('Error: ' + (data.message || 'the server gave no reason'), 'error');
@@ -1473,14 +1481,7 @@ async function bulkReorder() {
             });
             const data = await response.json();
             const count = data.count || (Array.isArray(data.data) ? data.data.length : 0);
-            if (count > 0) {
-                showSuccessDialog('Purchase orders sent', reorderResultText(data, count), { icon: data.email_failed ? 'outgoing_mail' : 'mark_email_read' });
-            } else {
-                showSuccessDialog('No orders generated', data.message || 'Nothing needed reordering — see the notes for details.', { tone: 'info' });
-            }
-            if (data.warnings && data.warnings.length > 0) {
-                setTimeout(() => showWarnings(data.warnings), 500);
-            }
+            showReorderResult(data, count);
             clearSelection();
             await loadProducts();
         } catch (error) {

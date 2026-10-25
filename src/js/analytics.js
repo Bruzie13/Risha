@@ -230,7 +230,7 @@ function createPlannedOrders() {
                 if (!data.success) { showToast(data.message || 'The orders could not be created', 'error'); return; }
                 const warnings = Array.isArray(data.warnings) && data.warnings.length
                     ? '<br><br>' + data.warnings.map(w => escHtml(w)).join('<br>') : '';
-                showSuccessDialog('Purchase orders created', escHtml(data.message || 'Done.') + warnings, { icon: 'local_shipping' });
+                showSuccessDialog('Purchase orders created', escHtml(data.message || 'Done.') + warnings, { icon: 'local_shipping', stay: !!warnings });
                 loadStockPlanning(true);
             } catch (error) {
                 console.error('Creating orders failed:', error);
