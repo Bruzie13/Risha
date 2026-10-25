@@ -848,3 +848,19 @@ p, li, .breadcrumb, .rp-card-sub, .settings-toggle-desc { text-wrap: pretty; }
 .star-btn .star-note::after { content: " ›"; color: var(--primary); font-weight: 700; }
 @media (hover: hover) and (pointer: fine) { .star-btn:hover { background: var(--primary-bg) !important; } }
 .star-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+/* ----- A purchase order's progress on the Dashboard (poProgressHtml) ----- */
+.po-item { flex-wrap: wrap; align-items: flex-start; }
+.po-progress { flex-basis: 100%; display: flex; margin-top: 2px; }
+.po-step { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; font-size: 11.5px; color: var(--text-muted); }
+.po-step::before { content: ""; position: absolute; top: 7px; left: -50%; width: 100%; height: 2px; background: var(--border-glass-strong); }
+.po-step:first-child::before { display: none; }
+.po-step.done::before, .po-step.now::before { background: var(--primary); }
+.po-dot { position: relative; width: 16px; height: 16px; border-radius: 50%; margin-bottom: 3px; display: flex; align-items: center; justify-content: center;
+  background: var(--bg-card); border: 2px solid var(--border-glass-strong); color: #fff; font-size: 10px; font-weight: 700; line-height: 1; }
+.po-step.done { color: var(--text-primary); }
+.po-step.done .po-dot { background: var(--primary); border-color: var(--primary); }
+.po-step.now { color: var(--primary-dark); font-weight: 700; }
+.po-step.now .po-dot { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
+.po-progress-note { display: block; font-size: 12px; color: var(--text-secondary); }
+.po-progress-note.cancelled { color: var(--danger); font-weight: 600; }

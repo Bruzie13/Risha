@@ -361,6 +361,21 @@ async function sendPOAdvance(id, nextStatus, poNumber, expiration_date) {
     }
 }
 
+/* Where an order is in its life: four steps joined by a line, the ones done
+   ticked, the current one ringed. An offer from a supplier and a cancelled
+   order are not on that road, so they say so in words instead. */
+const PO_STEPS = [['pending', 'Pending'], ['confirmed', 'Confirmed'], ['shipped', 'Shipped'], ['received', 'Received']];
+function poProgressHtml(status) {
+    if (status === 'proposed') return '<div class="po-progress po-progress-note">Offer from the supplier, waiting for your answer</div>';
+    if (status === 'cancelled') return '<div class="po-progress po-progress-note cancelled">Cancelled</div>';
+    const at = PO_STEPS.findIndex(s => s[0] === status);
+    if (at < 0) return '';
+    const done = k => k < at || status === 'received';
+    return `<div class="po-progress" role="img" aria-label="Order progress: ${PO_STEPS[at][1]}, step ${at + 1} of 4">`
+        + PO_STEPS.map(([, name], k) => `<span class="po-step ${done(k) ? 'done' : k === at ? 'now' : ''}" aria-hidden="true"><span class="po-dot">${done(k) ? '✓' : ''}</span>${name}</span>`).join('')
+        + '</div>';
+}
+
 async function loadRecentPOs() {
     try {
         const response = await fetch(`${API_BASE}/purchase-orders`, { headers: getAuthHeaders() });
@@ -372,25 +387,20 @@ async function loadRecentPOs() {
             return;
         }
         list.innerHTML = items.slice(0, 5).map(po => {
-            const badge = po.status === 'received' ? 'status-completed'
-                : po.status === 'pending' ? 'status-pending'
-                : po.status === 'cancelled' ? 'status-inactive' : 'status-shipped';
             const next = poNextStep(po.status);
             const actionBtn = (next && canManage())
                 ? `<button class="po-advance-btn" onclick="advancePO(${po.id}, '${next.status}', '${escHtml(po.po_number || 'PO#' + po.id)}')" title="${next.title}"><span class="material-symbols-outlined" style="font-size:14px;">${next.icon}</span> ${next.label}</button>`
                 : '';
-            return `<div class="dash-item">
+            return `<div class="dash-item po-item">
                 <div class="item-info">
                     <div class="item-name">${escHtml(po.po_number) || 'PO#' + po.id}</div>
                     <div class="item-sub">${escHtml(po.supplier_name) || 'Supplier #' + po.supplier_id}</div>
                 </div>
                 <div class="item-right">
                     <div class="item-value">${formatCurrency(po.total_amount || 0)}</div>
-                    <div style="display:flex;align-items:center;gap:6px;margin-top:3px;justify-content:flex-end;">
-                        <span class="status-badge ${badge}">${po.status}</span>
-                        ${actionBtn}
-                    </div>
+                    ${actionBtn ? `<div style="display:flex;justify-content:flex-end;margin-top:4px;">${actionBtn}</div>` : ''}
                 </div>
+                ${poProgressHtml(po.status)}
             </div>`;
         }).join('');
     } catch (e) {
