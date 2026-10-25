@@ -908,3 +908,6 @@ p, li, .breadcrumb, .rp-card-sub, .settings-toggle-desc { text-wrap: pretty; }
   #bulkBar.is-floating .bulk-count { flex-basis: 100%; margin-right: 0; text-align: center; }
   #bulkBar.is-floating button { flex: 1 1 40%; justify-content: center; }
 }
+/* Bulk stock adjust: Add stock or Remove stock, side by side */
+.bulk-kind { display: flex; width: 100%; gap: 6px; }
+.bulk-kind .seg-btn { flex: 1; justify-content: center; }

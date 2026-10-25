@@ -1495,10 +1495,8 @@ async function bulkAdjustStock() {
     if (!canManage()) { showToast("Your role can't adjust stock.", 'error'); return; }
     const ids = getSelectedIds();
     if (ids.length === 0) return;
-    showPromptDialog('Bulk stock adjust', `How much to add to or remove from each of the ${ids.length} product(s)?<br>Type one whole number: <strong>10</strong> adds 10, <strong>-5</strong> removes 5.`, (qty) => {
-        const numQty = Number(String(qty).trim());
-        const type = numQty > 0 ? 'in' : 'out';
-        showConfirmDialog('Confirm adjustment', `Adjust stock by ${numQty} for ${ids.length} product(s)?`, async () => {
+    openBulkAdjustDialog(ids, (type, qty) => {
+        showConfirmDialog('Confirm adjustment', `${type === 'in' ? 'Add' : 'Remove'} <strong>${qty}</strong> ${type === 'in' ? 'to' : 'from'} each of the ${ids.length} selected product(s)?`, async () => {
             if (stockSaving) return;
             stockSaving = true;
             try {
@@ -1507,7 +1505,7 @@ async function bulkAdjustStock() {
                 for (const id of ids) {
                     const res = await fetch(`${API_URL}/products/${id}/stock`, {
                         method: 'PUT', headers: getAuthHeaders(),
-                        body: JSON.stringify({ quantity: Math.abs(numQty), movement_type: type, notes: 'Bulk adjustment', request_key: newRequestKey() })
+                        body: JSON.stringify({ quantity: qty, movement_type: type, notes: 'Bulk adjustment', request_key: newRequestKey() })
                     });
                     const data = await res.json();
                     if (data.success) successCount++;
@@ -1529,19 +1527,70 @@ async function bulkAdjustStock() {
                 stockSaving = false;
             }
         }, 'Yes, Adjust', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">assignment</span>');
-    }, 'Continue', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">edit_note</span>', 'text', '10',
-    { validate: bulkQuantityProblem });
+    });
+}
+
+/* Add or remove, then how many: two buttons choose the direction, so nobody
+   has to type a minus sign. The quantity box takes one whole number. */
+function openBulkAdjustDialog(ids, onConfirm) {
+    const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', 'primary', 'edit_note', 'Bulk stock adjust',
+        `Change the stock of the ${ids.length} selected product${ids.length === 1 ? '' : 's'}.`);
+    const body = dialog.querySelector('.dialog-body');
+    body.innerHTML = `
+        <div class="seg bulk-kind" role="group" aria-label="Add or remove stock">
+            <button type="button" class="seg-btn active" data-kind="in"><span class="material-symbols-outlined">add</span> Add stock</button>
+            <button type="button" class="seg-btn" data-kind="out"><span class="material-symbols-outlined">remove</span> Remove stock</button>
+        </div>
+        <label class="form-label" for="promptInput" style="display:block;margin-top:14px;">Quantity for each product</label>
+        <input id="promptInput" class="form-input" type="text" inputmode="numeric" autocomplete="off" value="10">
+        <div id="bulkAdjustNote" style="margin-top:8px;font-size:13px;color:var(--text-muted);"></div>
+        <div id="promptError" role="alert" style="display:none;margin-top:8px;font-size:13px;font-weight:600;color:var(--danger);"></div>`;
+    body.insertAdjacentHTML('afterend', dialogActions('Cancel', 'Continue', 'btn-primary'));
+
+    let kind = 'in';
+    const input = dialog.querySelector('#promptInput');
+    const note = dialog.querySelector('#bulkAdjustNote');
+    const err = dialog.querySelector('#promptError');
+    const say = () => {
+        const n = /^\d+$/.test(input.value.trim()) ? Number(input.value.trim()) : null;
+        note.textContent = n
+            ? (kind === 'in' ? `Each product gets ${formatNumber(n)} more.` : `Each product goes down by ${formatNumber(n)}. One with less than that in stock is left as it is and named afterwards.`)
+            : '';
+    };
+    dialog.querySelectorAll('.bulk-kind .seg-btn').forEach(btn => btn.addEventListener('click', () => {
+        kind = btn.dataset.kind;
+        dialog.querySelectorAll('.bulk-kind .seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+        say();
+        input.focus();
+    }));
+    input.addEventListener('input', () => { err.style.display = 'none'; say(); });
+
+    const close = () => { document.removeEventListener('keydown', onKey); overlay.remove(); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    const submit = () => {
+        const problem = bulkQuantityProblem(input.value);
+        if (problem) { err.textContent = problem; err.style.display = 'block'; input.focus(); return; }
+        close();
+        onConfirm(kind, Number(input.value.trim()));
+    };
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    dialog.querySelector('#confirmCancelBtn').addEventListener('click', close);
+    dialog.querySelector('#confirmOkBtn').addEventListener('click', submit);
+    say();
+    setTimeout(() => { input.focus(); input.select(); }, 50);
 }
 
 /* What is wrong with the bulk quantity typed, or null. A text box, not a
    number box, so "10+10" reaches this check instead of arriving empty. */
 function bulkQuantityProblem(value) {
     const text = String(value || '').trim();
-    if (!text) return 'Type a quantity, like 10 to add or -5 to remove.';
-    if (!/^[+-]?\d+$/.test(text)) return `"${text}" is not a whole number. Type one number only, like 10 to add or -5 to remove (no + between numbers, no letters).`;
+    if (!text) return 'Type how many, like 10.';
+    if (!/^\d+$/.test(text)) return `"${text}" is not a whole number. Type one number only, like 10 (no + or - signs, no letters). Use Add stock or Remove stock above to choose which.`;
     const n = Number(text);
-    if (n === 0) return 'Type a number other than 0: 10 adds 10, -5 removes 5.';
-    if (Math.abs(n) > 9999999) return 'That quantity is larger than the system can hold.';
+    if (n === 0) return 'Type a number above 0.';
+    if (n > 9999999) return 'That quantity is larger than the system can hold.';
     return null;
 }
 
