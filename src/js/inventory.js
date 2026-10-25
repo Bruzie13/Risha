@@ -33,6 +33,7 @@ window.addEventListener('load', async () => {
     document.querySelectorAll('.inv-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === invView));
     document.getElementById('productsGrid').style.display = invView === 'grid' ? 'grid' : 'none';
     document.getElementById('productsTableWrap').style.display = invView === 'list' ? 'block' : 'none';
+    document.getElementById('selectAllGridWrap')?.classList.toggle('is-hidden', invView !== 'grid');
     await loadCategories();
     await loadSuppliers();
     await loadProducts();
@@ -243,7 +244,11 @@ function setInvView(mode) {
     document.querySelectorAll('.inv-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === mode));
     document.getElementById('productsGrid').style.display = mode === 'grid' ? 'grid' : 'none';
     document.getElementById('productsTableWrap').style.display = mode === 'list' ? 'block' : 'none';
+    // the table has its own select-all box in its header
+    const gridAll = document.getElementById('selectAllGridWrap');
+    if (gridAll) gridAll.classList.toggle('is-hidden', mode !== 'grid');
     displayProducts(getFilteredProducts());
+    updateBulkBar();
 }
 
 // status → color theme for a product card
@@ -297,8 +302,8 @@ function displayProductsGrid(products) {
         }
 
         return `
-        <div class="pcard" style="--pc-color:${t.color};--pc-accent:${t.bg};--pc-line:${t.color};animation-delay:${Math.min(i * 35, 350)}ms;">
-            ${viewer ? '' : `<input type="checkbox" class="product-checkbox pcard-check" value="${p.id}">`}
+        <div class="pcard${selectedIds.has(p.id) ? ' is-selected' : ''}" data-id="${p.id}" style="--pc-color:${t.color};--pc-accent:${t.bg};--pc-line:${t.color};animation-delay:${Math.min(i * 35, 350)}ms;">
+            ${viewer ? '' : `<input type="checkbox" class="product-checkbox pcard-check" value="${p.id}" aria-label="Select ${escAttr(p.name)}"${selectedIds.has(p.id) ? ' checked' : ''}>`}
             <span class="pcard-status">${t.label}</span>
             <div class="pcard-top">
                 <div class="pcard-avatar">${p.image_url ? `<img class="pcard-img" src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.remove()">` : ''}<span class="material-symbols-outlined">${productIcon(p)}</span></div>
@@ -334,7 +339,7 @@ function displayProductsGrid(products) {
 }
 
 function displayProducts(products) {
-    if (invView === 'grid') { displayProductsGrid(products); return; }
+    if (invView === 'grid') { displayProductsGrid(products); updateBulkBar(); return; }
     const tbody = document.getElementById('productsTableBody');
     const viewer = !canManage();
     const colSpan = viewer ? 7 : 8;
@@ -361,6 +366,7 @@ function displayProducts(products) {
         </td></tr>`;
         updatePagination('inventoryPagination', { length: serverTotal }, displayCount, 'showMoreProducts', 'showLessProducts', invPageSize());
     if (window.fetchMotion && !fetchMotion.reduced) { tbody.classList.remove('rows-in'); void tbody.offsetWidth; tbody.classList.add('rows-in'); }
+        updateBulkBar();
         return;
     }
 
@@ -400,7 +406,7 @@ function displayProducts(products) {
 
         return `
             <tr>
-                ${viewer ? '' : `<td><input type="checkbox" class="product-checkbox" value="${product.id}"></td>`}
+                ${viewer ? '' : `<td><input type="checkbox" class="product-checkbox" value="${product.id}" aria-label="Select ${escAttr(product.name)}"${selectedIds.has(product.id) ? ' checked' : ''}></td>`}
                 <td>
                     <div class="cell-product">
                         <div class="cp-avatar tint-${tint}"><span class="material-symbols-outlined" style="font-size:17px;">${productIcon(product)}</span></div>
@@ -430,6 +436,7 @@ function displayProducts(products) {
         `;
     }).join('');
     updatePagination('inventoryPagination', { length: serverTotal }, displayCount, 'showMoreProducts', 'showLessProducts', invPageSize());
+    updateBulkBar();
 }
 
 async function showMoreProducts() {
@@ -1352,35 +1359,103 @@ async function doReorder(productIds) {
 }
 
 // ===== BULK ACTIONS =====
-document.getElementById('selectAll')?.addEventListener('change', (e) => {
-    document.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = e.target.checked);
+/* One selection for both views: the ids picked, kept while the list is
+   redrawn (the 10-second stock refresh, a switch between cards and table).
+   Only products on screen can stay picked, so a bulk delete never reaches a
+   product a filter has hidden. */
+const selectedIds = new Set();
+
+/* The tick boxes of the view on screen. */
+function visibleProductBoxes() {
+    const wrap = document.getElementById(invView === 'grid' ? 'productsGrid' : 'productsTableBody');
+    return wrap ? Array.from(wrap.querySelectorAll('.product-checkbox')) : [];
+}
+
+function setPicked(id, on) {
+    if (on) selectedIds.add(id); else selectedIds.delete(id);
+    document.querySelectorAll(`.product-checkbox[value="${id}"]`).forEach(cb => { cb.checked = on; });
+    document.querySelector(`.pcard[data-id="${id}"]`)?.classList.toggle('is-selected', on);
+}
+
+/* "Select all" (the table's header box, or the box above the cards): every
+   product shown, or none. */
+function selectAllShown(on) {
+    visibleProductBoxes().forEach(cb => setPicked(parseInt(cb.value), on));
+    updateBulkBar();
+}
+document.getElementById('selectAll')?.addEventListener('change', (e) => selectAllShown(e.target.checked));
+document.getElementById('selectAllGrid')?.addEventListener('change', (e) => selectAllShown(e.target.checked));
+
+document.addEventListener('change', (e) => {
+    if (e.target.classList.contains('product-checkbox')) {
+        setPicked(parseInt(e.target.value), e.target.checked);
+        updateBulkBar();
+    }
+});
+
+/* Clicking a card picks it, the same as its tick box. The card's own buttons
+   and links still do their own thing. */
+document.addEventListener('click', (e) => {
+    const card = e.target.closest('#productsGrid .pcard');
+    if (!card || !canManage() || e.target.closest('button, a, input, label, select, textarea')) return;
+    const id = parseInt(card.dataset.id);
+    if (!id) return;
+    setPicked(id, !selectedIds.has(id));
     updateBulkBar();
 });
 
-document.addEventListener('change', (e) => {
-    if (e.target.classList.contains('product-checkbox')) updateBulkBar();
-});
-
 function updateBulkBar() {
-    const checked = document.querySelectorAll('.product-checkbox:checked');
+    // drop picks that are no longer on screen (a filter or search changed)
+    const shown = new Set(visibleProductBoxes().map(cb => parseInt(cb.value)));
+    for (const id of Array.from(selectedIds)) if (!shown.has(id)) selectedIds.delete(id);
+
     const bar = document.getElementById('bulkBar');
     const count = document.getElementById('bulkCount');
-    if (!bar || !count) return;
-    if (checked.length > 0) {
-        bar.style.display = 'flex';
-        count.textContent = `${checked.length} selected`;
-    } else {
-        bar.style.display = 'none';
-        document.getElementById('selectAll').checked = false;
+    const n = selectedIds.size;
+    if (bar && count) {
+        bar.style.display = n > 0 ? 'flex' : 'none';
+        count.textContent = `${n} selected`;
+        placeBulkBar();
     }
+    // the select-all boxes: ticked when every shown product is picked, half when some are
+    const all = shown.size > 0 && n === shown.size;
+    ['selectAll', 'selectAllGrid'].forEach(boxId => {
+        const box = document.getElementById(boxId);
+        if (!box) return;
+        box.checked = all;
+        box.indeterminate = n > 0 && !all;
+    });
 }
 
+/* The bulk bar floats at the bottom of the screen, as wide as the list, and
+   clear of the assistant and back-to-top buttons on the right. The list gets
+   room at its foot so the bar never covers the last cards. */
+function placeBulkBar() {
+    const bar = document.getElementById('bulkBar');
+    const content = document.querySelector('.main-wrapper .content');
+    if (!bar || !content) return;
+    const on = bar.style.display !== 'none';
+    bar.classList.toggle('is-floating', on);
+    if (!on) { content.style.paddingBottom = ''; return; }
+    if (window.innerWidth <= 768) {
+        // a phone: the whole width, above the assistant button
+        bar.style.left = '12px'; bar.style.right = '12px';
+    } else {
+        const r = content.getBoundingClientRect();
+        const cs = getComputedStyle(content);
+        bar.style.left = Math.round(r.left + parseFloat(cs.paddingLeft)) + 'px';
+        bar.style.right = Math.round(Math.max(88, window.innerWidth - r.right + parseFloat(cs.paddingRight))) + 'px';
+    }
+    content.style.paddingBottom = (bar.offsetHeight + 32) + 'px';
+}
+window.addEventListener('resize', placeBulkBar);
+
 function getSelectedIds() {
-    return Array.from(document.querySelectorAll('.product-checkbox:checked')).map(cb => parseInt(cb.value));
+    return Array.from(selectedIds);
 }
 
 function clearSelection() {
-    document.querySelectorAll('.product-checkbox:checked').forEach(cb => cb.checked = false);
+    Array.from(selectedIds).forEach(id => setPicked(id, false));
     updateBulkBar();
 }
 
