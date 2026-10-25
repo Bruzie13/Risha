@@ -671,8 +671,6 @@ p, li, .breadcrumb, .rp-card-sub, .settings-toggle-desc { text-wrap: pretty; }
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   .sidebar-brand:hover .brand-icon { transform: rotate(-8deg); }
   .sidebar-nav .nav-link:not(.active):hover .nav-icon.material-symbols-outlined { transform: translateX(2px); }
-  .stat-card, .kpi-card { transition: transform 160ms var(--ease-out), border-color var(--transition); }
-  .stat-card:hover, .kpi-card:hover { transform: translateY(-2px); border-color: var(--gray-300); }
 }
 
 /* less motion asked for: nothing travels, things fade in briefly */
@@ -864,3 +862,22 @@ p, li, .breadcrumb, .rp-card-sub, .settings-toggle-desc { text-wrap: pretty; }
 .po-step.now .po-dot { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
 .po-progress-note { display: block; font-size: 12px; color: var(--text-secondary); }
 .po-progress-note.cancelled { color: var(--danger); font-weight: 600; }
+
+/* ----- Headline figures are read, not pressed ----- */
+/* The Dashboard's figures sit in one strip, divided by lines, like the
+   Reports figures, instead of five boxes that looked like buttons. A figure
+   card that does nothing stays still under the mouse; only the clickable
+   ones (.is-clickcard) answer it. */
+.kpi-grid {
+  display: flex; flex-wrap: wrap; gap: 0;
+  background: var(--bg-card); border: 1.5px solid var(--border-glass); border-radius: var(--radius-lg);
+  overflow: hidden;                                   /* clips the dividers at the outer edge */
+}
+.kpi-grid > .kpi-card,
+.kpi-grid > .kpi-card:hover {
+  flex: 1 1 200px; min-width: 0;            /* 200px: the width the boxes had */
+  background: none; border: 0; border-radius: 0; transform: none;
+  box-shadow: -1.5px 0 0 var(--border-glass), 0 -1.5px 0 var(--border-glass);   /* a line on the left and top of each */
+}
+.stat-card:not(.is-clickcard):hover { transform: none; border-color: var(--border-glass); box-shadow: none; }
+
