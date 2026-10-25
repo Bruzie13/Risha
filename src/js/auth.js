@@ -705,6 +705,11 @@ async function refreshNotifCount() {
                 if (count > 0) badge.classList.add('has-alerts');
                 else badge.classList.remove('has-alerts');
             }
+            // the Dashboard's alerts chip shows the same number as the bell
+            const chipCount = document.getElementById('alertCount');
+            if (chipCount) chipCount.textContent = count;
+            const chip = document.getElementById('alertChip');
+            if (chip) chip.classList.toggle('has-alerts', count > 0);
             if (lastNotifCount !== -1 && count > lastNotifCount && Notification.permission === 'granted') {
                 new Notification('RISHA — New Notification', {
                     body: `You have ${count} unread notification(s)`,
@@ -835,6 +840,7 @@ async function markNotifRead(id) {
     try {
         await fetch(`${API_BASE}/notifications/${id}/read`, { method: 'PUT', headers: getAuthHeaders() });
         refreshNotifCount();
+        document.dispatchEvent(new CustomEvent('notifs-changed'));
         const dd = document.getElementById('notifDropdown');
         if (dd) {
             closeNotifDropdown();
@@ -850,6 +856,7 @@ async function markAllNotifRead() {
         if (!res.ok || data.success === false) { showToast(data.message || 'Could not mark them as read', 'error'); return; }
         refreshNotifCount();
         closeNotifDropdown();
+        document.dispatchEvent(new CustomEvent('notifs-changed'));
         showToast('All notifications marked as read', 'success');
     } catch (e) {
         showToast(couldNot('mark all as read', e), 'error');

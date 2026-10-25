@@ -172,6 +172,10 @@ async function doClearRead() {
     }
 }
 
+// the list, the summary and the bell's number move together
 function refreshList() {
+    if (typeof refreshNotifCount === 'function') refreshNotifCount();
     return Promise.all([loadSummary(), loadNotifications()]);
 }
+// a notice marked read from the bell's list while this page is open
+document.addEventListener('notifs-changed', () => refreshList());
