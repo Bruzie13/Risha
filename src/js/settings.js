@@ -273,8 +273,7 @@ function setupSidebarToggle() {
         var hidden = checkbox.checked;
         document.documentElement.classList.toggle('sidebar-hidden', hidden);
         localStorage.setItem('sidebarHidden', hidden ? 'true' : 'false');
-        var btn = document.getElementById('sidebarToggleBtn');
-        if (btn) btn.innerHTML = hidden ? '<span class="material-symbols-outlined">chevron_right</span>' : '<span class="material-symbols-outlined">chevron_left</span>';
+        paintSidebarToggle(hidden);
     });
 }
 

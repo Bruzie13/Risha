@@ -240,12 +240,23 @@ function isSidebarHidden() {
     return document.documentElement.classList.contains('sidebar-hidden');
 }
 
+/* The sidebar's top button: an arrow to fold it away, and once it is folded,
+   the Risha logo, which opens it again. */
+function paintSidebarToggle(hidden) {
+    const btn = document.getElementById('sidebarToggleBtn');
+    if (!btn) return;
+    btn.innerHTML = hidden
+        ? '<img class="sidebar-toggle-logo" src="images/logo.jpeg" alt="">'
+        : '<span class="material-symbols-outlined">chevron_left</span>';
+    btn.title = hidden ? 'Show the menu' : 'Collapse sidebar';
+    btn.setAttribute('aria-label', btn.title);
+}
+
 function toggleSidebarVisibility() {
     const hidden = !isSidebarHidden();
     document.documentElement.classList.toggle('sidebar-hidden', hidden);
     localStorage.setItem('sidebarHidden', hidden ? 'true' : 'false');
-    const btn = document.getElementById('sidebarToggleBtn');
-    if (btn) btn.innerHTML = hidden ? '<span class="material-symbols-outlined">chevron_right</span>' : '<span class="material-symbols-outlined">chevron_left</span>';
+    paintSidebarToggle(hidden);
     const sidebar = document.getElementById('sidebar');
     if (sidebar) sidebar.classList.remove('open');
 }
@@ -1018,10 +1029,7 @@ document.addEventListener('DOMContentLoaded', () => {
         themeBtn.addEventListener('click', toggleTheme);
     }
 
-    var sidebarBtn = document.getElementById('sidebarToggleBtn');
-    if (sidebarBtn) {
-        sidebarBtn.innerHTML = isSidebarHidden() ? '<span class="material-symbols-outlined">chevron_right</span>' : '<span class="material-symbols-outlined">chevron_left</span>';
-    }
+    paintSidebarToggle(isSidebarHidden());
 
     document.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
