@@ -27,7 +27,7 @@
     <link rel="stylesheet" href="css/global.css?v=53">
     <link rel="stylesheet" href="css/inventory.css?v=23">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=45">
+        <link rel="stylesheet" href="css/system.css?v=46">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -115,7 +115,6 @@
                     </select>
                 </div>
                 <div class="toolbar-right">
-                    <label class="select-all-shown" data-needs="manage" id="selectAllGridWrap" title="Select every product shown"><input type="checkbox" id="selectAllGrid"> Select all</label>
                     <div class="inv-view-toggle" role="group" aria-label="View mode">
                         <button class="inv-view-btn active" data-view="grid" onclick="setInvView('grid')" title="Card view"><span class="material-symbols-outlined" style="font-size:18px;">grid_view</span></button>
                         <button class="inv-view-btn" data-view="list" onclick="setInvView('list')" title="Table view"><span class="material-symbols-outlined" style="font-size:18px;">view_list</span></button>
@@ -195,6 +194,7 @@
                     <button class="btn-secondary" onclick="showAllProducts()" style="margin-left:auto;padding:6px 14px;font-size:12px;">Show all products</button>
                 </div>
             </div>
+            <label class="select-all-shown" data-needs="manage" id="selectAllGridWrap" title="Select every product shown"><input type="checkbox" id="selectAllGrid"> Select all products shown</label>
             <div id="productsGrid" class="product-grid"></div>
             <div class="table-container" id="productsTableWrap" style="display:none;">
                 <table class="data-table">
