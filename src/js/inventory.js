@@ -1495,10 +1495,8 @@ async function bulkAdjustStock() {
     if (!canManage()) { showToast("Your role can't adjust stock.", 'error'); return; }
     const ids = getSelectedIds();
     if (ids.length === 0) return;
-    showPromptDialog('Bulk stock adjust', `Enter quantity to add/remove for ${ids.length} product(s):<br>(positive = add stock, negative = remove stock)`, (qty) => {
-        if (qty === null || qty === '') return;
-        const numQty = parseInt(qty);
-        if (isNaN(numQty) || numQty === 0) { showToast('Enter the quantity as a number other than 0: a positive number adds stock, a negative number removes it.', 'error'); return; }
+    showPromptDialog('Bulk stock adjust', `How much to add to or remove from each of the ${ids.length} product(s)?<br>Type one whole number: <strong>10</strong> adds 10, <strong>-5</strong> removes 5.`, (qty) => {
+        const numQty = Number(String(qty).trim());
         const type = numQty > 0 ? 'in' : 'out';
         showConfirmDialog('Confirm adjustment', `Adjust stock by ${numQty} for ${ids.length} product(s)?`, async () => {
             if (stockSaving) return;
@@ -1531,7 +1529,20 @@ async function bulkAdjustStock() {
                 stockSaving = false;
             }
         }, 'Yes, Adjust', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">assignment</span>');
-    }, 'Continue', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">edit_note</span>', 'number', '10');
+    }, 'Continue', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">edit_note</span>', 'text', '10',
+    { validate: bulkQuantityProblem });
+}
+
+/* What is wrong with the bulk quantity typed, or null. A text box, not a
+   number box, so "10+10" reaches this check instead of arriving empty. */
+function bulkQuantityProblem(value) {
+    const text = String(value || '').trim();
+    if (!text) return 'Type a quantity, like 10 to add or -5 to remove.';
+    if (!/^[+-]?\d+$/.test(text)) return `"${text}" is not a whole number. Type one number only, like 10 to add or -5 to remove (no + between numbers, no letters).`;
+    const n = Number(text);
+    if (n === 0) return 'Type a number other than 0: 10 adds 10, -5 removes 5.';
+    if (Math.abs(n) > 9999999) return 'That quantity is larger than the system can hold.';
+    return null;
 }
 
 async function bulkDelete() {
