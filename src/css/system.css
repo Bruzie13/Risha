@@ -864,20 +864,22 @@ p, li, .breadcrumb, .rp-card-sub, .settings-toggle-desc { text-wrap: pretty; }
 .po-progress-note.cancelled { color: var(--danger); font-weight: 600; }
 
 /* ----- Headline figures are read, not pressed ----- */
-/* The Dashboard's figures sit in one strip, divided by lines, like the
+/* The Dashboard's and Inventory's figures sit in one strip, divided by lines, like the
    Reports figures, instead of five boxes that looked like buttons. A figure
    card that does nothing stays still under the mouse; only the clickable
    ones (.is-clickcard) answer it. */
-.kpi-grid {
+.stat-card:not(.is-clickcard):hover { transform: none; border-color: var(--border-glass); box-shadow: none; }
+.kpi-grid, .figure-strip {
   display: flex; flex-wrap: wrap; gap: 0;
   background: var(--bg-card); border: 1.5px solid var(--border-glass); border-radius: var(--radius-lg);
   overflow: hidden;                                   /* clips the dividers at the outer edge */
 }
 .kpi-grid > .kpi-card,
-.kpi-grid > .kpi-card:hover {
+.kpi-grid > .kpi-card:hover,
+.figure-strip > .stat-card,
+.figure-strip > .stat-card:hover {
   flex: 1 1 200px; min-width: 0;            /* 200px: the width the boxes had */
   background: none; border: 0; border-radius: 0; transform: none;
   box-shadow: -1.5px 0 0 var(--border-glass), 0 -1.5px 0 var(--border-glass);   /* a line on the left and top of each */
 }
-.stat-card:not(.is-clickcard):hover { transform: none; border-color: var(--border-glass); box-shadow: none; }
 

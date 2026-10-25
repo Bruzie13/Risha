@@ -27,7 +27,7 @@
     <link rel="stylesheet" href="css/global.css?v=53">
     <link rel="stylesheet" href="css/inventory.css?v=23">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=40">
+        <link rel="stylesheet" href="css/system.css?v=41">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -128,7 +128,7 @@
             </div>
 
         <div class="content">
-            <div class="stat-row">
+            <div class="stat-row figure-strip">
                 <div class="stat-card">
                     <div class="stat-icon blue"><span class="material-symbols-outlined" style="font-size:18px;">inventory_2</span></div>
                     <div class="stat-body">
@@ -138,14 +138,13 @@
 </span>
                     </div>
                 </div>
-                <div class="stat-card is-clickcard" role="button" tabindex="0" onclick="filterLowStock()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                <div class="stat-card">
                     <div class="stat-icon orange"><span class="material-symbols-outlined" style="font-size:18px;">warning_amber</span></div>
                     <div class="stat-body">
                         <span class="stat-label" title="At or below the reorder level. Out-of-stock products are included: the Low stock and Out of stock buttons below count them apart.">Restock needed</span>
                         <span class="stat-value warning" id="lowStockCount">
 <span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
 </span>
-                        <span class="click-hint">View list</span>
                     </div>
                 </div>
                 <div class="stat-card">
@@ -179,6 +178,7 @@
 
             <div class="chip-row" id="statusChips" style="margin-bottom:16px;">
                 <button class="chip active" data-status="" onclick="setStatusFilter('', this)">All <span class="chip-count" id="chipCountAll">–</span></button>
+                <button class="chip chip-warning" data-status="reorder" onclick="filterLowStock(this)" title="At or below the reorder level: low stock and out of stock together">Restock needed <span class="chip-count" id="chipCountReorder">–</span></button>
                 <button class="chip chip-warning" data-status="low" onclick="setStatusFilter('low', this)">Low stock <span class="chip-count" id="chipCountLow">–</span></button>
                 <button class="chip chip-danger" data-status="out" onclick="setStatusFilter('out', this)">Out of stock <span class="chip-count" id="chipCountOut">–</span></button>
                 <button class="chip chip-warning" data-status="expiring" onclick="setStatusFilter('expiring', this)">Expiring soon <span class="chip-count" id="chipCountExpiring">–</span></button>
@@ -189,7 +189,7 @@
             <div id="reorderBanner" style="display:none;margin-bottom:16px;">
                 <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--warning-bg);border:1px solid color-mix(in srgb, var(--warning) 25%, transparent);border-radius:var(--radius-md);flex:1;">
                     <span class="material-symbols-outlined" style="color:var(--warning);font-size:20px;">warning_amber</span>
-                    <span style="font-weight:600;font-size:13.5px;color:var(--text-primary);">Low stock items</span>
+                    <span style="font-weight:600;font-size:13.5px;color:var(--text-primary);">Restock needed</span>
                     <span id="reorderCount" style="font-size:12.5px;color:var(--text-muted);"></span>
                     <button class="btn-secondary" onclick="showAllProducts()" style="margin-left:auto;padding:6px 14px;font-size:12px;">Show all products</button>
                 </div>
@@ -535,7 +535,7 @@
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=30"></script>
 <script src="js/assistant.js?v=27"></script>
-    <script src="js/inventory.js?v=38"></script>
+    <script src="js/inventory.js?v=39"></script>
 </body>
 </html>
 

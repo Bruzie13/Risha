@@ -533,9 +533,9 @@ function setStatusFilter(status, chipEl) {
     loadProducts();
 }
 
-function filterLowStock() {
-    // Stat-card click: show everything at/below reorder level (low + out of stock)
-    setStatusFilter('reorder');
+function filterLowStock(chipEl) {
+    // the Restock needed chip: everything at/below reorder level (low + out of stock)
+    setStatusFilter('reorder', chipEl);
     const banner = document.getElementById('reorderBanner');
     if (banner) banner.style.display = 'flex';
     const ct = document.getElementById('reorderCount');
@@ -574,7 +574,7 @@ async function updateStats() {
         document.getElementById('overstockCount').textContent = n(s.overstock_count);
 
         const chipCounts = {
-            chipCountAll: s.total, chipCountLow: s.low_count, chipCountOut: s.out_count,
+            chipCountAll: s.total, chipCountReorder: s.reorder_count, chipCountLow: s.low_count, chipCountOut: s.out_count,
             chipCountExpiring: s.expiring_count, chipCountExpired: s.expired_count, chipCountIn: s.in_count
         };
         for (const id in chipCounts) {
