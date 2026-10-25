@@ -7,6 +7,7 @@ const { notifyUserLogin, notifyPasswordResetRequested, notifyAdminResetLinkSent,
 const { validatePassword } = require('../utils/passwordPolicy');
 const { adminRemovalProblem } = require('../utils/accounts');
 const { ROLES } = require('../utils/roles');
+const { imageProblem } = require('../utils/image');
 const { sendPasswordResetEmail, sendVerificationEmail, sendEmailCode, sendWelcomeEmail, isValidEmail } = require('../utils/mailer');
 
 // Brute-force protection: after 5 failed logins per IP+username within
@@ -1086,7 +1087,11 @@ exports.updateProfile = async (req, res) => {
         }
 
         // avatar: a resized data URL (or null to clear); ignore if undefined
-        if (avatar !== undefined) fields.avatar = avatar || null;
+        if (avatar !== undefined) {
+            const pictureIssue = imageProblem(avatar);
+            if (pictureIssue) return res.status(400).json({ success: false, message: pictureIssue });
+            fields.avatar = avatar || null;
+        }
 
         let user;
         try {

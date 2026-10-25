@@ -437,6 +437,19 @@ function localTodayYmd() {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
+/* The largest picture that may be picked (backend/utils/image.js has the
+   same limit). The page shrinks it before sending, so what is saved is small. */
+const MAX_IMAGE_MB = 10;
+
+/* What is wrong with the picture file chosen, or null. */
+function imageFileProblem(file) {
+    if (!file || !/^image\/(png|jpe?g|webp|gif)$/.test(file.type)) return 'Choose a PNG, JPG, WEBP or GIF picture.';
+    if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
+        return `This picture is ${(file.size / 1024 / 1024).toFixed(1)} MB. Choose one of ${MAX_IMAGE_MB} MB or less.`;
+    }
+    return null;
+}
+
 /* Stock that is being added needs at least a week left before it expires
    (backend/utils/expiry.js has the same rule). */
 const MIN_SHELF_DAYS = 7;

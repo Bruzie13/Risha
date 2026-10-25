@@ -1845,7 +1845,7 @@ function renderImageManagerList() {
             '<input type="text" class="form-input img-input" placeholder="Paste URL…" value="' + escHtml(p.image_url || '') + '" style="width:180px;flex-shrink:0;">' +
             '<label class="btn-secondary" title="Upload from this device" style="cursor:pointer;padding:6px 9px;flex-shrink:0;margin:0;">' +
                 '<span class="material-symbols-outlined" style="font-size:15px;">upload</span>' +
-                '<input type="file" accept="image/*" data-id="' + p.id + '" style="display:none;" onchange="handleManagerImageFile(this)">' +
+                '<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-id="' + p.id + '" style="display:none;" onchange="handleManagerImageFile(this)">' +
             '</label>' +
             '<span class="bc-status" style="width:20px;flex-shrink:0;text-align:center;"></span>' +
         '</div>'
@@ -1903,7 +1903,8 @@ async function saveRowImage(id, value, row) {
 // browser and store it as a compact data URL right in the product record.
 function resizeImageFile(file, maxSize, quality) {
     return new Promise((resolve, reject) => {
-        if (!file || !/^image\//.test(file.type)) { reject(new Error('Please choose an image file')); return; }
+        const problem = imageFileProblem(file);
+        if (problem) { reject(new Error(problem)); return; }
         const reader = new FileReader();
         reader.onerror = () => reject(new Error('Could not read the file'));
         reader.onload = function () {

@@ -355,9 +355,10 @@
                             <div style="display:flex;gap:10px;align-items:center;">
                                 <img id="imagePreview" alt="" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:1px solid var(--border-glass-strong);display:none;flex-shrink:0;">
                                 <input type="text" class="form-input" id="image_url" placeholder="Paste image URL, or upload →" style="flex:1;" oninput="updateImagePreview()">
-                                <input type="file" id="imageFile" accept="image/*" style="display:none;" onchange="handleFormImageFile(this)">
+                                <input type="file" id="imageFile" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;" onchange="handleFormImageFile(this)">
                                 <button type="button" class="btn-secondary" onclick="document.getElementById('imageFile').click()" title="Upload a picture from this device" style="white-space:nowrap;"><span class="material-symbols-outlined" style="font-size:16px;">upload</span> Upload</button>
                             </div>
+                            <p class="form-hint" style="font-size:12px;color:var(--text-muted);margin:4px 0 0;">PNG, JPG, WEBP or GIF, up to 10 MB.</p>
                         </div>
                     </details>
                 </div>
@@ -530,12 +531,12 @@
     </script>
         <script src="js/utils.js"></script>
 <script src="js/format.js"></script>
-<script src="js/auth.js?v=55"></script>
+<script src="js/auth.js?v=56"></script>
 <script src="js/loader.js?v=2"></script>
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=30"></script>
 <script src="js/assistant.js?v=27"></script>
-    <script src="js/inventory.js?v=40"></script>
+    <script src="js/inventory.js?v=41"></script>
 </body>
 </html>
 

@@ -578,7 +578,8 @@ async function changePassword() {
 /* ===== Profile picture ===== */
 function settingsResizeImage(file, maxSize, quality) {
     return new Promise(function (resolve, reject) {
-        if (!file || !/^image\//.test(file.type)) { reject(new Error('Please choose an image file')); return; }
+        var problem = imageFileProblem(file);
+        if (problem) { reject(new Error(problem)); return; }
         var reader = new FileReader();
         reader.onerror = function () { reject(new Error('Could not read the file')); };
         reader.onload = function () {

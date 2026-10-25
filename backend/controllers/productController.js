@@ -1,4 +1,5 @@
 const { shopToday, expiryProblem } = require('../utils/expiry');
+const { imageProblem } = require('../utils/image');
 const { SKU_TYPES, skuTypeProblem, skuFor } = require('../utils/sku');
 const { productProblem } = require('../utils/product');
 const { stockRequestKey } = require('../utils/requestKeys');
@@ -137,6 +138,11 @@ exports.createProduct = async (req, res) => {
             return res.status(400).json({ success: false, message: expiryIssue });
         }
 
+        const pictureIssue = imageProblem(image_url);
+        if (pictureIssue) {
+            return res.status(400).json({ success: false, message: pictureIssue });
+        }
+
         // the SKU was just made from the next free number (a clash with someone
         // saving at the same moment is settled below by taking the next one)
         const barcodeOwner = await Product.findByBarcode(barcode);
@@ -248,6 +254,12 @@ exports.updateProduct = async (req, res) => {
             const expiryIssue = expiryProblem(updateData.expiration_date, shopToday(), oldProduct && oldProduct.expiration_date);
             if (expiryIssue) {
                 return res.status(400).json({ success: false, message: expiryIssue });
+            }
+        }
+        if (updateData.image_url !== undefined) {
+            const pictureIssue = imageProblem(updateData.image_url);
+            if (pictureIssue) {
+                return res.status(400).json({ success: false, message: pictureIssue });
             }
         }
 
