@@ -329,7 +329,6 @@ function displayProductsGrid(products) {
             <div class="pcard-actions">
                 <button onclick="viewProductDetails(${p.id})"><span class="material-symbols-outlined">visibility</span> <span class="pca-label">View</span></button>
                 ${viewer ? '' : `<button onclick="openEditProductModal(${p.id})"><span class="material-symbols-outlined">edit</span> <span class="pca-label">Edit</span></button>
-                <button onclick="openStockModal(${p.id})"><span class="material-symbols-outlined">inventory</span> <span class="pca-label">Stock</span></button>
                 <button class="pca-danger" onclick="deleteProduct(${p.id})" title="Delete"><span class="material-symbols-outlined">delete</span></button>`}
             </div>
         </div>`;
@@ -428,7 +427,6 @@ function displayProducts(products) {
                     <div class="actions-cell">
                         <button class="btn-view" onclick="viewProductDetails(${product.id})">View</button>
                         ${viewer ? '' : `<button class="btn-edit" onclick="openEditProductModal(${product.id})">Edit</button>
-                        <button class="btn-action" onclick="openStockModal(${product.id})">Stock</button>
                         <button class="btn-delete" onclick="deleteProduct(${product.id})">Delete</button>`}
                     </div>
                 </td>
