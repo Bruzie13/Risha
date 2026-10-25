@@ -321,7 +321,7 @@ function advancePO(id, nextStatus, poNumber) {
             (dateVal) => sendPOAdvance(id, 'received', poNumber, dateVal),
             'Mark Received',
             '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">inventory</span>',
-            'date', '', { min: localTodayYmd(), validate: expiryDateProblem }
+            'date', '', { min: earliestExpiryYmd(), validate: expiryDateProblem }
         );
         return;
     }

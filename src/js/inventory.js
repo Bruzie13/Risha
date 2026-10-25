@@ -619,8 +619,8 @@ function openAddProductModal() {
     document.getElementById('sku_type').closest('.form-group').hidden = false;
     document.getElementById('sku').value = '';
     document.getElementById('skuHint').textContent = 'Made by the system from the product type. It never changes once saved.';
-    // new stock cannot already be past its date
-    document.getElementById('expiration_date').min = localTodayYmd();
+    // new stock needs at least a week before it expires
+    document.getElementById('expiration_date').min = earliestExpiryYmd();
     updateImagePreview();
     document.getElementById('productModal').classList.add('active');
 }
@@ -660,9 +660,9 @@ async function openEditProductModal(id) {
             document.getElementById('supplier_id').value = product.supplier_id || '';
             editingOriginalExpiry = product.expiration_date ? product.expiration_date.split('T')[0] : '';
             document.getElementById('expiration_date').value = editingOriginalExpiry;
-            // A product that has already expired keeps its date while other things
-            // are edited; a date that is changed has to be today or later.
-            document.getElementById('expiration_date').min = editingOriginalExpiry && editingOriginalExpiry < localTodayYmd() ? '' : localTodayYmd();
+            // A product whose date is near or past keeps it while other things are
+            // edited; a date that is changed needs at least a week left.
+            document.getElementById('expiration_date').min = editingOriginalExpiry && editingOriginalExpiry < earliestExpiryYmd() ? '' : earliestExpiryYmd();
             
             document.getElementById('productModal').classList.add('active');
         }
@@ -1058,7 +1058,7 @@ function openStockModal(productId) {
     document.getElementById('stockAdjustType').value = 'in';
     document.getElementById('stockReason').value = '';
     const exp = document.getElementById('stockExpiry');
-    if (exp) { exp.value = ''; exp.min = localTodayYmd(); }
+    if (exp) { exp.value = ''; exp.min = earliestExpiryYmd(); }
     document.getElementById('stockModal').classList.add('active');
     updateStockPreview();
 }

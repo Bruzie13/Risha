@@ -233,7 +233,7 @@
                     ? named + (expired.length === 1 ? ' has' : ' have') + ' already expired. The expired stock will be removed and replaced by the new batch. Enter the new batch\'s expiration date:'
                     : 'Enter the new batch\'s expiration date, or leave it blank to keep the current one:'),
                 function (dateVal) { setStatus(id, 'received', dateVal ? { expiration_date: dateVal } : null); },
-                'Receive into stock', null, 'date', '', { min: today, validate: function (v) {
+                'Receive into stock', null, 'date', '', { min: earliestExpiryYmd(), validate: function (v) {
                     if (!v && expired.length) return 'Enter the new batch\'s expiration date: the current one has already passed.';
                     return expiryDateProblem(v);
                 } });

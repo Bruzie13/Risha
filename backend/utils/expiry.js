@@ -1,9 +1,12 @@
 /* Expiration dates for stock that is being added.
 
    A batch that is put into stock (a new product, a received order, an
-   imported row, an edited date) cannot carry a date that has already passed:
-   it would go on the shelf already expired, and the till would refuse to sell
-   it. "Today" is the shop's day, Philippine time. */
+   imported row, an edited date) needs at least MIN_SHELF_DAYS left before it
+   expires. A date that has passed, or one only a few days off, would put
+   stock on the shelf that expires before it can be sold. "Today" is the
+   shop's day, Philippine time. */
+
+const MIN_SHELF_DAYS = 7;
 
 const shopToday = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
@@ -16,6 +19,21 @@ function asDay(value) {
         return `${value.getFullYear()}-${two(value.getMonth() + 1)}-${two(value.getDate())}`;
     }
     return String(value).slice(0, 10);
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** The first expiration date that may be saved, as YYYY-MM-DD. */
+function earliestExpiry(today) {
+    const d = new Date(today + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + MIN_SHELF_DAYS);
+    return d.toISOString().slice(0, 10);
+}
+
+/** YYYY-MM-DD as "Nov 1, 2026". */
+function prettyDay(day) {
+    const [y, m, d] = day.split('-').map(Number);
+    return `${MONTHS[m - 1]} ${d}, ${y}`;
 }
 
 /**
@@ -33,8 +51,9 @@ function expiryProblem(value, today, previous) {
         && new Date(day + 'T00:00:00Z').toISOString().slice(0, 10) === day;      // rejects 2026-02-31
     if (!real) return 'Enter the expiration date as a real date.';
     if (previous && asDay(previous) === day) return null;
-    if (day < today) return 'The expiration date cannot be earlier than today.';
+    const earliest = earliestExpiry(today);
+    if (day < earliest) return `The expiration date must be at least ${MIN_SHELF_DAYS} days from today: ${prettyDay(earliest)} or later.`;
     return null;
 }
 
-module.exports = { shopToday, asDay, expiryProblem };
+module.exports = { MIN_SHELF_DAYS, shopToday, asDay, earliestExpiry, expiryProblem };

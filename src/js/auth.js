@@ -437,10 +437,24 @@ function localTodayYmd() {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
-/* Stock that is being added cannot already be past its date. Returns what is
-   wrong with the date typed, or null. The server applies the same rule. */
+/* Stock that is being added needs at least a week left before it expires
+   (backend/utils/expiry.js has the same rule). */
+const MIN_SHELF_DAYS = 7;
+
+/* The first expiration date that may be saved, as YYYY-MM-DD. */
+function earliestExpiryYmd() {
+    const d = new Date();
+    d.setDate(d.getDate() + MIN_SHELF_DAYS);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/* What is wrong with the expiration date typed, or null. */
 function expiryDateProblem(value) {
-    return value && value < localTodayYmd() ? 'The expiration date cannot be earlier than today.' : null;
+    if (!value) return null;
+    const earliest = earliestExpiryYmd();
+    if (value >= earliest) return null;
+    const shown = new Date(earliest + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return `The expiration date must be at least ${MIN_SHELF_DAYS} days from today: ${shown} or later.`;
 }
 
 /* opts.min sets the earliest value the box offers. opts.validate(value) may

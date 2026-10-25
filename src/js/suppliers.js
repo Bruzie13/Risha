@@ -248,7 +248,7 @@ function advancePOFromModal(id, nextStatus, poNumber, supplierId) {
             'Stock will be added. Enter the new batch\'s expiration date. Leave it blank only to keep a current date that has not passed yet:',
             function (dateVal) { sendModalAdvance(id, 'received', poNumber, supplierId, dateVal); },
             'Mark Received', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">inventory</span>', 'date', '',
-            { min: localTodayYmd(), validate: expiryDateProblem });
+            { min: earliestExpiryYmd(), validate: expiryDateProblem });
         return;
     }
     showConfirmDialog('Update purchase order', 'Mark ' + poNumber + ' as ' + nextStatus + '?',
