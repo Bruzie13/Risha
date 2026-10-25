@@ -912,3 +912,5 @@ p, li, .breadcrumb, .rp-card-sub, .settings-toggle-desc { text-wrap: pretty; }
 /* Bulk stock adjust: Add stock or Remove stock, side by side */
 .bulk-kind { display: flex; width: 100%; gap: 6px; }
 .bulk-kind .seg-btn { flex: 1; justify-content: center; }
+/* the barcode in a product's details reads like the numbers under the bars */
+.details-barcode { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.06em; }
