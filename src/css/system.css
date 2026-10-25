@@ -827,3 +827,13 @@ button.fl-busy::before { content: ""; display: inline-block; width: 12px; height
   button.fl-busy::before { animation-duration: 1.6s; }
   @keyframes fl-fade-pulse { 50% { opacity: .4; } }
 }
+
+/* ----- The eye in a password field (js/password-eye.js) ----- */
+.pw-wrap { position: relative; display: block; }
+.pw-wrap > input { padding-right: 42px; width: 100%; }
+.pw-eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center; border: none; background: none; cursor: pointer;
+  color: var(--text-secondary); border-radius: var(--radius-md); }
+.pw-eye .material-symbols-outlined { font-size: 18px; }
+.pw-eye:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+@media (hover: hover) and (pointer: fine) { .pw-eye:hover { background: var(--bg-inset); color: var(--text-primary); } }
