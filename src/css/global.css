@@ -3058,17 +3058,6 @@ html.sidebar-hidden .sidebar-footer .sidebar-btn::after {
 .fa-msg ul { margin: 6px 0 2px; padding-left: 18px; }
 .fa-msg li { margin: 2px 0; }
 .fa-msg strong { font-weight: 600; }
-.fa-proposal { border: 1.5px solid var(--brand-sun, #FFD23F); background: var(--bg-card); max-width: 92%; }
-.fa-prop-title { font-weight: 700; margin-bottom: 4px; }
-.fa-prop-line { font-size: 12.5px; margin: 2px 0; }
-.fa-prop-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
-.fa-prop-actions button { padding: 6px 12px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; }
-.fa-prop-result:empty { display: none; }
-.fa-prop-result { margin-top: 8px; font-size: 12.5px; font-weight: 600; }
-.fa-prop-result.ok { color: #17602B; }
-.fa-prop-result.err { color: var(--danger, #C62828); }
-.fa-spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(255,255,255,.45); border-top-color: #fff; animation: faSpin .6s linear infinite; }
-@keyframes faSpin { to { transform: rotate(360deg); } }
 
 .fa-suggests { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .fa-chip { font-size: 12.5px; font-weight: 600; padding: 5px 10px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent); background: var(--primary-bg); color: var(--primary); cursor: pointer; transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease; }
