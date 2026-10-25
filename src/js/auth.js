@@ -731,7 +731,40 @@ function stopNotifPolling() {
     }
 }
 
-async function openNotifDropdown() {
+/* The list opens beside what was clicked: next to the bell at the foot of
+   the sidebar, under the alerts chip on the Dashboard. A phone keeps the
+   full-screen list (global.css). */
+let notifAnchor = null;
+function placeNotifDropdown() {
+    const dd = document.getElementById('notifDropdown');
+    const anchor = notifAnchor && notifAnchor.isConnected ? notifAnchor : document.getElementById('notifBellBtn');
+    if (!dd || !anchor) return;
+    dd.style.top = dd.style.bottom = dd.style.left = dd.style.right = dd.style.maxHeight = '';
+    if (window.innerWidth <= 768) return;
+    const GAP = 8, EDGE = 12;
+    const r = anchor.getBoundingClientRect();
+    const width = dd.offsetWidth;
+    const sidebar = anchor.closest('#sidebar');
+    if (sidebar) {
+        // to the right of the sidebar, its foot level with the bell, growing upward
+        dd.style.left = Math.round(sidebar.getBoundingClientRect().right + GAP) + 'px';
+        dd.style.right = 'auto';
+        dd.style.top = 'auto';
+        dd.style.bottom = Math.round(Math.max(EDGE, window.innerHeight - r.bottom)) + 'px';
+        dd.style.maxHeight = Math.round(Math.min(480, r.bottom - EDGE)) + 'px';
+    } else {
+        // under the button, kept on screen
+        const left = Math.min(Math.max(EDGE, r.left), window.innerWidth - width - EDGE);
+        dd.style.left = Math.round(left) + 'px';
+        dd.style.right = 'auto';
+        dd.style.top = Math.round(r.bottom + GAP) + 'px';
+        dd.style.maxHeight = Math.round(Math.min(480, window.innerHeight - r.bottom - GAP - EDGE)) + 'px';
+    }
+}
+window.addEventListener('resize', placeNotifDropdown);
+
+async function openNotifDropdown(anchor) {
+    if (anchor) notifAnchor = anchor;
     const existing = document.getElementById('notifDropdown');
     if (existing) {
         existing.remove();
@@ -773,6 +806,7 @@ async function openNotifDropdown() {
             </div>
         `;
         document.body.appendChild(dropdown);
+        placeNotifDropdown();
 
         setTimeout(() => {
             document.addEventListener('click', closeNotifOutside, { once: true });
