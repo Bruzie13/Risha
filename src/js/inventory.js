@@ -952,9 +952,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const input = document.getElementById(id);
         if (!input) return;
         input.addEventListener('blur', () => checkProductField(id));
-        input.addEventListener(input.tagName === 'SELECT' || input.type === 'date' ? 'change' : 'input', () => {
+        // a date is judged as soon as it is complete, typed or picked, so a
+        // date too soon is flagged before the box is even left
+        if (input.type === 'date') { input.addEventListener('change', () => checkProductField(id)); return; }
+        input.addEventListener(input.tagName === 'SELECT' ? 'change' : 'input', () => {
             if (input.classList.contains('input-invalid')) checkProductField(id);
         });
+    });
+    // the Add stock window's date: the same rule, said as soon as a date is entered
+    const stockExpiry = document.getElementById('stockExpiry');
+    stockExpiry?.addEventListener('change', () => {
+        const problem = expiryDateProblem(stockExpiry.value);
+        const box = document.getElementById('err_stockExpiry');
+        if (box) box.innerHTML = problem ? '<span class="material-symbols-outlined" style="font-size:14px;">error</span> ' + escHtml(problem) : '';
+        stockExpiry.classList.toggle('input-invalid', !!problem);
+        stockExpiry.setAttribute('aria-invalid', problem ? 'true' : 'false');
     });
     // the two prices and the two stock levels are judged against each other
     ['unit_price', 'reorder_level', 'unit_type'].forEach(id => document.getElementById(id)?.addEventListener('change', () => {
@@ -1069,7 +1081,9 @@ function openStockModal(productId) {
     document.getElementById('stockAdjustType').value = 'in';
     document.getElementById('stockReason').value = '';
     const exp = document.getElementById('stockExpiry');
-    if (exp) { exp.value = ''; exp.min = earliestExpiryYmd(); }
+    if (exp) { exp.value = ''; exp.min = earliestExpiryYmd(); exp.classList.remove('input-invalid'); }
+    const expErr = document.getElementById('err_stockExpiry');
+    if (expErr) expErr.innerHTML = '';
     document.getElementById('stockModal').classList.add('active');
     updateStockPreview();
 }
