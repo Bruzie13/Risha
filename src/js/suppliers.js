@@ -517,9 +517,9 @@ function starCellHtml(r, id) {
     for (var i = 1; i <= 5; i++) stars += '<span style="color:' + (i <= r.stars ? '#E8A317' : 'var(--border-color, #c9c9c9)') + ';">' + (i <= r.stars ? '★' : '☆') + '</span>';
     var note = !r.rated ? 'Not rated yet' : r.meets_standard ? 'Meets the standard' : 'Below the standard';
     var tone = !r.rated ? 'var(--text-secondary)' : r.meets_standard ? 'var(--success)' : 'var(--warning)';
-    return '<button type="button" onclick="showPerformance(' + Number(id) + ')" title="' + String(r.summary || '').replace(/"/g, '&quot;') + ' Click for the conditions." aria-label="' + (r.rated ? r.stars + ' of 5 stars, ' : '') + note + '" style="background:none;border:0;padding:0;cursor:pointer;text-align:left;font:inherit;color:inherit;">'
+    return '<button type="button" class="star-btn" onclick="showPerformance(' + Number(id) + ')" title="' + String(r.summary || '').replace(/"/g, '&quot;') + ' Click for the conditions." aria-label="' + (r.rated ? r.stars + ' of 5 stars, ' : '') + note + '" style="background:none;border:0;padding:0;cursor:pointer;text-align:left;font:inherit;color:inherit;">'
         + '<span style="font-size:15px;letter-spacing:1px;white-space:nowrap;">' + stars + '</span>'
-        + '<span style="display:block;font-size:11px;line-height:1.3;max-width:120px;color:' + tone + ';">' + (r.rated ? r.stars + ' of 5 · ' : '') + note + '</span></button>';
+        + '<span class="star-note" style="display:block;font-size:11px;line-height:1.3;max-width:120px;color:' + tone + ';">' + (r.rated ? r.stars + ' of 5 · ' : '') + note + '</span></button>';
 }
 
 function starRatingHtml(r) {

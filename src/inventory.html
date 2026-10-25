@@ -27,7 +27,7 @@
     <link rel="stylesheet" href="css/global.css?v=53">
     <link rel="stylesheet" href="css/inventory.css?v=23">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=37">
+        <link rel="stylesheet" href="css/system.css?v=38">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -138,13 +138,14 @@
 </span>
                     </div>
                 </div>
-                <div class="stat-card" onclick="filterLowStock()" style="cursor:pointer;">
+                <div class="stat-card is-clickcard" role="button" tabindex="0" onclick="filterLowStock()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
                     <div class="stat-icon orange"><span class="material-symbols-outlined" style="font-size:18px;">warning_amber</span></div>
                     <div class="stat-body">
                         <span class="stat-label" title="At or below the reorder level. Out-of-stock products are included: the Low stock and Out of stock buttons below count them apart.">Restock needed</span>
                         <span class="stat-value warning" id="lowStockCount">
 <span class="skeleton" style="display:inline-block;width:50px;height:22px;vertical-align:middle;border-radius:4px;margin:2px 0;"></span>
 </span>
+                        <span class="click-hint">View list</span>
                     </div>
                 </div>
                 <div class="stat-card">

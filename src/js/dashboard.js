@@ -591,17 +591,20 @@ async function loadExpirationRisk() {
             expirationData = data.data;
             const grid = document.getElementById('expiryGrid');
             grid.innerHTML = `
-                <div class="expiry-radar-card critical" onclick="showExpirationProducts('critical')">
+                <div class="expiry-radar-card critical is-clickcard" role="button" tabindex="0" onclick="showExpirationProducts('critical')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
                     <div class="radar-num">${data.data.critical.count}</div>
                     <div class="radar-label">Within 30 days</div>
+                    <span class="click-hint">View list</span>
                 </div>
-                <div class="expiry-radar-card warning" onclick="showExpirationProducts('warning')">
+                <div class="expiry-radar-card warning is-clickcard" role="button" tabindex="0" onclick="showExpirationProducts('warning')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
                     <div class="radar-num">${data.data.warning.count}</div>
                     <div class="radar-label">In 31 to 60 days</div>
+                    <span class="click-hint">View list</span>
                 </div>
-                <div class="expiry-radar-card notice" onclick="showExpirationProducts('notice')">
+                <div class="expiry-radar-card notice is-clickcard" role="button" tabindex="0" onclick="showExpirationProducts('notice')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
                     <div class="radar-num">${data.data.notice.count}</div>
                     <div class="radar-label">In 61 to 90 days</div>
+                    <span class="click-hint">View list</span>
                 </div>
             `;
             const productList = document.getElementById('expiryProductList');

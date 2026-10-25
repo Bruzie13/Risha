@@ -827,3 +827,24 @@ p, li, .breadcrumb, .rp-card-sub, .settings-toggle-desc { text-wrap: pretty; }
 .pw-eye .material-symbols-outlined { font-size: 18px; }
 .pw-eye:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 @media (hover: hover) and (pointer: fine) { .pw-eye:hover { background: var(--bg-inset); color: var(--text-primary); } }
+
+/* ----- Things you can click that are not buttons: cards, a chip, rows. They
+   read as buttons at rest: a tinted border, the same raised lower edge as the
+   buttons, a "View list ›" line, and they sink when pressed. ----- */
+.is-clickcard { cursor: pointer; border: 1.5px solid color-mix(in srgb, var(--primary) 35%, var(--border-glass)) !important;
+  box-shadow: 0 var(--edge) 0 color-mix(in srgb, var(--primary) 45%, var(--bg-card));
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out), background-color 120ms var(--ease-out); }
+.is-clickcard:active { transform: translateY(var(--edge)); box-shadow: 0 0 0 transparent; }
+.is-clickcard:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.click-hint { display: block; margin-top: 8px; font-size: 12px; font-weight: 600; color: var(--primary); }
+.click-hint::after { content: " ›"; }
+@media (hover: hover) and (pointer: fine) { .is-clickcard:hover { background: var(--primary-bg) !important; } }
+/* a row that opens something ends in an arrow */
+.rp-table tr[data-id] td:last-child { position: relative; padding-right: 28px; }
+.rp-table tr[data-id] td:last-child::after { content: "›"; position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  font-size: 18px; font-weight: 700; color: var(--primary); }
+/* the supplier's stars open its performance */
+.star-btn { border-radius: var(--radius-sm); padding: 2px 4px !important; margin: -2px -4px; }
+.star-btn .star-note::after { content: " ›"; color: var(--primary); font-weight: 700; }
+@media (hover: hover) and (pointer: fine) { .star-btn:hover { background: var(--primary-bg) !important; } }
+.star-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
