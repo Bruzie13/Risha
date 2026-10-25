@@ -621,6 +621,7 @@ function openAddProductModal() {
     document.getElementById('modalTitle').textContent = 'Add new product';
     document.getElementById('productForm').reset();
     editingOriginalSku = '';
+    editingOriginalBarcode = '';
     clearProductErrors();
     document.getElementById('productMore').open = false;
     document.getElementById('sku_type').closest('.form-group').hidden = false;
@@ -649,6 +650,7 @@ async function openEditProductModal(id) {
             document.getElementById('brand').value = product.brand || '';
             document.getElementById('species').value = product.species || '';
             document.getElementById('barcode').value = product.barcode || '';
+            editingOriginalBarcode = product.barcode || '';
             document.getElementById('image_url').value = product.image_url || '';
             updateImagePreview();
             document.getElementById('category_id').value = product.category_id;
@@ -850,10 +852,8 @@ function productFieldProblem(id) {
             if (editingProductId) return null;
             return v ? null : 'Choose the product type. The SKU is made from it.';
         case 'barcode':
-            if (!v) return null;
-            if (!/^[A-Za-z0-9\-]+$/.test(v)) return 'The barcode can use letters, numbers and dashes only, with no spaces.';
-            if (v.length < 4) return 'The barcode is too short: scan it again or click Generate.';
-            return null;
+            // a barcode the product already has may stay as it is
+            return v && v !== editingOriginalBarcode ? barcodeFormatProblem(v) : null;
         case 'unit_price':
             if (!v) return 'Enter the unit price (the selling price).';
             if (!Number.isFinite(num)) return 'The unit price has to be a number, for example 120.50.';
@@ -1781,7 +1781,7 @@ async function importCsvProducts() {
 
 function downloadCsvTemplate() {
     const headers = ['sku', 'name', 'brand', 'category', 'unit_price', 'cost_price', 'stock_quantity', 'reorder_level', 'unit_type', 'description', 'barcode', 'species'];
-    const sample = ['DOG-001', 'Sample Product', 'BrandName', 'Food', '199.99', '120.00', '50', '10', 'piece', 'Product description', 'BARCODE001', 'Dog'];
+    const sample = ['DOG-001', 'Sample Product', 'BrandName', 'Food', '199.99', '120.00', '50', '10', 'piece', 'Product description', '4801234567890', 'Dog'];
     const csv = headers.join(',') + '\n' + sample.join(',');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -1792,6 +1792,18 @@ function downloadCsvTemplate() {
     URL.revokeObjectURL(url);
 }
 /* ===== Barcode assignment ===== */
+/* A barcode is 8, 12 or 13 digits: EAN-13 on most local products, UPC-A on
+   imports and the shop's own Generate codes, EAN-8 on small packs
+   (backend/utils/product.js has the same rule). */
+let editingOriginalBarcode = '';
+function barcodeFormatProblem(code) {
+    const c = String(code || '').trim();
+    if (!c) return null;
+    if (!/^\d+$/.test(c)) return 'A barcode is 8, 12 or 13 digits: numbers only, with no letters, spaces or dashes.';
+    if (![8, 12, 13].includes(c.length)) return `A barcode is 8, 12 or 13 digits. This one has ${c.length}.`;
+    return null;
+}
+
 // Deterministic in-store barcode (UPC-A length) derived from the product id.
 function makeInStoreBarcode(id) {
     return '250' + String(id).padStart(9, '0');
@@ -1854,7 +1866,7 @@ function renderBarcodeManagerList() {
                 '<div style="font-weight:600;font-size:13px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(p.name || '') + '</div>' +
                 '<div style="font-size:12px;color:var(--text-muted);">' + escHtml(p.sku || '') + '</div>' +
             '</div>' +
-            '<input type="text" class="form-input bc-input" placeholder="Scan or type…" value="' + escHtml(p.barcode || '') + '" style="width:190px;flex-shrink:0;">' +
+            '<input type="text" class="form-input bc-input" inputmode="numeric" maxlength="13" placeholder="8, 12 or 13 digits" value="' + escHtml(p.barcode || '') + '" style="width:190px;flex-shrink:0;">' +
             '<button type="button" class="btn-secondary bc-gen" title="Generate" style="padding:6px 10px;flex-shrink:0;"><span class="material-symbols-outlined" style="font-size:15px;">auto_fix_high</span></button>' +
             '<span class="bc-status" style="width:20px;flex-shrink:0;text-align:center;"></span>' +
         '</div>'
@@ -1876,7 +1888,9 @@ function renderBarcodeManagerList() {
 async function saveRowBarcode(id, value, row) {
     const code = String(value || '').trim();
     const status = row.querySelector('.bc-status');
-    if (code.length < 2) { showToast('Enter a barcode first', 'warning'); return; }
+    if (!code) { showToast('Enter a barcode first', 'warning'); return; }
+    const codeIssue = barcodeFormatProblem(code);
+    if (codeIssue) { showToast(codeIssue, 'error'); return; }
     status.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;color:var(--text-muted);">hourglass_empty</span>';
     try {
         const res = await fetch(`${API_URL}/products/${id}`, {

@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-const { productProblem } = require('../utils/product');
+const { barcodeProblem, productProblem } = require('../utils/product');
 
 const suppliers = new Set([6, 7]);
 const good = { sku: 'DRY-100', name: 'Dog food 1kg', category_id: 1, unit_price: 120, supplier_id: 6 };
@@ -74,7 +74,7 @@ test('a list is not a value: stock change and product fields', () => {
     assert.match(productProblem({ stock_quantity: { $gt: 0 } }, false, suppliers), /Stock quantity has to be a single value/);
     assert.match(productProblem({ unit_type: ['kg'] }, false, suppliers), /Unit has to be a single value/);
     // a field this check does not know about is not its business
-    assert.equal(productProblem({ barcode: '4800', allow_same_name: true }, false, suppliers), null);
+    assert.equal(productProblem({ barcode: '48000017', allow_same_name: true }, false, suppliers), null);
     assert.equal(productProblem({ ...good, max_stock_level: null }, true, suppliers), null, 'null still means "not set"');
 });
 
@@ -103,7 +103,7 @@ test('prices, stock levels, SKU and barcode are judged against each other and th
     assert.match(productProblem({ ...good, reorder_level: 10, max_stock_level: 10 }, true, suppliers), /max stock level has to be higher than the reorder level \(10\)/);
     assert.match(productProblem({ ...good, sku: 'DOG 01' }, true, suppliers), /SKU can use letters, numbers/);
     assert.equal(productProblem({ sku: 'OLD SKU 1', name: 'x2' }, false, suppliers), null, 'an older SKU is kept as it is on an edit');
-    assert.match(productProblem({ ...good, barcode: '48 00' }, true, suppliers), /barcode can use letters, numbers and dashes/);
+    assert.match(productProblem({ ...good, barcode: '48 00' }, true, suppliers), /numbers only/);
     assert.equal(productProblem({ cost_price: 500 }, false, suppliers), null, 'an edit that sends only the cost is not judged against a price it did not send');
 });
 
@@ -120,3 +120,19 @@ test('the SKU pattern: a product type and the shop running number', () => {
     assert.equal(skuTypeProblem('GRO'), null);
     assert.equal(SKU_TYPES.length, 8);
 });
+
+test('barcode: 8, 12 or 13 digits; a barcode left as it is may stay', () => {
+    assert.equal(barcodeProblem('', null), null, 'no barcode is fine');
+    assert.equal(barcodeProblem('48000017'), null, 'EAN-8');
+    assert.equal(barcodeProblem('250000000127'), null, 'UPC-A, the shop\'s own Generate code');
+    assert.equal(barcodeProblem(' 4800361000017 '), null, 'EAN-13, spaces around it trimmed');
+    assert.equal(barcodeProblem('1111'), 'A barcode is 8, 12 or 13 digits. This one has 4.');
+    assert.match(barcodeProblem('48003610000171'), /This one has 14/);
+    assert.match(barcodeProblem('BARCODE001'), /numbers only/);
+    assert.match(barcodeProblem('4800-361'), /numbers only/);
+    assert.equal(barcodeProblem('1111a', '1111a'), null, 'an older code left unchanged');
+    assert.match(barcodeProblem('1112', '1111a'), /This one has 4/, 'changed: judged like a new one');
+    assert.match(productProblem({ barcode: '1111' }, false, suppliers, { barcode: '9999' }), /This one has 4/);
+    assert.equal(productProblem({ barcode: 'arstarst' }, false, suppliers, { barcode: 'arstarst' }), null);
+});
+

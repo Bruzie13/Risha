@@ -224,13 +224,13 @@ exports.updateProduct = async (req, res) => {
         const { id } = req.params;
         const updateData = req.body;
 
+        const oldProduct = await Product.findById(id);
+
         // an edit cannot empty out what a product needs (only the fields it carries are judged)
-        const problem = productProblem(updateData, false, await currentSupplierIds());
+        const problem = productProblem(updateData, false, await currentSupplierIds(), oldProduct);
         if (problem) {
             return res.status(400).json({ success: false, message: problem });
         }
-
-        const oldProduct = await Product.findById(id);
 
         if (updateData.sku !== undefined && oldProduct && String(updateData.sku).trim() !== String(oldProduct.sku)) {
             return res.status(400).json({ success: false, message: `The SKU cannot be changed once the product is saved. It stays ${oldProduct.sku}.` });

@@ -22,12 +22,29 @@ const FIELDS = [...new Map([...IMPORTANT, ...NOT_NEGATIVE, ...LONGEST, ...LARGES
 
 const blank = v => v == null || String(v).trim() === '';
 
+/* A barcode is the number printed under the bars, in one of the retail
+   lengths: EAN-13 (13 digits, most products sold in the Philippines), UPC-A
+   (12, imported goods and the shop's own Generate codes) or EAN-8 (8, small
+   packs). A barcode a product already has may stay as it is, so an older
+   code does not stop the rest of the product being edited. */
+const BARCODE_LENGTHS = [8, 12, 13];
+
+function barcodeProblem(value, previous) {
+    if (blank(value)) return null;
+    const code = String(value).trim();
+    if (previous != null && code === String(previous).trim()) return null;
+    if (!/^\d+$/.test(code)) return 'A barcode is 8, 12 or 13 digits: numbers only, with no letters, spaces or dashes.';
+    if (!BARCODE_LENGTHS.includes(code.length)) return `A barcode is 8, 12 or 13 digits. This one has ${code.length}.`;
+    return null;
+}
+
 /**
  * `adding` is true for a new product: every important field must be there.
  * `activeSupplierIds` is a Set of the ids of suppliers still on the shop's list.
+ * `previous` is the product as it is now, for an edit.
  * Returns the reason the product cannot be saved, or null.
  */
-function productProblem(data, adding, activeSupplierIds) {
+function productProblem(data, adding, activeSupplierIds, previous) {
     const d = data || {};
     const sent = k => Object.prototype.hasOwnProperty.call(d, k);
     const checked = k => adding || sent(k);
@@ -57,7 +74,10 @@ function productProblem(data, adding, activeSupplierIds) {
     if (sent('unit_type') && !blank(d.unit_type) && !UNIT_TYPES.includes(d.unit_type)) return 'Choose the unit from the list (piece, kg, g, liter or ml).';
     // a new SKU and any barcode have to be plain codes (an older SKU is left as it is)
     if (adding && !blank(d.sku) && !/^[A-Za-z0-9._\-/]+$/.test(String(d.sku).trim())) return 'The SKU can use letters, numbers and - _ . / only, with no spaces.';
-    if (sent('barcode') && !blank(d.barcode) && !/^[A-Za-z0-9-]+$/.test(String(d.barcode).trim())) return 'The barcode can use letters, numbers and dashes only, with no spaces.';
+    if (sent('barcode')) {
+        const codeIssue = barcodeProblem(d.barcode, previous && previous.barcode);
+        if (codeIssue) return codeIssue;
+    }
     // values that are judged against each other, when both are sent
     if (sent('cost_price') && sent('unit_price') && !blank(d.cost_price) && Number(d.cost_price) > Number(d.unit_price)) {
         return `The cost price (₱${Number(d.cost_price).toFixed(2)}) is higher than the unit price (₱${Number(d.unit_price).toFixed(2)}): the shop would lose money on each sale.`;
@@ -92,4 +112,4 @@ function stockChangeProblem(quantity, kind) {
     return null;
 }
 
-module.exports = { productProblem, stockChangeProblem, STOCK_CHANGES, MAX_STOCK };
+module.exports = { productProblem, barcodeProblem, stockChangeProblem, STOCK_CHANGES, MAX_STOCK };
