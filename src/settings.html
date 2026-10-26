@@ -36,7 +36,7 @@
             // keep the slim strip here too instead of a full sidebar.
             try {
                 var su = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
-                if (su.role === 'cashier' || su.role === 'supplier') document.documentElement.classList.add('sidebar-hidden', 'rail-only');
+                if (su.role === 'cashier' || su.role === 'supplier') { document.documentElement.classList.add('rail-only'); document.documentElement.classList.toggle('sidebar-hidden', localStorage.getItem('railOpen') !== 'true'); }
             } catch (e) {}
             var ct = localStorage.getItem('colorTheme');
             if (ct) document.documentElement.setAttribute('data-theme', ct);
@@ -48,7 +48,7 @@
             if (ts && ts !== '1') document.documentElement.style.zoom = ts;
         }());
     </script>
-    <link rel="stylesheet" href="css/system.css?v=62">
+    <link rel="stylesheet" href="css/system.css?v=63">
 </head>
 <body>
 
@@ -447,7 +447,7 @@
     </script>
     <script src="js/utils.js"></script>
     <script src="js/format.js"></script>
-    <script src="js/auth.js?v=58"></script>
+    <script src="js/auth.js?v=59"></script>
     <script src="js/loader.js?v=2"></script>
 <script src="js/password-eye.js?v=1"></script>
 <script src="js/motion.js?v=22"></script>

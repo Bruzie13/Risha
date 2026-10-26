@@ -1001,3 +1001,7 @@ html:not(.sidebar-hidden) .sidebar-collapse-btn { display: none; }
 html.rail-only.sidebar-hidden .sidebar .sidebar-nav .nav-link { height: auto; min-height: 54px; padding: 7px 0 6px; flex-direction: column; gap: 2px; }
 html.rail-only.sidebar-hidden .sidebar .sidebar-nav .nav-link .nav-label { display: block; font-size: 10.5px; font-weight: 600; line-height: 1.15; text-align: center; max-width: 74px; }
 html.rail-only.sidebar-hidden .sidebar .sidebar-nav .till-nav:first-of-type { margin-top: 6px; }
+/* the slim strip's logo opens the sidebar: its badge points the other way */
+@media (min-width: 769px) {
+  html.sidebar-hidden .sidebar-brand .brand-icon.is-sidebar-toggle::before { content: 'chevron_right'; }
+}

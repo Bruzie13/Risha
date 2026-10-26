@@ -250,12 +250,17 @@ function paintSidebarToggle(hidden) {
         : '<span class="material-symbols-outlined">chevron_left</span>';
     btn.title = hidden ? 'Show the menu' : 'Collapse sidebar';
     btn.setAttribute('aria-label', btn.title);
+    // on the slim strip the logo itself is the button, so it says which way it goes
+    const logo = document.querySelector('.sidebar-brand .brand-icon.is-sidebar-toggle');
+    if (logo) { logo.title = hidden ? 'Show the menu' : 'Hide the menu'; logo.setAttribute('aria-label', logo.title); }
 }
 
 function toggleSidebarVisibility() {
     const hidden = !isSidebarHidden();
     document.documentElement.classList.toggle('sidebar-hidden', hidden);
-    localStorage.setItem('sidebarHidden', hidden ? 'true' : 'false');
+    // the till and supplier pages (slim strip) keep their own choice
+    if (document.documentElement.classList.contains('rail-only')) localStorage.setItem('railOpen', hidden ? 'false' : 'true');
+    else localStorage.setItem('sidebarHidden', hidden ? 'true' : 'false');
     paintSidebarToggle(hidden);
     const sidebar = document.getElementById('sidebar');
     if (sidebar) sidebar.classList.remove('open');
@@ -1029,24 +1034,22 @@ document.addEventListener('DOMContentLoaded', () => {
         themeBtn.addEventListener('click', toggleTheme);
     }
 
-    paintSidebarToggle(isSidebarHidden());
-
-    /* The logo at the top of the open sidebar folds it away (the arrow button
-       is gone); its small arrow badge and "Hide the menu" say so. The slim
-       strip on the till and supplier pages stays as it is. */
+    /* The logo at the top of the sidebar folds it away (the arrow button is
+       gone); its small arrow badge and "Hide the menu" say so. On the till
+       and supplier pages, whose sidebar starts as the slim strip, the logo
+       also opens it ("Show the menu"). */
     const brandLogo = document.querySelector('.sidebar-brand .brand-icon');
-    if (brandLogo && !document.documentElement.classList.contains('rail-only')) {
+    if (brandLogo) {
         brandLogo.classList.add('is-sidebar-toggle');
         brandLogo.setAttribute('role', 'button');
         brandLogo.setAttribute('tabindex', '0');
-        brandLogo.setAttribute('aria-label', 'Hide the menu');
-        brandLogo.title = 'Hide the menu';
         brandLogo.querySelector('img')?.removeAttribute('title');
         brandLogo.addEventListener('click', () => { if (window.innerWidth > 768) toggleSidebarVisibility(); });
         brandLogo.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); brandLogo.click(); }
         });
     }
+    paintSidebarToggle(isSidebarHidden());
 
     document.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
