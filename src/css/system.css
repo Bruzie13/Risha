@@ -1005,3 +1005,7 @@ html.rail-only.sidebar-hidden .sidebar .sidebar-nav .till-nav:first-of-type { ma
 @media (min-width: 769px) {
   html.sidebar-hidden .sidebar-brand .brand-icon.is-sidebar-toggle::before { content: 'chevron_right'; }
 }
+/* labels in the slim strip stay inside their box: a little wider, and a long
+   name ("Orders and products") wraps to a second line */
+html.rail-only.sidebar-hidden .sidebar .sidebar-nav .nav-link { width: 72px; }
+html.rail-only.sidebar-hidden .sidebar .sidebar-nav .nav-link .nav-label { white-space: normal; max-width: 66px; overflow-wrap: anywhere; }
