@@ -366,16 +366,11 @@ async function showPerformance(supplierId) {
 
         var tbody = document.getElementById('perfRecordsBody');
         if (records.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No purchase orders yet</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No purchase orders yet</td></tr>';
         } else {
-            var STATUS = {
-                received: 'status-badge status-completed',
-                shipped: 'status-badge status-info',
-                pending: 'status-badge status-pending',
-                cancelled: 'status-badge status-expired'
-            };
+            // the order's state is read, not pressed: a coloured dot and its name
+            var STATE_WORD = { pending: 'Waiting', confirmed: 'Confirmed', shipped: 'Shipped', received: 'Received', cancelled: 'Cancelled', proposed: 'Offered' };
             tbody.innerHTML = records.map(function(r) {
-                var cls = STATUS[r.status] || 'status-badge';
                 var lead = (r.status === 'received' && r.lead_days != null && r.lead_days >= 0) ? r.lead_days + ' days' : '—';
                 var val = '\u20b1' + Number(r.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 var ordered = r.order_date ? new Date(r.order_date).toLocaleDateString() : (r.created_at ? new Date(r.created_at).toLocaleDateString() : '—');
@@ -391,19 +386,20 @@ async function showPerformance(supplierId) {
                     : '';
                 var next = perfNextStep(r.status);
                 var advance = (next && canManage())
-                    ? ' <button class="po-advance-btn" onclick="advancePOFromModal(' + r.id + ', \'' + next.status + '\', \'' + escHtml(r.po_number || ('#' + r.id)) + '\', ' + supplierId + ')">' + next.label + '</button>'
+                    ? '<button class="po-advance-btn" onclick="advancePOFromModal(' + r.id + ', \'' + next.status + '\', \'' + escHtml(r.po_number || ('#' + r.id)) + '\', ' + supplierId + ')">' + next.label + '</button>'
                     : '';
                 // manual supplier email (reorders no longer send it automatically)
                 var email = canManage()
-                    ? ' <button class="po-email-btn" onclick="emailPOFromModal(' + r.id + ', \'' + escHtml(r.po_number || ('#' + r.id)) + '\', ' + supplierId + ')" title="Email this purchase order to the supplier"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;">mail</span> Email</button>'
+                    ? '<button class="po-email-btn" onclick="emailPOFromModal(' + r.id + ', \'' + escHtml(r.po_number || ('#' + r.id)) + '\', ' + supplierId + ')" title="Email this purchase order to the supplier"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;">mail</span> Email</button>'
                     : '';
                 return '<tr>'
                     + '<td>' + escHtml(r.po_number || ('#' + r.id)) + '</td>'
-                    + '<td><span class="' + cls + '">' + escHtml(r.status) + '</span>' + flag + advance + email + '</td>'
+                    + '<td><span class="po-state is-' + escHtml(r.status) + '">' + escHtml(STATE_WORD[r.status] || r.status) + '</span>' + flag + '</td>'
                     + '<td>' + confirm + '</td>'
                     + '<td style="font-variant-numeric:tabular-nums;">' + val + '</td>'
                     + '<td>' + lead + '</td>'
                     + '<td>' + ordered + '</td>'
+                    + '<td><div class="po-actions">' + advance + email + '</div></td>'
                     + '</tr>';
             }).join('');
         }
