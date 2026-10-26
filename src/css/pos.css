@@ -34,7 +34,7 @@
 .pos-mysales .num { text-align: right; white-space: nowrap; }
 .pos-mysales td:last-child { text-align: right; white-space: nowrap; }
 .pos-mysales td:last-child button + button { margin-left: 6px; }
-.pos-mysales-empty { text-align: center; color: var(--text-muted); padding: 28px 14px !important; }
+.pos-mysales td.pos-mysales-empty { text-align: center; color: var(--text-muted); padding: 28px 14px !important; }   /* not pushed right like the last column of a sale row */
 .pos-mysales-voided td { color: var(--text-muted); }
 
 .pos-suggest-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; cursor: pointer; font-size: 13.5px; color: var(--text-primary); border-bottom: 1px solid var(--border-subtle); }
