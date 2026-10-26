@@ -10,8 +10,8 @@ let viewingSaleId = null;
 
 window.addEventListener('load', async () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
-    if (!canManage()) document.querySelector('#viewSaleModal .btn-danger')?.remove();
     await loadSales();
+    setSalesDateBounds();
     // Live refresh: sales made on other terminals appear without a reload
     setInterval(refreshSalesLive, 10000);
 });
@@ -550,11 +550,46 @@ async function exportSalesCsv() {
     showToast('Sales exported successfully', 'success');
 }
 
+/* The date boxes run from the first sale recorded in FETCH to today: there
+   are no sales before the first one, and none in the future. The first sale
+   is the last one in the list (it is newest first). */
+let firstSaleDay = '';
+const asYmd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const prettyDay = ymd => new Date(ymd + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+async function setSalesDateBounds() {
+    try {
+        if (salesTotal > 0) {
+            const res = await fetch(`${API_BASE}/sales?limit=1&offset=${salesTotal - 1}`, { headers: getAuthHeaders() });
+            const data = await res.json();
+            const oldest = data.success && data.data && data.data[0];
+            if (oldest && !isNaN(new Date(oldest.created_at))) firstSaleDay = asYmd(new Date(oldest.created_at));
+        }
+    } catch (e) { /* the boxes still stop at today */ }
+    ['dateFrom', 'dateTo'].forEach(id => {
+        const box = document.getElementById(id);
+        if (!box) return;
+        box.max = localTodayYmd();
+        if (firstSaleDay) box.min = firstSaleDay;
+    });
+}
+
+/* What is wrong with the dates chosen, or null. */
+function salesDateProblem(from, to) {
+    if (!from && !to) return 'Select a date range';
+    const today = localTodayYmd();
+    if ((from && from > today) || (to && to > today)) return 'Choose today or an earlier date: there are no sales in the future.';
+    if (firstSaleDay && ((from && from < firstSaleDay) || (to && to < firstSaleDay))) {
+        return `The first sale in FETCH was on ${prettyDay(firstSaleDay)}. Choose that day or later.`;
+    }
+    if (from && to && from > to) return 'The start date is after the end date';
+    return null;
+}
+
 function filterSalesByDate() {
     const from = document.getElementById('dateFrom')?.value;
     const to = document.getElementById('dateTo')?.value;
-    if (!from && !to) { showToast('Select a date range', 'error'); return; }
-    if (from && to && from > to) { showToast('The start date is after the end date', 'warning'); return; }
+    const problem = salesDateProblem(from, to);
+    if (problem) { showToast(problem, 'error'); return; }
     loadSales();
 }
 
