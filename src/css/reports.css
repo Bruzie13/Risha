@@ -117,7 +117,7 @@
   font-size: 13.5px;
   line-height: 1.5;
   margin-bottom: 14px;
-  max-width: 900px;
+  max-width: none;                 /* as wide as the figures below it */
 }
 .rp-notice[hidden] { display: none; }
 
