@@ -22,12 +22,39 @@ window.addEventListener('load', () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
     document.getElementById('openOrders').addEventListener('click', onOrderClick);
     document.getElementById('openOrders').addEventListener('submit', onNoteSubmit);
+    document.querySelectorAll('.sp-tab').forEach(t => t.addEventListener('click', () => setSpTab(t.dataset.spTab)));
+    let first = 'open';
+    try { first = localStorage.getItem('spTab') || 'open'; } catch (e) {}
+    setSpTab(first);
     document.getElementById('productsBody').addEventListener('click', e => {
         const btn = e.target.closest('button[data-price]');
         if (btn) openPrice(Number(btn.dataset.price));
     });
     loadPortal();
 });
+
+/* ---------- One part of the portal at a time ---------- */
+
+/* The tabs under the figures show one card; the last one opened is kept on
+   this browser so the page opens where the supplier left it. */
+function setSpTab(name) {
+    if (!document.querySelector(`[data-sp-panel="${name}"]`)) name = 'open';
+    document.querySelectorAll('.sp-tab').forEach(t => {
+        const on = t.dataset.spTab === name;
+        t.classList.toggle('active', on);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    document.querySelectorAll('[data-sp-panel]').forEach(p => { p.hidden = p.dataset.spPanel !== name; });
+    try { localStorage.setItem('spTab', name); } catch (e) {}
+}
+
+/* A number on a tab, or nothing when it is 0. */
+function setTabCount(id, n) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = formatNumber(n);
+    el.hidden = !n;
+}
 
 /* ---------- Small helpers ---------- */
 
@@ -142,7 +169,7 @@ function openDetails() {
 function renderProducts() {
     const products = portal.products;
     const low = products.filter(p => Number(p.stock_quantity) <= Number(p.reorder_level));
-    document.getElementById('figLow').textContent = formatNumber(low.length);
+    setTabCount('tabCountLow', low.length);
     if (!products.length) { portalRow('productsBody', 7, 'No products are assigned to you yet.'); return; }
     const status = p => {
         const stock = Number(p.stock_quantity), level = Number(p.reorder_level);
@@ -205,17 +232,16 @@ function orderFacts(o) {
     return line;
 }
 
-function orderLines(o) {
-    return (o.items || []).map(i => {
+/* The items of an order on one line: the first three, then how many more.
+   A line the supplier is sending short reads "5 of 10". */
+function itemsSummary(o) {
+    const items = o.items || [];
+    const one = i => {
         const sending = sendingOf(i);
         const short = i.confirmed_quantity != null && sending < Number(i.quantity);
-        return `<div class="sp-line">
-            <span>${escHtml(i.name)}</span>
-            <span class="${short ? 'sp-short' : ''}">${short
-                ? `${formatQty(sending)} of ${formatQty(i.quantity)} ordered`
-                : formatQty(i.quantity)}</span>
-        </div>`;
-    }).join('');
+        return `${escHtml(i.name)} ${short ? `<span class="sp-short">${formatQty(sending)} of ${formatQty(i.quantity)}</span>` : '× ' + formatQty(i.quantity)}`;
+    };
+    return items.slice(0, 3).map(one).join(' · ') + (items.length > 3 ? ` · +${items.length - 3} more` : '');
 }
 
 function orderActions(o) {
@@ -232,22 +258,25 @@ function orderActions(o) {
 function renderOrders() {
     const open = portal.orders.filter(o => ['proposed', 'pending', 'confirmed', 'shipped'].includes(o.status));
     const past = portal.orders.filter(o => ['received', 'cancelled'].includes(o.status));
-    document.getElementById('figWaiting').textContent = formatNumber(open.filter(o => ['pending', 'confirmed'].includes(o.status)).length);
+    document.getElementById('figWaiting').textContent = formatNumber(open.filter(o => o.status === 'pending').length);
+    document.getElementById('figToShip').textContent = formatNumber(open.filter(o => o.status === 'confirmed').length);
     document.getElementById('figShipped').textContent = formatNumber(open.filter(o => o.status === 'shipped').length);
+    setTabCount('tabCountOpen', open.length);
 
     const box = document.getElementById('openOrders');
     if (!open.length) box.innerHTML = '<p class="rp-loading">No open orders right now.</p>';
     else box.innerHTML = open.map(o => {
         const s = ORDER_STATUS[o.status] || { text: o.status, tone: 'ok' };
         const id = Number(o.id);
-        return `<div class="sp-order" data-order="${id}">
-            <div class="sp-order-head">
+        // one row: the order and what is on it, where it is, its total, and what to do next
+        return `<div class="sp-order sp-row" data-order="${id}">
+            <div class="sp-row-main">
                 <span class="sp-order-title">${escHtml(o.po_number)}<span class="rp-badge rp-badge-${s.tone}">${escHtml(s.text)}</span></span>
-                <span class="sp-order-total">${formatCurrency(o.total_amount)}</span>
+                <span class="sp-row-items" title="${escHtml((o.items || []).map(i => i.name + ' × ' + formatQty(i.quantity)).join(', '))}">${itemsSummary(o)}</span>
+                <span class="sp-order-facts">${orderFacts(o)}</span>
             </div>
-            ${['proposed', 'pending', 'confirmed', 'shipped'].includes(o.status) ? poProgressHtml(o.status) : ''}
-            <div class="sp-order-facts">${orderFacts(o)}</div>
-            <div class="sp-lines">${orderLines(o)}</div>
+            <div class="sp-row-prog">${poProgressHtml(o.status)}</div>
+            <div class="sp-order-total num">${formatCurrency(o.total_amount)}</div>
             <div class="sp-order-actions">${orderActions(o)}</div>
             <div class="sp-notes" id="notes-${id}" ${openNotes.has(id) ? '' : 'hidden'}></div>
         </div>`;
@@ -440,8 +469,7 @@ async function onNoteSubmit(e) {
 function renderPayments() {
     const unpaid = portal.orders.filter(o => o.payment_tracked && !o.paid);
     const total = unpaid.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
-    document.getElementById('figUnpaid').textContent = formatCurrency(total);
-    document.getElementById('figUnpaidNote').textContent = unpaid.length ? `${unpaid.length} delivered order${unpaid.length === 1 ? '' : 's'}` : 'Nothing outstanding';
+    setTabCount('tabCountPay', unpaid.length);
     const terms = portal.me && portal.me.payment_terms;
     document.getElementById('paymentsSub').textContent = 'Delivered orders the shop has not yet marked as paid'
         + (terms ? `. Your payment terms: ${terms}` : '');
@@ -460,6 +488,16 @@ function renderPayments() {
 
 function renderScorecard() {
     const s = portal.score || {};
+    const r = s.stars;
+    const fig = document.getElementById('figRating');
+    if (fig) {
+        fig.innerHTML = r && r.rated
+            ? Array.from({ length: 5 }, (_, i) => `<span class="${i < r.stars ? 'on' : ''}">${i < r.stars ? '★' : '☆'}</span>`).join('')
+            : '—';
+        fig.setAttribute('aria-label', r && r.rated ? `${r.stars} of 5 stars` : 'Not rated yet');
+        document.getElementById('figRatingNote').textContent = !r || !r.rated ? 'Not rated yet'
+            : r.meets_standard ? 'Meets the standard (4 stars or more)' : 'Below the standard (needs 4 stars)';
+    }
     const cell = (label, value, note) => `
         <div class="rp-detail-item">
             <span class="rp-detail-label">${label}</span>

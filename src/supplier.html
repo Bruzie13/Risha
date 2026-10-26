@@ -28,7 +28,7 @@
     <link rel="stylesheet" href="css/reports.css?v=30">
 <script>/* the supplier has one page, so its sidebar starts as the slim strip (see "The slim strip" in css/system.css); the logo opens it, and that choice is kept (railOpen) */document.documentElement.classList.add('rail-only');document.documentElement.classList.toggle('sidebar-hidden', localStorage.getItem('railOpen') !== 'true');</script>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=64">
+        <link rel="stylesheet" href="css/system.css?v=65">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -45,12 +45,6 @@
         </div>
         <div class="sidebar-nav">
             <a href="supplier.html" class="nav-link active" title="Orders and products"><span class="nav-icon material-symbols-outlined">local_shipping</span><span class="nav-label">Orders and products</span></a>
-            <!-- the portal's parts, in the slim strip: each takes the page to its card -->
-            <button type="button" class="nav-link till-nav" title="Open orders" onclick="document.getElementById('spOpen').scrollIntoView({behavior:'smooth',block:'start'})"><span class="nav-icon material-symbols-outlined">pending_actions</span><span class="nav-label">Open orders</span></button>
-            <button type="button" class="nav-link till-nav" title="Payments" onclick="document.getElementById('spPayments').scrollIntoView({behavior:'smooth',block:'start'})"><span class="nav-icon material-symbols-outlined">payments</span><span class="nav-label">Payments</span></button>
-            <button type="button" class="nav-link till-nav" title="Products you supply" onclick="document.getElementById('spProducts').scrollIntoView({behavior:'smooth',block:'start'})"><span class="nav-icon material-symbols-outlined">inventory_2</span><span class="nav-label">Products</span></button>
-            <button type="button" class="nav-link till-nav" title="How you are doing" onclick="document.getElementById('spRating').scrollIntoView({behavior:'smooth',block:'start'})"><span class="nav-icon material-symbols-outlined">star</span><span class="nav-label">Rating</span></button>
-            <button type="button" class="nav-link till-nav" title="Past orders" onclick="document.getElementById('spPast').scrollIntoView({behavior:'smooth',block:'start'})"><span class="nav-icon material-symbols-outlined">history</span><span class="nav-label">Past orders</span></button>
         </div>
         <div class="sidebar-footer">
             <div class="sidebar-user" onclick="location.href='settings.html'" title="Your Profile">
@@ -86,9 +80,14 @@
 
             <div class="rp-figures">
                 <div class="rp-figure">
-                    <span class="rp-figure-label">Orders waiting for you</span>
+                    <span class="rp-figure-label">Waiting for you</span>
                     <span class="rp-figure-value" id="figWaiting">—</span>
-                    <span class="rp-figure-note">To confirm or to ship</span>
+                    <span class="rp-figure-note">To confirm</span>
+                </div>
+                <div class="rp-figure">
+                    <span class="rp-figure-label">To ship</span>
+                    <span class="rp-figure-value" id="figToShip">—</span>
+                    <span class="rp-figure-note">Confirmed, not shipped yet</span>
                 </div>
                 <div class="rp-figure">
                     <span class="rp-figure-label">On the way</span>
@@ -96,18 +95,21 @@
                     <span class="rp-figure-note">Shipped, not yet received</span>
                 </div>
                 <div class="rp-figure">
-                    <span class="rp-figure-label">Waiting to be paid</span>
-                    <span class="rp-figure-value" id="figUnpaid">—</span>
-                    <span class="rp-figure-note" id="figUnpaidNote"></span>
-                </div>
-                <div class="rp-figure">
-                    <span class="rp-figure-label">Running low at the shop</span>
-                    <span class="rp-figure-value" id="figLow">—</span>
-                    <span class="rp-figure-note">Of the products you supply</span>
+                    <span class="rp-figure-label">Your rating</span>
+                    <span class="rp-figure-value sp-fig-stars" id="figRating">—</span>
+                    <span class="rp-figure-note" id="figRatingNote">From the last 12 months</span>
                 </div>
             </div>
-
-            <div class="rp-card panel-card" id="spOpen" data-jump-title="Open orders">
+            <!-- one part of the portal at a time -->
+            <div class="sp-tabs" role="tablist" aria-label="Parts of the portal">
+                <button type="button" class="sp-tab" role="tab" data-sp-tab="open">Open orders<span class="sp-tab-count" id="tabCountOpen" hidden></span></button>
+                <button type="button" class="sp-tab" role="tab" data-sp-tab="payments">Payments<span class="sp-tab-count" id="tabCountPay" hidden></span></button>
+                <button type="button" class="sp-tab" role="tab" data-sp-tab="products">Products<span class="sp-tab-count is-warn" id="tabCountLow" hidden title="Running low at the shop"></span></button>
+                <button type="button" class="sp-tab" role="tab" data-sp-tab="rating">Rating</button>
+                <button type="button" class="sp-tab" role="tab" data-sp-tab="past">Past orders</button>
+                <button type="button" class="sp-tab" role="tab" data-sp-tab="details">My details</button>
+            </div>
+            <div class="rp-card panel-card" id="spOpen" data-sp-panel="open" data-jump-title="Open orders">
                 <div class="rp-card-head">
                     <div>
                         <h2>Open orders</h2>
@@ -115,10 +117,11 @@
                     </div>
                     <button class="btn-secondary" onclick="openOffer()"><span class="material-symbols-outlined">add</span> Offer an order</button>
                 </div>
+                <div class="sp-row sp-row-head" aria-hidden="true"><span>Order</span><span>Progress</span><span class="num">Total</span><span class="num">Next step</span></div>
                 <div class="sp-orders" id="openOrders"><p class="rp-loading">Loading orders…</p></div>
             </div>
 
-            <div class="rp-card panel-card" id="spPayments" data-jump-title="Payments">
+            <div class="rp-card panel-card" id="spPayments" data-sp-panel="payments" data-jump-title="Payments">
                 <div class="rp-card-head">
                     <div>
                         <h2>Payments</h2>
@@ -133,7 +136,7 @@
                 </div>
             </div>
 
-            <div class="rp-card panel-card" id="spProducts" data-jump-title="Products you supply">
+            <div class="rp-card panel-card" id="spProducts" data-sp-panel="products" data-jump-title="Products you supply">
                 <div class="rp-card-head">
                     <div>
                         <h2>Products you supply</h2>
@@ -158,7 +161,7 @@
                 </div>
             </div>
 
-            <div class="rp-card panel-card" id="spRating" data-jump-title="How you are doing">
+            <div class="rp-card panel-card" id="spRating" data-sp-panel="rating" data-jump-title="How you are doing">
                 <div class="rp-card-head">
                     <div>
                         <h2>How you are doing</h2>
@@ -168,7 +171,7 @@
                 <div class="rp-detail-grid" id="scorecard"></div>
             </div>
 
-            <div class="rp-card panel-card" id="spPast" data-jump-title="Past orders">
+            <div class="rp-card panel-card" id="spPast" data-sp-panel="past" data-jump-title="Past orders">
                 <div class="rp-card-head">
                     <div>
                         <h2>Past orders</h2>
@@ -184,7 +187,7 @@
                 <div id="pastPagination" class="pagination-bar"></div>
             </div>
 
-            <div class="rp-card panel-card" data-jump-title="Your details">
+            <div class="rp-card panel-card" id="spDetails" data-sp-panel="details" data-jump-title="Your details">
                 <div class="rp-card-head">
                     <div>
                         <h2>Your details on file</h2>
@@ -234,6 +237,6 @@
     <script src="js/auth.js?v=59"></script>
     <script src="js/loader.js?v=2"></script>
     <script src="js/po-progress.js?v=3"></script>
-    <script src="js/supplier-portal.js?v=10"></script>
+    <script src="js/supplier-portal.js?v=11"></script>
 </body>
 </html>
