@@ -26,7 +26,10 @@
         panel.innerHTML = `
             <div class="fa-head">
                 <div class="fa-head-title"><span class="material-symbols-outlined">smart_toy</span> FETCH Assistant &amp; Help</div>
-                <button class="fa-close" id="faClose" title="Close"><span class="material-symbols-outlined">close</span></button>
+                <div class="fa-head-btns">
+                    <button class="fa-close" id="faSize" title="Make larger" aria-label="Make larger"><span class="material-symbols-outlined">open_in_full</span></button>
+                    <button class="fa-close" id="faClose" title="Close"><span class="material-symbols-outlined">close</span></button>
+                </div>
             </div>
             <div class="fa-body" id="faBody">
                 <div class="fa-msg fa-bot">
@@ -54,6 +57,19 @@
         document.body.appendChild(panel);
 
         panel.querySelector('#faClose').addEventListener('click', toggle);
+        // larger or smaller window; the choice is kept on this browser
+        let large = false;
+        try { large = localStorage.getItem('faLarge') === '1'; } catch (e) {}
+        const sizeBtn = panel.querySelector('#faSize');
+        const setSize = on => {
+            panel.classList.toggle('is-large', on);
+            sizeBtn.title = on ? 'Make smaller' : 'Make larger';
+            sizeBtn.setAttribute('aria-label', sizeBtn.title);
+            sizeBtn.firstElementChild.textContent = on ? 'close_fullscreen' : 'open_in_full';
+            try { localStorage.setItem('faLarge', on ? '1' : '0'); } catch (e) {}
+        };
+        setSize(large);
+        sizeBtn.addEventListener('click', () => setSize(!panel.classList.contains('is-large')));
         panel.querySelector('#faSend').addEventListener('click', send);
         const input = panel.querySelector('#faInput');
         // the box grows downward as the question gets longer, so all of it stays in view;

@@ -970,3 +970,9 @@ html:not(.sidebar-hidden) .sidebar-collapse-btn { display: none; }
 .fa-input-row textarea::placeholder { color: var(--text-muted); }
 .fa-input-row button { height: 40px; flex-shrink: 0; }
 #performanceModal .data-table th, #performanceModal .data-table td { padding-left: 10px; padding-right: 10px; }
+
+/* The assistant can be made larger (and back): most of the screen, still
+   leaving the page's edge in view; the choice is kept on the browser. */
+.fa-head-btns { display: flex; gap: 6px; }
+.fa-panel { transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.22,1,0.36,1), width 0.22s ease, height 0.22s ease; }
+.fa-panel.is-large { width: min(820px, calc(100vw - 48px)); height: calc(100vh - 130px); max-height: calc(100vh - 130px); }
