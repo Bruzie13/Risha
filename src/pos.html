@@ -28,7 +28,7 @@
     <link rel="stylesheet" href="css/pos.css?v=35">
 <script>/* the till has one page, so its sidebar is always the slim strip (see "The slim strip" in css/system.css) */document.documentElement.classList.add('sidebar-hidden','rail-only');</script>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=61">
+        <link rel="stylesheet" href="css/system.css?v=62">
         <link rel="stylesheet" href="css/pos-register.css?v=4">
 </head>
 <body>
@@ -48,6 +48,10 @@
             <a href="dashboard.html" class="nav-link" title="Dashboard"><span class="nav-icon material-symbols-outlined">dashboard</span><span class="nav-label">Dashboard</span></a>
             <a href="inventory.html" class="nav-link" title="Inventory"><span class="nav-icon material-symbols-outlined">inventory_2</span><span class="nav-label">Inventory</span></a>
             <a href="pos.html" class="nav-link active" title="POS"><span class="nav-icon material-symbols-outlined">point_of_sale</span><span class="nav-label">POS</span></a>
+            <!-- the till's own windows, in the slim strip where they are always in reach -->
+            <button type="button" class="nav-link till-nav" title="My sales today" onclick="openMySales()"><span class="nav-icon material-symbols-outlined">receipt_long</span><span class="nav-label">My sales</span></button>
+            <button type="button" class="nav-link till-nav" title="Cash in or out of the drawer" onclick="openPosCash()"><span class="nav-icon material-symbols-outlined">swap_vert</span><span class="nav-label">Cash in/out</span></button>
+            <button type="button" class="nav-link till-nav" title="End of day" onclick="openPosEod()"><span class="nav-icon material-symbols-outlined">savings</span><span class="nav-label">End of day</span></button>
             <a href="sales.html" class="nav-link" title="Sales history"><span class="nav-icon material-symbols-outlined">receipt</span><span class="nav-label">Sales history</span></a>
             <a href="suppliers.html" class="nav-link" title="Suppliers"><span class="nav-icon material-symbols-outlined">local_shipping</span><span class="nav-label">Suppliers</span></a>
             <a href="reports.html" class="nav-link" title="Reports"><span class="nav-icon material-symbols-outlined">assessment</span><span class="nav-label">Reports</span></a>
@@ -86,9 +90,6 @@
                     <h1>Point of sale</h1>
                     <div class="till-actions">
                         <button type="button" id="connectPrinterBtn" class="till-act" style="display:none;" title="Connect a USB thermal printer for one-tap receipts (no print dialog)" onclick="connectThermalPrinter()"><span class="material-symbols-outlined">print</span><span id="connectPrinterLabel">Connect printer</span></button>
-                        <button type="button" class="till-act" title="My sales today" onclick="openMySales()"><span class="material-symbols-outlined">receipt_long</span><span>My sales today</span></button>
-                        <button type="button" class="till-act" title="Cash in or out of the drawer" onclick="openPosCash()"><span class="material-symbols-outlined">swap_vert</span><span>Cash in / out</span></button>
-                        <button type="button" class="till-act" title="End of day" onclick="openPosEod()"><span class="material-symbols-outlined">savings</span><span>End of day</span></button>
                     </div>
                 </header>
                 <div class="till-find">

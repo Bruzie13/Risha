@@ -994,3 +994,10 @@ html:not(.sidebar-hidden) .sidebar-collapse-btn { display: none; }
 .audit-table th { font-weight: 600; color: var(--text-secondary); white-space: nowrap; width: 1%; }
 .audit-table td { color: var(--text-primary); overflow-wrap: anywhere; }
 .audit-none { margin: 0; color: var(--text-muted); font-size: 12.5px; }
+
+/* The till's slim strip: its own windows (My sales, Cash in/out, End of day)
+   sit under POS, each with a short name under its icon. */
+.sidebar-nav .till-nav { background: none; border: none; font: inherit; color: inherit; cursor: pointer; width: 100%; text-align: left; }
+html.rail-only.sidebar-hidden .sidebar .sidebar-nav .nav-link { height: auto; min-height: 54px; padding: 7px 0 6px; flex-direction: column; gap: 2px; }
+html.rail-only.sidebar-hidden .sidebar .sidebar-nav .nav-link .nav-label { display: block; font-size: 10.5px; font-weight: 600; line-height: 1.15; text-align: center; max-width: 74px; }
+html.rail-only.sidebar-hidden .sidebar .sidebar-nav .till-nav:first-of-type { margin-top: 6px; }
