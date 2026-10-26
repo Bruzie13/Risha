@@ -7,6 +7,8 @@ const PAST_PAGE = 10;
 
 let portal = { me: null, products: [], orders: [], score: null };
 let pastShown = PAST_PAGE;
+const PRODUCTS_PAGE = 10;
+let productsShown = PRODUCTS_PAGE;     // the products list shows 10 at a time
 const openNotes = new Set();     // order ids whose notes are expanded
 
 const ORDER_STATUS = {
@@ -171,7 +173,7 @@ function renderProducts() {
     const products = portal.products;
     const low = products.filter(p => Number(p.stock_quantity) <= Number(p.reorder_level));
     setTabCount('tabCountLow', low.length, 'low');
-    if (!products.length) { portalRow('productsBody', 7, 'No products are assigned to you yet.'); return; }
+    if (!products.length) { portalRow('productsBody', 7, 'No products are assigned to you yet.'); document.getElementById('productsPagination').innerHTML = ''; return; }
     const status = p => {
         const stock = Number(p.stock_quantity), level = Number(p.reorder_level);
         if (stock <= 0) return '<span class="rp-badge rp-badge-danger">Out of stock</span>';
@@ -181,7 +183,7 @@ function renderProducts() {
     // what the shop is short of comes first
     const ordered = [...products].sort((a, b) =>
         (Number(a.stock_quantity) - Number(a.reorder_level)) - (Number(b.stock_quantity) - Number(b.reorder_level)));
-    document.getElementById('productsBody').innerHTML = ordered.map(p => `
+    document.getElementById('productsBody').innerHTML = ordered.slice(0, productsShown).map(p => `
         <tr>
             <td><span class="rp-strong">${escHtml(p.name)}</span><span class="rp-sub">${escHtml([p.sku, p.category].filter(Boolean).join(' · '))}</span></td>
             <td class="num">${formatQty(p.stock_quantity)}</td>
@@ -192,7 +194,10 @@ function renderProducts() {
                 ? `<span class="rp-sub">${formatCurrency(p.pending_price)} proposed, waiting</span>` : ''}</td>
             <td class="num"><button class="btn-view" data-price="${Number(p.id)}">Change price</button></td>
         </tr>`).join('');
+    updatePagination('productsPagination', ordered, productsShown, 'showMoreProducts', 'showLessProducts', PRODUCTS_PAGE);
 }
+function showMoreProducts() { productsShown += PRODUCTS_PAGE; renderProducts(); }
+function showLessProducts() { productsShown = Math.max(PRODUCTS_PAGE, productsShown - PRODUCTS_PAGE); renderProducts(); }
 
 function openPrice(productId) {
     const p = portal.products.find(x => Number(x.id) === productId);
