@@ -48,11 +48,12 @@ function setSpTab(name) {
     try { localStorage.setItem('spTab', name); } catch (e) {}
 }
 
-/* A number on a tab, or nothing when it is 0. */
-function setTabCount(id, n) {
+/* A number on a tab, or nothing when it is 0. `word` says what is counted
+   when the tab's name alone does not (Products: "5 low"). */
+function setTabCount(id, n, word) {
     const el = document.getElementById(id);
     if (!el) return;
-    el.textContent = formatNumber(n);
+    el.textContent = formatNumber(n) + (word ? ' ' + word : '');
     el.hidden = !n;
 }
 
@@ -169,7 +170,7 @@ function openDetails() {
 function renderProducts() {
     const products = portal.products;
     const low = products.filter(p => Number(p.stock_quantity) <= Number(p.reorder_level));
-    setTabCount('tabCountLow', low.length);
+    setTabCount('tabCountLow', low.length, 'low');
     if (!products.length) { portalRow('productsBody', 7, 'No products are assigned to you yet.'); return; }
     const status = p => {
         const stock = Number(p.stock_quantity), level = Number(p.reorder_level);
