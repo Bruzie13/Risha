@@ -949,7 +949,7 @@ html:not(.sidebar-hidden) .sidebar-collapse-btn { display: none; }
 
 /* A supplier's Performance window: each order shows the same progress line
    as the Dashboard's Purchase orders; its buttons sit in their own column. */
-#perfRecordsBody .perf-progress { min-width: 215px; }
+#perfRecordsBody .perf-progress { min-width: 205px; }
 #perfRecordsBody .perf-progress .po-progress { margin-top: 0; }
 .po-actions { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; }
 /* the supplier's Performance window is wide enough for its order table and its buttons */
