@@ -553,20 +553,6 @@
         }, { passive: true });
     }
 
-    // ── Trigger button in the sidebar (present on every page) ──────────────
-    function buildSidebarTrigger() {
-        var actions = document.querySelector('.sidebar-actions');
-        if (!actions || document.getElementById('jumpSidebarBtn')) return;
-        var b = document.createElement('button');
-        b.id = 'jumpSidebarBtn';
-        b.className = 'sidebar-btn jump-sidebar-btn';
-        b.type = 'button';
-        b.title = 'Jump to anywhere (Ctrl/⌘ + J)';
-        b.innerHTML = '<span class="material-symbols-outlined">bolt</span>';
-        b.addEventListener('click', function () { open(); });
-        actions.insertBefore(b, actions.firstChild);
-    }
-
     // ── First-run hint ─────────────────────────────────────────────────────
     // A feature nobody finds is a feature nobody has. Point at the button
     // once, then never again.
@@ -639,7 +625,6 @@
     }
 
     function init() {
-        buildSidebarTrigger();
         buildTopButton();
         localiseHints();
         runDeepLink();

@@ -3158,8 +3158,6 @@ html.sidebar-hidden .sidebar-footer .sidebar-btn::after {
   }
 }
 
-.jump-sidebar-btn .material-symbols-outlined { font-size: 18px; }
-.jump-sidebar-btn { color: #fff !important; }   /* white like the other sidebar icons (the link blue would vanish on the sidebar) */
 
 /* -- overlay -- */
 .jump-overlay {
