@@ -196,8 +196,8 @@ function applyRoleInterface() {
         const link = document.createElement('a');
         link.href = 'supplier.html';
         link.className = 'nav-link';
-        link.title = 'Orders and products';
-        link.innerHTML = '<span class="nav-icon material-symbols-outlined">local_shipping</span><span class="nav-label">Orders and products</span>';
+        link.title = 'Supplier portal: your orders and the products you supply';
+        link.innerHTML = '<span class="nav-icon material-symbols-outlined">local_shipping</span><span class="nav-label">Portal</span>';
         nav.prepend(link);
     }
     document.querySelectorAll('#notifBellBtn, #jumpCta, .jump-cta, #alertChip').forEach(el => el.remove());
