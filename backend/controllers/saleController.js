@@ -294,6 +294,9 @@ function eodDate(req, requested) {
     return realDay(requested) || shopToday();
 }
 
+/* A day that has not happened yet has no sales or cash to count. */
+const FUTURE_EOD = 'You cannot count a day that has not happened yet. Choose today or an earlier date.';
+
 /* A cashier's count is of their own drawer: what it started with plus the
    cash they took today. It is blind — the expected figure is withheld until
    they have typed what they counted — and final, so the answer cannot be
@@ -345,6 +348,7 @@ exports._cashierDrawer = cashierDrawer;
 exports.getEod = async (req, res) => {
     try {
         const date = eodDate(req, req.query.date);
+        if (date > shopToday()) return res.status(400).json({ success: false, message: FUTURE_EOD });
         const conn = await pool.getConnection();
         try {
             if (req.user.role === 'cashier') {
@@ -425,6 +429,7 @@ exports.saveEod = async (req, res) => {
     try {
         const { date, counted_cash, notes } = req.body;
         const bizDate = eodDate(req, date);
+        if (bizDate > shopToday()) return res.status(400).json({ success: false, message: FUTURE_EOD });
         const counted = parseFloat(counted_cash);
         if (isNaN(counted) || counted < 0) {
             return res.status(400).json({ success: false, message: 'Enter the cash counted as a number of 0 or more. Letters and minus amounts are not accepted.' });
