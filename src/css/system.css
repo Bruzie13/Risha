@@ -864,7 +864,7 @@ p, li, .breadcrumb, .rp-card-sub, .settings-toggle-desc { text-wrap: pretty; }
 .po-progress-note.cancelled { color: var(--danger); font-weight: 600; }
 
 /* ----- Headline figures are read, not pressed ----- */
-/* The Dashboard's and Inventory's figures sit in one strip, divided by lines, like the
+/* Every page's headline figures sit in one strip, divided by lines, like the
    Reports figures, instead of five boxes that looked like buttons. A figure
    card that does nothing stays still under the mouse; only the clickable
    ones (.is-clickcard) answer it. */
@@ -915,9 +915,34 @@ p, li, .breadcrumb, .rp-card-sub, .settings-toggle-desc { text-wrap: pretty; }
 /* the barcode in a product's details reads like the numbers under the bars */
 .details-barcode { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.06em; }
 /* the folded sidebar shows the Risha logo at the top; pressing it opens the menu */
-html.sidebar-hidden .sidebar-collapse-btn:has(.sidebar-toggle-logo) { width: 44px; height: 44px; padding: 0; background: #fff; border-radius: 12px; }
-.sidebar-toggle-logo { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 12px; }
+html.sidebar-hidden .sidebar-collapse-btn:has(.sidebar-toggle-logo) { width: 46px; height: 46px; padding: 0; background: #fff; border: 3px solid #fff; border-radius: 50%; box-shadow: none; }
+.sidebar-toggle-logo { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%; }
+/* the same arrow badge as on the open sidebar's logo, pointing the other way: press to open */
+html.sidebar-hidden .sidebar-collapse-btn:has(.sidebar-toggle-logo)::before {
+  content: 'chevron_right'; font-family: 'Material Symbols Outlined'; font-size: 14px; line-height: 18px;
+  position: absolute; right: -7px; bottom: -7px; width: 18px; height: 18px; border-radius: 50%;
+  text-align: center; color: #fff; background: var(--brand-red, var(--primary));
+  box-shadow: 0 0 0 2px var(--brand-sky, #0969AD); transition: transform 0.15s ease;
+}
+html.sidebar-hidden .sidebar-collapse-btn:has(.sidebar-toggle-logo):hover::before { transform: scale(1.2); }
 /* the search and filter row under the page header: the same room above it as
    the page content has, so it does not touch the header */
 .main-wrapper > .toolbar { padding: 20px 32px 0; }
 @media (max-width: 768px) { .main-wrapper > .toolbar { padding: 14px 16px 0; } }
+
+/* The open sidebar has no arrow button: its logo folds it away. A small
+   arrow badge on the logo's corner says it can be pressed, and grows on hover. */
+html:not(.sidebar-hidden) .sidebar-collapse-btn { display: none; }
+@media (min-width: 769px) {
+  .sidebar-brand .brand-icon.is-sidebar-toggle { cursor: pointer; overflow: visible; }
+  .sidebar-brand .brand-icon.is-sidebar-toggle img { transform: none; }   /* not zoomed past the round frame, now the frame lets the badge out */
+  .sidebar-brand .brand-icon.is-sidebar-toggle::before {
+    content: 'chevron_left'; font-family: 'Material Symbols Outlined'; font-size: 14px; line-height: 18px;
+    position: absolute; right: -6px; bottom: -6px; width: 18px; height: 18px; border-radius: 50%;
+    text-align: center; color: #fff; background: var(--brand-red, var(--primary));
+    box-shadow: 0 0 0 2px var(--brand-sky, #0969AD); transition: transform 0.15s ease;
+  }
+  .sidebar-brand .brand-icon.is-sidebar-toggle:hover::before { transform: scale(1.2); }
+  .sidebar-brand .brand-icon.is-sidebar-toggle:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+}
+

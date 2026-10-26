@@ -1031,6 +1031,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     paintSidebarToggle(isSidebarHidden());
 
+    /* The logo at the top of the open sidebar folds it away (the arrow button
+       is gone); its small arrow badge and "Hide the menu" say so. The slim
+       strip on the till and supplier pages stays as it is. */
+    const brandLogo = document.querySelector('.sidebar-brand .brand-icon');
+    if (brandLogo && !document.documentElement.classList.contains('rail-only')) {
+        brandLogo.classList.add('is-sidebar-toggle');
+        brandLogo.setAttribute('role', 'button');
+        brandLogo.setAttribute('tabindex', '0');
+        brandLogo.setAttribute('aria-label', 'Hide the menu');
+        brandLogo.title = 'Hide the menu';
+        brandLogo.querySelector('img')?.removeAttribute('title');
+        brandLogo.addEventListener('click', () => { if (window.innerWidth > 768) toggleSidebarVisibility(); });
+        brandLogo.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); brandLogo.click(); }
+        });
+    }
+
     document.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
             e.preventDefault();
