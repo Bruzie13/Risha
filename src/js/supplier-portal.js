@@ -206,7 +206,8 @@ function openPrice(productId) {
         `<p class="sp-form-hint"><strong>${escHtml(p.name)}</strong><br>Current price: ${p.cost_price != null ? formatCurrency(p.cost_price) : 'not set'}. The price changes only if the shop accepts.</p>
          <div class="form-group">
             <label class="form-label" for="spPrice">New price (₱)</label>
-            <input type="number" class="form-input" id="spPrice" min="0.01" step="0.01" inputmode="decimal" required>
+            <input type="text" class="form-input" id="spPrice" inputmode="decimal" autocomplete="off" maxlength="11" placeholder="For example: 1250.50" required>
+            <div class="field-error" id="spPriceError" role="alert"></div>
          </div>
          <div class="form-group">
             <label class="form-label" for="spPriceNote">Reason (optional)</label>
@@ -214,10 +215,25 @@ function openPrice(productId) {
          </div>`,
         'Send to the shop',
         async () => {
-            const price = parseFloat(document.getElementById('spPrice').value);
-            if (!(price > 0)) { showToast('Enter a price greater than zero', 'warning'); return false; }
-            return portalSend('POST', `/products/${productId}/price`, { price, note: document.getElementById('spPriceNote').value });
+            // typed as text, so "+20" or "20abc" reach this check instead of being read as 20
+            const box = document.getElementById('spPrice'), text = box.value.trim();
+            const problem = spPriceProblem(text, p.cost_price);
+            document.getElementById('spPriceError').textContent = problem || '';
+            box.classList.toggle('input-invalid', !!problem);
+            if (problem) { box.focus(); return false; }
+            return portalSend('POST', `/products/${productId}/price`, { price: text, note: document.getElementById('spPriceNote').value });
         });
+}
+
+/* What is wrong with the price typed, or null (backend/utils/supply.js has the same rule). */
+function spPriceProblem(text, current) {
+    if (!text) return 'Enter the new price.';
+    if (!/^\d+(\.\d{1,2})?$/.test(text)) return 'Type the price as a number only, like 1250 or 1250.50: no + or - signs, no letters, and at most 2 decimals.';
+    const n = Number(text);
+    if (n <= 0) return 'Enter a price greater than zero.';
+    if (n > 1000000) return 'That price is too large (₱1,000,000 at most).';
+    if (current != null && Number(current) === n) return 'That is already the current price.';
+    return null;
 }
 
 /* ---------- Orders ---------- */

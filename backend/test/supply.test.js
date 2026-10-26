@@ -79,6 +79,13 @@ test('price: positive and believable', () => {
     assert.ok(priceProblem(0));
     assert.ok(priceProblem(-5));
     assert.ok(priceProblem('free'));
+    assert.equal(priceProblem('1250.50'), null, 'a price typed with two decimals');
+    assert.match(priceProblem('+20'), /no \+ or - signs/, 'a plus sign is refused');
+    assert.match(priceProblem('1e3'), /number only/, 'no exponent');
+    assert.match(priceProblem('20abc'), /number only/);
+    assert.match(priceProblem('12.345'), /at most 2 decimals/);
+    assert.match(priceProblem(12.345), /at most 2 decimals/, 'sent as a number too');
+    assert.equal(priceProblem(''), 'Enter the new price.');
     assert.ok(priceProblem(5000000));
 });
 

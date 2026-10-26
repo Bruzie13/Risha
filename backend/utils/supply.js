@@ -82,10 +82,17 @@ function proposalLines(items, own) {
 }
 
 /** A price a supplier proposes for one of its products. */
+/* A price is a plain amount in pesos: digits, and at most two decimals.
+   "+20", "1e3", "20abc" or 12.345 are refused with the reason, not read as
+   some other number. */
+const PRICE_TEXT = /^\d+(\.\d{1,2})?$/;
 function priceProblem(price) {
-    const n = Number(price);
-    if (!isFinite(n) || n <= 0) return 'Enter a price greater than zero.';
-    if (n > 1000000) return 'That price is too large.';
+    if (price === null || price === undefined || price === '' || typeof price === 'boolean') return 'Enter the new price.';
+    const text = typeof price === 'number' ? String(price) : String(price).trim();
+    if (!PRICE_TEXT.test(text)) return 'Type the price as a number only, like 1250 or 1250.50: no + or - signs, no letters, and at most 2 decimals.';
+    const n = Number(text);
+    if (n <= 0) return 'Enter a price greater than zero.';
+    if (n > 1000000) return 'That price is too large (₱1,000,000 at most).';
     return null;
 }
 
