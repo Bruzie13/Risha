@@ -978,3 +978,19 @@ html:not(.sidebar-hidden) .sidebar-collapse-btn { display: none; }
 .fa-panel.is-large { width: min(820px, calc(100vw - 48px)); height: calc(100vh - 130px); max-height: calc(100vh - 130px); }
 /* the same progress line on the order cards of the Orders view and the Supplier Portal */
 .sp-order .po-progress { margin: 6px 0 10px; max-width: 440px; }
+
+/* Activity log: every line opens to who, when and what changed */
+.audit-item { cursor: pointer; }
+.audit-item:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.audit-rec { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+.audit-time { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.audit-chevron { font-size: 18px; color: var(--text-muted); transition: transform 0.15s ease; }
+.audit-item.is-open .audit-chevron { transform: rotate(90deg); color: var(--primary); }
+.audit-detail-expand { margin-top: 8px; padding: 10px 12px; background: var(--bg-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); font-size: 13px; cursor: default; }
+.audit-who { margin: 0 0 6px; color: var(--text-secondary); font-size: 12.5px; }
+.audit-sub { font-weight: 700; font-size: 12.5px; color: var(--text-primary); margin: 4px 0; }
+.audit-table { border-collapse: collapse; width: 100%; max-width: 720px; }
+.audit-table th, .audit-table td { text-align: left; padding: 4px 10px 4px 0; vertical-align: top; border-bottom: 1px solid var(--border-subtle); font-size: 12.5px; }
+.audit-table th { font-weight: 600; color: var(--text-secondary); white-space: nowrap; width: 1%; }
+.audit-table td { color: var(--text-primary); overflow-wrap: anywhere; }
+.audit-none { margin: 0; color: var(--text-muted); font-size: 12.5px; }
