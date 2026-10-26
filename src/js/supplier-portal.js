@@ -245,6 +245,7 @@ function renderOrders() {
                 <span class="sp-order-title">${escHtml(o.po_number)}<span class="rp-badge rp-badge-${s.tone}">${escHtml(s.text)}</span></span>
                 <span class="sp-order-total">${formatCurrency(o.total_amount)}</span>
             </div>
+            ${['pending', 'confirmed', 'shipped'].includes(o.status) ? poProgressHtml(o.status) : ''}
             <div class="sp-order-facts">${orderFacts(o)}</div>
             <div class="sp-lines">${orderLines(o)}</div>
             <div class="sp-order-actions">${orderActions(o)}</div>

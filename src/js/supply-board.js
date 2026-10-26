@@ -119,6 +119,10 @@
         return '<button class="btn-primary" data-act="received" data-id="' + id + '">Receive into stock</button>' + notes;
     }
 
+    // an order on its way shows where it is, like the Dashboard (js/po-progress.js);
+    // an offer says so in its badge
+    var ON_THE_ROAD = ['pending', 'confirmed', 'shipped', 'received'];
+
     function card(o) {
         var s = STATUS[o.status] || { text: o.status, tone: 'ok' };
         var id = Number(o.id);
@@ -126,6 +130,7 @@
             + '<div class="sp-order-head"><span class="sp-order-title">' + escHtml(o.po_number) + ' · ' + escHtml(o.supplier_name || 'Unknown supplier')
             + '<span class="rp-badge rp-badge-' + s.tone + '">' + escHtml(s.text) + '</span></span>'
             + '<span class="sp-order-total">' + formatCurrency(o.total_amount) + '</span></div>'
+            + (ON_THE_ROAD.indexOf(o.status) !== -1 ? poProgressHtml(o.status) : '')
             + '<div class="sp-order-facts">' + facts(o) + '</div>'
             + '<div class="sp-lines">' + lines(o) + '</div>'
             + '<div class="sp-order-actions">' + actions(o) + '</div>'

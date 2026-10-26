@@ -976,3 +976,5 @@ html:not(.sidebar-hidden) .sidebar-collapse-btn { display: none; }
 .fa-head-btns { display: flex; gap: 6px; }
 .fa-panel { transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.22,1,0.36,1), width 0.22s ease, height 0.22s ease; }
 .fa-panel.is-large { width: min(820px, calc(100vw - 48px)); height: calc(100vh - 130px); max-height: calc(100vh - 130px); }
+/* the same progress line on the order cards of the Orders view and the Supplier Portal */
+.sp-order .po-progress { margin: 6px 0 10px; max-width: 440px; }
