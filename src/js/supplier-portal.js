@@ -262,7 +262,10 @@ function renderOrders() {
     document.getElementById('figWaiting').textContent = formatNumber(open.filter(o => o.status === 'pending').length);
     document.getElementById('figToShip').textContent = formatNumber(open.filter(o => o.status === 'confirmed').length);
     document.getElementById('figShipped').textContent = formatNumber(open.filter(o => o.status === 'shipped').length);
-    setTabCount('tabCountOpen', open.length);
+    // the tab counts what is waiting on the supplier: orders to confirm and to ship
+    const toConfirm = open.filter(o => o.status === 'pending').length, toShip = open.filter(o => o.status === 'confirmed').length;
+    setTabCount('tabCountOpen', toConfirm + toShip, 'to do');
+    document.getElementById('tabCountOpen').title = `${toConfirm} to confirm, ${toShip} to ship`;
 
     const box = document.getElementById('openOrders');
     if (!open.length) box.innerHTML = '<p class="rp-loading">No open orders right now.</p>';
@@ -470,7 +473,8 @@ async function onNoteSubmit(e) {
 function renderPayments() {
     const unpaid = portal.orders.filter(o => o.payment_tracked && !o.paid);
     const total = unpaid.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
-    setTabCount('tabCountPay', unpaid.length);
+    setTabCount('tabCountPay', unpaid.length, 'unpaid');
+    document.getElementById('tabCountPay').title = 'Delivered orders the shop has not marked as paid yet';
     const terms = portal.me && portal.me.payment_terms;
     document.getElementById('paymentsSub').textContent = 'Delivered orders the shop has not yet marked as paid'
         + (terms ? `. Your payment terms: ${terms}` : '');

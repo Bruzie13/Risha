@@ -148,7 +148,13 @@
         var late = moving.filter(function (o) { return o.promised_date && o.promised_date < todayYmd(); }).length;
         var needs = offers.length + prices.length + late;
         var badge = document.getElementById('deliveriesBadge');
-        if (badge) { badge.textContent = needs; badge.style.display = needs ? '' : 'none'; }
+        // the number says what it counts (see the title for the parts)
+        if (badge) {
+            badge.textContent = needs + ' to do';
+            badge.title = [offers.length && offers.length + ' offer(s) to answer', prices.length && prices.length + ' price change(s) to decide',
+                late && late + ' delivery date(s) passed'].filter(Boolean).join(', ');
+            badge.style.display = needs ? '' : 'none';
+        }
 
         document.getElementById('offersCard').hidden = !offers.length;
         document.getElementById('offersList').innerHTML = offers.map(card).join('');

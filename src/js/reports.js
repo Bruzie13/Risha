@@ -429,7 +429,7 @@ async function loadVoidRequests(announce) {
 
 function renderVoidRequests() {
     const count = document.getElementById('voidTabCount');
-    if (count) { count.textContent = voidData.waiting.length; count.hidden = !voidData.waiting.length; }
+    if (count) { count.textContent = voidData.waiting.length + ' waiting'; count.title = 'Void requests waiting for your decision'; count.hidden = !voidData.waiting.length; }
 
     const waiting = document.getElementById('voidWaitingBody');
     if (!waiting) return;
