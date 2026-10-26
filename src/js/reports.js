@@ -390,17 +390,14 @@ function downloadCSV(filename, lines) {
     URL.revokeObjectURL(url);
 }
 
-function exportCSV() {
+function exportExcel() {
     const rows = currentReportData?.rows || [];
     if (!rows.length) { showToast('There is nothing to export for this period', 'warning'); return; }
-    const lines = [[GROUP_HEAD[currentGroup], 'Sales made', 'Items sold', 'Revenue'].map(csvCell).join(',')];
-    rows.forEach(r => lines.push([periodLabel(r), rowSales(r), rowItems(r), rowRevenue(r).toFixed(2)].map(csvCell).join(',')));
-    const s = currentReportData.summary;
-    if (s) {
-        lines.push('');
-        lines.push(['Total', s.total_transactions ?? 0, Number(s.total_items_sold) || 0, Number(s.total_revenue || 0).toFixed(2)].map(csvCell).join(','));
-    }
-    downloadCSV(`sales_by_${GROUP_WORD[currentGroup]}_${ymd(new Date())}.csv`, lines);
+    // an Excel table (js/xlsx.js): header with filters, peso amounts and a TOTAL row
+    downloadXlsx(`sales_by_${GROUP_WORD[currentGroup]}_${ymd(new Date())}.xlsx`, 'Sales by ' + GROUP_WORD[currentGroup], [
+        { head: GROUP_HEAD[currentGroup], width: 22, type: 'text' }, { head: 'Sales made', width: 12, type: 'int' },
+        { head: 'Items sold', width: 12, type: 'int' }, { head: 'Revenue', width: 16, type: 'money' }
+    ], rows.map(r => [periodLabel(r), rowSales(r), rowItems(r), rowRevenue(r)]), { label: 'TOTAL', sum: [1, 2, 3] });
     showToast('Sales report exported', 'success');
 }
 

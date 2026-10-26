@@ -492,7 +492,7 @@ document.addEventListener('click', (e) => {
     if (e.target === document.getElementById('viewSaleModal')) closeViewSaleModal();
 });
 
-async function exportSalesCsv() {
+async function exportSalesExcel() {
     // Only a page is loaded, so pull the whole matching set (current date/search
     // filter, no limit) for the export.
     let sales = [];
@@ -507,46 +507,34 @@ async function exportSalesCsv() {
     }
     if (!sales.length) { showToast('No sales to export', 'error'); return; }
     /* The list gives a sale's time as a number, its item count as item_count
-       and its state as payment_status. The export used to look for other
-       names, so every date came out as a raw number, every sale had 0 items
-       and a voided sale was written as completed. */
+       and its state as payment_status. The file is an Excel table (js/xlsx.js):
+       header with filters, peso amounts, real dates, and a TOTAL that leaves
+       voided sales out, as the Total sales amount on the page does. */
     const two = n => String(n).padStart(2, '0');
-    const when = ms => {
-        const d = new Date(Number(ms));
-        return isNaN(d) ? '' : `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}`;
-    };
-    // a cell that starts like a formula is written as text; quotes are doubled
-    const cell = v => {
-        let s = v == null ? '' : String(v);
-        if (/^[=+\-@\t\r]/.test(s) && isNaN(Number(s))) s = "'" + s;
-        return '"' + s.replace(/"/g, '""') + '"';
-    };
-    const headers = ['Sale #', 'Date', 'Customer', 'Cashier', 'Items', 'Subtotal', 'Discount %', 'Total', 'Payment', 'Status'];
+    const columns = [
+        { head: 'Sale #', width: 9, type: 'int' }, { head: 'Date', width: 17, type: 'datetime' },
+        { head: 'Customer', width: 20, type: 'text' }, { head: 'Cashier', width: 20, type: 'text' },
+        { head: 'Items', width: 8, type: 'int' }, { head: 'Subtotal', width: 14, type: 'money' },
+        { head: 'Discount %', width: 11, type: 'number' }, { head: 'Total', width: 14, type: 'money' },
+        { head: 'Payment', width: 10, type: 'text' }, { head: 'Status', width: 11, type: 'text' }
+    ];
     const rows = sales.map(s => [
         s.id,
-        when(s.created_at),
+        new Date(Number(s.created_at)),
         s.customer_name || 'Walk-in',
         s.staff_name || '',
         Number(s.item_count) || 0,
-        parseFloat(s.total_amount || 0).toFixed(2),
+        parseFloat(s.total_amount || 0),
         parseFloat(s.discount || 0),
-        parseFloat(s.final_amount ?? s.total_amount ?? 0).toFixed(2),
+        parseFloat(s.final_amount ?? s.total_amount ?? 0),
         s.payment_method || 'cash',
         s.payment_status || ''
     ]);
-    const csv = [headers.map(cell).join(','), ...rows.map(r => r.map(cell).join(','))].join('\r\n');
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
     // today's date where the shop is: toISOString() is UTC, which is still
     // yesterday until 8 in the morning here
     const today = new Date();
-    a.download = `sales_export_${today.getFullYear()}-${two(today.getMonth() + 1)}-${two(today.getDate())}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    downloadXlsx(`sales_${today.getFullYear()}-${two(today.getMonth() + 1)}-${two(today.getDate())}.xlsx`, 'Sales', columns, rows,
+        { label: 'TOTAL (voided left out)', sum: [4, 5, 7], skipWhen: { col: 9, equals: 'voided' } });
     showToast('Sales exported successfully', 'success');
 }
 
