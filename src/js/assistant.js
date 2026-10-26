@@ -45,7 +45,7 @@
                 </div>
             </div>
             <div class="fa-input-row">
-                <input type="text" id="faInput" placeholder="Ask a question or how to do something…" autocomplete="off" maxlength="600">
+                <textarea id="faInput" rows="1" placeholder="Ask a question or how to do something…" autocomplete="off" maxlength="600" aria-label="Your question"></textarea>
                 <button id="faSend" title="Send"><span class="material-symbols-outlined">send</span></button>
             </div>
             <div class="fa-foot">Live shop data + full help guide · scoped to FETCH</div>`;
@@ -56,7 +56,12 @@
         panel.querySelector('#faClose').addEventListener('click', toggle);
         panel.querySelector('#faSend').addEventListener('click', send);
         const input = panel.querySelector('#faInput');
-        input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+        // the box grows downward as the question gets longer, so all of it stays in view;
+        // Enter sends, Shift + Enter starts a new line
+        input.addEventListener('input', () => fitInput(input));
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }
+        });
         panel.querySelectorAll('.fa-chip').forEach(c =>
             c.addEventListener('click', () => {
                 if (c.dataset.action === 'guide') { showGuide(); return; }
@@ -122,12 +127,18 @@
         return m;
     }
 
+    function fitInput(box) {
+        box.style.height = 'auto';
+        box.style.height = Math.min(box.scrollHeight + 3, 150) + 'px';
+    }
+
     async function send() {
         if (asking) return;
         const input = document.getElementById('faInput');
         const q = input.value.trim();
         if (!q) return;
         input.value = '';
+        fitInput(input);
         addMsg('user', q);
         asking = true;
         const typing = addMsg('bot', '<span class="fa-typing"><i></i><i></i><i></i></span>', true);
