@@ -119,9 +119,8 @@
         return '<button class="btn-primary" data-act="received" data-id="' + id + '">Receive into stock</button>' + notes;
     }
 
-    // an order on its way shows where it is, like the Dashboard (js/po-progress.js);
-    // an offer says so in its badge
-    var ON_THE_ROAD = ['pending', 'confirmed', 'shipped', 'received'];
+    // every order and offer shows where it is, like the Dashboard (js/po-progress.js)
+    var ON_THE_ROAD = ['proposed', 'pending', 'confirmed', 'shipped', 'received'];
 
     function card(o) {
         var s = STATUS[o.status] || { text: o.status, tone: 'ok' };
