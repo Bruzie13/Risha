@@ -27,7 +27,7 @@
     <link rel="stylesheet" href="css/global.css?v=53">
     <link rel="stylesheet" href="css/sales.css?v=24">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=49">
+        <link rel="stylesheet" href="css/system.css?v=51">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -105,7 +105,7 @@
                 <button class="btn-primary" onclick="filterSalesByDate()" style="padding:7px 16px;font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;">search</span> Filter</button>
                 <button class="btn-secondary" onclick="clearDateFilter()" style="padding:7px 16px;font-size:13px;">Clear</button>
             </div>
-            <div class="stat-row">
+            <div class="stat-row figure-strip">
                 <div class="stat-card">
                     <div class="stat-icon green"><span class="material-symbols-outlined" style="font-size:18px;">payments</span></div>
                     <div class="stat-body">
@@ -175,7 +175,6 @@
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeViewSaleModal()">Close</button>
                 <button type="button" class="btn-primary" onclick="printReceipt(viewingSaleId)"><span class="material-symbols-outlined" style="font-size:16px;">print</span> Print receipt</button>
-                <button type="button" class="btn-danger" data-needs="admin" onclick="deleteSaleFromDetail()">Delete sale</button>
             </div>
         </div>
     </div>
@@ -249,12 +248,12 @@
 
         <script src="js/utils.js"></script>
 <script src="js/format.js"></script>
-<script src="js/auth.js?v=57"></script>
+<script src="js/auth.js?v=58"></script>
 <script src="js/loader.js?v=2"></script>
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=30"></script>
 <script src="js/assistant.js?v=27"></script>
-    <script src="js/point-of-sale.js?v=41"></script>
+    <script src="js/point-of-sale.js?v=43"></script>
 </body>
 </html>
 

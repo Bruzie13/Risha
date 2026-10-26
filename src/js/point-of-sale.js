@@ -123,6 +123,7 @@ function displaySales(sales) {
             <td>
                 <button class="btn-view" onclick="viewSaleDetails(${s.id})">View</button>
                 ${viewer || s.payment_status === 'voided' ? '' : `<button class="btn-delete" onclick="voidSale(${s.id})">Void</button>`}
+                ${getUserRole() === 'admin' ? `<button class="btn-delete" onclick="deleteSale(${s.id})" title="Delete sale" aria-label="Delete sale #${escAttr(s.sale_number || s.id)}"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>` : ''}
             </td>
         </tr>
     `).join('');
@@ -166,11 +167,10 @@ async function openEodModal() {
     if (!modal) return;
     modal.classList.add('active');
     const dateInput = document.getElementById('eodDate');
-    if (!dateInput.value) {
-        // local calendar day — toISOString() is UTC and reads as yesterday before 8am here
-        const now = new Date();
-        dateInput.value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-    }
+    // local calendar day (toISOString() is UTC and reads as yesterday before 8am here);
+    // a day that has not come yet cannot be counted, so the picker stops at today
+    dateInput.max = localTodayYmd();
+    if (!dateInput.value) dateInput.value = localTodayYmd();
     await loadEod();
     await loadEodHistory();
 }
@@ -182,7 +182,13 @@ function closeEodModal() {
 let eodExpected = 0;
 
 async function loadEod() {
-    const date = document.getElementById('eodDate').value;
+    const dateInput = document.getElementById('eodDate');
+    // a date typed past today is put back to today, with the reason
+    if (dateInput.value > localTodayYmd()) {
+        dateInput.value = localTodayYmd();
+        showToast('You cannot count a day that has not happened yet. Choose today or an earlier date.', 'error');
+    }
+    const date = dateInput.value;
     try {
         const res = await fetch(`${API_BASE}/sales/eod?date=${date}`, { headers: getAuthHeaders() });
         const data = await res.json();
@@ -385,14 +391,6 @@ async function viewSaleDetails(id) {
 function closeViewSaleModal() {
     document.getElementById('viewSaleModal').classList.remove('active');
     viewingSaleId = null;
-}
-
-async function deleteSaleFromDetail() {
-    if (getUserRole() !== 'admin') { showToast('Only an administrator can delete a sale. To cancel one, void it.', 'error'); return; }
-    if (viewingSaleId) {
-        await deleteSale(viewingSaleId);
-        closeViewSaleModal();
-    }
 }
 
 async function deleteSale(id) {
