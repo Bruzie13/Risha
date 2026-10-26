@@ -1,6 +1,7 @@
 /* The shop's side of working with suppliers: the board of orders in motion,
    notes on an order, marking an order paid, and deciding on prices a supplier
    has proposed. */
+const { noteProblem, RECENT_NOTES_SQL } = require('../utils/notes');
 const pool = require('../config/database');
 const logAudit = require('../services/audit');
 const { dueDate } = require('../utils/supply');
@@ -101,6 +102,9 @@ exports.postMessage = async (req, res) => {
         if (!body) return res.status(400).json({ success: false, message: 'Write a note first.' });
         const [rows] = Number.isInteger(id) ? await pool.query('SELECT id FROM purchase_orders WHERE id = ?', [id]) : [[]];
         if (!rows.length) return res.status(404).json({ success: false, message: 'Order not found' });
+        const [recent] = await pool.query(RECENT_NOTES_SQL, [id, req.user.id]);
+        const tooSoon = noteProblem(body, recent);
+        if (tooSoon) return res.status(429).json({ success: false, message: tooSoon });
         await pool.query('INSERT INTO po_messages (po_id, user_id, from_supplier, body) VALUES (?, ?, 0, ?)', [id, req.user.id, body]);
         res.json({ success: true });
     } catch (e) { fail(res, 'post message', e); }

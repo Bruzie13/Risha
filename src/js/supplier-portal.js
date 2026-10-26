@@ -420,9 +420,14 @@ async function onNoteSubmit(e) {
     e.preventDefault();
     const id = Number(form.dataset.noteFor);
     const input = form.querySelector('input');
+    const btn = form.querySelector('button');
     const body = input.value.trim();
-    if (!body) return;
-    if (await portalSend('POST', `/orders/${id}/messages`, { body })) {
+    // one press, one note: Send is locked until the note is saved
+    if (!body || form.dataset.sending) return;
+    form.dataset.sending = '1'; btn.disabled = true; input.readOnly = true; btn.textContent = 'Sending…';
+    const ok = await portalSend('POST', `/orders/${id}/messages`, { body });
+    delete form.dataset.sending; btn.disabled = false; input.readOnly = false; btn.textContent = 'Send';
+    if (ok) {
         const o = orderOf(id);
         if (o) o.message_count = Number(o.message_count || 0) + 1;
         loadNotes(id);

@@ -9,6 +9,7 @@
    opening a link and sharing their phone's location; here the supplier simply
    tells the shop what it needs to know — when the order will arrive, what is
    actually on it, and the paperwork number to check it against. */
+const { noteProblem, RECENT_NOTES_SQL } = require('../utils/notes');
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
@@ -273,6 +274,9 @@ router.post('/orders/:id/messages', async (req, res) => {
         if (!order) return notFound(res);
         const body = text(req.body?.body, 1000);
         if (!body) return bad(res, 'Write a note first.');
+        const [recent] = await pool.query(RECENT_NOTES_SQL, [order.id, req.user.id]);
+        const tooSoon = noteProblem(body, recent);
+        if (tooSoon) return res.status(429).json({ success: false, message: tooSoon });
         await pool.query('INSERT INTO po_messages (po_id, user_id, from_supplier, body) VALUES (?, ?, 1, ?)', [order.id, req.user.id, body]);
         tellShop('Note from supplier', `${order.po_number}: ${req.supplier.name} left a note on this order.`, order.id);
         res.json({ success: true });

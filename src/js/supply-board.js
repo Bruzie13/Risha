@@ -275,9 +275,14 @@
         var form = e.target.closest('form[data-note-for]');
         if (!form) return;
         e.preventDefault();
-        var id = Number(form.dataset.noteFor), body = form.querySelector('input').value.trim();
-        if (!body) return;
-        if (await send('POST', '/' + id + '/messages', { body: body })) {
+        var id = Number(form.dataset.noteFor), input = form.querySelector('input'), btn = form.querySelector('button');
+        var body = input.value.trim();
+        // one press, one note: Send is locked until the note is saved
+        if (!body || form.dataset.sending) return;
+        form.dataset.sending = '1'; btn.disabled = true; input.readOnly = true; btn.textContent = 'Sending…';
+        var ok = await send('POST', '/' + id + '/messages', { body: body });
+        delete form.dataset.sending; btn.disabled = false; input.readOnly = false; btn.textContent = 'Send';
+        if (ok) {
             var o = find(id);
             if (o) o.message_count = Number(o.message_count || 0) + 1;
             loadNotes(id);
