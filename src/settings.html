@@ -129,10 +129,6 @@
                         <span class="material-symbols-outlined">tune</span>
                         Preferences
                     </button>
-                    <button class="settings-tab" data-tab="session">
-                        <span class="material-symbols-outlined">devices</span>
-                        Session
-                    </button>
                     <button class="settings-tab" data-tab="email" id="emailTabBtn" style="display:none;">
                         <span class="material-symbols-outlined">mail</span>
                         Email
@@ -341,34 +337,6 @@
                         </div>
                     </div>
 
-                    <div class="settings-panel" id="panel-session">
-                        <div class="settings-card">
-                            <div class="settings-card-header">
-                                <h3>Session</h3>
-                                <p>Your current login session</p>
-                            </div>
-                            <div class="settings-card-body">
-                                <div class="settings-field">
-                                    <label>Logged in as</label>
-                                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);" id="settingsSessionUser">Administrator</div>
-                                </div>
-                                <div class="settings-field">
-                                    <label>Role</label>
-                                    <div style="font-size:14px;color:var(--text-secondary);" id="settingsSessionRole">admin</div>
-                                </div>
-                                <div class="settings-field">
-                                    <label>Account status</label>
-                                    <div><span class="status-badge status-active" id="settingsSessionStatus">Active</span></div>
-                                </div>
-                                <div class="settings-divider"></div>
-                                <button class="btn-danger" onclick="logout()" style="padding:10px 28px;">
-                                    <span class="material-symbols-outlined" style="font-size:16px;">logout</span>
-                                    Sign out
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="settings-panel" id="panel-email">
                         <div class="settings-card">
                             <div class="settings-card-header">
@@ -453,6 +421,6 @@
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=31"></script>
 <script src="js/assistant.js?v=29"></script>
-    <script src="js/settings.js?v=49"></script>
+    <script src="js/settings.js?v=50"></script>
 </body>
 </html>

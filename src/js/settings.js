@@ -239,8 +239,6 @@ function loadSettings() {
     var nameInput = document.getElementById('settingsFullName');
     var emailInput = document.getElementById('settingsEmail');
     var usernameInput = document.getElementById('settingsUsername');
-    var sessionUser = document.getElementById('settingsSessionUser');
-    var sessionRole = document.getElementById('settingsSessionRole');
 
     var name = user.full_name || user.username || user.email || 'User';
     if (typeof applyUserIdentity === 'function') applyUserIdentity();
@@ -249,8 +247,6 @@ function loadSettings() {
     if (nameInput) nameInput.value = user.full_name || '';
     if (emailInput) emailInput.value = user.email || '';
     if (usernameInput) usernameInput.value = user.username || '';
-    if (sessionUser) sessionUser.textContent = name;
-    if (sessionRole) sessionRole.textContent = roleLabel(user.role);
 }
 
 function setupThemeToggle() {
