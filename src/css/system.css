@@ -1052,3 +1052,5 @@ html.rail-only.sidebar-hidden .sidebar .sidebar-nav .nav-link .nav-label { white
 /* the Orders button's count is a word as well as a number ("3 to do"), so it
    sits inside the button instead of on its corner */
 #deliveriesBadge { position: static; margin-left: 6px; height: 18px; font-size: 11.5px; font-weight: 700; padding: 0 7px; display: inline-flex; align-items: center; }
+/* the supplier's one item is just its icon in the slim strip; its name shows when the sidebar is opened */
+html.rail-only.sidebar-hidden .sidebar .sidebar-nav .nav-link.rail-icon-only .nav-label { display: none; }

@@ -28,7 +28,7 @@
     <link rel="stylesheet" href="css/reports.css?v=30">
 <script>/* the supplier has one page, so its sidebar starts as the slim strip (see "The slim strip" in css/system.css); the logo opens it, and that choice is kept (railOpen) */document.documentElement.classList.add('rail-only');document.documentElement.classList.toggle('sidebar-hidden', localStorage.getItem('railOpen') !== 'true');</script>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=66">
+        <link rel="stylesheet" href="css/system.css?v=67">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -44,7 +44,7 @@
             <button class="sidebar-collapse-btn" id="sidebarToggleBtn" onclick="toggleSidebarVisibility()" title="Collapse sidebar"><span class="material-symbols-outlined">chevron_left</span></button>
         </div>
         <div class="sidebar-nav">
-            <a href="supplier.html" class="nav-link active" title="Supplier portal: your orders and the products you supply"><span class="nav-icon material-symbols-outlined">local_shipping</span><span class="nav-label">Portal</span></a>
+            <a href="supplier.html" class="nav-link active rail-icon-only" title="Orders and products"><span class="nav-icon material-symbols-outlined">local_shipping</span><span class="nav-label">Orders and products</span></a>
         </div>
         <div class="sidebar-footer">
             <div class="sidebar-user" onclick="location.href='settings.html'" title="Your Profile">
@@ -235,7 +235,7 @@
     </script>
     <script src="js/format.js"></script>
     <script src="js/utils.js"></script>
-    <script src="js/auth.js?v=60"></script>
+    <script src="js/auth.js?v=61"></script>
     <script src="js/loader.js?v=2"></script>
     <script src="js/po-progress.js?v=3"></script>
     <script src="js/supplier-portal.js?v=16"></script>
