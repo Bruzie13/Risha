@@ -969,3 +969,4 @@ html:not(.sidebar-hidden) .sidebar-collapse-btn { display: none; }
 .fa-input-row textarea:focus { outline: none; border-color: var(--primary); box-shadow: var(--focus-ring); }
 .fa-input-row textarea::placeholder { color: var(--text-muted); }
 .fa-input-row button { height: 40px; flex-shrink: 0; }
+#performanceModal .data-table th, #performanceModal .data-table td { padding-left: 10px; padding-right: 10px; }
