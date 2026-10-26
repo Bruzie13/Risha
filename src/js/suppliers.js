@@ -368,8 +368,7 @@ async function showPerformance(supplierId) {
         if (records.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No purchase orders yet</td></tr>';
         } else {
-            // the order's state is read, not pressed: a coloured dot and its name
-            var STATE_WORD = { pending: 'Waiting', confirmed: 'Confirmed', shipped: 'Shipped', received: 'Received', cancelled: 'Cancelled', proposed: 'Offered' };
+
             tbody.innerHTML = records.map(function(r) {
                 var lead = (r.status === 'received' && r.lead_days != null && r.lead_days >= 0) ? r.lead_days + ' days' : '—';
                 var val = '\u20b1' + Number(r.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -394,7 +393,7 @@ async function showPerformance(supplierId) {
                     : '';
                 return '<tr>'
                     + '<td>' + escHtml(r.po_number || ('#' + r.id)) + '</td>'
-                    + '<td><span class="po-state is-' + escHtml(r.status) + '">' + escHtml(STATE_WORD[r.status] || r.status) + '</span>' + flag + '</td>'
+                    + '<td class="perf-progress">' + poProgressHtml(r.status) + flag + '</td>'
                     + '<td>' + confirm + '</td>'
                     + '<td style="font-variant-numeric:tabular-nums;">' + val + '</td>'
                     + '<td>' + lead + '</td>'

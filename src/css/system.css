@@ -947,17 +947,13 @@ html:not(.sidebar-hidden) .sidebar-collapse-btn { display: none; }
 }
 
 
-/* An order's state in a table: a coloured dot and its name, not a pill that
-   looks like a button. The buttons for the order sit in their own column. */
-.po-state { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
-.po-state::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
-.po-state.is-received { color: var(--success); }
-.po-state.is-shipped, .po-state.is-confirmed { color: var(--info); }
-.po-state.is-pending, .po-state.is-proposed { color: var(--warning); }
-.po-state.is-cancelled { color: var(--danger); }
+/* A supplier's Performance window: each order shows the same progress line
+   as the Dashboard's Purchase orders; its buttons sit in their own column. */
+#perfRecordsBody .perf-progress { min-width: 215px; }
+#perfRecordsBody .perf-progress .po-progress { margin-top: 0; }
 .po-actions { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; }
 /* the supplier's Performance window is wide enough for its order table and its buttons */
-#performanceModal .modal-content { width: min(980px, 94vw); max-width: min(980px, 94vw); }
+#performanceModal .modal-content { width: min(1100px, 95vw); max-width: min(1100px, 95vw); }
 #perfRecordsBody td:first-child { white-space: nowrap; }        /* a PO number reads as one piece */
 
 /* The assistant's question box grows downward with what is typed (up to
