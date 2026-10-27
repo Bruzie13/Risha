@@ -1809,7 +1809,7 @@ function downloadCsvTemplate() {
 }
 /* ===== Barcode assignment ===== */
 /* A barcode is 8, 12 or 13 digits (GS1 EAN-13 on most local products, UPC-A
-   on imports, EAN-8 on small packs) and its last digit is the GS1 check digit
+   on imports, EAN-8 or UPC-E on small packs) and its last digit is the GS1 check digit
    (backend/utils/product.js has the same rule). */
 let editingOriginalBarcode = '';
 function gs1CheckDigit(body) {
@@ -1817,13 +1817,34 @@ function gs1CheckDigit(body) {
     String(body).split('').reverse().forEach((d, i) => { sum += Number(d) * (i % 2 === 0 ? 3 : 1); });
     return (10 - (sum % 10)) % 10;
 }
+
+/* UPC-E is the short form of UPC-A on small packs: 8 digits starting 0 or 1,
+   whose check digit belongs to the full 12-digit UPC-A it stands for. */
+function upcEToUpcA(code) {
+    const [n, a, b, c, d, e, f, check] = code.split('');
+    let middle;
+    if ('012'.includes(f)) middle = a + b + f + '0000' + c + d + e;
+    else if (f === '3') middle = a + b + c + '00000' + d + e;
+    else if (f === '4') middle = a + b + c + d + '00000' + e;
+    else middle = a + b + c + d + e + '0000' + f;
+    return n + middle + check;
+}
+
+function checkDigitFits(code) {
+    const fits = c => Number(c.slice(-1)) === gs1CheckDigit(c.slice(0, -1));
+    if (fits(code)) return true;
+    return code.length === 8 && /^[01]/.test(code) && fits(upcEToUpcA(code));
+}
 function barcodeFormatProblem(code) {
     const c = String(code || '').trim();
     if (!c) return null;
     if (!/^\d+$/.test(c)) return 'A barcode is 8, 12 or 13 digits: numbers only, with no letters, spaces or dashes.';
     if (![8, 12, 13].includes(c.length)) return `A barcode is 8, 12 or 13 digits. This one has ${c.length}.`;
-    const expected = gs1CheckDigit(c.slice(0, -1));
-    if (Number(c.slice(-1)) !== expected) {
+    if (!checkDigitFits(c)) {
+        if (c.length === 8 && /^[01]/.test(c)) {
+            return 'The last digit of a barcode is a check digit, and it does not match the other digits. A digit was probably typed wrong: scan the barcode or type it again.';
+        }
+        const expected = gs1CheckDigit(c.slice(0, -1));
         return `The last digit of a barcode is a check digit; for this one it should be ${expected}, not ${c.slice(-1)}. A digit was probably typed wrong: scan the barcode or type it again.`;
     }
     return null;

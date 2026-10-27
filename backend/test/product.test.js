@@ -151,3 +151,11 @@ test('barcode: the last digit is the GS1 check digit', () => {
     assert.equal(barcodeProblem('2000000001272'), null, 'the new Generate code for product 127');
 });
 
+test('barcode: a UPC-E (short UPC on small packs) is checked against the UPC-A it stands for', () => {
+    assert.equal(barcodeProblem('04252614'), null, 'UPC-E for 042100005264');
+    assert.equal(barcodeProblem('01234565'), null, 'UPC-E for 012345000065');
+    assert.equal(barcodeProblem('042100005264'), null, 'the same product as a UPC-A');
+    assert.match(barcodeProblem('04252615'), /does not match the other digits/);
+    assert.equal(barcodeProblem('48000017'), null, 'an EAN-8 still passes');
+});
+
