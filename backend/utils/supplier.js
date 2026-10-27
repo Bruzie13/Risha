@@ -5,10 +5,17 @@
    that is given has to be one. The page checks the same things; these are the
    checks that hold whatever sends the request. */
 
-const LIMITS = { name: 255, contact_person: 255, email: 255, phone: 20, city: 100, payment_terms: 100 };
-const LABELS = { name: 'Supplier name', contact_person: 'Contact person', email: 'Email', phone: 'Phone number', city: 'City', payment_terms: 'Payment terms' };
+const LIMITS = { name: 100, contact_person: 100, email: 254, phone: 20, address: 255, city: 100, payment_terms: 100 };
+const LABELS = { name: 'Supplier name', contact_person: 'Contact person', email: 'Email', phone: 'Phone number', address: 'Address', city: 'City', payment_terms: 'Payment terms' };
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const PHONE = /^[0-9+()\-\s]+$/;
+// a company name: letters (ñ and accents too), numbers, spaces and . , & ' - ( ) /
+const COMPANY = /^[\p{L}\p{M}0-9 .,&'()\/-]+$/u;
+// a person's name or a city: letters, spaces and . ' - only
+const PERSON = /^[\p{L}\p{M} .'-]+$/u;
+const HAS_LETTER = /\p{L}/u;
+// what a new supplier must have; on an edit these cannot be emptied
+const REQUIRED = { name: 'Enter the supplier name.', contact_person: 'Enter the contact person.', email: 'Enter the email address.', phone: 'Enter the phone number.' };
 
 const blank = v => v == null || String(v).trim() === '';
 
@@ -17,23 +24,58 @@ function nameKey(name) {
     return String(name == null ? '' : name).trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
+/* What is wrong with one field as typed, or null. The page (suppliers.js
+   supplierFieldProblem) gives the same answers. */
+function fieldProblem(field, value) {
+    const v = String(value == null ? '' : value).trim().replace(/\s+/g, ' ');
+    if (!v) return REQUIRED[field] || null;
+    if (LIMITS[field] && v.length > LIMITS[field]) return `${LABELS[field]} is too long (${LIMITS[field]} characters at most).`;
+    switch (field) {
+        case 'name':
+            if (v.length < 2) return 'The supplier name is too short: use at least 2 characters.';
+            if (!HAS_LETTER.test(v)) return 'The supplier name needs at least one letter, not only numbers or symbols.';
+            if (!COMPANY.test(v)) return "The supplier name can use letters, numbers, spaces and . , & ' - ( ) / only.";
+            return null;
+        case 'contact_person':
+            if (v.length < 2) return "The contact person's name is too short: use at least 2 characters.";
+            if (!PERSON.test(v) || !HAS_LETTER.test(v)) return "The contact person's name can use letters, spaces and . ' - only, with no numbers.";
+            return null;
+        case 'email':
+            return EMAIL.test(v) ? null : 'Enter the email address in full, like name@example.com.';
+        case 'phone': {
+            const digits = v.replace(/\D/g, '').length;
+            if (!PHONE.test(v)) return 'Enter the phone number using digits, spaces and + ( ) - only.';
+            if (digits < 7) return 'The phone number is too short: it needs at least 7 digits.';
+            if (digits > 15) return 'The phone number has too many digits (15 at most).';
+            return null;
+        }
+        case 'city':
+            if (v.length < 2) return 'The city is too short: use at least 2 characters.';
+            if (!PERSON.test(v) || !HAS_LETTER.test(v)) return "The city can use letters, spaces and . ' - only, with no numbers.";
+            return null;
+        default:
+            return null;
+    }
+}
+
 /**
- * `adding` is true for a new supplier: the name must be there. On an edit only
- * the fields the edit carries are judged. Returns why it cannot be saved, or null.
+ * `adding` is true for a new supplier: the name, contact person, email and
+ * phone must be there. On an edit only the fields the edit carries are judged,
+ * and `previous` (the supplier as it is now) lets a value saved before these
+ * rules stay as it is. Returns why it cannot be saved, or null.
  */
-function supplierProblem(data, adding) {
+function supplierProblem(data, adding, previous) {
     const d = data || {};
     const sent = k => Object.prototype.hasOwnProperty.call(d, k);
-    if ((adding || sent('name')) && blank(d.name)) return 'Supplier name is required.';
-    for (const [field, max] of Object.entries(LIMITS)) {
-        if (sent(field) && !blank(d[field]) && String(d[field]).length > max) return `${LABELS[field]} is too long (${max} characters at most).`;
-    }
-    if (sent('email') && !blank(d.email) && !EMAIL.test(String(d.email).trim())) return 'Enter the email address in full, like name@example.com.';
-    if (sent('phone') && !blank(d.phone)) {
-        const phone = String(d.phone).trim();
-        if (!PHONE.test(phone) || phone.replace(/\D/g, '').length < 7) return 'Enter the phone number in digits (at least 7).';
+    for (const field of Object.keys(LABELS)) {
+        if (!(adding || sent(field))) continue;
+        const value = d[field];
+        if (blank(value) && !REQUIRED[field]) continue;
+        if (!blank(value) && previous && String(previous[field] ?? '').trim() === String(value).trim()) continue;
+        const problem = fieldProblem(field, value);
+        if (problem) return problem;
     }
     return null;
 }
 
-module.exports = { supplierProblem, nameKey, LIMITS };
+module.exports = { supplierProblem, fieldProblem, nameKey, LIMITS };

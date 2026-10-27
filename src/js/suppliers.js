@@ -109,11 +109,77 @@ document.getElementById('searchInput')?.addEventListener('keyup', (e) => {
     displaySuppliers(filtered);
 });
 
+/* ---- Checks on the supplier form (backend/utils/supplier.js has the same rules) ---- */
+const SUPPLIER_FIELDS = ['name', 'contact_person', 'email', 'phone', 'address', 'city'];
+const SUPPLIER_LIMITS = { name: 100, contact_person: 100, email: 254, phone: 20, address: 255, city: 100 };
+const SUPPLIER_LABELS = { name: 'Supplier name', contact_person: 'Contact person', email: 'Email', phone: 'Phone number', address: 'Address', city: 'City' };
+const SUPPLIER_REQUIRED = { name: 'Enter the supplier name.', contact_person: 'Enter the contact person.', email: 'Enter the email address.', phone: 'Enter the phone number.' };
+let supplierOriginal = {};      // the values the edit started with: one saved before the rules may stay
+
+function supplierFieldProblem(field, value) {
+    const v = String(value == null ? '' : value).trim().replace(/\s+/g, ' ');
+    if (!v) return SUPPLIER_REQUIRED[field] || null;
+    if (v.length > SUPPLIER_LIMITS[field]) return `${SUPPLIER_LABELS[field]} is too long (${SUPPLIER_LIMITS[field]} characters at most).`;
+    const person = /^[\p{L}\p{M} .'-]+$/u, hasLetter = /\p{L}/u;
+    switch (field) {
+        case 'name':
+            if (v.length < 2) return 'The supplier name is too short: use at least 2 characters.';
+            if (!hasLetter.test(v)) return 'The supplier name needs at least one letter, not only numbers or symbols.';
+            if (!/^[\p{L}\p{M}0-9 .,&'()\/-]+$/u.test(v)) return "The supplier name can use letters, numbers, spaces and . , & ' - ( ) / only.";
+            return null;
+        case 'contact_person':
+            if (v.length < 2) return "The contact person's name is too short: use at least 2 characters.";
+            if (!person.test(v) || !hasLetter.test(v)) return "The contact person's name can use letters, spaces and . ' - only, with no numbers.";
+            return null;
+        case 'email':
+            return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v) ? null : 'Enter the email address in full, like name@example.com.';
+        case 'phone': {
+            const digits = v.replace(/\D/g, '').length;
+            if (!/^[0-9+()\-\s]+$/.test(v)) return 'Enter the phone number using digits, spaces and + ( ) - only.';
+            if (digits < 7) return 'The phone number is too short: it needs at least 7 digits.';
+            if (digits > 15) return 'The phone number has too many digits (15 at most).';
+            return null;
+        }
+        case 'city':
+            if (v.length < 2) return 'The city is too short: use at least 2 characters.';
+            if (!person.test(v) || !hasLetter.test(v)) return "The city can use letters, spaces and . ' - only, with no numbers.";
+            return null;
+        default:
+            return null;
+    }
+}
+
+/* Checks one box, shows the reason under it, and says whether it is fine. */
+function checkSupplierField(field) {
+    const box = document.getElementById(field);
+    const value = box.value.trim();
+    const unchanged = value && editingSupplierId && value === String(supplierOriginal[field] ?? '').trim();
+    const problem = unchanged ? null : supplierFieldProblem(field, value);
+    showFieldProblem(box, problem);
+    return !problem;
+}
+
+function clearSupplierChecks() {
+    SUPPLIER_FIELDS.forEach(f => showFieldProblem(document.getElementById(f), null));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    SUPPLIER_FIELDS.forEach(f => {
+        const box = document.getElementById(f);
+        if (!box) return;
+        box.addEventListener('blur', () => checkSupplierField(f));
+        // once a reason shows, it goes away as soon as the box is right
+        box.addEventListener('input', () => { if (box.classList.contains('input-invalid')) checkSupplierField(f); });
+    });
+});
+
 function openAddSupplierModal() {
     if (!canManage()) { showToast("Your role can't add suppliers.", 'error'); return; }
     editingSupplierId = null;
     document.getElementById('supplierModalTitle').textContent = 'Add supplier';
     document.getElementById('supplierForm').reset();
+    supplierOriginal = {};
+    clearSupplierChecks();
     document.getElementById('supplierModal').classList.add('active');
     if (typeof openSupplierPicker === 'function') openSupplierPicker(null, null);
 }
@@ -131,6 +197,8 @@ function openEditSupplierModal(id) {
     document.getElementById('address').value = supplier.address || '';
     document.getElementById('city').value = supplier.city || '';
     document.getElementById('payment_terms').value = supplier.payment_terms || 'net30';
+    supplierOriginal = { ...supplier };
+    clearSupplierChecks();
     document.getElementById('supplierModal').classList.add('active');
     if (typeof openSupplierPicker === 'function') {
         openSupplierPicker(
@@ -150,6 +218,9 @@ let supplierSaving = false;     // a save is on its way: a second press of Save 
 async function handleSupplierSubmit(event) {
     event.preventDefault();
     if (supplierSaving) return;
+    // every box is checked; the first one that is wrong gets the cursor
+    const wrong = SUPPLIER_FIELDS.filter(f => !checkSupplierField(f));
+    if (wrong.length) { document.getElementById(wrong[0]).focus(); return; }
     const saveBtn = event.target.querySelector('button[type="submit"]');
     const saveLabel = saveBtn ? saveBtn.textContent : '';
     const data = {

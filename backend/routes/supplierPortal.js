@@ -18,6 +18,7 @@ const Notification = require('../models/Notification');
 const logAudit = require('../services/audit');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, scorecard, starRating } = require('../utils/supply');
+const { supplierProblem } = require('../utils/supplier');
 const SupplierPerformance = require('../models/SupplierPerformance');
 
 const DAY = col => `DATE_FORMAT(CONVERT_TZ(${col},'+00:00','+08:00'), '%Y-%m-%d')`;
@@ -72,13 +73,15 @@ router.get('/me', (req, res) => res.json({ success: true, data: req.supplier }))
 // those changes who gets paid and where orders go.
 router.put('/me', async (req, res) => {
     try {
+        // cut only far past the limits, so a too-long value is refused with the reason
         const next = {
-            contact_person: text(req.body?.contact_person, 255),
-            phone: text(req.body?.phone, 20),
-            address: text(req.body?.address, 500),
-            city: text(req.body?.city, 100)
+            contact_person: text(req.body?.contact_person, 1000),
+            phone: text(req.body?.phone, 1000),
+            address: text(req.body?.address, 1000),
+            city: text(req.body?.city, 1000)
         };
-        if (next.phone && !/^[0-9+()\-\s]{5,20}$/.test(next.phone)) return bad(res, 'Enter a phone number using digits, spaces and + ( ) - only.');
+        const problem = supplierProblem(next, false, req.supplier);
+        if (problem) return bad(res, problem);
         await pool.query('UPDATE suppliers SET contact_person = ?, phone = ?, address = ?, city = ? WHERE id = ?',
             [next.contact_person || null, next.phone || null, next.address || null, next.city || null, req.supplier.id]);
         logAudit(req.user.id, 'update', 'suppliers', req.supplier.id,

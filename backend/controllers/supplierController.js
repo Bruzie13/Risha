@@ -108,7 +108,9 @@ exports.updateSupplier = async (req, res) => {
         }
         const updateData = { ...req.body, ...coords.value };
 
-        const problem = supplierProblem(updateData, false);
+        // a value saved before the rules may stay as it is
+        const oldSupplier = await Supplier.findById(id);
+        const problem = supplierProblem(updateData, false, oldSupplier);
         if (problem) {
             return res.status(400).json({ success: false, message: problem });
         }
@@ -119,7 +121,6 @@ exports.updateSupplier = async (req, res) => {
             }
         }
 
-        const oldSupplier = await Supplier.findById(id);
         const supplier = await Supplier.update(id, updateData);
 
         if (!supplier) {

@@ -293,41 +293,48 @@
                 <button class="close-btn" title="Close" onclick="closeSupplierModal()">&times;</button>
             </div>
 
-            <form id="supplierForm" onsubmit="handleSupplierSubmit(event)">
+            <form id="supplierForm" novalidate onsubmit="handleSupplierSubmit(event)">
                 <div class="modal-body">
                     <input type="hidden" id="supplierId">
+                    <p class="form-hint" style="margin:0 0 12px;font-size:12.5px;color:var(--text-muted);">Fields marked * are required. Each field is checked as you leave it.</p>
 
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Supplier name *</label>
-                            <input type="text" class="form-input" id="name" required>
+                            <input type="text" class="form-input" id="name" required maxlength="100" autocomplete="off" placeholder="e.g. Happy Paws Trading">
+                            <div class="field-error" id="nameError" role="alert"></div>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Contact person *</label>
-                            <input type="text" class="form-input" id="contact_person" required>
+                            <input type="text" class="form-input" id="contact_person" required maxlength="100" autocomplete="off" placeholder="e.g. Juan Dela Cruz">
+                            <div class="field-error" id="contact_personError" role="alert"></div>
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Email *</label>
-                            <input type="email" class="form-input" id="email" required>
+                            <input type="email" class="form-input" id="email" required maxlength="254" autocomplete="off" placeholder="name@example.com">
+                            <div class="field-error" id="emailError" role="alert"></div>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Phone *</label>
-                            <input type="tel" class="form-input" id="phone" required>
+                            <input type="tel" class="form-input" id="phone" required maxlength="20" autocomplete="off" placeholder="e.g. 0917 123 4567">
+                            <div class="field-error" id="phoneError" role="alert"></div>
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Address</label>
-                        <input type="text" class="form-input" id="address" placeholder="Street address">
+                        <input type="text" class="form-input" id="address" maxlength="255" placeholder="Street address">
+                        <div class="field-error" id="addressError" role="alert"></div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">City</label>
-                            <input type="text" class="form-input" id="city">
+                            <input type="text" class="form-input" id="city" maxlength="100" placeholder="e.g. Caloocan City">
+                            <div class="field-error" id="cityError" role="alert"></div>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Payment terms *</label>
@@ -398,7 +405,7 @@
 <script src="js/jump.js?v=31"></script>
 <script src="js/assistant.js?v=29"></script>
     <script src="js/po-progress.js?v=3"></script>
-    <script src="js/suppliers.js?v=36"></script>
+    <script src="js/suppliers.js?v=37"></script>
     <script src="js/supply-board.js?v=11"></script>
 </body>
 </html>
