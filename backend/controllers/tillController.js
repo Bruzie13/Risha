@@ -5,6 +5,7 @@
    to today. Neither comes from the request. */
 const pool = require('../config/database');
 const logAudit = require('../services/audit');
+const { sendVoidRequestEmails } = require('../utils/mailer');
 const Notification = require('../models/Notification');
 const { maxDiscountFrom, voidRequestProblem, cashMoveProblem } = require('../utils/till');
 
@@ -157,6 +158,23 @@ exports.getMySales = async (req, res) => {
 };
 
 // A cashier cannot void. They flag the sale and say why; a manager decides.
+/* The bell is seen only by someone signed in, so every active administrator
+   and manager is also emailed. It runs after the answer is sent: a slow or
+   failed email never holds up the till. */
+function emailVoidRequest(sale, cashier, reason) {
+    (async () => {
+        const [people] = await pool.query(
+            `SELECT email, full_name FROM users
+             WHERE role IN ('admin', 'manager') AND is_active = TRUE AND email IS NOT NULL AND email <> ''`);
+        if (!people.length) return;
+        const [[asker]] = await pool.query('SELECT full_name, username FROM users WHERE id = ?', [cashier.id]);
+        const requestedAt = new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+        await sendVoidRequestEmails(people, {
+            saleId: sale.id, amount: sale.final_amount, cashierName: (asker && (asker.full_name || asker.username)) || cashier.username, reason, requestedAt
+        });
+    })().catch(e => console.error('Void request email error:', e.message));
+}
+
 exports.requestVoid = async (req, res) => {
     try {
         const id = Number(req.params.id);
@@ -165,7 +183,7 @@ exports.requestVoid = async (req, res) => {
         if (reason.length < 3) return res.status(400).json({ success: false, message: 'Say briefly why this sale should be voided.' });
 
         const [rows] = await pool.query(
-            `SELECT id, sale_number, created_by, payment_status, void_requested_at,
+            `SELECT id, sale_number, created_by, payment_status, void_requested_at, final_amount,
                     DATE_FORMAT(CONVERT_TZ(created_at,'+00:00','+08:00'), '%Y-%m-%d') AS sale_day
              FROM sales WHERE id = ?`, [id]);
         const problem = voidRequestProblem(rows[0], req.user.id, rows[0] && rows[0].sale_day, shopToday());
@@ -181,6 +199,7 @@ exports.requestVoid = async (req, res) => {
             // no user_id, so the people who decide (not the cashier who asked) see it
             type: 'info', related_id: id, related_type: 'sale'
         }).catch(e => console.error('Notif error:', e.message));
+        emailVoidRequest(rows[0], req.user, reason);
         res.json({ success: true, message: 'Sent to a manager for voiding.' });
     } catch (e) { fail(res, 'requestVoid', e); }
 };

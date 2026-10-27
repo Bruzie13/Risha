@@ -14,7 +14,9 @@ const samples = {
     emailCode: { code: '482913' },
     welcome: { toEmail: 'ana@example.test', fullName: 'Ana Cruz', username: 'ana<1>', role: 'cashier' },
     test: { sender: 'shop@example.test', sentAt: 'Oct 9, 2026, 3:00 PM' },
-    backup: { tables: 18, rows: 9000, kb: '63', day: '2026-10-09' }
+    backup: { tables: 18, rows: 9000, kb: '63', day: '2026-10-09' },
+    voidRequest: { fullName: 'Juan', saleId: 2597, amount: 120, cashierName: 'Juan <b>Cashier</b>', reason: 'Wrong item <script>x</script>',
+        requestedAt: 'Oct 27, 2026, 4:05 PM', reviewUrl: 'https://example.test/reports.html?tab=voids' }
 };
 
 for (const [name, data] of Object.entries(samples)) {
@@ -62,4 +64,13 @@ test('a purchase order shows money with separators and the right total', () => {
 test('a low-stock notice says how many are sold out', () => {
     const mail = templates.lowStock(samples.lowStock);
     assert.ok(mail.subject.startsWith('2 products are running low, 1 already sold out'));
+});
+
+test('void request: names the sale, the amount and the reason, escaped, with the review link', () => {
+    const mail = templates.voidRequest(samples.voidRequest);
+    assert.match(mail.subject, /sale #2597 \(₱120\.00\)/);
+    assert.ok(mail.html.includes('reports.html?tab=voids'));
+    assert.ok(!mail.html.includes('<script>x</script>') && mail.html.includes('&lt;script&gt;'), 'the reason is escaped');
+    assert.ok(!mail.html.includes('<b>Cashier</b>'), 'the name is escaped');
+    assert.match(mail.text, /Reason given: Wrong item/);
 });

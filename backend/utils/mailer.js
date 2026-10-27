@@ -666,6 +666,59 @@ async function sendWelcomeEmail(toEmail, fullName, username, role) {
     await sendMessage(config, { from: fromLine(config), to: toEmail, ...templates.welcome({ toEmail, fullName, username, role }) });
 }
 
+/* A cashier asked for a sale to be voided. Only an administrator or a manager
+   can decide, and they may not be signed in, so it is emailed to each of them.
+   The cashier's reason is shown as typed, escaped. */
+templates.voidRequest = function ({ fullName, saleId, amount, cashierName, reason, requestedAt, reviewUrl }) {
+    const contentHtml =
+        heading('A sale is waiting to be voided') +
+        paragraph(`Hi <strong>${esc(fullName || 'there')}</strong>,`) +
+        paragraph(`<strong>${esc(cashierName || 'A cashier')}</strong> asked for a sale to be voided. A cashier cannot void a sale alone: it stays as sold until an administrator or a manager approves or rejects it.`) +
+        facts([['Sale', '#' + saleId], ['Amount', money(amount)], ['Asked by', cashierName || 'A cashier'], ['Asked at', requestedAt]]) +
+        notice(`<strong>Reason given:</strong> ${esc(reason)}`) +
+        ctaButton(reviewUrl, 'Review the request') +
+        fallbackLink(reviewUrl);
+    const text = [
+        'A sale is waiting to be voided', '',
+        `Hi ${fullName || 'there'},`, '',
+        `${cashierName || 'A cashier'} asked for a sale to be voided. A cashier cannot void a sale alone: it stays as sold until an administrator or a manager approves or rejects it.`, '',
+        `Sale: #${saleId}`, `Amount: ${money(amount)}`, `Asked by: ${cashierName || 'A cashier'}`, `Asked at: ${requestedAt}`,
+        `Reason given: ${reason}`, '',
+        'Review the request:', reviewUrl, '', BRAND.org
+    ].join('\n');
+    return {
+        subject: `Void request for sale #${saleId} (${money(amount)}) is waiting for you`,
+        text,
+        html: emailShell({
+            preheader: `${cashierName || 'A cashier'} asked for sale #${saleId} to be voided. It waits for your decision.`,
+            title: `Void request for sale #${saleId}`,
+            contentHtml,
+            footerNote: `You received this because you are an administrator or a manager in ${BRAND.app}, and only they can approve a void.`
+        })
+    };
+};
+
+/**
+ * Email every active administrator and manager about a void request, one
+ * message each so nobody sees the others' addresses. `people` is
+ * [{ email, full_name }]; a bad address is skipped. Returns how many were sent.
+ */
+async function sendVoidRequestEmails(people, details) {
+    const config = await getEmailConfig();
+    requireSender(config);
+    const reviewUrl = BASE_URL + '/reports.html?tab=voids';
+    let sent = 0;
+    for (const person of people) {
+        if (!isValidEmail(person.email)) continue;
+        try {
+            await sendMessage(config, { from: fromLine(config), to: person.email.trim(),
+                ...templates.voidRequest({ ...details, fullName: person.full_name, reviewUrl }) });
+            sent++;
+        } catch (e) { console.error('Void request email to one person failed:', e.message); }
+    }
+    return sent;
+}
+
 templates.test = function ({ sender, sentAt }) {
     const contentHtml =
         heading('Your email settings work') +
@@ -794,6 +847,7 @@ module.exports = {
     sendVerificationEmail,
     sendEmailCode,
     sendWelcomeEmail,
+    sendVoidRequestEmails,
     sendBackupEmail,
     sendLowStockAlert,
     sendTestEmail,
