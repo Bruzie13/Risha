@@ -540,8 +540,26 @@ async function exportSalesExcel() {
     // today's date where the shop is: toISOString() is UTC, which is still
     // yesterday until 8 in the morning here
     const today = new Date();
-    downloadXlsx(`sales_${today.getFullYear()}-${two(today.getMonth() + 1)}-${two(today.getDate())}.xlsx`, 'Sales', columns, rows,
-        { label: 'TOTAL (voided left out)', sum: [4, 5, 7], skipWhen: { col: 9, equals: 'voided' } });
+    /* A second sheet adds the sales up by day, voided ones left out, with a
+       chart of the revenue, oldest day first. */
+    const byDay = new Map();
+    sales.filter(s => s.payment_status !== 'voided').forEach(s => {
+        const d = new Date(Number(s.created_at));
+        const key = d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate());
+        const day = byDay.get(key) || { label: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }), sales: 0, items: 0, revenue: 0 };
+        day.sales += 1;
+        day.items += Number(s.item_count) || 0;
+        day.revenue += parseFloat(s.final_amount ?? s.total_amount ?? 0) || 0;
+        byDay.set(key, day);
+    });
+    const days = [...byDay.keys()].sort().map(k => byDay.get(k));
+    downloadWorkbook(`sales_${today.getFullYear()}-${two(today.getMonth() + 1)}-${two(today.getDate())}.xlsx`, [
+        { name: 'Sales', columns, rows, total: { label: 'TOTAL (voided left out)', sum: [4, 5, 7], skipWhen: { col: 9, equals: 'voided' } } },
+        { name: 'By day', columns: [{ head: 'Day', width: 22, type: 'text' }, { head: 'Sales made', width: 12, type: 'int' },
+            { head: 'Items sold', width: 12, type: 'int' }, { head: 'Revenue', width: 16, type: 'money' }],
+          rows: days.map(d => [d.label, d.sales, d.items, Math.round(d.revenue * 100) / 100]),
+          total: { label: 'TOTAL', sum: [1, 2, 3] }, chart: { title: 'Revenue by day (voided left out)', cat: 0, val: 3 } }
+    ]);
     showToast('Sales exported successfully', 'success');
 }
 

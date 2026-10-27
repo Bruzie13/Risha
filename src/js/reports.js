@@ -444,15 +444,40 @@ function downloadCSV(filename, lines) {
     URL.revokeObjectURL(url);
 }
 
+/* The report as an Excel workbook (js/xlsx.js): one sheet for each part of the
+   page, each an Excel table with the same chart the page draws beside it. The
+   periods run oldest first, so the chart reads left to right like the page's. */
 function exportExcel() {
-    const rows = currentReportData?.rows || [];
+    const data = currentReportData || {};
+    const rows = data.rows || [];
     if (!rows.length) { showToast('There is nothing to export for this period', 'warning'); return; }
-    // an Excel table (js/xlsx.js): header with filters, peso amounts and a TOTAL row
-    downloadXlsx(`sales_by_${GROUP_WORD[currentGroup]}_${ymd(new Date())}.xlsx`, 'Sales by ' + GROUP_WORD[currentGroup], [
-        { head: GROUP_HEAD[currentGroup], width: 22, type: 'text' }, { head: 'Sales made', width: 12, type: 'int' },
-        { head: 'Items sold', width: 12, type: 'int' }, { head: 'Revenue', width: 16, type: 'money' }
-    ], rows.map(r => [periodLabel(r), rowSales(r), rowItems(r), rowRevenue(r)]), { label: 'TOTAL', sum: [1, 2, 3] });
-    showToast('Sales report exported', 'success');
+    const word = GROUP_WORD[currentGroup];
+    const sheets = [{
+        name: 'Sales by ' + word,
+        columns: [{ head: GROUP_HEAD[currentGroup], width: 24, type: 'text' }, { head: 'Sales made', width: 12, type: 'int' },
+            { head: 'Items sold', width: 12, type: 'int' }, { head: 'Revenue', width: 16, type: 'money' }],
+        rows: [...rows].reverse().map(r => [periodLabel(r), rowSales(r), rowItems(r), rowRevenue(r)]),
+        total: { label: 'TOTAL', sum: [1, 2, 3] },
+        chart: { title: 'Revenue by ' + word, cat: 0, val: 3 }
+    }];
+    const top = data.top_products || [];
+    if (top.length) sheets.push({
+        name: 'Best-selling products',
+        columns: [{ head: 'Product', width: 34, type: 'text' }, { head: 'Quantity sold', width: 14, type: 'int' }],
+        rows: top.map(p => [p.name, Number(p.quantity) || 0]),
+        chart: { title: 'Best-selling products (quantity sold)', cat: 0, val: 1 }
+    });
+    const cats = data.summary?.category_breakdown || [];
+    if (cats.length) sheets.push({
+        name: 'Sales by category',
+        columns: [{ head: 'Category', width: 24, type: 'text' }, { head: 'Items sold', width: 12, type: 'int' },
+            { head: 'Sold before discounts', width: 22, type: 'money' }],
+        rows: cats.map(c => [c.category_name || 'Uncategorised', Number(c.total_quantity) || 0, Number(c.total_revenue) || 0]),
+        total: { label: 'TOTAL', sum: [1, 2] },
+        chart: { title: 'Sales by category (before discounts)', cat: 0, val: 2 }
+    });
+    downloadWorkbook(`sales_by_${word}_${ymd(new Date())}.xlsx`, sheets);
+    showToast('Sales report exported with ' + sheets.length + ' sheet' + (sheets.length === 1 ? '' : 's') + ' and charts', 'success');
 }
 
 /* ---------- Void requests ----------
