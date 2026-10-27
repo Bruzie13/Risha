@@ -22,12 +22,22 @@ const FIELDS = [...new Map([...IMPORTANT, ...NOT_NEGATIVE, ...LONGEST, ...LARGES
 
 const blank = v => v == null || String(v).trim() === '';
 
-/* A barcode is the number printed under the bars, in one of the retail
+/* A barcode is the number printed under the bars, in one of the GS1 retail
    lengths: EAN-13 (13 digits, most products sold in the Philippines), UPC-A
-   (12, imported goods and the shop's own Generate codes) or EAN-8 (8, small
-   packs). A barcode a product already has may stay as it is, so an older
-   code does not stop the rest of the product being edited. */
+   (12, imported goods) or EAN-8 (8, small packs). GTIN-14 is left out: it is
+   for cases and cartons, not items sold at the till. The last digit is the
+   GS1 check digit, worked out from the others, so a mistyped digit is caught.
+   A barcode a product already has may stay as it is, so an older code does
+   not stop the rest of the product being edited. */
 const BARCODE_LENGTHS = [8, 12, 13];
+
+/* GS1 check digit of the digits before it: from the right, weights 3, 1, 3, 1...;
+   the check digit brings the sum up to the next multiple of 10. */
+function gs1CheckDigit(body) {
+    let sum = 0;
+    String(body).split('').reverse().forEach((d, i) => { sum += Number(d) * (i % 2 === 0 ? 3 : 1); });
+    return (10 - (sum % 10)) % 10;
+}
 
 function barcodeProblem(value, previous) {
     if (blank(value)) return null;
@@ -35,6 +45,10 @@ function barcodeProblem(value, previous) {
     if (previous != null && code === String(previous).trim()) return null;
     if (!/^\d+$/.test(code)) return 'A barcode is 8, 12 or 13 digits: numbers only, with no letters, spaces or dashes.';
     if (!BARCODE_LENGTHS.includes(code.length)) return `A barcode is 8, 12 or 13 digits. This one has ${code.length}.`;
+    const expected = gs1CheckDigit(code.slice(0, -1));
+    if (Number(code.slice(-1)) !== expected) {
+        return `The last digit of a barcode is a check digit; for this one it should be ${expected}, not ${code.slice(-1)}. A digit was probably typed wrong: scan the barcode or type it again.`;
+    }
     return null;
 }
 
@@ -112,4 +126,4 @@ function stockChangeProblem(quantity, kind) {
     return null;
 }
 
-module.exports = { productProblem, barcodeProblem, stockChangeProblem, STOCK_CHANGES, MAX_STOCK };
+module.exports = { productProblem, barcodeProblem, gs1CheckDigit, stockChangeProblem, STOCK_CHANGES, MAX_STOCK };

@@ -1808,30 +1808,46 @@ function downloadCsvTemplate() {
     URL.revokeObjectURL(url);
 }
 /* ===== Barcode assignment ===== */
-/* A barcode is 8, 12 or 13 digits: EAN-13 on most local products, UPC-A on
-   imports and the shop's own Generate codes, EAN-8 on small packs
+/* A barcode is 8, 12 or 13 digits (GS1 EAN-13 on most local products, UPC-A
+   on imports, EAN-8 on small packs) and its last digit is the GS1 check digit
    (backend/utils/product.js has the same rule). */
 let editingOriginalBarcode = '';
+function gs1CheckDigit(body) {
+    let sum = 0;
+    String(body).split('').reverse().forEach((d, i) => { sum += Number(d) * (i % 2 === 0 ? 3 : 1); });
+    return (10 - (sum % 10)) % 10;
+}
 function barcodeFormatProblem(code) {
     const c = String(code || '').trim();
     if (!c) return null;
     if (!/^\d+$/.test(c)) return 'A barcode is 8, 12 or 13 digits: numbers only, with no letters, spaces or dashes.';
     if (![8, 12, 13].includes(c.length)) return `A barcode is 8, 12 or 13 digits. This one has ${c.length}.`;
+    const expected = gs1CheckDigit(c.slice(0, -1));
+    if (Number(c.slice(-1)) !== expected) {
+        return `The last digit of a barcode is a check digit; for this one it should be ${expected}, not ${c.slice(-1)}. A digit was probably typed wrong: scan the barcode or type it again.`;
+    }
     return null;
 }
 
-// Deterministic in-store barcode (UPC-A length) derived from the product id.
+/* The shop's own barcode for a product with none: an EAN-13 starting 200,
+   which GS1 keeps for in-store use (restricted circulation), so it never
+   clashes with a maker's barcode. The product id makes it the same each time. */
 function makeInStoreBarcode(id) {
-    return '250' + String(id).padStart(9, '0');
+    const body = '200' + String(id).padStart(9, '0');
+    return body + gs1CheckDigit(body);
 }
 
 // "Generate" button on the Add/Edit product form.
 function generateBarcodeField() {
     const input = document.getElementById('barcode');
     if (!input) return;
-    input.value = editingProductId
-        ? makeInStoreBarcode(editingProductId)
-        : '2' + String(Date.now()).slice(-11);
+    if (editingProductId) {
+        input.value = makeInStoreBarcode(editingProductId);
+    } else {
+        // no id yet: a new product takes 200 and the clock instead
+        const body = '200' + String(Date.now()).slice(-9);
+        input.value = body + gs1CheckDigit(body);
+    }
     input.focus();
 }
 

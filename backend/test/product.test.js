@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-const { barcodeProblem, productProblem } = require('../utils/product');
+const { barcodeProblem, productProblem, gs1CheckDigit } = require('../utils/product');
 
 const suppliers = new Set([6, 7]);
 const good = { sku: 'DRY-100', name: 'Dog food 1kg', category_id: 1, unit_price: 120, supplier_id: 6 };
@@ -35,7 +35,7 @@ test('adding a product: numbers have to make sense', () => {
 });
 
 test('editing a product: only what the edit carries is checked', () => {
-    assert.equal(productProblem({ barcode: '4800000000001' }, false, suppliers), null, 'the barcode tool sends one field');
+    assert.equal(productProblem({ barcode: '4800000000002' }, false, suppliers), null, 'the barcode tool sends one field');
     assert.equal(productProblem({ image_url: 'images/products/x.jpg' }, false, suppliers), null, 'so does the picture tool');
     assert.match(productProblem({ ...good, supplier_id: null }, false, suppliers), /Supplier/, 'the edit form cannot clear the supplier');
     assert.match(productProblem({ name: '' }, false, suppliers), /Product name/);
@@ -98,7 +98,7 @@ test('adding a product: levels are whole numbers and the unit is from the list',
 test('prices, stock levels, SKU and barcode are judged against each other and their pattern', () => {
     const suppliers = new Set([1]);
     const good = { sku: 'DOG-01', name: 'Dog treats', category_id: 1, unit_price: 120, supplier_id: 1 };
-    assert.equal(productProblem({ ...good, cost_price: 95, reorder_level: 10, max_stock_level: 100, barcode: '4800000000011' }, true, suppliers), null);
+    assert.equal(productProblem({ ...good, cost_price: 95, reorder_level: 10, max_stock_level: 100, barcode: '4800000000019' }, true, suppliers), null);
     assert.match(productProblem({ ...good, cost_price: 150 }, true, suppliers), /cost price \(₱150\.00\) is higher than the unit price \(₱120\.00\)/);
     assert.match(productProblem({ ...good, reorder_level: 10, max_stock_level: 10 }, true, suppliers), /max stock level has to be higher than the reorder level \(10\)/);
     assert.match(productProblem({ ...good, sku: 'DOG 01' }, true, suppliers), /SKU can use letters, numbers/);
@@ -124,7 +124,7 @@ test('the SKU pattern: a product type and the shop running number', () => {
 test('barcode: 8, 12 or 13 digits; a barcode left as it is may stay', () => {
     assert.equal(barcodeProblem('', null), null, 'no barcode is fine');
     assert.equal(barcodeProblem('48000017'), null, 'EAN-8');
-    assert.equal(barcodeProblem('250000000127'), null, 'UPC-A, the shop\'s own Generate code');
+    assert.equal(barcodeProblem('202300001149'), null, 'UPC-A');
     assert.equal(barcodeProblem(' 4800361000017 '), null, 'EAN-13, spaces around it trimmed');
     assert.equal(barcodeProblem('1111'), 'A barcode is 8, 12 or 13 digits. This one has 4.');
     assert.match(barcodeProblem('48003610000171'), /This one has 14/);
@@ -134,5 +134,20 @@ test('barcode: 8, 12 or 13 digits; a barcode left as it is may stay', () => {
     assert.match(barcodeProblem('1112', '1111a'), /This one has 4/, 'changed: judged like a new one');
     assert.match(productProblem({ barcode: '1111' }, false, suppliers, { barcode: '9999' }), /This one has 4/);
     assert.equal(productProblem({ barcode: 'arstarst' }, false, suppliers, { barcode: 'arstarst' }), null);
+});
+
+test('barcode: the last digit is the GS1 check digit', () => {
+    // worked example from the GS1 check digit sheet: 629104150021 -> 3
+    assert.equal(gs1CheckDigit('629104150021'), 3);
+    assert.equal(gs1CheckDigit('480652562134'), 0, 'a barcode on record');
+    assert.equal(gs1CheckDigit('4800001'), 7, 'EAN-8');
+    assert.equal(barcodeProblem('6291041500213'), null);
+    assert.equal(barcodeProblem('4801234567897'), null);
+    assert.equal(barcodeProblem('4801234567890'),
+        'The last digit of a barcode is a check digit; for this one it should be 7, not 0. A digit was probably typed wrong: scan the barcode or type it again.');
+    assert.match(barcodeProblem('4806525621304'), /should be/, 'two digits swapped');
+    assert.match(barcodeProblem('250000000127'), /should be 2, not 7/, 'the old Generate codes have no real check digit');
+    assert.equal(barcodeProblem('250000000003', '250000000003'), null, 'but one already saved may stay');
+    assert.equal(barcodeProblem('2000000001272'), null, 'the new Generate code for product 127');
 });
 
