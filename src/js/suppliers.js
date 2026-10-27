@@ -87,8 +87,7 @@ function displaySuppliers(suppliers) {
             <td>${starCellHtml(s.stars, s.id)}</td>
             <td><button class="btn-action" onclick="showEmailLogs(${s.id}, '${escHtml(s.name).replace(/'/g, "\\'")}')" style="font-size:12px"><span class="material-symbols-outlined" style="font-size:13px;">mark_email_read</span> Emails</button></td>
             <td>
-                <button class="btn-view" onclick="showPerformance(${s.id})">Performance</button>
-                ${viewer ? '' : `<button class="btn-edit" onclick="openEditSupplierModal(${s.id})">Edit</button>
+                ${viewer ? '—' : `<button class="btn-edit" onclick="openEditSupplierModal(${s.id})">Edit</button>
                 <button class="btn-delete" onclick="deleteSupplier(${s.id})">Delete</button>`}
             </td>
         </tr>
@@ -576,16 +575,18 @@ function closeEmailLogsModal() {
 /* The supplier's star rating and the conditions behind it (utils/supply.js
    starRating on the server: the same rule the supplier sees on their page). */
 /* The stars in the supplier list: the count, and whether the supplier meets
-   the standard. A click opens the Performance window with the conditions. */
+   the standard. It is the button that opens the Performance window (orders,
+   conditions and progress), so it looks like one. */
 function starCellHtml(r, id) {
     if (!r) return '—';
     var stars = '';
     for (var i = 1; i <= 5; i++) stars += '<span style="color:' + (i <= r.stars ? '#E8A317' : 'var(--border-color, #c9c9c9)') + ';">' + (i <= r.stars ? '★' : '☆') + '</span>';
     var note = !r.rated ? 'Not rated yet' : r.meets_standard ? 'Meets the standard' : 'Below the standard';
     var tone = !r.rated ? 'var(--text-secondary)' : r.meets_standard ? 'var(--success)' : 'var(--warning)';
-    return '<button type="button" class="star-btn" onclick="showPerformance(' + Number(id) + ')" title="' + String(r.summary || '').replace(/"/g, '&quot;') + ' Click for the conditions." aria-label="' + (r.rated ? r.stars + ' of 5 stars, ' : '') + note + '" style="background:none;border:0;padding:0;cursor:pointer;text-align:left;font:inherit;color:inherit;">'
-        + '<span style="font-size:15px;letter-spacing:1px;white-space:nowrap;">' + stars + '</span>'
-        + '<span class="star-note" style="display:block;font-size:11px;line-height:1.3;max-width:120px;color:' + tone + ';">' + (r.rated ? r.stars + ' of 5 · ' : '') + note + '</span></button>';
+    return '<button type="button" class="star-btn" onclick="showPerformance(' + Number(id) + ')" title="' + String(r.summary || '').replace(/"/g, '&quot;') + ' Click to see the performance and conditions." aria-label="Performance: ' + (r.rated ? r.stars + ' of 5 stars, ' : '') + note + '">'
+        + '<span class="star-body"><span class="star-row">' + stars + '</span>'
+        + '<span class="star-note" style="color:' + tone + ';">' + (r.rated ? r.stars + ' of 5 · ' : '') + note + '</span></span>'
+        + '<span class="material-symbols-outlined star-go" aria-hidden="true">chevron_right</span></button>';
 }
 
 function starRatingHtml(r) {
