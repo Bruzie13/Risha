@@ -1094,6 +1094,7 @@ async function openPosEod() {
         new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) + '.';
     document.getElementById('posEodStatus').textContent = '';
     document.getElementById('posEodCounted').value = '';
+    showFieldProblem(document.getElementById('posEodCounted'), null);
     document.getElementById('posEodNotes').value = '';
     try {
         const res = await fetch(`${API_BASE}/sales/eod`, { headers: getAuthHeaders() });
@@ -1241,8 +1242,11 @@ function closePosEod() {
 }
 
 function savePosEod() {
-    const counted = parseFloat(document.getElementById('posEodCounted').value);
-    if (isNaN(counted) || counted < 0) { showToast('Enter the cash counted in the drawer', 'warning'); return; }
+    const box = document.getElementById('posEodCounted');
+    const problem = countedCashProblem(box.value);
+    showFieldProblem(box, problem);
+    if (problem) { box.focus(); return; }
+    const counted = Number(box.value.trim());
     /* Saving the count closes the drawer for the day, which is easy to do too
        early by accident and can only be undone by an administrator or a
        manager. So the question spells out what stops, the button that keeps

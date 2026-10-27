@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-const { maxDiscountFrom, checkDiscount, drawerExpected, discrepancy, voidRequestProblem, cashMoveProblem, DEFAULT_MAX_DISCOUNT } = require('../utils/till');
+const { maxDiscountFrom, checkDiscount, drawerExpected, discrepancy, voidRequestProblem, cashMoveProblem, countedCashProblem, DEFAULT_MAX_DISCOUNT } = require('../utils/till');
 
 test('discount limit: falls back to the default until an admin sets one', () => {
     assert.equal(maxDiscountFrom(null), DEFAULT_MAX_DISCOUNT);
@@ -80,4 +80,17 @@ test('cash out: cannot take out more than the drawer should hold; putting in has
     assert.ok(cashMoveProblem('out', 5000.01, 'Owner collected', 5000));
     assert.ok(cashMoveProblem('out', 1, 'Owner collected', 0), 'an empty drawer has nothing to take');
     assert.equal(cashMoveProblem('in', 99999, 'Owner added cash', 0), null);
+});
+
+test('cash counted: a plain amount only, with the reason', () => {
+    assert.equal(countedCashProblem('1500'), null);
+    assert.equal(countedCashProblem('1500.50'), null);
+    assert.equal(countedCashProblem('0'), null, 'an empty drawer can be counted');
+    assert.equal(countedCashProblem(2500), null, 'a number sent by an older page');
+    assert.equal(countedCashProblem(''), 'Enter the cash counted in the drawer.');
+    assert.equal(countedCashProblem(null), 'Enter the cash counted in the drawer.');
+    for (const bad of ['+20', '-5', '20abc', 'abc', '1e3', '12.345', '1,500', '20 50']) {
+        assert.match(countedCashProblem(bad), /number only/, bad);
+    }
+    assert.match(countedCashProblem('1000000.01'), /too large/);
 });

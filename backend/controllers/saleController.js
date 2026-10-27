@@ -266,7 +266,7 @@ exports.voidSale = async (req, res) => {
 // ---- End-of-day cash reconciliation ----
 
 const pool = require('../config/database');
-const { checkDiscount, drawerExpected, discrepancy } = require('../utils/till');
+const { checkDiscount, drawerExpected, discrepancy, countedCashProblem } = require('../utils/till');
 const { readMaxDiscount } = require('./tillController');
 
 /* A DATE column read as the calendar day it means. mysql2 hands it over as a
@@ -430,10 +430,9 @@ exports.saveEod = async (req, res) => {
         const { date, counted_cash, notes } = req.body;
         const bizDate = eodDate(req, date);
         if (bizDate > shopToday()) return res.status(400).json({ success: false, message: FUTURE_EOD });
-        const counted = parseFloat(counted_cash);
-        if (isNaN(counted) || counted < 0) {
-            return res.status(400).json({ success: false, message: 'Enter the cash counted as a number of 0 or more. Letters and minus amounts are not accepted.' });
-        }
+        const countedIssue = countedCashProblem(counted_cash);
+        if (countedIssue) return res.status(400).json({ success: false, message: countedIssue });
+        const counted = Number(String(counted_cash).trim());
         const cleanNotes = String(notes || '').slice(0, 500) || null;
         const conn = await pool.getConnection();
         try {

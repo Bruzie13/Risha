@@ -203,6 +203,7 @@ async function loadEod() {
         renderEodMoves(d.cash_moves || [], cashIn, cashOut);
         const counted = document.getElementById('eodCounted');
         const notes = document.getElementById('eodNotes');
+        showFieldProblem(counted, null);
         if (d.reconciliation) {
             counted.value = parseFloat(d.reconciliation.counted_cash);
             notes.value = d.reconciliation.notes || '';
@@ -217,11 +218,14 @@ async function loadEod() {
 }
 
 function updateEodDiff() {
-    const counted = parseFloat(document.getElementById('eodCounted').value);
+    const box = document.getElementById('eodCounted');
+    const text = box.value.trim();
     const el = document.getElementById('eodDiff');
-    if (isNaN(counted)) { el.textContent = '—'; el.style.color = 'var(--text-muted)'; return; }
-    // cash in a drawer cannot be less than nothing: a minus used to read as "Balanced"
-    if (counted < 0) { el.textContent = 'Enter what was counted (0 or more)'; el.style.color = 'var(--danger)'; return; }
+    // while typing, a wrong amount is named under the box; an empty box just waits
+    const problem = text ? countedCashProblem(text) : null;
+    showFieldProblem(box, problem);
+    if (!text || problem) { el.textContent = '—'; el.style.color = 'var(--text-muted)'; return; }
+    const counted = Number(text);
     const diff = Math.round((counted - eodExpected) * 100) / 100;
     if (diff === 0) { el.textContent = 'Balanced ✓'; el.style.color = 'var(--success)'; }
     else if (diff > 0) { el.textContent = 'Over by ' + formatCurrency(diff); el.style.color = 'var(--warning)'; }
@@ -230,8 +234,11 @@ function updateEodDiff() {
 
 async function saveEod() {
     const date = document.getElementById('eodDate').value;
-    const counted = parseFloat(document.getElementById('eodCounted').value);
-    if (isNaN(counted) || counted < 0) { showErrorDialog('Cash counted is not a valid amount', 'Enter the cash counted in the drawer as a number of 0 or more. Letters and minus amounts are not accepted.'); return; }
+    const box = document.getElementById('eodCounted');
+    const counted = box.value.trim();
+    const problem = countedCashProblem(counted);
+    showFieldProblem(box, problem);
+    if (problem) { box.focus(); return; }
     try {
         const res = await fetch(`${API_BASE}/sales/eod`, {
             method: 'POST', headers: getAuthHeaders(),

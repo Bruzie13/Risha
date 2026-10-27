@@ -466,6 +466,24 @@ function imageFileProblem(file) {
     return null;
 }
 
+/* What is wrong with the cash counted as typed, or null (backend/utils/till.js
+   has the same rule). The box is plain text, so "+20" or "20abc" reach this
+   check instead of being read as 20 or quietly emptied by a number box. */
+function countedCashProblem(text) {
+    const t = String(text || '').trim();
+    if (!t) return 'Enter the cash counted in the drawer.';
+    if (!/^\d+(\.\d{1,2})?$/.test(t)) return 'Type the cash counted as a number only, like 1500 or 1500.50: no + or - signs, no letters, and at most 2 decimals.';
+    if (Number(t) > 1000000) return 'That amount is too large (₱1,000,000 at most).';
+    return null;
+}
+
+/* Shows the problem under a money box (in its .field-error) and marks the box. */
+function showFieldProblem(box, problem) {
+    const err = document.getElementById(box.id + 'Error');
+    if (err) err.textContent = problem || '';
+    box.classList.toggle('input-invalid', !!problem);
+}
+
 /* Stock that is being added needs at least a week left before it expires
    (backend/utils/expiry.js has the same rule). */
 const MIN_SHELF_DAYS = 7;

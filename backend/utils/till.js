@@ -46,6 +46,20 @@ function cashMoveProblem(kind, amount, reason, inDrawer) {
     return null;
 }
 
+/* The cash counted at the end of the day, as typed. A plain amount only:
+   "+20", "20abc" or "1e3" used to be read as 20 or 1000 and saved. The page
+   (auth.js countedCashProblem) has the same rule. Returns the reason, or null. */
+const MAX_COUNTED = 1000000;
+function countedCashProblem(value) {
+    const text = value == null ? '' : String(value).trim();
+    if (!text) return 'Enter the cash counted in the drawer.';
+    if (!/^\d+(\.\d{1,2})?$/.test(text)) {
+        return 'Type the cash counted as a number only, like 1500 or 1500.50: no + or - signs, no letters, and at most 2 decimals.';
+    }
+    if (Number(text) > MAX_COUNTED) return 'That amount is too large (₱1,000,000 at most).';
+    return null;
+}
+
 /** Counted minus expected, to the centavo. Positive is over, negative is short. */
 function discrepancy(counted, expected) {
     return Math.round((Number(counted) - Number(expected)) * 100) / 100;
@@ -63,4 +77,4 @@ function voidRequestProblem(sale, cashierId, saleDay, today) {
     return null;
 }
 
-module.exports = { DEFAULT_MAX_DISCOUNT, maxDiscountFrom, checkDiscount, drawerExpected, discrepancy, voidRequestProblem, cashMoveProblem };
+module.exports = { DEFAULT_MAX_DISCOUNT, maxDiscountFrom, checkDiscount, drawerExpected, discrepancy, voidRequestProblem, cashMoveProblem, countedCashProblem };
