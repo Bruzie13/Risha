@@ -101,12 +101,66 @@ function setSeg(id, attr, value) {
     document.querySelectorAll(`#${id} button`).forEach(b => b.classList.toggle('active', b.dataset[attr] === value));
 }
 
+/* The From and To boxes run from the first sale recorded in FETCH (when the
+   shop started selling here) to today: there is nothing to report before the
+   first sale, and nothing in the future. Sales are listed newest first, so the
+   first sale is the last one in the list. */
+let firstSaleDay = '';
+async function setReportDateBounds() {
+    try {
+        const head = await (await fetch(`${API_BASE}/sales?limit=1`, { headers: getAuthHeaders() })).json();
+        const total = Number(head.total) || 0;
+        if (total > 0) {
+            const last = await (await fetch(`${API_BASE}/sales?limit=1&offset=${total - 1}`, { headers: getAuthHeaders() })).json();
+            const oldest = last.success && last.data && last.data[0];
+            if (oldest && !isNaN(new Date(oldest.created_at))) firstSaleDay = ymd(new Date(oldest.created_at));
+        }
+    } catch (e) { /* the boxes still stop at today */ }
+    const start = document.getElementById('startDate');
+    ['startDate', 'endDate'].forEach(id => {
+        const box = document.getElementById(id);
+        box.max = localTodayYmd();
+        if (firstSaleDay) box.min = firstSaleDay;
+    });
+    if (firstSaleDay && start.value < firstSaleDay) start.value = firstSaleDay;
+}
+
+function prettyYmd(day) {
+    return new Date(day + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/* What is wrong with the dates chosen, or null. */
+function reportDateProblem(from, to) {
+    if (!from || !to) return 'Choose both a start and an end date.';
+    const today = localTodayYmd();
+    if (from > today || to > today) return 'Choose today or an earlier date: there are no sales in the future.';
+    if (firstSaleDay && (from < firstSaleDay || to < firstSaleDay)) {
+        return `The first sale in FETCH was on ${prettyYmd(firstSaleDay)}. Choose that day or later.`;
+    }
+    if (from > to) return 'The start date is after the end date.';
+    return null;
+}
+
 function setupSalesControls() {
     const today = new Date();
     const monthAgo = new Date(today);
     monthAgo.setDate(monthAgo.getDate() - 29);
     document.getElementById('endDate').value = ymd(today);
     document.getElementById('startDate').value = ymd(monthAgo);
+    setReportDateBounds();
+    // a day typed outside the range is put back to the nearest allowed day, with the
+    // reason; on leaving the box, since while a year is typed it reads as 0002, 0020…
+    ['startDate', 'endDate'].forEach(id => document.getElementById(id).addEventListener('blur', e => {
+        const box = e.target, today = localTodayYmd();
+        if (!box.value) return;
+        if (box.value > today) {
+            box.value = today;
+            showToast('Choose today or an earlier date: there are no sales in the future.', 'error');
+        } else if (firstSaleDay && box.value < firstSaleDay) {
+            box.value = firstSaleDay;
+            showToast(`The first sale in FETCH was on ${prettyYmd(firstSaleDay)}. Choose that day or later.`, 'error');
+        }
+    }));
 
     document.querySelectorAll('#rangeSeg button').forEach(b => b.addEventListener('click', () => {
         currentRange = b.dataset.range;
@@ -124,8 +178,8 @@ function setupSalesControls() {
 function applyDateRange() {
     const from = document.getElementById('startDate').value;
     const to = document.getElementById('endDate').value;
-    if (!from || !to) { showToast('Choose both a start and an end date', 'warning'); return; }
-    if (from > to) { showToast('The start date is after the end date', 'warning'); return; }
+    const problem = reportDateProblem(from, to);
+    if (problem) { showToast(problem, 'error'); return; }
     loadSales();
 }
 
