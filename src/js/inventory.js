@@ -263,6 +263,7 @@ function cardTheme(status) {
 }
 
 function displayProductsGrid(products) {
+    updateClearFiltersBtn();
     const grid = document.getElementById('productsGrid');
     if (!grid) return;
     const viewer = !canManage();
@@ -338,6 +339,7 @@ function displayProductsGrid(products) {
 }
 
 function displayProducts(products) {
+    updateClearFiltersBtn();
     if (invView === 'grid') { displayProductsGrid(products); updateBulkBar(); return; }
     const tbody = document.getElementById('productsTableBody');
     const viewer = !canManage();
@@ -547,6 +549,30 @@ function filterLowStock(chipEl) {
     if (ct) ct.textContent = `${formatNumber(Number(productStats?.reorder_count) || 0)} product(s) need reordering`;
 }
 
+/* "Clear filters" beside Sort: shown while anything narrows or reorders the
+   list, and says how many things it will undo ("Clear 2 filters"). */
+function activeFilterCount() {
+    const val = id => (document.getElementById(id)?.value || '').trim();
+    return [val('searchInput'), val('categoryFilter'), val('speciesFilter'), val('sortSelect'),
+        statusFilter, lowStockOnly || reorderTab].filter(Boolean).length;
+}
+function updateClearFiltersBtn() {
+    const btn = document.getElementById('clearFiltersBtn');
+    if (!btn) return;
+    const n = activeFilterCount();
+    btn.hidden = n === 0;
+    document.getElementById('clearFiltersText').textContent = n === 1 ? 'Clear 1 filter' : `Clear ${n} filters`;
+}
+function clearAllFilters() {
+    const sort = document.getElementById('sortSelect');
+    if (sort) sort.value = '';
+    sortKey = '';
+    sortDir = 1;
+    updateSortArrows();
+    showAllProducts();
+    updateClearFiltersBtn();
+}
+
 function showAllProducts() {
     lowStockOnly = false;
     reorderTab = false;
@@ -596,6 +622,7 @@ async function updateStats() {
 
 // Search products
 document.getElementById('searchInput')?.addEventListener('keyup', filterProducts);
+document.getElementById('searchInput')?.addEventListener('input', updateClearFiltersBtn);
 document.getElementById('categoryFilter')?.addEventListener('change', filterProducts);
 document.getElementById('speciesFilter')?.addEventListener('change', filterProducts);
 
