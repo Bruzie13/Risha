@@ -351,12 +351,18 @@ function logout() {
         'Logout',
         'Are you sure you want to logout?',
         () => {
+            // the paw box says so at once and stays until the sign-in page is up;
+            // signing out is quick, so it stays at least half a second to be read
+            if (window.flLoader) window.flLoader.hold('Signing out…');
+            const shown = Date.now();
             clearToken();
             localStorage.removeItem('rememberUser');
             // Ask the server to clear the HttpOnly auth cookie, then redirect
             fetch(API_BASE + '/auth/logout', { method: 'POST' })
                 .catch(function () {})
-                .finally(function () { window.location.href = 'login.html'; });
+                .finally(function () {
+                    setTimeout(function () { window.location.href = 'login.html'; }, Math.max(0, 500 - (Date.now() - shown)));
+                });
         },
         'Yes, Logout'
     );

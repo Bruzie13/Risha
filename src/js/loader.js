@@ -16,6 +16,7 @@
     var CLICK_WINDOW_MS = 800;  // a request this soon after a click belongs to that click
 
     var box = null, active = 0, showTimer = null, noteTimer = null, label = 'Loading…';
+    var held = false;           // shown on purpose by flLoader.hold(): requests finishing do not hide it
 
     function build() {
         box = document.createElement('div');
@@ -34,6 +35,7 @@
         noteTimer = setTimeout(function () { box.classList.add('waiting'); }, WAIT_NOTE_MS - SHOW_AFTER_MS);
     }
     function hide() {
+        if (held) return;
         clearTimeout(showTimer); clearTimeout(noteTimer); showTimer = noteTimer = null;
         if (box) box.classList.remove('on', 'waiting');
     }
@@ -153,6 +155,20 @@
         return 'Loading…';
     }
 
+    /* For a step that ends by leaving the page (signing out): the box shows
+       at once, not after the usual moment, and stays until the next page
+       replaces this one. flLoader.release() puts it away if the step stops. */
+    window.flLoader = {
+        hold: function (text) {
+            held = true;
+            label = text || 'Loading…';
+            clearTimeout(showTimer); showTimer = null;
+            if (!box || !box.classList.contains('on')) show();
+            else box.querySelector('.fl-text').textContent = label;
+        },
+        release: function () { held = false; if (active === 0) hide(); }
+    };
+
     var realFetch = window.fetch;
     if (realFetch) {
         window.fetch = function (input, init) {
@@ -165,7 +181,7 @@
             }
             var method = methodOf(input, init);
             // a delete or save says so even if a quicker look-up runs beside it
-            if (active === 0 || method !== 'GET') label = wordFor(method, url, init && init.body);
+            if (!held && (active === 0 || method !== 'GET')) label = wordFor(method, url, init && init.body);
             active++;
             if (active === 1) showTimer = setTimeout(function () { showTimer = null; if (active > 0) show(); }, SHOW_AFTER_MS);
             var done = function () { active = Math.max(0, active - 1); if (active === 0) hide(); };
