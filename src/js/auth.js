@@ -560,8 +560,10 @@ function showSuccessDialog(title, message, opts) {
         overlay.remove();
         if (typeof o.onClose === 'function') o.onClose();
     };
-    // opts.stay: there is something to read (a list of what was left out), so it waits to be closed
-    const timer = o.stay ? null : setTimeout(close, 4000);
+    // opts.stay: there is something to read (a list of what was left out), so it waits to be closed;
+    // otherwise it closes by itself after 5 seconds, with the line around it counting down
+    const timer = o.stay ? null : setTimeout(close, TOAST_MS);
+    if (!o.stay) addCountdownRing(dialog, TOAST_MS, t.color);
     const onKey = (e) => { if (e.key === 'Escape' || e.key === 'Enter') close(); };
     document.addEventListener('keydown', onKey);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
@@ -731,27 +733,34 @@ function showToast(message, type) {
     while (container.children.length > 3) container.firstElementChild.remove();
     // Every message stays 5 seconds, and a line running around its edge shows
     // the time left, so it never vanishes before it is read.
-    const r = toast.getBoundingClientRect();
-    if (r.width && r.height) {
-        const ns = 'http://www.w3.org/2000/svg';
-        const ring = document.createElementNS(ns, 'svg');
-        ring.setAttribute('class', 'toast-ring');
-        ring.setAttribute('aria-hidden', 'true');
-        ring.setAttribute('viewBox', `0 0 ${r.width} ${r.height}`);
-        const edge = document.createElementNS(ns, 'rect');
-        const inset = 1.5;
-        edge.setAttribute('x', inset); edge.setAttribute('y', inset);
-        edge.setAttribute('width', Math.max(0, r.width - inset * 2));
-        edge.setAttribute('height', Math.max(0, r.height - inset * 2));
-        edge.setAttribute('rx', Math.min(parseFloat(getComputedStyle(toast).borderTopLeftRadius) || 8, r.height / 2) - inset);
-        edge.setAttribute('pathLength', '100');
-        edge.style.animationDuration = TOAST_MS + 'ms';
-        ring.appendChild(edge);
-        toast.appendChild(ring);
-    }
+    addCountdownRing(toast, TOAST_MS);
     setTimeout(() => toast.remove(), TOAST_MS);
 }
 const TOAST_MS = 5000;
+
+/* A line around the edge of `el` that runs down over `ms`: how long a
+   message or a window that closes by itself has left. `color` is the line's
+   colour (white on a coloured message, the tone's colour on a white window). */
+function addCountdownRing(el, ms, color) {
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const ns = 'http://www.w3.org/2000/svg';
+    const ring = document.createElementNS(ns, 'svg');
+    ring.setAttribute('class', 'countdown-ring');
+    ring.setAttribute('aria-hidden', 'true');
+    ring.setAttribute('viewBox', `0 0 ${r.width} ${r.height}`);
+    const edge = document.createElementNS(ns, 'rect');
+    const inset = 1.5;
+    edge.setAttribute('x', inset); edge.setAttribute('y', inset);
+    edge.setAttribute('width', Math.max(0, r.width - inset * 2));
+    edge.setAttribute('height', Math.max(0, r.height - inset * 2));
+    edge.setAttribute('rx', Math.max(0, Math.min(parseFloat(getComputedStyle(el).borderTopLeftRadius) || 8, r.height / 2) - inset));
+    edge.setAttribute('pathLength', '100');
+    edge.style.animationDuration = ms + 'ms';
+    if (color) edge.style.stroke = color;
+    ring.appendChild(edge);
+    el.appendChild(ring);
+}
 
 /* Kept in step with the copy in utils.js. auth.js loads after it on every
    page, so whichever page you are on, this is the definition that wins.
