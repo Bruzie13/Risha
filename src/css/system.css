@@ -1067,3 +1067,19 @@ html.rail-only.sidebar-hidden .sidebar .sidebar-nav .nav-link .nav-label { white
 #deliveriesBadge { position: static; margin-left: 6px; height: 18px; font-size: 11.5px; font-weight: 700; padding: 0 7px; display: inline-flex; align-items: center; }
 /* the supplier's one item is just its icon in the slim strip; its name shows when the sidebar is opened */
 html.rail-only.sidebar-hidden .sidebar .sidebar-nav .nav-link.rail-icon-only .nav-label { display: none; }
+
+/* The × that empties a typing box (js/clear-input.js): one button laid over
+   the box in use, above any open window. Chrome's own search × is hidden so
+   there are never two. */
+.fx-clear {
+  position: fixed; z-index: 100000; width: 22px; height: 22px; padding: 0;
+  display: none; align-items: center; justify-content: center;
+  border: 0; border-radius: 50%; cursor: pointer;
+  background: var(--gray-200, #e2e8f0); color: var(--text-secondary);
+  font: 600 16px/1 system-ui, sans-serif;
+}
+.fx-clear.on { display: flex; }
+.fx-clear:hover { background: var(--gray-300, #cbd5e1); color: var(--text-primary); }
+.dark-mode .fx-clear { background: rgba(255, 255, 255, 0.14); color: #dfe8f0; }
+.dark-mode .fx-clear:hover { background: rgba(255, 255, 255, 0.24); }
+input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
