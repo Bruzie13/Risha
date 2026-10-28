@@ -1128,3 +1128,11 @@ input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; a
 .sales-filters .sales-date span { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
 .sales-filters input[type="date"] { height: 40px; }
 .sales-filters .btn-primary, .sales-filters .btn-secondary { min-height: 40px; padding: 0 16px; }
+
+/* Today's date in every page header (addHeaderDate in auth.js) */
+.page-header .page-date {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; white-space: nowrap;
+  border-radius: var(--radius-md); border: 1px solid var(--border-glass-strong); background: var(--bg-card);
+  font-size: 13px; font-weight: 500; color: var(--text-secondary);
+}
+.page-header .page-date .material-symbols-outlined { font-size: 16px; }

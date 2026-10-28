@@ -1054,7 +1054,31 @@ function closeShortcuts() {
     if (el) el.remove();
 }
 
+/* Today's date at the top right of every page's header, like the Dashboard's
+   (which has its own), so the day is in view wherever work is done (the End
+   of day count, sales, reports). It turns over at midnight. */
+function addHeaderDate() {
+    const header = document.querySelector('.page-header');
+    if (!header || document.getElementById('dateDisplay')) return;
+    let actions = header.querySelector('.page-header-actions');
+    if (!actions) { actions = document.createElement('div'); actions.className = 'page-header-actions'; header.appendChild(actions); }
+    const chip = document.createElement('span');
+    chip.className = 'hero-chip page-date';
+    chip.id = 'dateDisplay';
+    chip.title = "Today's date";
+    actions.appendChild(chip);
+    const paint = () => {
+        const now = new Date();
+        chip.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">calendar_today</span>'
+            + escHtml(now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }));
+        const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5);
+        setTimeout(paint, midnight - now);
+    };
+    paint();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    addHeaderDate();
     if (window.location.pathname.includes('login.html')) {
         const passwordInput = document.getElementById('password');
         if (passwordInput) {
