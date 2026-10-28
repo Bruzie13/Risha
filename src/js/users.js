@@ -482,14 +482,15 @@ async function deleteUser(id) {
     // all said "Delete" while the text between them said "Deactivate".
     const user = allUsers.find(u => Number(u.id) === Number(id));
     const who = user ? `${escHtml(user.full_name || user.username)} (${escHtml(user.username || '')})` : 'this account';
-    showConfirmDialog('Deactivate account', `Deactivate ${who}? They can no longer sign in, and their username and email stay reserved. Nothing they recorded is removed. You can bring the account back later with "Show deactivated".`, async () => {
+    showConfirmDialog('Deactivate account', `Deactivate ${who}? They can no longer sign in, and their username and email stay reserved. Nothing they recorded is removed. You can bring the account back later from the Trash or with "Show deactivated".`, async () => {
         try {
             const response = await fetch(`${API_BASE}/auth/users/${id}`, {
                 method: 'DELETE', headers: getAuthHeaders()
             });
             const data = await response.json();
             if (data.success) {
-                showSuccessDialog('Account deactivated', 'The account can no longer sign in. Tick "Show deactivated" to restore it.', { tone: 'danger', icon: 'person_off' });
+                showSuccessDialog('Account deactivated', 'The account can no longer sign in. It is in the Trash, where it can be restored.', { tone: 'danger', icon: 'person_off' });
+                if (typeof updateTrashCount === 'function') updateTrashCount();
                 await loadUsers();
             } else {
                 showToast('Error: ' + (data.message || 'the server gave no reason'), 'error');

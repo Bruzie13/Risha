@@ -1136,3 +1136,6 @@ input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; a
   font-size: 13px; font-weight: 500; color: var(--text-secondary);
 }
 .page-header .page-date .material-symbols-outlined { font-size: 16px; }
+.trash-tabs { display: flex; width: 100%; margin-top: 12px; }
+.trash-tabs .seg-btn { flex: 1; justify-content: center; }
+.trash-tab-count { font-weight: 500; opacity: 0.75; margin-left: 2px; }

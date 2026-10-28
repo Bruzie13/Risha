@@ -328,17 +328,6 @@ exports.deleteProduct = async (req, res) => {
     }
 };
 
-/* The Trash: deleted products, which are only hidden, so they can be brought
-   back. */
-exports.getDeletedProducts = async (req, res) => {
-    try {
-        res.json({ success: true, data: await Product.getDeleted() });
-    } catch (error) {
-        console.error('Get deleted products error:', error);
-        res.status(500).json({ success: false, message: 'Error loading the Trash' });
-    }
-};
-
 exports.restoreProduct = async (req, res) => {
     try {
         const id = Number(req.params.id);

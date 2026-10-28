@@ -111,6 +111,7 @@ app.use(authPageGuard);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/trash', require('./routes/trash'));
 app.use('/api/sales', saleRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/purchase-orders', purchaseOrderRoutes);

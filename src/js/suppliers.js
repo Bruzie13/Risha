@@ -280,7 +280,7 @@ async function deleteSupplier(id) {
     const left = [];
     if (products) left.push(`<strong>${products} product${products === 1 ? '' : 's'}</strong> will be left with no supplier and cannot be reordered until you assign one`);
     if (orders) left.push(`<strong>${orders} order${orders === 1 ? ' is' : 's are'} still in progress</strong> with this supplier`);
-    const question = `Delete ${escHtml(supplier.name || 'this supplier')}? This cannot be undone.`
+    const question = `Delete ${escHtml(supplier.name || 'this supplier')}? It goes to the Trash, where it can be restored.`
         + (left.length ? '<span style="display:block;margin-top:8px;">' + left.map(l => '<span style="display:block;margin-top:4px;">' + l + '.</span>').join('') + '</span>' : '');
     showConfirmDialog('Delete supplier', question, async () => {
         try {
@@ -290,8 +290,9 @@ async function deleteSupplier(id) {
             const data = await response.json();
             if (data.success) {
                 const leftSomething = !!(data.left && (data.left.products || data.left.open_orders));
-                showSuccessDialog('Supplier deleted', escHtml(data.message || 'The supplier has been removed from your directory.'), { tone: 'danger', stay: leftSomething });
+                showSuccessDialog('Supplier deleted', escHtml(data.message || 'The supplier is in the Trash.') + ' Open Trash to restore it.', { tone: 'danger', stay: leftSomething });
                 await loadSuppliers();
+                if (typeof updateTrashCount === 'function') updateTrashCount();
             } else {
                 showToast('Error: ' + (data.message || 'the server gave no reason'), 'error');
             }

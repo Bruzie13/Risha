@@ -160,7 +160,7 @@ exports.deleteSupplier = async (req, res) => {
         if (left.open_orders) notes.push(`${left.open_orders} order${left.open_orders === 1 ? ' is' : 's are'} still in progress with them.`);
         res.status(200).json({
             success: true,
-            message: ['Supplier deleted successfully.', ...notes].join(' '),
+            message: ['Supplier moved to the Trash.', ...notes].join(' '),
             left
         });
     } catch (error) {
