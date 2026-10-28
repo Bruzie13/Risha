@@ -15,6 +15,8 @@ const samples = {
     welcome: { toEmail: 'ana@example.test', fullName: 'Ana Cruz', username: 'ana<1>', role: 'cashier' },
     test: { sender: 'shop@example.test', sentAt: 'Oct 9, 2026, 3:00 PM' },
     backup: { tables: 18, rows: 9000, kb: '63', day: '2026-10-09' },
+    orderUpdate: { kind: 'delivery_check', supplierName: 'Roger <b>E</b>', poNumber: 'PO-1793193542390', items: [{ product_name: 'AOZI <i>x</i>', quantity: 3, total_price: 300 }],
+        totalAmount: 300, trackingId: 'c'.repeat(64), shippedDay: 'Oct 27, 2026', deliveryRef: 'LBC <1>' },
     voidRequest: { fullName: 'Juan', saleId: 2597, amount: 120, cashierName: 'Juan <b>Cashier</b>', reason: 'Wrong item <script>x</script>',
         requestedAt: 'Oct 27, 2026, 4:05 PM', reviewUrl: 'https://example.test/reports.html?tab=voids' }
 };
@@ -73,4 +75,13 @@ test('void request: names the sale, the amount and the reason, escaped, with the
     assert.ok(!mail.html.includes('<script>x</script>') && mail.html.includes('&lt;script&gt;'), 'the reason is escaped');
     assert.ok(!mail.html.includes('<b>Cashier</b>'), 'the name is escaped');
     assert.match(mail.text, /Reason given: Wrong item/);
+});
+
+test('order emails follow the order: each stage says its own thing', () => {
+    const base = { supplierName: 'Roger', poNumber: 'PO-9', items: [{ product_name: 'A', quantity: 2, total_price: 20 }], totalAmount: 20, trackingId: 'd'.repeat(64) };
+    assert.match(templates.orderUpdate({ ...base, kind: 'ship_reminder', promisedDay: 'Oct 30, 2026' }).text, /for delivery on Oct 30, 2026.*not been marked as shipped/s);
+    assert.match(templates.orderUpdate({ ...base, kind: 'delivery_check', shippedDay: 'Oct 27, 2026' }).subject, /waiting for the delivery/);
+    assert.match(templates.orderUpdate({ ...base, kind: 'received', receivedDay: 'Oct 28, 2026' }).subject, /received .*thank you/);
+    assert.match(templates.orderUpdate({ ...base, kind: 'cancelled' }).html, /do not ship/);
+    assert.ok(!templates.orderUpdate(samples.orderUpdate).html.includes('LBC <1>'), 'the reference is escaped');
 });

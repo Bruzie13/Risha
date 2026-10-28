@@ -347,10 +347,25 @@ async function sendModalAdvance(id, nextStatus, poNumber, supplierId, expiration
     } catch (e) { showToast(couldNot('update purchase order', e), 'error'); }
 }
 
-function emailPOFromModal(id, poNumber, supplierId) {
-    showConfirmDialog('Email purchase order', 'Send ' + poNumber + ' to the supplier now?',
+/* The Email button follows the order (the server picks the same email,
+   purchaseOrderController EMAIL_FOR_STATUS): the order while it waits to be
+   confirmed, then asking when it ships, asking when it arrives, thanks on
+   arrival, and "do not ship" once cancelled. An offer has none. */
+var ORDER_EMAIL = {
+    pending: { label: 'Email order', icon: 'mail', ask: function (po, n) { return 'Email ' + po + ' to ' + n + '? It asks them to confirm the items and when they can deliver.'; } },
+    confirmed: { label: 'Ask to ship', icon: 'local_shipping', ask: function (po, n) { return 'Email ' + n + ' to ask when ' + po + ' will ship? They confirmed it but have not shipped it yet.'; } },
+    shipped: { label: 'Ask about delivery', icon: 'schedule', ask: function (po, n) { return 'Email ' + n + ' to ask when ' + po + ' will arrive? They marked it shipped but it has not been received.'; } },
+    received: { label: 'Send thanks', icon: 'thumb_up', ask: function (po, n) { return 'Email ' + n + ' that ' + po + ' arrived and was added to stock, with thanks?'; } },
+    cancelled: { label: 'Send cancellation', icon: 'block', ask: function (po, n) { return 'Email ' + n + ' that ' + po + ' is cancelled and must not be shipped?'; } }
+};
+
+function emailPOFromModal(id, poNumber, supplierId, status) {
+    var e = ORDER_EMAIL[status] || ORDER_EMAIL.pending;
+    var s = (typeof allSuppliers !== 'undefined' ? allSuppliers : []).find(function (x) { return x.id === supplierId; });
+    var name = escHtml(s && s.name ? s.name : 'the supplier');
+    showConfirmDialog(e.label, e.ask(escHtml(poNumber), name),
         function () { sendPOEmailNow(id, poNumber, supplierId); },
-        'Yes, Send Email', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">mail</span>');
+        'Yes, ' + e.label, '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">' + e.icon + '</span>');
 }
 
 async function sendPOEmailNow(id, poNumber, supplierId) {
@@ -458,9 +473,10 @@ async function showPerformance(supplierId) {
                 var advance = (next && canManage())
                     ? '<button class="po-advance-btn" onclick="advancePOFromModal(' + r.id + ', \'' + next.status + '\', \'' + escHtml(r.po_number || ('#' + r.id)) + '\', ' + supplierId + ')">' + next.label + '</button>'
                     : '';
-                // manual supplier email (reorders no longer send it automatically)
-                var email = canManage()
-                    ? '<button class="po-email-btn" onclick="emailPOFromModal(' + r.id + ', \'' + escHtml(r.po_number || ('#' + r.id)) + '\', ' + supplierId + ')" title="Email this purchase order to the supplier"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;">mail</span> Email</button>'
+                // the email that fits where the order is (none for an offer)
+                var mailFor = ORDER_EMAIL[r.status];
+                var email = (canManage() && mailFor)
+                    ? '<button class="po-email-btn" onclick="emailPOFromModal(' + r.id + ', \'' + escHtml(r.po_number || ('#' + r.id)) + '\', ' + supplierId + ', \'' + r.status + '\')" title="' + escHtml(mailFor.ask(r.po_number || ('#' + r.id), 'the supplier')) + '"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;">' + mailFor.icon + '</span> ' + mailFor.label + '</button>'
                     : '';
                 return '<tr>'
                     + '<td>' + escHtml(r.po_number || ('#' + r.id)) + '</td>'

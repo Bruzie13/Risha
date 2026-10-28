@@ -436,6 +436,89 @@ templates.purchaseOrder = function ({ supplierName, poNumber, items, totalAmount
     };
 };
 
+/* After the order itself, what the shop has to say depends on where the
+   order is: a confirmed one has not shipped yet, a shipped one has not
+   arrived, a received one is thanked for, a cancelled one must not be sent.
+   `kind` is ship_reminder, delivery_check, received or cancelled. */
+const ORDER_UPDATE = {
+    ship_reminder: {
+        subject: po => `Order ${po} from ${BRAND.org}: when will it ship?`,
+        heading: po => `When will order ${esc(po)} ship?`,
+        say: d => `You confirmed this order${d.promisedDay ? ` for delivery on <strong>${esc(d.promisedDay)}</strong>` : ''}. It has not been marked as shipped yet. Please let us know when it leaves, or reply if anything has changed.`,
+        sayText: d => `You confirmed this order${d.promisedDay ? ` for delivery on ${d.promisedDay}` : ''}. It has not been marked as shipped yet. Please let us know when it leaves, or reply if anything has changed.`,
+        button: 'Let the shop know you saw this',
+        preheader: () => 'A reminder about an order you confirmed and have not shipped yet.'
+    },
+    delivery_check: {
+        subject: po => `Order ${po} from ${BRAND.org}: we are waiting for the delivery`,
+        heading: po => `We are waiting for order ${esc(po)}`,
+        say: d => `You marked this order as shipped${d.shippedDay ? ` on <strong>${esc(d.shippedDay)}</strong>` : ''}${d.deliveryRef ? ` (reference <strong>${esc(d.deliveryRef)}</strong>)` : ''}. It has not reached the shop yet. Please send the expected arrival date or the courier's tracking details.`,
+        sayText: d => `You marked this order as shipped${d.shippedDay ? ` on ${d.shippedDay}` : ''}${d.deliveryRef ? ` (reference ${d.deliveryRef})` : ''}. It has not reached the shop yet. Please send the expected arrival date or the courier's tracking details.`,
+        button: 'Let the shop know you saw this',
+        preheader: () => 'An order you shipped has not reached the shop yet.'
+    },
+    received: {
+        subject: po => `Order ${po} received by ${BRAND.org}: thank you`,
+        heading: po => `Order ${esc(po)} has arrived`,
+        say: d => `We received this order${d.receivedDay ? ` on <strong>${esc(d.receivedDay)}</strong>` : ''} and it has been added to our stock. Thank you.`,
+        sayText: d => `We received this order${d.receivedDay ? ` on ${d.receivedDay}` : ''} and it has been added to our stock. Thank you.`,
+        button: 'Let the shop know you saw this',
+        preheader: () => 'Your delivery reached the shop.'
+    },
+    cancelled: {
+        subject: po => `Order ${po} from ${BRAND.org} is cancelled: please do not ship it`,
+        heading: po => `Order ${esc(po)} is cancelled`,
+        say: d => `Please <strong>do not ship</strong> this order: ${BRAND.org} cancelled it${d.cancelledDay ? ` on <strong>${esc(d.cancelledDay)}</strong>` : ''}. If it is already on its way, reply to this email so we can sort it out.`,
+        sayText: d => `Please do not ship this order: ${BRAND.org} cancelled it${d.cancelledDay ? ` on ${d.cancelledDay}` : ''}. If it is already on its way, reply to this email so we can sort it out.`,
+        button: 'Let the shop know you saw this',
+        preheader: () => 'Please do not ship this order.'
+    }
+};
+
+templates.orderUpdate = function ({ kind, supplierName, poNumber, items, totalAmount, trackingId, ...days }) {
+    const k = ORDER_UPDATE[kind];
+    const list = Array.isArray(items) ? items : [];
+    const contentHtml =
+        heading(k.heading(poNumber)) +
+        paragraph(`Dear <strong>${esc(supplierName || 'supplier')}</strong>,`) +
+        (kind === 'cancelled' ? notice(k.say(days)) : paragraph(k.say(days))) +
+        dataTable(
+            [{ label: 'Item' }, { label: 'Qty', align: 'right' }, { label: 'Amount', align: 'right' }],
+            list.map(i => [i.product_name || 'Product', String(i.quantity ?? ''), money(i.total_price ?? i.subtotal)])
+        ) +
+        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+           <td align="right" style="font-size:16px;font-weight:bold;color:${BRAND.ink};">Order total ${money(totalAmount)}</td>
+         </tr></table>` +
+        confirmButton(trackingId, k.button);
+    const text = [
+        k.subject(poNumber), '',
+        `Dear ${supplierName || 'supplier'},`, '',
+        k.sayText(days), '',
+        ...list.map(i => `- ${i.product_name || 'Product'}: ${i.quantity} (${money(i.total_price ?? i.subtotal)})`), '',
+        `Order total: ${money(totalAmount)}`, '',
+        trackingId ? `Let the shop know you saw this: ${BASE_URL}/track/click/${trackingId}` : '',
+        '', BRAND.org
+    ].join('\n');
+    return {
+        subject: k.subject(poNumber),
+        text,
+        html: emailShell({
+            preheader: k.preheader(),
+            title: k.subject(poNumber),
+            contentHtml,
+            footerNote: `You received this because ${BRAND.org} placed order ${esc(poNumber)} with you.`,
+            trailer: trackingPixel(trackingId)
+        })
+    };
+};
+
+/** The email for an order at its current stage (see ORDER_UPDATE). */
+async function sendOrderUpdateEmail(kind, supplierId, supplierEmail, supplierName, poNumber, items, totalAmount, days) {
+    const trackingId = await logEmail(supplierId, supplierEmail, `PO ${poNumber}: ${kind.replace('_', ' ')}`, 'po');
+    const mail = templates.orderUpdate({ kind, supplierName, poNumber, items, totalAmount, trackingId, ...days });
+    return deliver(trackingId, supplierEmail, { to: supplierEmail, ...mail }, `PO ${poNumber}`);
+}
+
 async function sendPOEmail(supplierId, supplierEmail, supplierName, poNumber, items, totalAmount) {
     const trackingId = await logEmail(supplierId, supplierEmail, `PO ${poNumber}`, 'po');
     const mail = templates.purchaseOrder({ supplierName, poNumber, items, totalAmount, trackingId });
@@ -843,6 +926,7 @@ async function sendBackupEmail(zipBuffer, meta) {
 
 module.exports = {
     sendPOEmail,
+    sendOrderUpdateEmail,
     sendPasswordResetEmail,
     sendVerificationEmail,
     sendEmailCode,

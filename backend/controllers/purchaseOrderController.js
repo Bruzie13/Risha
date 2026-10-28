@@ -3,7 +3,7 @@ const PurchaseOrder = require('../models/PurchaseOrder');
 const Product = require('../models/Product');
 const Supplier = require('../models/Supplier');
 const Notification = require('../models/Notification');
-const { sendPOEmail } = require('../utils/mailer');
+const { sendPOEmail, sendOrderUpdateEmail } = require('../utils/mailer');
 const logAudit = require('../services/audit');
 const { notifyPOStatusChanged } = require('../services/notifier');
 const { reorderSupplierProblem } = require('../utils/supply');
@@ -336,6 +336,18 @@ exports.autoGeneratePO = async (req, res) => {
 // Manually (re)send an existing purchase order to its supplier. Reorders email
 // on creation, so this is for resending — after a bounce, or once a supplier
 // who had no address on file has one.
+/* The email the Email button sends for an order, by its status: the order
+   itself while it waits to be confirmed, then a nudge to ship, a delivery
+   check, a thank-you on arrival, and a "do not ship" when cancelled. An offer
+   from the supplier has none: it is confirmed or declined instead. */
+const EMAIL_FOR_STATUS = {
+    pending: { kind: 'order', about: 'the order', sent: (po, n) => `Emailed purchase order ${po} to ${n}.` },
+    confirmed: { kind: 'ship_reminder', about: 'asking when it will ship', sent: (po, n) => `Asked ${n} when ${po} will ship.` },
+    shipped: { kind: 'delivery_check', about: 'asking about the delivery', sent: (po, n) => `Asked ${n} when ${po} will arrive.` },
+    received: { kind: 'received', about: 'thanking them for the delivery', sent: (po, n) => `Told ${n} that ${po} arrived, with thanks.` },
+    cancelled: { kind: 'cancelled', about: 'telling them not to ship it', sent: (po, n) => `Told ${n} not to ship ${po}.` }
+};
+
 exports.emailPO = async (req, res) => {
     try {
         const { id } = req.params;
@@ -350,29 +362,46 @@ exports.emailPO = async (req, res) => {
         if (!supplier.email) {
             return res.status(400).json({ success: false, message: 'This supplier has no email address on file' });
         }
+        // what is said depends on where the order is (EMAIL_FOR_STATUS)
+        const stage = EMAIL_FOR_STATUS[order.status];
+        if (!stage) {
+            return res.status(400).json({ success: false, message: order.status === 'proposed'
+                ? `${order.po_number} is still an offer from ${supplier.name}: confirm it or decline it instead.`
+                : `${order.po_number} has nothing to email about.` });
+        }
         const poItems = await PurchaseOrder.getPOItems(order.id);
-        const sent = await sendPOEmail(
-            supplier.id,
-            supplier.email,
-            supplier.name,
-            order.po_number,
-            poItems.map(i => ({
-                product_name: i.product_name,
-                quantity: i.quantity,
-                unit_price: i.unit_price,
-                total_price: i.subtotal
-            })),
-            order.total_amount
-        );
+        const items = poItems.map(i => ({
+            product_name: i.product_name,
+            quantity: i.quantity,
+            unit_price: i.unit_price,
+            total_price: i.subtotal
+        }));
+        let sent;
+        if (stage.kind === 'order') {
+            sent = await sendPOEmail(supplier.id, supplier.email, supplier.name, order.po_number, items, order.total_amount);
+        } else {
+            const [[extra]] = await pool.query(
+                `SELECT DATE_FORMAT(promised_date, '%Y-%m-%d') AS promised, delivery_ref FROM purchase_orders WHERE id = ?`, [order.id]);
+            const day = v => v ? new Date(typeof v === 'string' && v.length === 10 ? v + 'T00:00:00+08:00' : Number(v))
+                .toLocaleDateString('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric' }) : null;
+            sent = await sendOrderUpdateEmail(stage.kind, supplier.id, supplier.email, supplier.name, order.po_number, items, order.total_amount, {
+                promisedDay: day(extra && extra.promised) || day(order.expected_delivery_date ? String(order.expected_delivery_date).slice(0, 10) : null),
+                shippedDay: day(order.shipped_at),
+                deliveryRef: extra && extra.delivery_ref,
+                receivedDay: day(order.received_at),
+                cancelledDay: day(order.updated_at)
+            });
+        }
         if (!sent) {
             return res.status(502).json({ success: false, message: 'The email could not be sent. Please try again.' });
         }
         logAudit(req.user.id, 'email', 'purchase_orders', order.id, null, {
             po_number: order.po_number,
             supplier_name: supplier.name,
-            email: supplier.email
+            email: supplier.email,
+            about: stage.about
         }, req.ip);
-        res.json({ success: true, message: `Purchase order ${order.po_number} emailed to ${supplier.name}` });
+        res.json({ success: true, message: stage.sent(order.po_number, supplier.name) });
     } catch (error) {
         console.error('Send PO email error:', error);
         res.status(500).json({ success: false, message: 'Error sending purchase order email' });
