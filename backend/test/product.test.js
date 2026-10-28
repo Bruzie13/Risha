@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-const { barcodeProblem, productProblem, gs1CheckDigit } = require('../utils/product');
+const { barcodeProblem, productProblem } = require('../utils/product');
 
 const suppliers = new Set([6, 7]);
 const good = { sku: 'DRY-100', name: 'Dog food 1kg', category_id: 1, unit_price: 120, supplier_id: 6 };
@@ -103,7 +103,6 @@ test('prices, stock levels, SKU and barcode are judged against each other and th
     assert.match(productProblem({ ...good, reorder_level: 10, max_stock_level: 10 }, true, suppliers), /max stock level has to be higher than the reorder level \(10\)/);
     assert.match(productProblem({ ...good, sku: 'DOG 01' }, true, suppliers), /SKU can use letters, numbers/);
     assert.equal(productProblem({ sku: 'OLD SKU 1', name: 'x2' }, false, suppliers), null, 'an older SKU is kept as it is on an edit');
-    assert.match(productProblem({ ...good, barcode: '48 00' }, true, suppliers), /numbers only/);
     assert.equal(productProblem({ cost_price: 500 }, false, suppliers), null, 'an edit that sends only the cost is not judged against a price it did not send');
 });
 
@@ -121,41 +120,13 @@ test('the SKU pattern: a product type and the shop running number', () => {
     assert.equal(SKU_TYPES.length, 8);
 });
 
-test('barcode: 8, 12 or 13 digits; a barcode left as it is may stay', () => {
+test('barcode: any kind the maker printed is taken as it is', () => {
     assert.equal(barcodeProblem('', null), null, 'no barcode is fine');
-    assert.equal(barcodeProblem('48000017'), null, 'EAN-8');
-    assert.equal(barcodeProblem('202300001149'), null, 'UPC-A');
-    assert.equal(barcodeProblem(' 4800361000017 '), null, 'EAN-13, spaces around it trimmed');
-    assert.equal(barcodeProblem('1111'), 'A barcode is 8, 12 or 13 digits. This one has 4.');
-    assert.match(barcodeProblem('48003610000171'), /This one has 14/);
-    assert.match(barcodeProblem('BARCODE001'), /numbers only/);
-    assert.match(barcodeProblem('4800-361'), /numbers only/);
-    assert.equal(barcodeProblem('1111a', '1111a'), null, 'an older code left unchanged');
-    assert.match(barcodeProblem('1112', '1111a'), /This one has 4/, 'changed: judged like a new one');
-    assert.match(productProblem({ barcode: '1111' }, false, suppliers, { barcode: '9999' }), /This one has 4/);
-    assert.equal(productProblem({ barcode: 'arstarst' }, false, suppliers, { barcode: 'arstarst' }), null);
-});
-
-test('barcode: the last digit is the GS1 check digit', () => {
-    // worked example from the GS1 check digit sheet: 629104150021 -> 3
-    assert.equal(gs1CheckDigit('629104150021'), 3);
-    assert.equal(gs1CheckDigit('480652562134'), 0, 'a barcode on record');
-    assert.equal(gs1CheckDigit('4800001'), 7, 'EAN-8');
-    assert.equal(barcodeProblem('6291041500213'), null);
-    assert.equal(barcodeProblem('4801234567897'), null);
-    assert.equal(barcodeProblem('4801234567890'),
-        'The last digit of a barcode is a check digit; for this one it should be 7, not 0. A digit was probably typed wrong: scan the barcode or type it again.');
-    assert.match(barcodeProblem('4806525621304'), /should be/, 'two digits swapped');
-    assert.match(barcodeProblem('250000000127'), /should be 2, not 7/, 'the old Generate codes have no real check digit');
-    assert.equal(barcodeProblem('250000000003', '250000000003'), null, 'but one already saved may stay');
-    assert.equal(barcodeProblem('2000000001272'), null, 'the new Generate code for product 127');
-});
-
-test('barcode: a UPC-E (short UPC on small packs) is checked against the UPC-A it stands for', () => {
-    assert.equal(barcodeProblem('04252614'), null, 'UPC-E for 042100005264');
-    assert.equal(barcodeProblem('01234565'), null, 'UPC-E for 012345000065');
-    assert.equal(barcodeProblem('042100005264'), null, 'the same product as a UPC-A');
-    assert.match(barcodeProblem('04252615'), /does not match the other digits/);
-    assert.equal(barcodeProblem('48000017'), null, 'an EAN-8 still passes');
+    for (const code of ['48000017', '4806525621340', '4806525621346', '04252614', '00012345678905', '1111', 'ABC-123', 'CODE128X9']) {
+        assert.equal(barcodeProblem(code), null, code);
+    }
+    assert.equal(barcodeProblem('abc', 'abc'), null, 'one already saved may stay');
+    assert.match(barcodeProblem('480\u0007123'), /cannot be printed/);
+    assert.match(productProblem({ barcode: '9'.repeat(101) }, false, suppliers), /Barcode is too long \(100 characters at most\)/);
 });
 

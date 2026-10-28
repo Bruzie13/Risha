@@ -1836,46 +1836,21 @@ function downloadCsvTemplate() {
     URL.revokeObjectURL(url);
 }
 /* ===== Barcode assignment ===== */
-/* A barcode is 8, 12 or 13 digits (GS1 EAN-13 on most local products, UPC-A
-   on imports, EAN-8 or UPC-E on small packs) and its last digit is the GS1 check digit
-   (backend/utils/product.js has the same rule). */
+/* A barcode is taken as it is printed: makers use different kinds, so the
+   only limit is the box's 100 characters (backend/utils/product.js agrees).
+   The same barcode on two products is refused when saving. */
 let editingOriginalBarcode = '';
+function barcodeFormatProblem(code) {
+    const c = String(code || '').trim();
+    if (c.length > 100) return 'The barcode is too long (100 characters at most).';
+    return null;
+}
+
+// GS1 check digit, so the shop's own Generate codes are valid EAN-13s
 function gs1CheckDigit(body) {
     let sum = 0;
     String(body).split('').reverse().forEach((d, i) => { sum += Number(d) * (i % 2 === 0 ? 3 : 1); });
     return (10 - (sum % 10)) % 10;
-}
-
-/* UPC-E is the short form of UPC-A on small packs: 8 digits starting 0 or 1,
-   whose check digit belongs to the full 12-digit UPC-A it stands for. */
-function upcEToUpcA(code) {
-    const [n, a, b, c, d, e, f, check] = code.split('');
-    let middle;
-    if ('012'.includes(f)) middle = a + b + f + '0000' + c + d + e;
-    else if (f === '3') middle = a + b + c + '00000' + d + e;
-    else if (f === '4') middle = a + b + c + d + '00000' + e;
-    else middle = a + b + c + d + e + '0000' + f;
-    return n + middle + check;
-}
-
-function checkDigitFits(code) {
-    const fits = c => Number(c.slice(-1)) === gs1CheckDigit(c.slice(0, -1));
-    if (fits(code)) return true;
-    return code.length === 8 && /^[01]/.test(code) && fits(upcEToUpcA(code));
-}
-function barcodeFormatProblem(code) {
-    const c = String(code || '').trim();
-    if (!c) return null;
-    if (!/^\d+$/.test(c)) return 'A barcode is 8, 12 or 13 digits: numbers only, with no letters, spaces or dashes.';
-    if (![8, 12, 13].includes(c.length)) return `A barcode is 8, 12 or 13 digits. This one has ${c.length}.`;
-    if (!checkDigitFits(c)) {
-        if (c.length === 8 && /^[01]/.test(c)) {
-            return 'The last digit of a barcode is a check digit, and it does not match the other digits. A digit was probably typed wrong: scan the barcode or type it again.';
-        }
-        const expected = gs1CheckDigit(c.slice(0, -1));
-        return `The last digit of a barcode is a check digit; for this one it should be ${expected}, not ${c.slice(-1)}. A digit was probably typed wrong: scan the barcode or type it again.`;
-    }
-    return null;
 }
 
 /* The shop's own barcode for a product with none: an EAN-13 starting 200,
@@ -1947,7 +1922,7 @@ function renderBarcodeManagerList() {
                 '<div style="font-weight:600;font-size:13px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(p.name || '') + '</div>' +
                 '<div style="font-size:12px;color:var(--text-muted);">' + escHtml(p.sku || '') + '</div>' +
             '</div>' +
-            '<input type="text" class="form-input bc-input" inputmode="numeric" maxlength="13" placeholder="8, 12 or 13 digits" value="' + escHtml(p.barcode || '') + '" style="width:190px;flex-shrink:0;">' +
+            '<input type="text" class="form-input bc-input" maxlength="100" placeholder="Scan or type the barcode" value="' + escHtml(p.barcode || '') + '" style="width:190px;flex-shrink:0;">' +
             '<button type="button" class="btn-secondary bc-gen" title="Generate" style="padding:6px 10px;flex-shrink:0;"><span class="material-symbols-outlined" style="font-size:15px;">auto_fix_high</span></button>' +
             '<span class="bc-status" style="width:20px;flex-shrink:0;text-align:center;"></span>' +
         '</div>'

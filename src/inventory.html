@@ -320,7 +320,7 @@
                         <div class="form-group">
                             <label class="form-label" for="barcode">Barcode</label>
                             <div style="display:flex;gap:8px;">
-                                <input type="text" class="form-input" id="barcode" maxlength="13" inputmode="numeric" autocomplete="off" placeholder="Scan or type the 8, 12 or 13 digits" style="flex:1;">
+                                <input type="text" class="form-input" id="barcode" maxlength="100" autocomplete="off" placeholder="Scan or type the barcode" style="flex:1;">
                                 <button type="button" class="btn-secondary" onclick="generateBarcodeField()" title="Generate an in-store barcode" style="white-space:nowrap;"><span class="material-symbols-outlined" style="font-size:16px;">auto_fix_high</span> Generate</button>
                             </div>
                             <div class="field-error" id="err_barcode" role="alert"></div>
@@ -540,7 +540,7 @@
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=32"></script>
 <script src="js/assistant.js?v=29"></script>
-    <script src="js/inventory.js?v=53"></script>
+    <script src="js/inventory.js?v=54"></script>
 </body>
 </html>
 
