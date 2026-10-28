@@ -385,7 +385,6 @@ async function viewSaleDetails(id) {
                     ${parseFloat(sale.discount || 0) > 0 ? `<div class="total-row"><span>Discount (${parseFloat(sale.discount).toFixed(2)}%):</span><span>-${formatCurrency((parseFloat(sale.total_amount || 0) - parseFloat(sale.final_amount || 0)))}</span></div>` : ''}
                     <div class="total-row highlight"><span>Total amount:</span><span>${formatCurrency(parseFloat(sale.final_amount ?? sale.total_amount ?? 0))}</span></div>
                 </div>
-                <button class="btn-primary" onclick="printReceipt(${sale.id})" style="margin-top:15px;">Print receipt</button>
             `;
             document.getElementById('viewSaleModal').classList.add('active');
         }
