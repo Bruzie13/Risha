@@ -330,6 +330,7 @@ function displayProductsGrid(products) {
             <div class="pcard-actions">
                 <button onclick="viewProductDetails(${p.id})"><span class="material-symbols-outlined">visibility</span> <span class="pca-label">View</span></button>
                 ${viewer ? '' : `<button onclick="openEditProductModal(${p.id})"><span class="material-symbols-outlined">edit</span> <span class="pca-label">Edit</span></button>
+                <button onclick="openReorderDialog(${p.id})" title="Order more of this product from its supplier"><span class="material-symbols-outlined">add_shopping_cart</span> <span class="pca-label">Reorder</span></button>
                 <button class="pca-danger" onclick="deleteProduct(${p.id})" title="Delete"><span class="material-symbols-outlined">delete</span></button>`}
             </div>
         </div>`;
@@ -429,6 +430,7 @@ function displayProducts(products) {
                     <div class="actions-cell">
                         <button class="btn-view" onclick="viewProductDetails(${product.id})">View</button>
                         ${viewer ? '' : `<button class="btn-edit" onclick="openEditProductModal(${product.id})">Edit</button>
+                        <button class="btn-action" onclick="openReorderDialog(${product.id})" title="Order more of this product from its supplier">Reorder</button>
                         <button class="btn-delete" onclick="deleteProduct(${product.id})">Delete</button>`}
                     </div>
                 </td>
@@ -794,6 +796,13 @@ function closeProductModal() {
 }
 
 // Close product details modal
+function reorderFromDetails() {
+    // capture before closing: closeProductDetailsModal() resets editingProductId
+    const id = editingProductId;
+    closeProductDetailsModal();
+    if (id) openReorderDialog(id);
+}
+
 function closeProductDetailsModal() {
     document.getElementById('productDetailsModal').classList.remove('active');
     editingProductId = null;
@@ -1629,6 +1638,114 @@ function openBulkAdjustDialog(ids, onConfirm) {
 
 /* What is wrong with the bulk quantity typed, or null. A text box, not a
    number box, so "10+10" reaches this check instead of arriving empty. */
+/* ===== Reorder one product =====
+   Any product, low or not: the supplier on record, a quantity the user
+   chooses (FETCH's suggestion filled in), and the cost before anything is
+   sent. Sending creates the purchase order and emails it to the supplier,
+   through the same route as the forecast's orders (an explicit product and
+   quantity; the price always comes from the product). */
+function reorderSuggestion(p) {
+    const stock = Number(p.stock_quantity) || 0, reorder = Number(p.reorder_level) || 0, max = Number(p.max_stock_level) || 0;
+    // up to the max stock level when there is one; otherwise twice the reorder level
+    const target = max > stock ? max : Math.max(reorder * 2, 10);
+    return Math.max(1, Math.min(10000, Math.round(target - stock) || reorder || 10));
+}
+function reorderQuantityProblem(value) {
+    const text = String(value || '').trim();
+    if (!text) return 'Type how many to order, like 20.';
+    if (!/^\d+$/.test(text)) return `"${text}" is not a whole number. Type one number only, like 20 (no + or - signs, no letters).`;
+    const n = Number(text);
+    if (n === 0) return 'Order at least 1.';
+    if (n > 10000) return 'One order can be for 10,000 at most.';
+    return null;
+}
+async function openReorderDialog(id) {
+    if (!canManage()) { showToast("Your role can't reorder.", 'error'); return; }
+    let p;
+    try {
+        const res = await fetch(`${API_URL}/products/${id}`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success || !data.data) { showErrorDialog('Could not open the product', data.message || 'the server gave no reason'); return; }
+        p = data.data;
+    } catch (e) { showToast(couldNot('load the product', e), 'error'); return; }
+
+    const unit = escHtml(p.unit_type || 'piece');
+    const cost = Number(p.cost_price) || 0;
+    const noSupplier = !p.supplier_id || !p.supplier_name;
+    const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', 'primary', 'add_shopping_cart', 'Reorder ' + escHtml(p.name),
+        noSupplier
+            ? 'This product has no supplier, so there is nobody to send the order to. Add one with Edit first.'
+            : `The order goes to <strong>${escHtml(p.supplier_name)}</strong> and is emailed to them as soon as you send it.`);
+    const body = dialog.querySelector('.dialog-body');
+    body.insertAdjacentHTML('beforeend', `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0 4px;font-size:13px;text-align:left;">
+            <div><span style="color:var(--text-muted);">In stock</span><br><strong>${formatNumber(Number(p.stock_quantity) || 0)} ${unit}</strong></div>
+            <div><span style="color:var(--text-muted);">Reorder level</span><br><strong>${formatNumber(Number(p.reorder_level) || 0)} ${unit}</strong></div>
+        </div>
+        ${noSupplier ? '' : `
+        <label class="form-label" for="reorderQty" style="display:block;margin-top:12px;text-align:left;">How many to order</label>
+        <input id="reorderQty" class="form-input" type="text" inputmode="numeric" autocomplete="off" maxlength="5" value="${reorderSuggestion(p)}">
+        <div id="reorderNote" style="margin-top:8px;font-size:13px;color:var(--text-muted);text-align:left;"></div>
+        <div id="reorderError" role="alert" style="display:none;margin-top:8px;font-size:13px;font-weight:600;color:var(--danger);text-align:left;"></div>`}`);
+    body.insertAdjacentHTML('afterend', noSupplier
+        ? dialogActions('Close', 'Edit product', 'btn-primary')
+        : dialogActions('Cancel', 'Send order', 'btn-primary'));
+
+    const close = () => { document.removeEventListener('keydown', onKey); overlay.remove(); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    dialog.querySelector('#confirmCancelBtn').addEventListener('click', close);
+    const ok = dialog.querySelector('#confirmOkBtn');
+    if (noSupplier) {
+        ok.addEventListener('click', () => { close(); openEditProductModal(p.id); });
+        return;
+    }
+
+    const input = dialog.querySelector('#reorderQty');
+    const note = dialog.querySelector('#reorderNote');
+    const err = dialog.querySelector('#reorderError');
+    const say = () => {
+        const n = reorderQuantityProblem(input.value) ? null : Number(input.value.trim());
+        note.innerHTML = n
+            ? (cost > 0
+                ? `${formatNumber(n)} ${unit} × ${formatCurrency(cost)} = <strong>${formatCurrency(n * cost)}</strong>`
+                : `No cost price on record for this product, so the order shows no total until one is set (Edit) or the supplier proposes one`) +
+              ` · stock after it arrives: ${formatNumber((Number(p.stock_quantity) || 0) + n)} ${unit}` +
+              (Number(p.max_stock_level) && (Number(p.stock_quantity) || 0) + n > Number(p.max_stock_level)
+                  ? `<br><span style="color:var(--warning);">That is above the max stock level of ${formatNumber(Number(p.max_stock_level))}.</span>` : '')
+            : '';
+    };
+    input.addEventListener('input', () => { err.style.display = 'none'; say(); });
+    let sending = false;
+    const submit = async () => {
+        if (sending) return;
+        const problem = reorderQuantityProblem(input.value);
+        if (problem) { err.textContent = problem; err.style.display = 'block'; input.focus(); return; }
+        sending = true;
+        ok.disabled = true;
+        ok.textContent = 'Sending…';
+        try {
+            const res = await fetch(`${API_URL}/purchase-orders/auto-generate`, {
+                method: 'POST', headers: getAuthHeaders(),
+                body: JSON.stringify({ items: [{ product_id: p.id, quantity: Number(input.value.trim()) }] })
+            });
+            const data = await res.json();
+            close();
+            if (!res.ok || data.success === false) { showErrorDialog('The order was not sent', data.message || 'the server gave no reason'); return; }
+            showReorderResult(data, data.count || (Array.isArray(data.data) ? data.data.length : 0));
+            await loadProducts();
+        } catch (e) {
+            close();
+            showToast(couldNot('send the order', e), 'error');
+        }
+    };
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+    ok.addEventListener('click', submit);
+    say();
+    setTimeout(() => { input.focus(); input.select(); }, 50);
+}
+
 function bulkQuantityProblem(value) {
     const text = String(value || '').trim();
     if (!text) return 'Type how many, like 10.';

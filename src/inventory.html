@@ -27,7 +27,7 @@
     <link rel="stylesheet" href="css/global.css?v=55">
     <link rel="stylesheet" href="css/inventory.css?v=23">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=71">
+        <link rel="stylesheet" href="css/system.css?v=72">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -381,6 +381,7 @@
             <div class="modal-body" id="productDetailsContent"></div>
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeProductDetailsModal()">Close</button>
+                <button type="button" class="btn-secondary" data-needs="manage" onclick="reorderFromDetails()" title="Order more of this product from its supplier"><span class="material-symbols-outlined" style="font-size:16px;">add_shopping_cart</span> Reorder</button>
                 <button type="button" class="btn-primary" onclick="editProduct()">Edit</button>
                 <button type="button" class="btn-danger" onclick="deleteFromDetails()">Delete</button>
             </div>
@@ -540,7 +541,7 @@
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=32"></script>
 <script src="js/assistant.js?v=29"></script>
-    <script src="js/inventory.js?v=54"></script>
+    <script src="js/inventory.js?v=56"></script>
 </body>
 </html>
 
