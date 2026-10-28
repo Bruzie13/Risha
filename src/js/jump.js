@@ -7,8 +7,8 @@
      • quick actions                            — "add a product", "end of day"
      • your live data                           — products and suppliers
 
-   It also builds the section rail on the right of long pages and the
-   back-to-top button, so getting around never needs a scroll marathon. */
+   It also builds the back-to-top button, so getting around never needs a
+   scroll marathon. (The column of section dots on the right was removed.) */
 (function () {
     'use strict';
 
@@ -491,46 +491,6 @@
         searchToken++;
     }
 
-    // ── Section rail ───────────────────────────────────────────────────────
-    // A quiet spine of dots down the right edge: where you are, and one click
-    // to anywhere else on the page.
-    var rail = null;
-
-    function buildRail() {
-        if (rail) { rail.remove(); rail = null; }
-        if (window.innerWidth < 1400) return;
-        sections = collectSections();
-        if (sections.length < 3) return;
-
-        rail = document.createElement('nav');
-        rail.className = 'jump-rail';
-        rail.setAttribute('aria-label', 'Sections on this page');
-        rail.innerHTML = sections.map(function (s, i) {
-            return '<button class="jump-rail-dot" data-i="' + i + '" title="' + esc(s.label) + '" aria-label="' + esc(s.label) + '">' +
-                '<span class="jump-rail-label">' + esc(s.label) + '</span></button>';
-        }).join('');
-        document.body.appendChild(rail);
-
-        rail.addEventListener('click', function (e) {
-            var b = e.target.closest('.jump-rail-dot');
-            if (b) scrollToSection(sections[+b.dataset.i].id);
-        });
-
-        // highlight whichever section is nearest the top of the viewport
-        var io = new IntersectionObserver(function (entries) {
-            entries.forEach(function (en) {
-                var i = sections.findIndex(function (s) { return s.el === en.target; });
-                if (i < 0) return;
-                var dot = rail.querySelector('.jump-rail-dot[data-i="' + i + '"]');
-                if (dot) dot.classList.toggle('is-visible', en.isIntersecting);
-            });
-            var first = rail.querySelector('.jump-rail-dot.is-visible');
-            rail.querySelectorAll('.jump-rail-dot').forEach(function (d) { d.classList.remove('is-current'); });
-            if (first) first.classList.add('is-current');
-        }, { rootMargin: '-80px 0px -55% 0px', threshold: 0.01 });
-        sections.forEach(function (s) { io.observe(s.el); });
-    }
-
     // ── Back to top ────────────────────────────────────────────────────────
     function buildTopButton() {
         var btn = document.createElement('button');
@@ -628,16 +588,7 @@
         buildTopButton();
         localiseHints();
         runDeepLink();
-        // Pages fill in their cards after the data lands — rebuild once things
-        // have settled rather than on every mutation.
-        setTimeout(buildRail, 900);
-        setTimeout(buildRail, 2600);
         setTimeout(buildTip, 1400);
-        var rt;
-        window.addEventListener('resize', function () {
-            clearTimeout(rt);
-            rt = setTimeout(buildRail, 250);
-        });
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

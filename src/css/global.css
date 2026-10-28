@@ -3399,59 +3399,6 @@ body.jump-open { overflow: hidden; }
   }
 }
 
-/* -- section rail: a spine of the page down the right edge -- */
-.jump-rail {
-  position: fixed;
-  right: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 900;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 10px 7px;
-  border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--bg-card) 70%, transparent);
-  border: 1px solid var(--border-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 10px 30px -14px rgba(16, 24, 40, 0.35);
-}
-.jump-rail-dot {
-  position: relative;
-  width: 9px;
-  height: 9px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: var(--gray-300);
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-.jump-rail-dot:hover { background: var(--primary-light, var(--primary)); transform: scale(1.35); }
-.jump-rail-dot.is-current {
-  background: var(--primary);
-  transform: scale(1.4);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 18%, transparent);
-}
-.jump-rail-label {
-  position: absolute;
-  right: 20px;
-  top: 50%;
-  transform: translateY(-50%) translateX(6px);
-  white-space: nowrap;
-  padding: 5px 11px;
-  border-radius: var(--radius-full);
-  background: var(--text-primary);
-  color: var(--bg-card);
-  font-size: 12px;
-  font-weight: 600;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.16s ease, transform 0.16s ease;
-}
-.jump-rail-dot:hover .jump-rail-label { opacity: 1; transform: translateY(-50%) translateX(0); }
-
 /* -- back to top, parked above the assistant button -- */
 .jump-top {
   position: fixed;
@@ -3844,11 +3791,10 @@ body.jump-open { overflow: hidden; }
   box-shadow: none;
 }
 .jump-cta:hover { background: var(--gray-100); color: var(--text-primary); box-shadow: none; }
-.jump-cta kbd, .jump-esc, .jump-badge, .jump-rail-label { border-radius: var(--radius-sm); }
+.jump-cta kbd, .jump-esc, .jump-badge { border-radius: var(--radius-sm); }
 .jump-input-row { background: none; }
 .jump-lead, .jump-row.is-active::before { background: var(--primary); }
 .jump-badge { text-transform: none; letter-spacing: 0; }
-.jump-rail { border-radius: var(--radius-lg); backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--bg-card); }
 
 /* ----- Toasts ----- */
 .toast { animation: none; }
