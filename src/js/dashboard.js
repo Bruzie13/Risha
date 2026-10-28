@@ -304,6 +304,8 @@ function showLessDashSales() {
 // PO lifecycle: pending -> confirmed -> shipped -> received (server-enforced)
 function poNextStep(status) {
     switch (status) {
+        // an order the supplier offered waits for the shop to accept it
+        case 'proposed': return { status: 'confirmed', label: 'Accept offer', icon: 'handshake', title: 'Accept the supplier\'s offer: it becomes a confirmed order', offer: true };
         case 'pending': return { status: 'confirmed', label: 'Confirm', icon: 'check', title: 'Supplier confirmed this order' };
         case 'confirmed': return { status: 'shipped', label: 'Shipped', icon: 'local_shipping', title: 'Supplier has shipped the order' };
         case 'shipped': return { status: 'received', label: 'Receive', icon: 'inventory', title: 'Goods arrived — adds the ordered items to stock' };
@@ -311,7 +313,15 @@ function poNextStep(status) {
     }
 }
 
-function advancePO(id, nextStatus, poNumber) {
+function advancePO(id, nextStatus, poNumber, offer) {
+    if (offer) {
+        const po = (window.recentPOs || []).find(o => o.id === id) || {};
+        showConfirmDialog('Accept this offer',
+            `${escHtml(poNumber)} becomes a confirmed order from ${escHtml(po.supplier_name || 'the supplier')} for ${formatCurrency(po.total_amount || 0)}.`,
+            () => sendPOAdvance(id, 'confirmed', poNumber, ''), 'Accept offer',
+            '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">handshake</span>');
+        return;
+    }
     // Receiving prompts for the new batch's expiry so a refreshed product
     // (even a previously expired one) gets an up-to-date expiration date.
     if (nextStatus === 'received') {
@@ -343,7 +353,7 @@ async function sendPOAdvance(id, nextStatus, poNumber, expiration_date) {
             const data = await res.json();
             if (data.success) {
                 const notes = {
-                    confirmed: `${poNumber} is confirmed — mark it Shipped when the supplier dispatches it.`,
+                    confirmed: `${poNumber} is confirmed. Mark it Shipped when the supplier dispatches it.`,
                     shipped: `${poNumber} is on its way — mark it Received when the goods arrive.`,
                     received: expiration_date
                         ? `${poNumber} received — stock added and expiration updated to ${expiration_date}.`
@@ -371,10 +381,11 @@ async function loadRecentPOs() {
             list.innerHTML = '<div class="empty-state">No purchase orders yet</div>';
             return;
         }
+        window.recentPOs = items;
         list.innerHTML = items.slice(0, 5).map(po => {
             const next = poNextStep(po.status);
             const actionBtn = (next && canManage())
-                ? `<button class="po-advance-btn" onclick="advancePO(${po.id}, '${next.status}', '${escHtml(po.po_number || 'PO#' + po.id)}')" title="${next.title}"><span class="material-symbols-outlined" style="font-size:14px;">${next.icon}</span> ${next.label}</button>`
+                ? `<button class="po-advance-btn" onclick="advancePO(${po.id}, '${next.status}', '${escHtml(po.po_number || 'PO#' + po.id)}'${next.offer ? ', true' : ''})" title="${next.title}"><span class="material-symbols-outlined" style="font-size:14px;">${next.icon}</span> ${next.label}</button>`
                 : '';
             return `<div class="dash-item po-item">
                 <div class="item-info">
