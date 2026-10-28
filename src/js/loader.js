@@ -4,8 +4,9 @@
 
    If a request started by a click is still running after a moment, a small
    box in the middle of the screen shows paw prints stepping across, with
-   what is happening in words ("Signing in…", "Deleting the product…",
-   "Receiving the delivery…"), from the WORDS list below. It holds the
+   what is happening in words: the button's own words as an action
+   ("Confirm order" → "Confirming order…"), or, for a button that is not
+   an action, from the WORDS list below. It holds the
    screen until the request is done, so nothing is pressed twice. After
    6 seconds it adds that the server may be waking up (the free host sleeps
    when idle). */
@@ -111,6 +112,7 @@
         ['PUT', /^\/purchase-orders\/\d+\/status$/, 'Receiving the delivery…', /"status"\s*:\s*"received"/],
         ['PUT', /^\/purchase-orders\/\d+\/status$/, 'Cancelling the order…', /"status"\s*:\s*"cancelled"/],
         ['PUT', /^\/purchase-orders\/\d+\/status$/, 'Confirming the order…', /"status"\s*:\s*"confirmed"/],
+        ['PUT', /^\/purchase-orders\/\d+\/status$/, 'Marking it as shipped…', /"status"\s*:\s*"shipped"/],
         ['PUT', /^\/purchase-orders\/\d+\/status$/, 'Updating the order…'],
         ['POST', /^\/purchase-orders\/\d+\/send-email$/, 'Emailing the supplier…'],
         ['PUT', /^\/purchase-orders\/\d+\/payment$/, 'Recording the payment…'],
@@ -170,6 +172,51 @@
         release: function () { held = false; if (active === 0) hide(); }
     };
 
+    /* The words come from the button that was pressed, when it starts with
+       an action: "Confirm order" shows "Confirming order…", "Save supplier"
+       "Saving supplier…", the trash button titled "Delete sale" "Deleting
+       sale…". A button that is not an action word (the star rating, "Emails")
+       falls back to the WORDS list above. */
+    var ING = {
+        accept: 'Accepting', add: 'Adding', apply: 'Applying', approve: 'Approving', ask: 'Asking',
+        cancel: 'Cancelling', change: 'Changing', check: 'Checking', clear: 'Clearing', close: 'Closing',
+        confirm: 'Confirming', create: 'Creating', decline: 'Declining', delete: 'Deleting', disable: 'Disabling',
+        dismiss: 'Dismissing', email: 'Emailing', enable: 'Enabling', export: 'Exporting', generate: 'Generating',
+        import: 'Importing', keep: 'Keeping', mark: 'Marking', offer: 'Offering', open: 'Opening', pay: 'Paying',
+        print: 'Printing', receive: 'Receiving', record: 'Recording', refresh: 'Refreshing', reject: 'Rejecting',
+        remove: 'Removing', reopen: 'Reopening', reorder: 'Reordering', resend: 'Resending', reset: 'Resetting',
+        restore: 'Restoring', retry: 'Trying again', save: 'Saving', send: 'Sending', ship: 'Shipping',
+        sign: 'Signing', submit: 'Submitting', test: 'Testing', turn: 'Turning', update: 'Updating',
+        upload: 'Uploading', verify: 'Checking', view: 'Opening', void: 'Voiding'
+    };
+    function buttonText(el) {
+        if (!el) return '';
+        // a form pressed with Enter speaks for its submit button
+        if (el.tagName === 'FORM' || el.form) {
+            var f = el.tagName === 'FORM' ? el : el.form;
+            var sb = f && f.querySelector('button[type="submit"], button:not([type]), input[type="submit"]');
+            if (sb) el = sb; else return '';
+        }
+        var copy = el.cloneNode(true);
+        // icon names ("check", "delete") are text in the button, not words on it
+        copy.querySelectorAll && copy.querySelectorAll('.material-symbols-outlined, .material-icons, [aria-hidden="true"]').forEach(function (n) { n.remove(); });
+        var text = (copy.textContent || copy.value || '').replace(/\s+/g, ' ').trim();
+        if (!text) text = el.getAttribute('aria-label') || el.getAttribute('title') || '';
+        return text;
+    }
+    function wordFromButton(el) {
+        var text = buttonText(el).replace(/^(yes|ok|okay)\s*,\s*/i, '').replace(/[.…!]+$/, '').trim();
+        if (!text || text.length > 40) return null;
+        var words = text.split(' ');
+        var verb = ING[words[0].toLowerCase()];
+        if (!verb) return null;
+        var rest = words.slice(1).map(function (w) {
+            // order numbers and short capitals stay as written; other words in small letters
+            return /\d|^[A-Z]{2,}$/.test(w) ? w : w.toLowerCase();
+        }).join(' ');
+        return (verb + (rest ? ' ' + rest : '')) + '…';
+    }
+
     var realFetch = window.fetch;
     if (realFetch) {
         window.fetch = function (input, init) {
@@ -182,7 +229,7 @@
             }
             var method = methodOf(input, init);
             // a delete or save says so even if a quicker look-up runs beside it
-            if (!held && (active === 0 || method !== 'GET')) label = wordFor(method, url, init && init.body);
+            if (!held && (active === 0 || method !== 'GET')) label = wordFromButton(lastClick.el) || wordFor(method, url, init && init.body);
             active++;
             if (active === 1) showTimer = setTimeout(function () { showTimer = null; if (active > 0) show(); }, SHOW_AFTER_MS);
             var done = function () { active = Math.max(0, active - 1); if (active === 0) hide(); };
