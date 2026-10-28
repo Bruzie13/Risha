@@ -43,8 +43,8 @@ function renderPage(page, logs) {
     } else {
         list.innerHTML = pageItems.map(l => {
             const action = l.action || 'info';
-            const icon = action === 'create' || action === 'login' ? '<span class="material-symbols-outlined" style="font-size:16px;">add_circle</span>' : action === 'update' ? '<span class="material-symbols-outlined" style="font-size:16px;">edit</span>' : action === 'delete' ? '<span class="material-symbols-outlined" style="font-size:16px;">delete</span>' : '<span class="material-symbols-outlined" style="font-size:16px;">info</span>';
-            const iconClass = action === 'create' || action === 'login' ? 'create' : action === 'update' ? 'update' : action === 'delete' ? 'delete' : 'info';
+            const icon = action === 'create' || action === 'login' ? '<span class="material-symbols-outlined" style="font-size:16px;">add_circle</span>' : action === 'update' ? '<span class="material-symbols-outlined" style="font-size:16px;">edit</span>' : action === 'delete' ? '<span class="material-symbols-outlined" style="font-size:16px;">delete</span>' : action === 'restore' ? '<span class="material-symbols-outlined" style="font-size:16px;">restore_from_trash</span>' : '<span class="material-symbols-outlined" style="font-size:16px;">info</span>';
+            const iconClass = action === 'create' || action === 'login' || action === 'restore' ? 'create' : action === 'update' ? 'update' : action === 'delete' ? 'delete' : 'info';
             const table = formatTableName(l.table_name);
             const userInfo = l.user_name ? ` by ${escHtml(l.user_name)}` : '';
             const detailHtml = buildDetailHtml(l);
@@ -71,7 +71,7 @@ function renderPage(page, logs) {
 }
 
 function formatAction(action) {
-    const map = { create: 'Created', update: 'Updated', delete: 'Deleted', login: 'Logged in' };
+    const map = { create: 'Created', update: 'Updated', delete: 'Deleted', restore: 'Restored from the Trash', login: 'Logged in' };
     return map[action] || action;
 }
 

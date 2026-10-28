@@ -826,12 +826,89 @@ function deleteFromDetails() {
 // Delete product with confirmation
 /* What deleting does, said before the question is answered. A product with
    items still on the shelf can be deleted, but not without being told. */
+/* ===== Trash =====
+   A deleted product is hidden, not erased, so it waits in the Trash until
+   someone restores it: same SKU, stock, prices and history. The button says
+   how many are there ("Trash · 7 deleted"). */
+let trashItems = [];
+async function updateTrashCount() {
+    const label = document.getElementById('trashCount');
+    if (!label || !canManage()) return;
+    try {
+        const res = await fetch(`${API_URL}/products/deleted`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) return;
+        trashItems = data.data || [];
+        label.textContent = trashItems.length ? `${trashItems.length} deleted` : 'empty';
+    } catch (e) { /* the button still opens the Trash */ }
+}
+async function openTrash() {
+    if (!canManage()) { showToast("Your role can't restore products.", 'error'); return; }
+    await updateTrashCount();
+    const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', 'primary', 'delete', 'Trash',
+        'Deleted products wait here. Restore puts one back in Inventory with its SKU, stock, prices and history.');
+    dialog.style.maxWidth = '560px';
+    const body = dialog.querySelector('.dialog-body');
+    body.innerHTML = `
+        ${trashItems.length > 6 ? '<input id="trashSearch" class="form-input" type="search" maxlength="100" placeholder="Search the Trash" style="margin:12px 0 4px;">' : ''}
+        <div id="trashList" class="trash-list"></div>`;
+    body.insertAdjacentHTML('afterend', dialogActions('', 'Close', 'btn-secondary'));
+    const list = body.querySelector('#trashList');
+    const when = ms => ms ? new Date(Number(ms)).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'some time ago';
+    const render = () => {
+        const q = (body.querySelector('#trashSearch')?.value || '').trim().toLowerCase();
+        const items = trashItems.filter(p => !q || (p.name || '').toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q));
+        list.innerHTML = items.length ? items.map(p => `
+            <div class="trash-row">
+                <div class="trash-info">
+                    <div class="trash-name">${escHtml(p.name)}</div>
+                    <div class="trash-sub">${escHtml(p.sku || '')}${p.category_name ? ' · ' + escHtml(p.category_name) : ''} · ${formatQty(p.stock_quantity)} ${escHtml(p.unit_type || 'piece')} in stock</div>
+                    <div class="trash-sub">Deleted ${escHtml(when(p.deleted_at))}${p.deleted_by ? ' by ' + escHtml(p.deleted_by) : ''}</div>
+                </div>
+                <button type="button" class="btn-secondary trash-restore" data-id="${p.id}"><span class="material-symbols-outlined" style="font-size:16px;">restore_from_trash</span> Restore</button>
+            </div>`).join('')
+            : `<div class="trash-empty">${q ? 'Nothing in the Trash matches that search.' : 'The Trash is empty. Deleted products will wait here.'}</div>`;
+    };
+    render();
+    body.querySelector('#trashSearch')?.addEventListener('input', render);
+    list.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.trash-restore');
+        if (!btn) return;
+        const id = Number(btn.dataset.id);
+        const p = trashItems.find(x => x.id === id);
+        btn.disabled = true;
+        btn.textContent = 'Restoring…';
+        try {
+            const res = await fetch(`${API_URL}/products/${id}/restore`, { method: 'PUT', headers: getAuthHeaders() });
+            const data = await res.json();
+            if (data.success) {
+                trashItems = trashItems.filter(x => x.id !== id);
+                document.getElementById('trashCount').textContent = trashItems.length ? `${trashItems.length} deleted` : 'empty';
+                render();
+                showToast(data.message || `${p ? p.name : 'The product'} is back in Inventory.`, 'success');
+                loadProducts();
+            } else {
+                showErrorDialog('Could not restore', data.message || 'the server gave no reason');
+                render();
+            }
+        } catch (err) {
+            showToast(couldNot('restore the product', err), 'error');
+            render();
+        }
+    });
+    const close = () => { document.removeEventListener('keydown', onKey); overlay.remove(); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    dialog.querySelector('#confirmOkBtn').addEventListener('click', close);
+}
+
 function deleteProductQuestion(products) {
     const withStock = products.filter(p => (parseFloat(p.stock_quantity) || 0) > 0);
     const one = products.length === 1;
     let text = one
-        ? `Delete <strong>${escHtml(products[0].name)}</strong>? It leaves Inventory, the till and the reorder lists. Its past sales stay in the reports.`
-        : `Delete ${products.length} products? They leave Inventory, the till and the reorder lists. Their past sales stay in the reports.`;
+        ? `Delete <strong>${escHtml(products[0].name)}</strong>? It leaves Inventory, the till and the reorder lists, and goes to the <strong>Trash</strong>, where it can be restored. Its past sales stay in the reports.`
+        : `Delete ${products.length} products? They leave Inventory, the till and the reorder lists, and go to the <strong>Trash</strong>, where they can be restored. Their past sales stay in the reports.`;
     if (withStock.length) {
         text += '<span style="display:block;margin-top:10px;">' + (one
             ? `<strong>It still has ${formatQty(withStock[0].stock_quantity)} in stock.</strong> Deleting it does not take those off the shelf.`
@@ -851,9 +928,10 @@ async function deleteProduct(id) {
             });
             const data = await response.json();
             if (data.success) {
-                showSuccessDialog('Product deleted', 'The product has been removed from your inventory.', { tone: 'danger' });
+                showSuccessDialog('Product deleted', `${escHtml(target ? target.name : 'The product')} is in the Trash. Open Trash to restore it.`, { tone: 'danger' });
                 closeProductDetailsModal();
                 await loadProducts();
+                updateTrashCount();
             } else {
                 showToast('Error: ' + (data.message || 'the server gave no reason'), 'error');
             }
@@ -982,6 +1060,7 @@ async function showNextSku() {
 
 // checked when the user leaves a field, and again while a wrong one is corrected
 document.addEventListener('DOMContentLoaded', () => {
+    updateTrashCount();
     document.getElementById('sku_type')?.addEventListener('change', showNextSku);
     PRODUCT_FIELDS.forEach(id => {
         const input = document.getElementById(id);
@@ -1770,7 +1849,8 @@ async function bulkDelete() {
                 const data = await res.json();
                 if (data.success) successCount++;
             }
-            showSuccessDialog('Products deleted', `Removed ${successCount} of ${ids.length} selected product${ids.length === 1 ? '' : 's'} from inventory.`, { tone: 'danger' });
+            showSuccessDialog('Products deleted', `Moved ${successCount} of ${ids.length} selected product${ids.length === 1 ? '' : 's'} to the Trash. Open Trash to restore any of them.`, { tone: 'danger' });
+            updateTrashCount();
             clearSelection();
             await loadProducts();
         } catch (error) {

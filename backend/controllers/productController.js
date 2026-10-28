@@ -328,6 +328,39 @@ exports.deleteProduct = async (req, res) => {
     }
 };
 
+/* The Trash: deleted products, which are only hidden, so they can be brought
+   back. */
+exports.getDeletedProducts = async (req, res) => {
+    try {
+        res.json({ success: true, data: await Product.getDeleted() });
+    } catch (error) {
+        console.error('Get deleted products error:', error);
+        res.status(500).json({ success: false, message: 'Error loading the Trash' });
+    }
+};
+
+exports.restoreProduct = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const product = Number.isInteger(id) ? await Product.findById(id) : null;
+        if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+        if (product.is_active) return res.status(400).json({ success: false, message: `${product.name} is not in the Trash: it is already in Inventory.` });
+        // its barcode may have been given to another product while it was deleted
+        if (product.barcode && String(product.barcode).trim()) {
+            const other = await Product.findByBarcode(product.barcode, id);
+            if (other) {
+                return res.status(409).json({ success: false, message: `${product.name} could not be restored: its barcode ${String(product.barcode).trim()} is now used by "${other.name}" (SKU ${other.sku}). Give "${other.name}" another barcode first, or remove it there.` });
+            }
+        }
+        if (!await Product.restore(id)) return res.status(400).json({ success: false, message: `${product.name} is not in the Trash.` });
+        logAudit(req.user.id, 'restore', 'products', id, null, { sku: product.sku, name: product.name, stock_quantity: product.stock_quantity }, req.ip);
+        res.json({ success: true, message: `${product.name} is back in Inventory.` });
+    } catch (error) {
+        console.error('Restore product error:', error);
+        res.status(500).json({ success: false, message: 'Error restoring the product' });
+    }
+};
+
 exports.getCategories = async (req, res) => {
     try {
         const categories = await Product.getCategories();

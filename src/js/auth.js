@@ -562,8 +562,10 @@ function showSuccessDialog(title, message, opts) {
     };
     // opts.stay: there is something to read (a list of what was left out), so it waits to be closed;
     // otherwise it closes by itself after 5 seconds, with the line around it counting down
-    const timer = o.stay ? null : setTimeout(close, TOAST_MS);
-    if (!o.stay) addCountdownRing(dialog, TOAST_MS, t.color);
+    // a window with something to choose in it (a link or a button in its text) waits too
+    const stay = o.stay || /<(button|a)\b/i.test(String(message || ''));
+    const timer = stay ? null : setTimeout(close, TOAST_MS);
+    if (!stay) addCountdownRing(dialog, TOAST_MS, t.color);
     const onKey = (e) => { if (e.key === 'Escape' || e.key === 'Enter') close(); };
     document.addEventListener('keydown', onKey);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });

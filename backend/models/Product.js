@@ -333,6 +333,30 @@ class Product {
         }
     }
 
+    /* Products in the Trash: deleted (hidden, not erased), newest first, with
+       when and by whom from the Activity log. */
+    static async getDeleted() {
+        const [rows] = await pool.execute(
+            `SELECT p.id, p.sku, p.name, p.brand, p.barcode, p.stock_quantity, p.unit_type, p.unit_price, p.image_url IS NOT NULL AND p.image_url <> '' AS has_image,
+                    c.name AS category_name, s.name AS supplier_name,
+                    UNIX_TIMESTAMP(COALESCE(d.created_at, p.updated_at)) * 1000 AS deleted_at, u.full_name AS deleted_by
+             FROM products p
+             LEFT JOIN categories c ON c.id = p.category_id
+             LEFT JOIN suppliers s ON s.id = p.supplier_id
+             LEFT JOIN audit_logs d ON d.id = (SELECT MAX(a.id) FROM audit_logs a WHERE a.table_name = 'products' AND a.record_id = p.id AND a.action = 'delete')
+             LEFT JOIN users u ON u.id = d.user_id
+             WHERE p.is_active = FALSE
+             ORDER BY deleted_at DESC
+             LIMIT 500`);
+        return rows;
+    }
+
+    /** Bring a deleted product back. */
+    static async restore(id) {
+        const [r] = await pool.execute('UPDATE products SET is_active = TRUE WHERE id = ? AND is_active = FALSE', [id]);
+        return r.affectedRows > 0;
+    }
+
     static async getCategories() {
         const connection = await pool.getConnection();
         try {
