@@ -1,3 +1,4 @@
+const { tooLong } = require('../utils/lengths');
 const { shopToday, expiryProblem } = require('../utils/expiry');
 const { imageProblem } = require('../utils/image');
 const { SKU_TYPES, skuTypeProblem, skuFor } = require('../utils/sku');
@@ -368,7 +369,7 @@ exports.adjustStock = async (req, res) => {
         const { id } = req.params;
         const { quantity, movement_type, notes } = req.body;
 
-        const problem = stockChangeProblem(quantity, movement_type);
+        const problem = stockChangeProblem(quantity, movement_type) || tooLong('stock_notes', notes);
         if (problem) {
             return res.status(400).json({ success: false, message: problem });
         }

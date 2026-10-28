@@ -101,6 +101,8 @@ exports.createSale = async (req, res) => {
         const { payment_method, notes, customer_name, customer_phone, discount_percent } = req.body;
         let { items } = req.body;
         const staff_id = req.user.id;
+        const lengthIssue = firstTooLong({ customer_name, customer_phone });
+        if (lengthIssue) return res.status(400).json({ success: false, message: lengthIssue });
 
         // One cart, one sale (see utils/requestKeys.js).
         const ref = saleRef(req.body.client_ref);
@@ -266,6 +268,7 @@ exports.voidSale = async (req, res) => {
 // ---- End-of-day cash reconciliation ----
 
 const pool = require('../config/database');
+const { firstTooLong } = require('../utils/lengths');
 const { checkDiscount, drawerExpected, discrepancy, countedCashProblem } = require('../utils/till');
 const { readMaxDiscount } = require('./tillController');
 

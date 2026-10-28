@@ -27,7 +27,7 @@
     <link rel="stylesheet" href="css/global.css?v=55">
     <link rel="stylesheet" href="css/inventory.css?v=23">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=69">
+        <link rel="stylesheet" href="css/system.css?v=70">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -89,7 +89,7 @@
                 <div class="toolbar-left">
                     <div class="inv-search-wrap">
                         <span class="material-symbols-outlined inv-search-icon">search</span>
-                        <input type="text" id="searchInput" class="search-box" placeholder="Search name, SKU, or barcode...">
+                        <input maxlength="100" type="text" id="searchInput" class="search-box" placeholder="Search name, SKU, or barcode...">
                     </div>
                     <select id="categoryFilter" class="form-select" style="width:150px;">
                         <option value="">All Categories</option>
@@ -245,7 +245,7 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label" for="name">Product name *</label>
-                            <input type="text" class="form-input" id="name" maxlength="255" autocomplete="off">
+                            <input type="text" class="form-input" id="name" maxlength="100" autocomplete="off">
                             <div class="field-error" id="err_name" role="alert"></div>
                         </div>
                         <div class="form-group">
@@ -330,7 +330,7 @@
                         <div class="form-row" style="margin-top:8px;">
                         <div class="form-group">
                             <label class="form-label" for="brand">Brand</label>
-                            <input type="text" class="form-input" id="brand" maxlength="100" autocomplete="off">
+                            <input type="text" class="form-input" id="brand" maxlength="50" autocomplete="off">
                             <div class="field-error" id="err_brand" role="alert"></div>
                         </div>
                         <div class="form-group">
@@ -355,7 +355,7 @@
                             <label class="form-label" for="image_url">Image</label>
                             <div style="display:flex;gap:10px;align-items:center;">
                                 <img id="imagePreview" alt="" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:1px solid var(--border-glass-strong);display:none;flex-shrink:0;">
-                                <input type="text" class="form-input" id="image_url" placeholder="Paste image URL, or upload →" style="flex:1;" oninput="updateImagePreview()">
+                                <input maxlength="2048" type="text" class="form-input" id="image_url" placeholder="Paste image URL, or upload →" style="flex:1;" oninput="updateImagePreview()">
                                 <input type="file" id="imageFile" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;" onchange="handleFormImageFile(this)">
                                 <button type="button" class="btn-secondary" onclick="document.getElementById('imageFile').click()" title="Upload a picture from this device" style="white-space:nowrap;"><span class="material-symbols-outlined" style="font-size:16px;">upload</span> Upload</button>
                             </div>
@@ -418,7 +418,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Reason</label>
-                    <input type="text" class="form-input" id="stockReason" placeholder="Reason for adjustment">
+                    <input maxlength="200" type="text" class="form-input" id="stockReason" placeholder="Reason for adjustment">
                 </div>
             </div>
             <div class="modal-footer">
@@ -473,7 +473,7 @@
                     Scan or type a barcode for each product and press <strong>Enter</strong> to save — it jumps to the next automatically. Or click <strong>Generate</strong> for an in-store code.
                 </p>
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-                    <input type="text" class="form-input" id="barcodeManagerSearch" placeholder="Filter products…" oninput="renderBarcodeManagerList()" style="flex:1;">
+                    <input maxlength="100" type="text" class="form-input" id="barcodeManagerSearch" placeholder="Filter products…" oninput="renderBarcodeManagerList()" style="flex:1;">
                     <label style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;white-space:nowrap;">
                         <input type="checkbox" id="barcodeShowAll" onchange="renderBarcodeManagerList()"> Show all
                     </label>
@@ -498,7 +498,7 @@
                     <strong>Upload</strong> a picture from this device, or paste an <strong>image URL</strong> and press <strong>Enter</strong> to save. Uploaded photos are resized and stored automatically.
                 </p>
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-                    <input type="text" class="form-input" id="imageManagerSearch" placeholder="Filter products…" oninput="renderImageManagerList()" style="flex:1;">
+                    <input maxlength="100" type="text" class="form-input" id="imageManagerSearch" placeholder="Filter products…" oninput="renderImageManagerList()" style="flex:1;">
                     <label style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;white-space:nowrap;">
                         <input type="checkbox" id="imageShowAll" onchange="renderImageManagerList()"> Show all
                     </label>
@@ -533,13 +533,13 @@
     </script>
         <script src="js/utils.js"></script>
 <script src="js/format.js"></script>
-<script src="js/auth.js?v=63"></script>
+<script src="js/auth.js?v=64"></script>
 <script src="js/loader.js?v=6"></script>
-<script src="js/clear-input.js?v=1"></script>
+<script src="js/clear-input.js?v=2"></script>
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=32"></script>
 <script src="js/assistant.js?v=29"></script>
-    <script src="js/inventory.js?v=51"></script>
+    <script src="js/inventory.js?v=52"></script>
 </body>
 </html>
 

@@ -1083,3 +1083,7 @@ html.rail-only.sidebar-hidden .sidebar .sidebar-nav .nav-link.rail-icon-only .na
 .dark-mode .fx-clear { background: rgba(255, 255, 255, 0.14); color: #dfe8f0; }
 .dark-mode .fx-clear:hover { background: rgba(255, 255, 255, 0.24); }
 input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
+/* "8 left" under a box near its length limit (js/clear-input.js) */
+.fx-left { position: fixed; z-index: 100000; display: none; padding: 1px 7px; border-radius: 999px; font: 600 11.5px/1.5 system-ui, sans-serif; background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border-glass); pointer-events: none; }
+.fx-left.on { display: block; }
+.fx-left.full { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }

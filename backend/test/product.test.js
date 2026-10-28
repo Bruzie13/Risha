@@ -82,10 +82,10 @@ test('adding a product: nothing larger or longer than its column can hold', () =
     assert.match(productProblem({ ...good, unit_price: 1e12 }, true, suppliers), /Unit price is too large \(99,999,999\.99 at most\)/);
     assert.match(productProblem({ ...good, stock_quantity: 99999999999 }, true, suppliers), /Stock quantity is too large/);
     assert.match(productProblem({ ...good, reorder_level: 5000000 }, true, suppliers), /Reorder level is too large/);
-    assert.match(productProblem({ ...good, name: 'T'.repeat(300) }, true, suppliers), /Product name is too long \(255 characters at most\)/);
+    assert.match(productProblem({ ...good, name: 'T'.repeat(300) }, true, suppliers), /Product name is too long \(100 characters at most\)/);
     assert.match(productProblem({ ...good, sku: 'S'.repeat(51) }, true, suppliers), /SKU is too long/);
     assert.match(productProblem({ ...good, barcode: '9'.repeat(101) }, true, suppliers), /Barcode is too long/);
-    assert.equal(productProblem({ ...good, unit_price: 99999999.99, stock_quantity: 9999999.999, name: 'T'.repeat(255) }, true, suppliers), null, 'the largest values that fit are accepted');
+    assert.equal(productProblem({ ...good, unit_price: 99999999.99, stock_quantity: 9999999.999, name: 'T'.repeat(100) }, true, suppliers), null, 'the largest values that fit are accepted');
 });
 
 test('adding a product: levels are whole numbers and the unit is from the list', () => {

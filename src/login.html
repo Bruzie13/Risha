@@ -117,7 +117,7 @@
     </style>
 <script>/* login page is always light-themed */document.documentElement.classList.remove('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');if(!sessionStorage.getItem('authToken')&&!localStorage.getItem('authToken'))document.cookie='token=;path=/;max-age=0';var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
     <link rel="stylesheet" href="css/intro.css?v=4">
-        <link rel="stylesheet" href="css/system.css?v=69">
+        <link rel="stylesheet" href="css/system.css?v=70">
 </head>
 <body class="auth-page">
     <div class="login-page">
@@ -135,7 +135,7 @@
             <form class="login-form" id="loginForm" onsubmit="handleLogin(event)" autocomplete="off">
                 <div class="form-group">
                     <label class="field-label" for="username">Username</label>
-                    <input type="text" class="form-input" id="username" required autocomplete="off" autocapitalize="none" spellcheck="false" readonly>
+                    <input maxlength="254" type="text" class="form-input" id="username" required autocomplete="off" autocapitalize="none" spellcheck="false" readonly>
                 </div>
                 <div class="form-group">
                     <label class="field-label" for="password">Password</label>
@@ -166,7 +166,7 @@
             <form id="fpForm" class="login-form">
                 <div class="form-group">
                     <label class="field-label" for="fpUsername">Username or email</label>
-                    <input type="text" class="form-input" id="fpUsername" required autocomplete="username">
+                    <input maxlength="254" type="text" class="form-input" id="fpUsername" required autocomplete="username">
                 </div>
                 <div class="fp-actions">
                     <button type="button" class="fp-cancel" id="fpCancel">Cancel</button>
@@ -353,9 +353,9 @@
     </script>
         <script src="js/format.js"></script>
 <script src="js/utils.js"></script>
-<script src="js/auth.js?v=63"></script>
+<script src="js/auth.js?v=64"></script>
 <script src="js/loader.js?v=6"></script>
-<script src="js/clear-input.js?v=1"></script>
+<script src="js/clear-input.js?v=2"></script>
 <script>/* login page is always light-themed, undo auth.js theme apply */document.documentElement.classList.remove('dark-mode');</script>
 <script src="js/motion.js?v=22"></script>
     <script src="js/intro.js?v=3"></script>

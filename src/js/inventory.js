@@ -846,6 +846,7 @@ function productFieldProblem(id) {
         case 'name':
             if (!v) return 'Enter the product name.';
             if (v.length < 2) return 'The product name is too short: use at least 2 characters.';
+            if (v.length > 100) return 'The product name is too long (100 characters at most).';
             return null;
         case 'category_id':
             return v ? null : 'Choose a category from the list.';
@@ -902,7 +903,7 @@ function productFieldProblem(id) {
             // a product that has already expired keeps its date while other things are edited
             return v && v !== editingOriginalExpiry ? expiryDateProblem(v) : null;
         case 'brand':
-            return v.length > 100 ? 'The brand is too long (100 characters at most).' : null;
+            return v.length > 50 ? 'The brand is too long (50 characters at most).' : null;
     }
     return null;
 }

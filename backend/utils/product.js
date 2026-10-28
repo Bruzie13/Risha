@@ -10,7 +10,7 @@ const IMPORTANT = [['sku', 'SKU'], ['name', 'Product name'], ['category_id', 'Ca
 const NOT_NEGATIVE = [['cost_price', 'Cost price'], ['stock_quantity', 'Stock quantity'], ['reorder_level', 'Reorder level'], ['max_stock_level', 'Max stock level']];
 // What each column can hold. A value past these used to pass every check and
 // then be refused by the database with a general error.
-const LONGEST = [['sku', 'SKU', 50], ['name', 'Product name', 255], ['brand', 'Brand', 100], ['barcode', 'Barcode', 100], ['batch_number', 'Batch number', 100],
+const LONGEST = [['sku', 'SKU', 50], ['name', 'Product name', 100], ['brand', 'Brand', 50], ['barcode', 'Barcode', 100], ['batch_number', 'Batch number', 100],
     ['species', 'Species', 50], ['breed_size', 'Breed size', 20], ['age_group', 'Age group', 20], ['health_category', 'Health category', 50]];
 const LARGEST = [['unit_price', 'Unit price', 99999999.99], ['cost_price', 'Cost price', 99999999.99], ['stock_quantity', 'Stock quantity', 9999999.999],
     ['reorder_level', 'Reorder level', 1000000], ['max_stock_level', 'Max stock level', 1000000]];

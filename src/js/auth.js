@@ -619,7 +619,7 @@ function openGlobalSearch() {
         <div class="search-modal">
             <div class="search-input-wrap">
                 <span class="material-symbols-outlined" style="font-size:20px;">search</span>
-                <input id="globalSearchInput" type="text" placeholder="Search products, suppliers, sales..." autofocus>
+                <input id="globalSearchInput" type="text" maxlength="100" placeholder="Search products, suppliers, sales..." autofocus>
                 <button class="close-btn" onclick="closeGlobalSearch()">&times;</button>
             </div>
             <div id="searchResults" class="search-results">

@@ -8,6 +8,7 @@ const { validatePassword } = require('../utils/passwordPolicy');
 const { adminRemovalProblem } = require('../utils/accounts');
 const { ROLES } = require('../utils/roles');
 const { imageProblem } = require('../utils/image');
+const { firstTooLong } = require('../utils/lengths');
 const { sendPasswordResetEmail, sendVerificationEmail, sendEmailCode, sendWelcomeEmail, isValidEmail } = require('../utils/mailer');
 
 // Brute-force protection: after 5 failed logins per IP+username within
@@ -583,6 +584,8 @@ exports.register = async (req, res) => {
                 message: 'Username, password, and full name are required'
             });
         }
+        const lengthIssue = firstTooLong({ full_name, username, email });
+        if (lengthIssue) return res.status(400).json({ success: false, message: lengthIssue });
 
         // The address is what the account is verified against, so it has to be
         // real and reachable — no placeholder fallback any more.
@@ -894,6 +897,9 @@ exports.updateUser = async (req, res) => {
             }
         }
 
+        const lengthIssue = firstTooLong({ full_name: updateData.full_name, username: updateData.username, email: updateData.email });
+        if (lengthIssue) return res.status(400).json({ success: false, message: lengthIssue });
+
         const oldUser = await User.findById(id);
 
         // Changing the address undoes the proof we had, so the new one has to be
@@ -1069,6 +1075,9 @@ exports.updateProfile = async (req, res) => {
                 message: 'Full name is required'
             });
         }
+
+        const lengthIssue = firstTooLong({ full_name, email });
+        if (lengthIssue) return res.status(400).json({ success: false, message: lengthIssue });
 
         const fields = { full_name: full_name.trim() };
 
