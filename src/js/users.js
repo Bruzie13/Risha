@@ -193,7 +193,7 @@ function startCodeCountdown() {
         const mm = String(Math.floor(left / 60)).padStart(2, '0');
         const ss = String(left % 60).padStart(2, '0');
         el.hint.className = 'code-hint sent';
-        el.hint.textContent = `Code sent to ${codedEmail} · expires in ${mm}:${ss}`;
+        el.hint.textContent = `Code sent to ${codedEmail} · expires in ${mm}:${ss} · not in the inbox? Check Spam or Junk`;
     }, 1000);
 }
 
@@ -220,7 +220,7 @@ async function sendEmailCode() {
             el.input.disabled = false;
             el.input.focus();
             el.hint.className = 'code-hint sent';
-            el.hint.textContent = `Code sent to ${email} · expires in 10:00`;
+            el.hint.textContent = `Code sent to ${email} · expires in 10:00 · not in the inbox? Check Spam or Junk`;
             startCodeCountdown();
             showToast('Code sent to ' + email, 'success');
         } else {
@@ -278,7 +278,7 @@ async function resendVerification(id) {
         });
         const data = await res.json();
         if (data.success) {
-            showSuccessDialog('Confirmation link sent', data.message, { icon: 'mark_email_read' });
+            showSuccessDialog('Confirmation link sent', (data.message || 'The link is on its way.') + ' If it is not in the inbox, ask them to check Spam or Junk.', { icon: 'mark_email_read' });
             await loadUsers();
         } else {
             showErrorDialog('Could not send the link', data.message || 'the server gave no reason');

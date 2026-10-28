@@ -110,6 +110,7 @@
         .fp-modal .fp-msg { display: none; border-radius: var(--radius-md); padding: 9px 12px; font-size: 13.5px; margin-bottom: 12px; }
         .fp-modal .fp-msg.ok { display: block; background: var(--success-bg); color: var(--success); }
         .fp-modal .fp-msg.err { display: block; background: var(--danger-bg); color: var(--danger); }
+        .fp-modal .fp-note { display: block; margin-top: 6px; font-size: 12.5px; line-height: 1.45; color: var(--text-secondary); }
         .fp-actions { display: flex; justify-content: flex-end; align-items: center; gap: 14px; margin-top: 4px; }
         .fp-actions .login-btn { width: auto; padding: 0 14px; }
         .fp-cancel { color: var(--text-secondary); }
@@ -192,7 +193,8 @@
                 });
                 const data = await res.json();
                 errorEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">mark_email_read</span> ' +
-                    escapeHtml(data.message || 'If that account still needs confirming, a new link is on its way.');
+                    escapeHtml(data.message || 'If that account still needs confirming, a new link is on its way.') +
+                    ' Not in your inbox? Check your Spam or Junk folder.';
             } catch (err) {
                 errorEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">error</span> Connection error. Please try again.';
             }
@@ -320,6 +322,13 @@
                     });
                     var data = await res.json();
                     msg.textContent = data.message || 'Request sent. If the account exists, the reset email will follow.';
+                    if (data.success) {
+                        // the email can land in spam
+                        var note = document.createElement('span');
+                        note.className = 'fp-note';
+                        note.textContent = 'Not in your inbox? Check your Spam or Junk folder (in Gmail, also Promotions), and mark it "Not spam" so the next one arrives normally.';
+                        msg.appendChild(note);
+                    }
                     msg.className = 'fp-msg ' + (data.success ? 'ok' : 'err');
                 } catch (err) {
                     msg.textContent = 'Connection error. Please try again.';
