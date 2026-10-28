@@ -725,7 +725,7 @@ async function viewProductDetails(id) {
                 </div>
                 <div class="details-row">
                     <span class="details-label">Barcode</span>
-                    <span class="details-value">${product.barcode ? `<span class="details-barcode">${escHtml(product.barcode)}</span>` : 'None yet'}</span>
+                    <span class="details-value">${product.barcode ? `<span class="details-barcode">${escHtml(product.barcode)}</span>` : 'N/A'}</span>
                 </div>
                 <div class="details-row">
                     <span class="details-label">Product name</span>

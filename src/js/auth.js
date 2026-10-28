@@ -729,10 +729,29 @@ function showToast(message, type) {
     // Never a stack: a burst of actions (scanning several items) shows the
     // latest few, not a column of messages down the screen.
     while (container.children.length > 3) container.firstElementChild.remove();
-    // Long enough to read, short enough to be gone before the next action.
-    // Problems stay a little longer than confirmations.
-    setTimeout(() => toast.remove(), type === 'error' || type === 'warning' ? 4000 : 2200);
+    // Every message stays 5 seconds, and a line running around its edge shows
+    // the time left, so it never vanishes before it is read.
+    const r = toast.getBoundingClientRect();
+    if (r.width && r.height) {
+        const ns = 'http://www.w3.org/2000/svg';
+        const ring = document.createElementNS(ns, 'svg');
+        ring.setAttribute('class', 'toast-ring');
+        ring.setAttribute('aria-hidden', 'true');
+        ring.setAttribute('viewBox', `0 0 ${r.width} ${r.height}`);
+        const edge = document.createElementNS(ns, 'rect');
+        const inset = 1.5;
+        edge.setAttribute('x', inset); edge.setAttribute('y', inset);
+        edge.setAttribute('width', Math.max(0, r.width - inset * 2));
+        edge.setAttribute('height', Math.max(0, r.height - inset * 2));
+        edge.setAttribute('rx', Math.min(parseFloat(getComputedStyle(toast).borderTopLeftRadius) || 8, r.height / 2) - inset);
+        edge.setAttribute('pathLength', '100');
+        edge.style.animationDuration = TOAST_MS + 'ms';
+        ring.appendChild(edge);
+        toast.appendChild(ring);
+    }
+    setTimeout(() => toast.remove(), TOAST_MS);
 }
+const TOAST_MS = 5000;
 
 /* Kept in step with the copy in utils.js. auth.js loads after it on every
    page, so whichever page you are on, this is the definition that wins.
