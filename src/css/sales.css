@@ -34,4 +34,19 @@
   margin-bottom: 12px;
   color: var(--text-primary);
 }
+/* the items of a sale, in the sale details dialog: a real table, full width,
+   with a shaded header, row lines and the amounts lined up on the right */
+.items-table-wrap { border: 1px solid var(--border-glass-strong); border-radius: var(--radius-md); overflow: hidden; }
+.items-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.items-table th {
+  background: var(--bg-inset); color: var(--text-secondary);
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border-glass-strong);
+}
+.items-table td { padding: 10px 14px; color: var(--text-primary); border-top: 1px solid var(--border-subtle); }
+.items-table tbody tr:first-child td { border-top: 0; }
+.items-table tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--bg-inset) 45%, transparent); }
+.items-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.items-table .strong { font-weight: 700; }
+.items-table .items-none { text-align: center; color: var(--text-muted); padding: 16px; }
 .text-center { text-align: center; }

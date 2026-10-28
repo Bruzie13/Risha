@@ -372,13 +372,13 @@ async function viewSaleDetails(id) {
                 <div class="details-row"><span class="details-label">Discount</span><span class="details-value">${parseFloat(sale.discount || 0)}%</span></div>
                 <div class="details-row"><span class="details-label">Notes</span><span class="details-value">${escHtml(sale.notes || 'None')}</span></div>
                 <div class="details-items"><h4>Items sold</h4>
-                    <table class="sales-table" style="margin:0;">
-                        <thead><tr><th>Product</th><th>Qty</th><th>Unit price</th><th>Total</th></tr></thead>
+                    <div class="items-table-wrap"><table class="items-table">
+                        <thead><tr><th>Product</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Total</th></tr></thead>
                         <tbody>${(sale.items || []).map(item => {
                             const ul = getUnitLabel(item.unit_type);
-                            return `<tr><td>${escHtml(item.product_name)}</td><td>${parseFloat(item.quantity)}${ul}</td><td>${formatCurrency(parseFloat(item.unit_price))}</td><td>${formatCurrency(parseFloat(item.subtotal))}</td></tr>`;
-                        }).join('')}</tbody>
-                    </table>
+                            return `<tr><td>${escHtml(item.product_name)}</td><td class="num">${parseFloat(item.quantity)}${ul}</td><td class="num">${formatCurrency(parseFloat(item.unit_price))}</td><td class="num strong">${formatCurrency(parseFloat(item.subtotal))}</td></tr>`;
+                        }).join('') || '<tr><td colspan="4" class="items-none">No item lines were recorded for this sale.</td></tr>'}</tbody>
+                    </table></div>
                 </div>
                 <div class="total-section" style="margin-top:20px;">
                     <div class="total-row"><span>Subtotal:</span><span>${formatCurrency(parseFloat(sale.total_amount || 0))}</span></div>
