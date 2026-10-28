@@ -371,7 +371,7 @@ function renderProducts(products) {
             ? `<div class="till-row unavailable tone-${tone}" aria-disabled="true" title="${name} — ${blocked.toLowerCase()}, cannot be sold">`
             : `<div class="till-row tone-${tone}" role="button" tabindex="0" onclick="addToCart(${Number(p.id)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();addToCart(${Number(p.id)});}" title="Add ${name} to the sale">`;
         return `${open}
-            <div class="tr-thumb">${p.image_url ? `<img src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.remove()">` : ''}<span class="material-symbols-outlined">${icon}</span></div>
+            <div class="tr-thumb${p.image_url ? ' has-img' : ''}">${p.image_url ? `<img src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.parentNode.classList.remove('has-img'); this.remove()">` : ''}<span class="material-symbols-outlined">${icon}</span></div>
             <div class="tr-name"><small>${escHtml(p.brand || category || '')}</small><b>${name}</b></div>
             <div class="tr-stock ${stockClass}">${stockText}</div>
             <div class="tr-price">${formatCurrency(parseFloat(p.unit_price || 0))}</div>

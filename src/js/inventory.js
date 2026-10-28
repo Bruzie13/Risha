@@ -307,7 +307,7 @@ function displayProductsGrid(products) {
             ${viewer ? '' : `<input type="checkbox" class="product-checkbox pcard-check" value="${p.id}" aria-label="Select ${escAttr(p.name)}"${selectedIds.has(p.id) ? ' checked' : ''}>`}
             <span class="pcard-status">${t.label}</span>
             <div class="pcard-top">
-                <div class="pcard-avatar">${p.image_url ? `<img class="pcard-img" src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.remove()">` : ''}<span class="material-symbols-outlined">${productIcon(p)}</span></div>
+                <div class="pcard-avatar${p.image_url ? ' has-img' : ''}">${p.image_url ? `<img class="pcard-img" src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.parentNode.classList.remove('has-img'); this.remove()">` : ''}<span class="material-symbols-outlined">${productIcon(p)}</span></div>
                 <div class="pcard-id">
                     <div class="pcard-name" title="${escHtml(p.name)}">${escHtml(p.name)}</div>
                     <div class="pcard-sub">${escHtml(p.sku)}${p.brand ? ' · ' + escHtml(p.brand) : ''}</div>
