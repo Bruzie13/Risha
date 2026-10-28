@@ -110,7 +110,7 @@
         var notes = '<button class="btn-secondary" data-act="notes" data-id="' + id + '">Notes' + (Number(o.message_count) ? ' (' + Number(o.message_count) + ')' : '') + '</button>';
         // reading an order's notes is for administrators and managers (the server refuses anyone else)
         if (!manages()) return '';
-        if (o.status === 'proposed') return '<button class="btn-primary" data-act="accept" data-id="' + id + '">Accept offer</button>'
+        if (o.status === 'proposed') return '<button class="btn-primary" data-act="accept" data-id="' + id + '">Confirm order</button>'
             + '<button class="btn-secondary" data-act="cancel" data-id="' + id + '">Decline</button>' + notes;
         if (o.status === 'pending') return '<button class="btn-secondary" data-act="confirmed" data-id="' + id + '">Mark confirmed</button>'
             + '<button class="btn-secondary" data-act="cancel" data-id="' + id + '">Cancel order</button>' + notes;
@@ -226,8 +226,8 @@
         var name = escHtml(o.po_number);
         if (act === 'notes') { toggleNotes(id); return; }
         if (act === 'accept') {
-            showConfirmDialog('Accept this offer', name + ' becomes a confirmed order from ' + escHtml(o.supplier_name || 'the supplier') + ' for ' + formatCurrency(o.total_amount) + '.',
-                function () { setStatus(id, 'confirmed'); }, 'Accept offer');
+            showConfirmDialog('Confirm this order', 'This accepts ' + escHtml(o.supplier_name || 'the supplier') + '\'s offer: ' + name + ' becomes a confirmed order for ' + formatCurrency(o.total_amount) + '.',
+                function () { setStatus(id, 'confirmed'); }, 'Confirm order');
         } else if (act === 'cancel') {
             showConfirmDialog(o.status === 'proposed' ? 'Decline this offer' : 'Cancel this order', name + ' will be marked cancelled. This cannot be undone.',
                 function () { setStatus(id, 'cancelled'); }, o.status === 'proposed' ? 'Decline' : 'Cancel order',

@@ -110,6 +110,7 @@
         ['GET', /^\/email-logs\//, 'Loading the email history…'],
         ['PUT', /^\/purchase-orders\/\d+\/status$/, 'Receiving the delivery…', /"status"\s*:\s*"received"/],
         ['PUT', /^\/purchase-orders\/\d+\/status$/, 'Cancelling the order…', /"status"\s*:\s*"cancelled"/],
+        ['PUT', /^\/purchase-orders\/\d+\/status$/, 'Confirming the order…', /"status"\s*:\s*"confirmed"/],
         ['PUT', /^\/purchase-orders\/\d+\/status$/, 'Updating the order…'],
         ['POST', /^\/purchase-orders\/\d+\/send-email$/, 'Emailing the supplier…'],
         ['PUT', /^\/purchase-orders\/\d+\/payment$/, 'Recording the payment…'],

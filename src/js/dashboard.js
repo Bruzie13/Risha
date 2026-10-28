@@ -305,7 +305,7 @@ function showLessDashSales() {
 function poNextStep(status) {
     switch (status) {
         // an order the supplier offered waits for the shop to accept it
-        case 'proposed': return { status: 'confirmed', label: 'Accept offer', icon: 'handshake', title: 'Accept the supplier\'s offer: it becomes a confirmed order', offer: true };
+        case 'proposed': return { status: 'confirmed', label: 'Confirm order', icon: 'check', title: 'Accept the supplier\'s offer: it becomes a confirmed order', offer: true };
         case 'pending': return { status: 'confirmed', label: 'Confirm', icon: 'check', title: 'Supplier confirmed this order' };
         case 'confirmed': return { status: 'shipped', label: 'Shipped', icon: 'local_shipping', title: 'Supplier has shipped the order' };
         case 'shipped': return { status: 'received', label: 'Receive', icon: 'inventory', title: 'Goods arrived — adds the ordered items to stock' };
@@ -316,10 +316,10 @@ function poNextStep(status) {
 function advancePO(id, nextStatus, poNumber, offer) {
     if (offer) {
         const po = (window.recentPOs || []).find(o => o.id === id) || {};
-        showConfirmDialog('Accept this offer',
-            `${escHtml(poNumber)} becomes a confirmed order from ${escHtml(po.supplier_name || 'the supplier')} for ${formatCurrency(po.total_amount || 0)}.`,
-            () => sendPOAdvance(id, 'confirmed', poNumber, ''), 'Accept offer',
-            '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">handshake</span>');
+        showConfirmDialog('Confirm this order',
+            `This accepts ${escHtml(po.supplier_name || 'the supplier')}'s offer: ${escHtml(poNumber)} becomes a confirmed order for ${formatCurrency(po.total_amount || 0)}.`,
+            () => sendPOAdvance(id, 'confirmed', poNumber, ''), 'Confirm order',
+            '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">check_circle</span>');
         return;
     }
     // Receiving prompts for the new batch's expiry so a refreshed product
