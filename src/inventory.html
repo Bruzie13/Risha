@@ -24,10 +24,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=55">
+    <link rel="stylesheet" href="css/global.css?v=56">
     <link rel="stylesheet" href="css/inventory.css?v=23">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=79">
+        <link rel="stylesheet" href="css/system.css?v=97">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -124,7 +124,6 @@
                     <button class="btn-secondary" data-needs="manage" onclick="openCsvImportModal()"><span class="material-symbols-outlined" style="font-size:16px;">file_upload</span> Import</button>
                     <button class="btn-warning" data-needs="manage" onclick="autoReorder()"><span class="material-symbols-outlined" style="font-size:16px;">smart_toy</span> Reorder</button>
                     <button class="btn-secondary" data-needs="manage" onclick="openBarcodeManager()"><span class="material-symbols-outlined" style="font-size:16px;">barcode_scanner</span> Barcodes</button>
-                    <button class="btn-secondary" data-needs="manage" onclick="openTrash('products')" title="Deleted products, suppliers and accounts, to restore"><span class="material-symbols-outlined" style="font-size:16px;">delete</span> Trash <span class="trash-count" data-trash-count="products">…</span></button>
                     <button class="btn-secondary" data-needs="manage" onclick="openImageManager()"><span class="material-symbols-outlined" style="font-size:16px;">image</span> Images</button>
                 </div>
             </div>
@@ -188,14 +187,6 @@
                 <button class="chip chip-success" data-status="in" onclick="setStatusFilter('in', this)">Healthy <span class="chip-count" id="chipCountIn">–</span></button>
             </div>
 
-            <div id="reorderBanner" style="display:none;margin-bottom:16px;">
-                <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--warning-bg);border:1px solid color-mix(in srgb, var(--warning) 25%, transparent);border-radius:var(--radius-md);flex:1;">
-                    <span class="material-symbols-outlined" style="color:var(--warning);font-size:20px;">warning_amber</span>
-                    <span style="font-weight:600;font-size:13.5px;color:var(--text-primary);">Restock needed</span>
-                    <span id="reorderCount" style="font-size:12.5px;color:var(--text-muted);"></span>
-                    <button class="btn-secondary" onclick="showAllProducts()" style="margin-left:auto;padding:6px 14px;font-size:12px;">Show all products</button>
-                </div>
-            </div>
             <label class="select-all-shown" data-needs="manage" id="selectAllGridWrap" title="Select every product shown"><input type="checkbox" id="selectAllGrid"> Select all products shown</label>
             <div id="productsGrid" class="product-grid"></div>
             <div class="table-container" id="productsTableWrap" style="display:none;">
@@ -285,7 +276,7 @@
                             <div class="field-error" id="err_unit_price" role="alert"></div>
                         </div>
                         <div class="form-group">
-                            <label class="form-label" for="cost_price">Cost price (₱)</label>
+                            <label class="form-label" for="cost_price">Cost price (₱) *</label>
                             <input type="number" class="form-input" id="cost_price" inputmode="decimal" step="0.01" min="0">
                             <div class="field-error" id="err_cost_price" role="alert"></div>
                         </div>
@@ -440,9 +431,9 @@
             <div class="modal-body">
                 <div style="margin-bottom:20px;padding:16px;background:var(--gray-50);border-radius:8px;font-size:13px;color:var(--text-muted);">
                     <strong style="color:var(--text-primary);">CSV must have these columns:</strong><br>
-                    <code>sku, name, brand, category, unit_price, cost_price, stock_quantity, reorder_level, unit_type, description, barcode, species</code>
+                    <code>sku, name, brand, category, unit_price, cost_price, stock_quantity, reorder_level, unit_type, description, barcode, species, expiration_date</code>
                     <br><br>
-                    Every row needs a <code>unit_price</code> above zero and a <code>category</code> that is one of yours: <span id="csvCategoryNames"></span>. A row without them is left out and listed when the import finishes.
+                    Every row needs a <code>unit_price</code> above zero and a <code>category</code> that is one of yours: <span id="csvCategoryNames"></span>. Food, Health &amp; Wellness and Litter &amp; Waste rows also need an <code>expiration_date</code> (2027-10-30 or 10/30/2027), at least 7 days away. A row without them is left out and listed when the import finishes.
                     <br><br>
                     <button class="btn-secondary" onclick="downloadCsvTemplate()" style="font-size:12px;"><span class="material-symbols-outlined" style="font-size:14px;">download</span> Download template</button>
                 </div>
@@ -454,7 +445,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Choose CSV File</label>
-                    <input type="file" id="csvFile" accept=".csv" style="padding:10px;border:1.5px dashed var(--border-color);border-radius:8px;width:100%;cursor:pointer;">
+                    <input type="file" id="csvFile" accept=".csv">
                 </div>
                 <div id="csvPreview" style="margin-top:16px;max-height:300px;overflow-y:auto;"></div>
             </div>
@@ -536,14 +527,14 @@
     </script>
         <script src="js/utils.js"></script>
 <script src="js/format.js"></script>
-<script src="js/auth.js?v=68"></script>
+<script src="js/auth.js?v=77"></script>
 <script src="js/loader.js?v=6"></script>
 <script src="js/clear-input.js?v=2"></script>
 <script src="js/motion.js?v=22"></script>
-<script src="js/jump.js?v=32"></script>
-<script src="js/assistant.js?v=29"></script>
-    <script src="js/inventory.js?v=60"></script>
-    <script src="js/trash.js?v=1"></script>
+<script src="js/jump.js?v=34"></script>
+<script src="js/assistant.js?v=30"></script>
+    <script src="js/inventory.js?v=73"></script>
+    <script src="js/trash.js?v=2"></script>
 </body>
 </html>
 

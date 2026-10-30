@@ -5,6 +5,19 @@
    that is given has to be one. The page checks the same things; these are the
    checks that hold whatever sends the request. */
 
+const { parsePhoneNumberFromString } = require('libphonenumber-js');
+
+/* A phone number has to be a real one for its country (Carlo, 30 Oct 2026:
+   "0000000000" used to pass). The page picks the country with a flag and
+   sends the number with its country code (+63 917 123 4567); a number typed
+   without one is read as Philippine. It is stored as +639171234567. */
+const PHONE_COUNTRY = 'PH';
+const PHONE_REAL = 'Enter a real phone number: choose the country, then type the number (for the Philippines, like 0917 123 4567 or (02) 8123 4567).';
+function phoneForStorage(value) {
+    const p = parsePhoneNumberFromString(String(value == null ? '' : value).trim(), PHONE_COUNTRY);
+    return p && p.isValid() ? p.number : null;
+}
+
 const LIMITS = { name: 100, contact_person: 100, email: 254, phone: 20, address: 255, city: 100, payment_terms: 100 };
 const LABELS = { name: 'Supplier name', contact_person: 'Contact person', email: 'Email', phone: 'Phone number', address: 'Address', city: 'City', payment_terms: 'Payment terms' };
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -47,7 +60,7 @@ function fieldProblem(field, value) {
             if (!PHONE.test(v)) return 'Enter the phone number using digits, spaces and + ( ) - only.';
             if (digits < 7) return 'The phone number is too short: it needs at least 7 digits.';
             if (digits > 15) return 'The phone number has too many digits (15 at most).';
-            return null;
+            return phoneForStorage(v) ? null : PHONE_REAL;
         }
         case 'city':
             if (v.length < 2) return 'The city is too short: use at least 2 characters.';
@@ -78,4 +91,4 @@ function supplierProblem(data, adding, previous) {
     return null;
 }
 
-module.exports = { supplierProblem, fieldProblem, nameKey, LIMITS };
+module.exports = { supplierProblem, fieldProblem, nameKey, LIMITS, phoneForStorage };

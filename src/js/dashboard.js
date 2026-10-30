@@ -339,7 +339,7 @@ function advancePO(id, nextStatus, poNumber, offer) {
         confirmed: `Mark ${poNumber} as confirmed by the supplier?`,
         shipped: `Mark ${poNumber} as shipped?`
     };
-    showConfirmDialog('Update purchase order', messages[nextStatus] || 'Advance this order?', () => sendPOAdvance(id, nextStatus, poNumber, ''), 'Yes, Update', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">local_shipping</span>');
+    showConfirmDialog('Update purchase order', messages[nextStatus] || 'Advance this order?', () => sendPOAdvance(id, nextStatus, poNumber, ''), nextStatus === 'shipped' ? 'Mark shipped' : 'Mark confirmed', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">local_shipping</span>');
 }
 
 async function sendPOAdvance(id, nextStatus, poNumber, expiration_date) {

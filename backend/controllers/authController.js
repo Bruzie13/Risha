@@ -3,9 +3,9 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const pool = require('../config/database');
 const logAudit = require('../services/audit');
-const { notifyUserLogin, notifyPasswordResetRequested, notifyAdminResetLinkSent, notifyPasswordChangedByLink } = require('../services/notifier');
+const { notifyPasswordResetRequested, notifyAdminResetLinkSent, notifyPasswordChangedByLink } = require('../services/notifier');
 const { validatePassword } = require('../utils/passwordPolicy');
-const { adminRemovalProblem } = require('../utils/accounts');
+const { adminRemovalProblem, fullNameProblem } = require('../utils/accounts');
 const { ROLES } = require('../utils/roles');
 const { imageProblem } = require('../utils/image');
 const { firstTooLong } = require('../utils/lengths');
@@ -277,9 +277,8 @@ exports.login = async (req, res) => {
 
         const token = generateToken(user, !!remember);
 
+        // a sign-in is a record (Activity log), not an alert: nobody has to act on it
         logAudit(user.id, 'login', 'users', user.id, null, null, req.ip);
-
-        notifyUserLogin(user, req.ip).catch(e => console.error('Notif error:', e.message));
 
         /* HttpOnly cookie for the server-side page guard (not readable by JS).
            Without "remember" it is deliberately given no maxAge, which makes it
@@ -586,6 +585,8 @@ exports.register = async (req, res) => {
         }
         const lengthIssue = firstTooLong({ full_name, username, email });
         if (lengthIssue) return res.status(400).json({ success: false, message: lengthIssue });
+        const nameIssue = fullNameProblem(full_name);
+        if (nameIssue) return res.status(400).json({ success: false, message: nameIssue });
 
         // The address is what the account is verified against, so it has to be
         // real and reachable — no placeholder fallback any more.
@@ -604,7 +605,7 @@ exports.register = async (req, res) => {
                 deactivatedId: emailOwner.is_active ? undefined : emailOwner.id,
                 message: emailOwner.is_active
                     ? `That email address is already used by ${emailOwner.username}.`
-                    : `That email address belongs to a deactivated account (${emailOwner.username}). Tick "Show deactivated" on this page to restore it, or use a different address.`
+                    : `That email address belongs to a deactivated account (${emailOwner.username}). Restore it from Settings → Trash (Accounts), or use a different address.`
             });
         }
 
@@ -632,7 +633,7 @@ exports.register = async (req, res) => {
                 deactivatedId: existingUser.is_active ? undefined : existingUser.id,
                 message: existingUser.is_active
                     ? 'Username already taken'
-                    : `"${username}" belongs to a deactivated account (${existingUser.full_name || existingUser.email}). Tick "Show deactivated" on this page to restore it, or pick a different username.`
+                    : `"${username}" belongs to a deactivated account (${existingUser.full_name || existingUser.email}). Restore it from Settings → Trash (Accounts), or pick a different username.`
             });
         }
 
@@ -901,6 +902,10 @@ exports.updateUser = async (req, res) => {
         if (lengthIssue) return res.status(400).json({ success: false, message: lengthIssue });
 
         const oldUser = await User.findById(id);
+        if (updateData.full_name !== undefined) {
+            const nameIssue = fullNameProblem(updateData.full_name, oldUser ? oldUser.full_name : null);
+            if (nameIssue) return res.status(400).json({ success: false, message: nameIssue });
+        }
 
         // Changing the address undoes the proof we had, so the new one has to be
         // confirmed too — otherwise an edit is a way around verification.
@@ -1078,6 +1083,9 @@ exports.updateProfile = async (req, res) => {
 
         const lengthIssue = firstTooLong({ full_name, email });
         if (lengthIssue) return res.status(400).json({ success: false, message: lengthIssue });
+        const me = await User.findById(userId);
+        const nameIssue = fullNameProblem(full_name, me ? me.full_name : null);
+        if (nameIssue) return res.status(400).json({ success: false, message: nameIssue });
 
         const fields = { full_name: full_name.trim() };
 

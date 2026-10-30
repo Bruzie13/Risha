@@ -159,12 +159,20 @@ function openDetails() {
         + field('spAddress', 'Address', me.address, 500)
         + field('spCity', 'City', me.city, 100),
         'Save details',
-        async () => portalSend('PUT', '/me', {
+        async () => {
+            const phoneBox = document.getElementById('spPhone');
+            const problem = typeof phoneProblem === 'function' ? phoneProblem(phoneBox, true) : null;
+            if (problem) { showToast(problem, 'error'); return false; }
+            return portalSend('PUT', '/me', {
             contact_person: document.getElementById('spContact').value,
-            phone: document.getElementById('spPhone').value,
+            phone: typeof phoneValue === 'function' ? phoneValue(phoneBox) : phoneBox.value,
             address: document.getElementById('spAddress').value,
             city: document.getElementById('spCity').value
-        }));
+            });
+        });
+    // the phone box gets the country picker (js/phone-field.js)
+    const phoneBox = document.getElementById('spPhone');
+    if (phoneBox && typeof phoneField === 'function') { phoneField(phoneBox); setPhoneValue(phoneBox, me.phone || ''); }
 }
 
 /* ---------- Products and prices ---------- */
@@ -191,7 +199,9 @@ function renderProducts() {
             <td>${status(p)}</td>
             <td class="num">${p.expected_30d == null ? '<span class="rp-sub">Being calculated</span>' : (p.expected_30d >= 0.5 ? formatNumber(Math.round(p.expected_30d)) : '—')}</td>
             <td class="num">${p.cost_price != null ? formatCurrency(p.cost_price) : '—'}${p.pending_price != null
-                ? `<span class="rp-sub">${formatCurrency(p.pending_price)} proposed, waiting</span>` : ''}</td>
+                ? `<span class="rp-sub">${formatCurrency(p.pending_price)} proposed, waiting</span>`
+                : p.declined_price != null
+                    ? `<span class="rp-sub price-declined">${formatCurrency(p.declined_price)} declined${p.decline_reason ? ': ' + escHtml(p.decline_reason) : ''}</span>` : ''}</td>
             <td class="num"><button class="btn-view" data-price="${Number(p.id)}">Change price</button></td>
         </tr>`).join('');
     updatePagination('productsPagination', ordered, productsShown, 'showMoreProducts', 'showLessProducts', PRODUCTS_PAGE);

@@ -1,12 +1,12 @@
-/* The Trash, shared by every page that deletes something (Inventory,
-   Suppliers, Users): one window with a tab for each kind of record, each
+/* The Trash, in Settings → Trash: a tab for each kind of record, each
    deleted one with when and by whom, and a Restore button that puts it back
    as it was. Deleting a product or a supplier only hides it, and deleting an
    account deactivates it, so nothing here is lost. Sales are not here:
    deleting one erases it.
 
-   A page shows the button with <button onclick="openTrash('products')"> and
-   the count beside it with <span data-trash-count="products">. */
+   Settings draws it with mountTrash(box, kind). Any other page sends people
+   there with openTrash(kind); <span data-trash-count="products"> (or "all")
+   shows how many are waiting. */
 (function () {
     'use strict';
 
@@ -33,7 +33,8 @@
     function paintCounts() {
         document.querySelectorAll('[data-trash-count]').forEach(el => {
             const kind = el.getAttribute('data-trash-count');
-            el.textContent = countWords((trash[kind] || []).length);
+            const n = kind === 'all' ? Object.keys(KINDS).reduce((a, k) => a + (trash[k] || []).length, 0) : (trash[kind] || []).length;
+            el.textContent = countWords(n);
         });
     }
 
@@ -59,26 +60,22 @@
         </div>`;
     }
 
-    window.openTrash = async function (tab) {
-        if (typeof canManage === 'function' && !canManage()) { showToast("Your role can't restore deleted records.", 'error'); return; }
+    /* The Trash drawn inside `box` (Settings → Trash), opened on `tab`. */
+    window.mountTrash = async function (box, tab) {
+        if (typeof canManage === 'function' && !canManage()) { box.innerHTML = '<div class="trash-empty">Your role can\'t restore deleted records.</div>'; return; }
         await loadTrash();
         const kinds = Object.keys(KINDS).filter(k => k !== 'accounts' || (typeof getUserRole === 'function' && getUserRole() === 'admin'));
         let current = kinds.includes(tab) ? tab : kinds[0];
 
-        const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', 'primary', 'delete', 'Trash',
-            'Deleted records wait here. Restore puts one back as it was.');
-        dialog.style.maxWidth = '600px';
-        const body = dialog.querySelector('.dialog-body');
+        const body = box;
         body.innerHTML = `
             <div class="seg trash-tabs" role="tablist" aria-label="What was deleted">
                 ${kinds.map(k => `<button type="button" class="seg-btn" role="tab" data-tab="${k}">${KINDS[k].label} <span class="trash-tab-count">${countWords(trash[k].length)}</span></button>`).join('')}
             </div>
             <input id="trashSearch" class="form-input" type="search" maxlength="100" placeholder="Search the Trash" style="margin:12px 0 0;">
             <div id="trashList" class="trash-list"></div>`;
-        body.insertAdjacentHTML('afterend', dialogActions('', 'Close', 'btn-secondary'));
         const list = body.querySelector('#trashList');
         const search = body.querySelector('#trashSearch');
-
         const render = () => {
             body.querySelectorAll('.trash-tabs .seg-btn').forEach(b => {
                 b.classList.toggle('active', b.dataset.tab === current);
@@ -122,16 +119,16 @@
                 render();
             }
         });
-        const close = () => { document.removeEventListener('keydown', onKey); overlay.remove(); };
-        const onKey = e => { if (e.key === 'Escape') close(); };
-        document.addEventListener('keydown', onKey);
-        overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-        dialog.querySelector('#confirmOkBtn').addEventListener('click', close);
         render();
     };
 
-    // the count beside each Trash button, on load and after a delete
-    window.updateTrashCount = loadTrash;
+    /* From any page: the Trash lives in Settings. */
+    window.openTrash = function (tab) {
+        window.location.href = 'settings.html?tab=trash' + (tab ? '&kind=' + encodeURIComponent(tab) : '');
+    };
+
+    // the count beside the Trash tab, on load and after a delete
+    window.updateTrashCount = () => document.querySelector('[data-trash-count]') ? loadTrash() : Promise.resolve();
     document.addEventListener('DOMContentLoaded', () => {
         if (document.querySelector('[data-trash-count]') && (typeof canManage !== 'function' || canManage())) loadTrash();
     });

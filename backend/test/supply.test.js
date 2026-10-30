@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { termDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, scorecard } = require('../utils/supply');
+const { termDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, declineReasonProblem, scorecard } = require('../utils/supply');
 
 test('payment terms: read the days out of the usual wordings', () => {
     assert.equal(termDays('Net 30'), 30);
@@ -141,4 +141,17 @@ test('star rating: the edges of each standard count as met', () => {
     const edge = starRating({ delivered: 1, on_time_percent: 90, on_time_of: 1, complete_percent: 90, average_days: 7 });
     assert.equal(edge.stars, 5);
     assert.equal(STAR_RULE.standard, 4);
+});
+
+test('declining a price: a reason in words is needed', () => {
+    assert.match(declineReasonProblem(''), /Type why/);
+    assert.match(declineReasonProblem('   '), /Type why/);
+    assert.match(declineReasonProblem(undefined), /Type why/);
+    assert.match(declineReasonProblem(42), /Type why/, 'not text');
+    assert.match(declineReasonProblem('no'), /in words/, 'too short');
+    assert.match(declineReasonProblem('123'), /in words/, 'no letters');
+    assert.match(declineReasonProblem('x'.repeat(301)), /300 characters/);
+    assert.equal(declineReasonProblem('Too high compared with other suppliers'), null);
+    assert.equal(declineReasonProblem('  Mahal  '), null);
+    assert.equal(declineReasonProblem('x'.repeat(300)), null);
 });

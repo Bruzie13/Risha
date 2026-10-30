@@ -1,5 +1,5 @@
 const Supplier = require('../models/Supplier');
-const { supplierProblem } = require('../utils/supplier');
+const { supplierProblem, phoneForStorage } = require('../utils/supplier');
 const SupplierPerformance = require('../models/SupplierPerformance');
 const { scorecard, starRating } = require('../utils/supply');
 const PurchaseOrder = require('../models/PurchaseOrder');
@@ -69,7 +69,7 @@ exports.createSupplier = async (req, res) => {
             name,
             contact_person,
             email,
-            phone,
+            phone: phoneForStorage(phone) || phone,      // one way of writing it: +639171234567
             address,
             city,
             payment_terms,
@@ -114,6 +114,8 @@ exports.updateSupplier = async (req, res) => {
         if (problem) {
             return res.status(400).json({ success: false, message: problem });
         }
+        // a changed number is kept one way (+639171234567); an older one stays as it was
+        if (updateData.phone !== undefined && phoneForStorage(updateData.phone)) updateData.phone = phoneForStorage(updateData.phone);
         if (updateData.name !== undefined) {
             updateData.name = String(updateData.name).trim().replace(/\s+/g, ' ');
             if (await Supplier.nameTaken(updateData.name, id)) {

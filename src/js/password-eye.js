@@ -29,10 +29,18 @@
             input.focus();
         });
         wrap.appendChild(btn);
+        // the eye shows only once something is typed: with an empty box there
+        // is nothing to show
+        function sync() {
+            btn.hidden = !input.value;
+            if (!input.value) set(false);
+        }
+        ['input', 'change'].forEach(function (ev) { input.addEventListener(ev, sync); });
+        sync();
         // a form that is cleared or sent hides the password again
         if (input.form) {
             ['reset', 'submit'].forEach(function (ev) {
-                input.form.addEventListener(ev, function () { set(false); });
+                input.form.addEventListener(ev, function () { set(false); setTimeout(sync, 0); });
             });
         }
     }

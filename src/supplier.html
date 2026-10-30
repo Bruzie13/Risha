@@ -24,11 +24,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=55">
+    <link rel="stylesheet" href="css/global.css?v=56">
     <link rel="stylesheet" href="css/reports.css?v=30">
 <script>/* the supplier has one page, so its sidebar starts as the slim strip (see "The slim strip" in css/system.css); the logo opens it, and that choice is kept (railOpen) */document.documentElement.classList.add('rail-only');document.documentElement.classList.toggle('sidebar-hidden', localStorage.getItem('railOpen') !== 'true');</script>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=79">
+        <link rel="stylesheet" href="css/system.css?v=97">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -235,10 +235,13 @@
     </script>
     <script src="js/format.js"></script>
     <script src="js/utils.js"></script>
-    <script src="js/auth.js?v=68"></script>
+    <script src="js/auth.js?v=77"></script>
     <script src="js/loader.js?v=6"></script>
 <script src="js/clear-input.js?v=2"></script>
     <script src="js/po-progress.js?v=3"></script>
-    <script src="js/supplier-portal.js?v=17"></script>
+    <link rel="stylesheet" href="vendor/intl-tel-input-18.2.1/css/intlTelInput.css">
+    <script src="vendor/intl-tel-input-18.2.1/js/intlTelInput.min.js"></script>
+    <script src="js/phone-field.js?v=1"></script>
+    <script src="js/supplier-portal.js?v=19"></script>
 </body>
 </html>

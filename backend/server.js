@@ -394,6 +394,8 @@ async function ensureSupplyTables() {
                 INDEX idx_pp_supplier (supplier_id, status),
                 INDEX idx_pp_status (status)
             )`);
+        // why the shop declined a price; the supplier sees it on their portal
+        try { await conn.execute('ALTER TABLE price_proposals ADD COLUMN decline_reason VARCHAR(300) NULL'); } catch (e) { /* column exists */ }
         // Payment tracking starts the day it is switched on. Orders received
         // before then were never marked either way, and calling every one of
         // them "unpaid" would put a wall of false overdue notices in front of

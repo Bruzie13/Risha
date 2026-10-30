@@ -251,7 +251,7 @@ Each time the forecast is worked out:
 
 > accuracy = 100 − |forecast − sold| ÷ sold × 100, never below 0
 
-It is scored on the shop total, not product by product, and is withheld when fewer than 20 items sold in the hidden days. The page also shows the same score for Random Forest alone, Gradient Boosting alone, both together, and the simple trend.
+It is scored on the shop total, not product by product, and is withheld when fewer than 20 items sold in the hidden days. The page also shows the same score for Random Forest alone, Gradient Boosting alone, both together, and the simple trend. Each of them is scored on the same hidden days as the headline figure, so when days were left out in between (a closed fortnight), the days in the gap are not counted against any of them.
 
 **This is accuracy, not error.** 86% means the shop total was 14% off. It says nothing about how far off single products were: a forecast that is too high for half the products and too low for the other half scores 100%.
 

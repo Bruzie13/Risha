@@ -46,7 +46,7 @@ function renderPage(page, logs) {
             const icon = action === 'create' || action === 'login' ? '<span class="material-symbols-outlined" style="font-size:16px;">add_circle</span>' : action === 'update' ? '<span class="material-symbols-outlined" style="font-size:16px;">edit</span>' : action === 'delete' ? '<span class="material-symbols-outlined" style="font-size:16px;">delete</span>' : action === 'restore' ? '<span class="material-symbols-outlined" style="font-size:16px;">restore_from_trash</span>' : '<span class="material-symbols-outlined" style="font-size:16px;">info</span>';
             const iconClass = action === 'create' || action === 'login' || action === 'restore' ? 'create' : action === 'update' ? 'update' : action === 'delete' ? 'delete' : 'info';
             const table = formatTableName(l.table_name);
-            const userInfo = l.user_name ? ` by ${escHtml(l.user_name)}` : '';
+            const userInfo = l.user_name ? ` by ${escHtml(whoDid(l))}` : '';
             const detailHtml = buildDetailHtml(l);
             return `<div class="audit-item" role="button" tabindex="0" aria-expanded="false" onclick="toggleDetail(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleDetail(this);}">
                 <div class="audit-icon ${iconClass}">${icon}</div>
@@ -169,12 +169,17 @@ function buildDetailHtml(log) {
     } else {
         body = '<p class="audit-none">No more details were recorded for this.</p>';
     }
-    const who = log.user_name ? escHtml(log.user_name) : 'The system';
+    const who = log.user_name ? escHtml(whoDid(log)) : 'The system';
     // clicking inside the details (to select text) leaves them open
     return `<div class="audit-detail-expand" style="display:none;" onclick="event.stopPropagation()">
         <p class="audit-who">${who} · ${escHtml(when)}${log.record_id ? ` · record #${escHtml(log.record_id)}` : ''}</p>
         ${body}
     </div>`;
+}
+
+/* The person and, after the name, the role they have: "Juan Carlos (Administrator)" */
+function whoDid(log) {
+    return log.user_role ? `${log.user_name} (${roleLabel(log.user_role)})` : log.user_name;
 }
 
 function toggleDetail(el) {

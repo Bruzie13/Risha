@@ -4,7 +4,7 @@ const logAudit = require('../services/audit');
 const { notifySaleCreated, notifyLowStock, notifyStockout } = require('../services/notifier');
 const { saleRef } = require('../utils/requestKeys');
 const { lineProblem, mergeLines } = require('../utils/saleLines');
-const { dayRange, realDay } = require('../utils/query');
+const { dayRange } = require('../utils/query');
 
 /* The answer to a cart that has already been saved: the sale it became. Only
    the cashier who made that sale is shown it; the reference is not a way to
@@ -289,16 +289,8 @@ function shopToday() {
     return new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
-/* Which day a cash count is for. Back-office roles may pick a date (to fix a
-   missed close); a cashier counts the drawer in front of them, so it is
-   always today, whatever the request says. */
-function eodDate(req, requested) {
-    if (req.user.role === 'cashier') return shopToday();
-    return realDay(requested) || shopToday();
-}
-
-/* A day that has not happened yet has no sales or cash to count. */
-const FUTURE_EOD = 'You cannot count a day that has not happened yet. Choose today or an earlier date.';
+/* A cash count is always for today: the drawer is counted as it stands at
+   closing, so no one can pick another day, whatever the request says. */
 
 /* A cashier's count is of their own drawer: what it started with plus the
    cash they took today. It is blind — the expected figure is withheld until
@@ -350,8 +342,7 @@ exports._cashierDrawer = cashierDrawer;
 
 exports.getEod = async (req, res) => {
     try {
-        const date = eodDate(req, req.query.date);
-        if (date > shopToday()) return res.status(400).json({ success: false, message: FUTURE_EOD });
+        const date = shopToday();
         const conn = await pool.getConnection();
         try {
             if (req.user.role === 'cashier') {
@@ -430,9 +421,8 @@ exports.getEod = async (req, res) => {
 
 exports.saveEod = async (req, res) => {
     try {
-        const { date, counted_cash, notes } = req.body;
-        const bizDate = eodDate(req, date);
-        if (bizDate > shopToday()) return res.status(400).json({ success: false, message: FUTURE_EOD });
+        const { counted_cash, notes } = req.body;
+        const bizDate = shopToday();
         const countedIssue = countedCashProblem(counted_cash);
         if (countedIssue) return res.status(400).json({ success: false, message: countedIssue });
         const counted = Number(String(counted_cash).trim());

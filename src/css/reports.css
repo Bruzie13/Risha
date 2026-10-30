@@ -155,6 +155,133 @@
 
 .rp-figure-note { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
 
+/* ----- Stock planning: four views, one at a time ----- */
+.rp-group {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 28px 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.rp-group small { font-size: 12.5px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-muted); }
+.plan-pane-lead + .rp-group { margin-top: 4px; }
+
+/* The tabs say what each holds ("1 product, out of stock"); the dot carries
+   the urgency: red now, amber soon, grey can wait, green nothing to do. */
+.plan-views {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.plan-view {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 16px;
+  text-align: left;
+  font: inherit;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 150ms cubic-bezier(0.23, 1, 0.32, 1), background-color 150ms cubic-bezier(0.23, 1, 0.32, 1), transform 150ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.plan-view-label { font-size: 14.5px; font-weight: 700; color: var(--text-primary); }
+.plan-view-label::before {
+  content: '';
+  display: inline-block;
+  width: 8px; height: 8px;
+  margin-right: 7px;
+  border-radius: 50%;
+  vertical-align: 1px;
+  background: var(--text-muted);
+}
+.plan-view[data-tone="none"] .plan-view-label::before { display: none; }
+.plan-view[data-tone="red"] .plan-view-label::before { background: var(--danger); }
+.plan-view[data-tone="amber"] .plan-view-label::before { background: var(--warning); }
+.plan-view[data-tone="ok"] .plan-view-label::before { background: var(--success); }
+.plan-view-note { font-size: 12.5px; line-height: 1.35; color: var(--text-muted); }
+.plan-view:active { transform: translateY(1px); }
+@media (hover: hover) and (pointer: fine) {
+  .plan-view:not(.active):hover { border-color: var(--primary); }
+}
+.plan-view:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.plan-view.active { background: var(--primary); border-color: var(--primary); }
+.plan-view.active .plan-view-label, .plan-view.active .plan-view-note { color: #fff; }
+.plan-view.active .plan-view-label::before { box-shadow: 0 0 0 2px #fff; }
+
+.plan-pane-lead { margin: 0 0 14px; max-width: 820px; font-size: 14px; line-height: 1.5; color: var(--text-secondary); }
+.plan-pane-lead strong { color: var(--text-primary); }
+
+.rp-figures.rp-figures-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* How the forecast is made: last, folded, for whoever wants it. The closed
+   bar reads as something to open (icon, title, two facts, a chevron), and
+   the long explanation is a grid of short entries, not one wall of text. */
+.rp-about { margin-top: 24px; margin-bottom: 72px; }   /* clear of the round buttons at the bottom right */
+.rp-about .rp-card { margin: 4px 18px 14px; }
+.rp-about-head { padding: 4px 18px 0; }
+.rp-about > summary.rp-about-sum {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  list-style: none;
+  cursor: pointer;
+}
+.rp-about > summary.rp-about-sum::-webkit-details-marker { display: none; }
+.rp-about-icon {
+  display: inline-grid; place-items: center;
+  width: 38px; height: 38px; flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--primary) 12%, var(--bg-card));
+  color: var(--primary);
+  font-size: 21px;
+}
+.rp-about-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.rp-about-title small { font-size: 12.5px; font-weight: 500; color: var(--text-muted); }
+.rp-about-facts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-left: auto; }
+.rp-about-fact {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-glass);
+  font-size: 12.5px; font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.rp-about-chev { flex-shrink: 0; color: var(--text-muted); transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.rp-about[open] .rp-about-chev { transform: rotate(180deg); }
+@media (hover: hover) and (pointer: fine) {
+  .rp-about > summary.rp-about-sum:hover .rp-about-chev { color: var(--primary); }
+}
+.rp-about > summary.rp-about-sum:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; border-radius: var(--radius-lg); }
+.rp-about[open] > summary.rp-about-sum { border-bottom: 1px solid var(--border-glass); }
+
+.rp-about-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 14px 18px 4px; }
+.rp-about-tile { padding: 12px 14px; border: 1px solid var(--border-glass); border-radius: var(--radius-md); background: var(--bg-card); }
+.rp-about-tile-label { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }
+.rp-about-tile-value { display: block; margin-top: 4px; font-size: 24px; font-weight: 800; color: var(--text-primary); line-height: 1.15; }
+.rp-about .rp-about-tile p { max-width: none; margin: 4px 0 0; font-size: 13.5px; line-height: 1.5; color: var(--text-secondary); }
+
+.rp-about-terms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 10px 18px 18px; }
+.rp-about .rp-about-terms p { margin: 0; padding: 10px 14px; border-radius: var(--radius-md); background: var(--bg-raised); font-size: 13.5px; line-height: 1.55; color: var(--text-secondary); max-width: none; }
+.rp-about-terms p.wide { grid-column: 1 / -1; }
+.rp-about-terms p > strong:first-child { display: block; margin-bottom: 3px; font-size: 14px; color: var(--text-primary); }
+.rp-about-terms strong { color: var(--text-primary); font-weight: 600; }
+@media (max-width: 760px) {
+  .rp-about-tiles, .rp-about-terms { grid-template-columns: 1fr; }
+  .rp-about-facts { display: none; }
+}
+
 /* ----- Cards ----- */
 .rp-card {
   background: var(--bg-card);
@@ -317,6 +444,7 @@
 .rp .filter-bar { gap: 8px; }
 
 @media (max-width: 900px) {
+  .plan-views { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rp-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rp-figure:nth-child(odd) { border-left: none; }
   .rp-figure:nth-child(n+3) { border-top: 1px solid var(--border-glass); }
@@ -521,3 +649,27 @@
 .rp-table-plain { min-width: 0; }
 .rp-urgent { color: var(--danger); font-weight: 600; }
 @media (max-width: 900px) { .rp-grid-inner > div + div { border-left: none; border-top: 1px solid var(--border-subtle); } }
+
+/* ----- Reports → Sales summary: Revenue leads, each figure with how it
+   compares with the same number of days just before ----- */
+.rp-sum { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 4px; }
+.rp-sum-card {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 16px 18px; background: var(--bg-card);
+  border: 1.5px solid var(--border-glass); border-radius: var(--radius-lg);
+}
+.rp-sum-card .rp-figure-value { font-size: 26px; white-space: nowrap; }
+.rp-sum-lead .rp-figure-value { font-size: 40px; }
+.rp-delta { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.rp-delta.up { color: var(--success); }
+.rp-delta.down { color: var(--danger); }
+.rp-sum-card .rp-figure-note:empty, .rp-delta:empty { display: none; }
+.rp-group + .rp-card, .rp-group + .rp-grid-2 { margin-top: 0; }
+/* narrower: Revenue across the top, the other three in a row under it */
+@media (max-width: 1280px) {
+  .rp-sum { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .rp-sum-lead { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+  .rp-sum { grid-template-columns: 1fr; }
+}

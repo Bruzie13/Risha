@@ -4,12 +4,12 @@ const assert = require('node:assert');
 const { barcodeProblem, productProblem } = require('../utils/product');
 
 const suppliers = new Set([6, 7]);
-const good = { sku: 'DRY-100', name: 'Dog food 1kg', category_id: 1, unit_price: 120, supplier_id: 6 };
+const good = { sku: 'DRY-100', name: 'Dog food 1kg', category_id: 1, unit_price: 120, cost_price: 95, supplier_id: 6 };
 
 test('adding a product: with everything important filled in, it is accepted', () => {
     assert.equal(productProblem(good, true, suppliers), null);
     assert.equal(productProblem({ ...good, unit_price: '120.50', supplier_id: '7', category_id: '2' }, true, suppliers), null, 'values arrive as text from a form');
-    assert.equal(productProblem({ ...good, cost_price: 0, stock_quantity: 0, reorder_level: 0, max_stock_level: null }, true, suppliers), null);
+    assert.equal(productProblem({ ...good, stock_quantity: 0, reorder_level: 0, max_stock_level: null }, true, suppliers), null);
 });
 
 test('adding a product: what is missing is named', () => {
@@ -30,7 +30,12 @@ test('adding a product: numbers have to make sense', () => {
     assert.match(productProblem({ ...good, unit_price: -5 }, true, suppliers), /more than zero/);
     assert.match(productProblem({ ...good, unit_price: 'abc' }, true, suppliers), /more than zero/);
     assert.match(productProblem({ ...good, stock_quantity: -1 }, true, suppliers), /Stock quantity cannot be less than zero/);
-    assert.match(productProblem({ ...good, cost_price: -1 }, true, suppliers), /Cost price cannot be less than zero/);
+    for (const cost of [-1, 0, '', null, 'abc']) {
+        assert.match(productProblem({ ...good, cost_price: cost }, true, suppliers), /Enter the cost price/, String(cost));
+    }
+    const { cost_price, ...noCost } = good;
+    assert.match(productProblem(noCost, true, suppliers), /Enter the cost price/, 'a new product needs one');
+    assert.equal(productProblem({ barcode: '480' }, false, suppliers), null, 'an edit that does not send the cost is not judged on it');
     assert.match(productProblem({ ...good, category_id: 'food' }, true, suppliers), /Choose a category/);
 });
 
@@ -97,7 +102,7 @@ test('adding a product: levels are whole numbers and the unit is from the list',
 
 test('prices, stock levels, SKU and barcode are judged against each other and their pattern', () => {
     const suppliers = new Set([1]);
-    const good = { sku: 'DOG-01', name: 'Dog treats', category_id: 1, unit_price: 120, supplier_id: 1 };
+    const good = { sku: 'DOG-01', name: 'Dog treats', category_id: 1, unit_price: 120, cost_price: 95, supplier_id: 1 };
     assert.equal(productProblem({ ...good, cost_price: 95, reorder_level: 10, max_stock_level: 100, barcode: '4800000000019' }, true, suppliers), null);
     assert.match(productProblem({ ...good, cost_price: 150 }, true, suppliers), /cost price \(₱150\.00\) is higher than the unit price \(₱120\.00\)/);
     assert.match(productProblem({ ...good, reorder_level: 10, max_stock_level: 10 }, true, suppliers), /max stock level has to be higher than the reorder level \(10\)/);
@@ -120,13 +125,15 @@ test('the SKU pattern: a product type and the shop running number', () => {
     assert.equal(SKU_TYPES.length, 8);
 });
 
-test('barcode: any kind the maker printed is taken as it is', () => {
+test('barcode: letters and numbers only, any length the maker printed', () => {
     assert.equal(barcodeProblem('', null), null, 'no barcode is fine');
-    for (const code of ['48000017', '4806525621340', '4806525621346', '04252614', '00012345678905', '1111', 'ABC-123', 'CODE128X9']) {
+    for (const code of ['48000017', '4806525621340', '04252614', '00012345678905', '1111', 'CODE128X9', 'BARCODE001', '1111a']) {
         assert.equal(barcodeProblem(code), null, code);
     }
+    for (const code of ['ABC-123', '2000000000992asd=-=', '480 123', '480\u0007123', '-480', '480/12']) {
+        assert.match(barcodeProblem(code), /letters and numbers only/, code);
+    }
     assert.equal(barcodeProblem('abc', 'abc'), null, 'one already saved may stay');
-    assert.match(barcodeProblem('480\u0007123'), /cannot be printed/);
     assert.match(productProblem({ barcode: '9'.repeat(101) }, false, suppliers), /Barcode is too long \(100 characters at most\)/);
 });
 

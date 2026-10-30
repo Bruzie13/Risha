@@ -24,10 +24,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=55">
+    <link rel="stylesheet" href="css/global.css?v=56">
     <link rel="stylesheet" href="css/sales.css?v=25">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=79">
+        <link rel="stylesheet" href="css/system.css?v=97">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -88,10 +88,32 @@
     <div class="toolbar">
                 <div class="toolbar-left sales-filters">
                     <input maxlength="100" type="text" id="searchInput" class="search-box" placeholder="Search sales..." style="width:180px;">
-                    <label class="sales-date"><span>From</span> <input type="date" id="dateFrom"></label>
-                    <label class="sales-date"><span>To</span> <input type="date" id="dateTo"></label>
-                    <button class="btn-primary" onclick="filterSalesByDate()"><span class="material-symbols-outlined" style="font-size:16px;">search</span> Filter</button>
-                    <button class="btn-secondary" onclick="clearDateFilter()">Clear</button>
+                    <!-- one field for the dates: it says the range, and opens quick picks and the two dates -->
+                    <div class="date-range" id="salesRange">
+                        <button type="button" class="date-range-btn" id="salesRangeBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="salesRangePop" onclick="toggleSalesRange()" title="Show the sales of certain dates">
+                            <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
+                            <span id="salesRangeText">All dates</span>
+                            <span class="material-symbols-outlined date-range-chev" aria-hidden="true">expand_more</span>
+                        </button>
+                        <div class="date-range-pop" id="salesRangePop" role="dialog" aria-label="Choose the dates" hidden>
+                            <div class="date-range-quick">
+                                <button type="button" data-range="today">Today</button>
+                                <button type="button" data-range="7">Last 7 days</button>
+                                <button type="button" data-range="month">This month</button>
+                                <button type="button" data-range="30">Last 30 days</button>
+                                <button type="button" data-range="all">All dates</button>
+                            </div>
+                            <div class="date-range-custom">
+                                <label><span>From</span><input type="date" id="dateFrom"></label>
+                                <label><span>To</span><input type="date" id="dateTo"></label>
+                            </div>
+                            <div class="field-error" id="salesRangeError" role="alert"></div>
+                            <div class="date-range-actions">
+                                <button type="button" class="btn-secondary" onclick="clearDateFilter()">Clear</button>
+                                <button type="button" class="btn-primary" onclick="filterSalesByDate()">Apply</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="toolbar-right">
                     <button class="btn-secondary" onclick="openEodModal()"><span class="material-symbols-outlined" style="font-size:16px;">savings</span> End of day</button>
@@ -203,7 +225,7 @@
             <div class="modal-body">
                 <div class="form-group">
                     <label class="form-label">Business date</label>
-                    <input type="date" class="form-input" id="eodDate" onchange="loadEod()">
+                    <div id="eodDate" title="The count is always for today" style="display:flex;align-items:center;gap:8px;padding:9px 13px;background:var(--bg-raised);border:1px solid var(--border-glass);border-radius:10px;font-size:14.5px;font-weight:600;color:var(--text-primary);"></div>
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0;">
                     <div style="background:var(--bg-raised);border:1px solid var(--border-glass);border-radius:12px;padding:14px;">
@@ -245,14 +267,14 @@
 
         <script src="js/utils.js"></script>
 <script src="js/format.js"></script>
-<script src="js/auth.js?v=68"></script>
+<script src="js/auth.js?v=77"></script>
 <script src="js/loader.js?v=6"></script>
 <script src="js/clear-input.js?v=2"></script>
 <script src="js/motion.js?v=22"></script>
-<script src="js/jump.js?v=32"></script>
-<script src="js/assistant.js?v=29"></script>
+<script src="js/jump.js?v=34"></script>
+<script src="js/assistant.js?v=30"></script>
     <script src="js/xlsx.js?v=3"></script>
-    <script src="js/point-of-sale.js?v=49"></script>
+    <script src="js/point-of-sale.js?v=54"></script>
 </body>
 </html>
 

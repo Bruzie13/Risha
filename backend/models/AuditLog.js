@@ -26,7 +26,7 @@ class AuditLog {
         const connection = await pool.getConnection();
         try {
             const sql = `SELECT al.id, al.user_id, al.action, al.table_name, al.record_id, al.old_value, al.new_value, al.ip_address,
-                                UNIX_TIMESTAMP(al.created_at) * 1000 as created_at, u.full_name as user_name 
+                                UNIX_TIMESTAMP(al.created_at) * 1000 as created_at, u.full_name as user_name, u.role as user_role 
                  FROM audit_logs al 
                  LEFT JOIN users u ON al.user_id = u.id 
                  ORDER BY al.created_at DESC 
@@ -58,7 +58,7 @@ class AuditLog {
             const safeOffset = parseInt(offset);
 
             let sql = `SELECT al.id, al.user_id, al.action, al.table_name, al.record_id, al.old_value, al.new_value, al.ip_address,
-                              UNIX_TIMESTAMP(al.created_at) * 1000 as created_at, u.full_name as user_name 
+                              UNIX_TIMESTAMP(al.created_at) * 1000 as created_at, u.full_name as user_name, u.role as user_role 
                  FROM audit_logs al 
                  LEFT JOIN users u ON al.user_id = u.id 
                  ${whereClause}
@@ -112,7 +112,7 @@ class AuditLog {
         try {
             const [rows] = await connection.execute(
                 `SELECT al.id, al.user_id, al.action, al.table_name, al.record_id, al.old_value, al.new_value, al.ip_address,
-                        UNIX_TIMESTAMP(al.created_at) * 1000 as created_at, u.full_name as user_name 
+                        UNIX_TIMESTAMP(al.created_at) * 1000 as created_at, u.full_name as user_name, u.role as user_role 
                  FROM audit_logs al 
                  LEFT JOIN users u ON al.user_id = u.id 
                  WHERE al.table_name = ? AND al.record_id = ? 
@@ -130,7 +130,7 @@ class AuditLog {
         try {
             const [rows] = await connection.execute(
                 `SELECT al.id, al.user_id, al.action, al.table_name, al.record_id, al.old_value, al.new_value, al.ip_address,
-                        UNIX_TIMESTAMP(al.created_at) * 1000 as created_at, u.full_name as user_name 
+                        UNIX_TIMESTAMP(al.created_at) * 1000 as created_at, u.full_name as user_name, u.role as user_role 
                  FROM audit_logs al 
                  LEFT JOIN users u ON al.user_id = u.id 
                  WHERE al.user_id = ? 

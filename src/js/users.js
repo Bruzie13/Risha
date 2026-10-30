@@ -2,6 +2,7 @@ const PAGE_SIZE = 10;
 let displayCount = PAGE_SIZE;
 let allUsers = [];
 let editingUserId = null;
+let editingFullName = null;   // the name the edit started with: one saved before the rule may stay
 
 window.addEventListener('load', async () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
@@ -24,14 +25,10 @@ function isActive(u) {
     return u.is_active !== false && Number(u.is_active) !== 0;
 }
 
-function showingInactive() {
-    return !!document.getElementById('showInactive')?.checked;
-}
-
 async function loadUsers() {
     try {
-        const url = `${API_BASE}/auth/users` + (showingInactive() ? '?includeInactive=1' : '');
-        const response = await fetch(url, { headers: getAuthHeaders() });
+        // deactivated accounts are in Settings → Trash (Accounts), where they are restored
+        const response = await fetch(`${API_BASE}/auth/users`, { headers: getAuthHeaders() });
         const data = await response.json();
         if (data.success) {
             allUsers = Array.isArray(data.data) ? data.data : [];
@@ -265,7 +262,7 @@ async function restoreUser(id) {
                 showToast(couldNot('restore account', error), 'error');
             }
         },
-        'Yes, Restore',
+        'Restore account',
         '<span class="material-symbols-outlined" style="font-size:48px;color:var(--success);">person_check</span>'
     );
 }
@@ -343,6 +340,8 @@ function refreshRoleFields() {
 
 function openAddUserModal() {
     editingUserId = null;
+    editingFullName = null;
+    showFieldProblem(document.getElementById('userFullName'), null);
     document.getElementById('userModalTitle').textContent = 'Add new user';
     document.getElementById('userForm').reset();
     refreshRoleFields();
@@ -378,6 +377,8 @@ function openEditUserModal(id) {
     unameEl.disabled = true;
     unameEl.title = 'Usernames cannot be changed';
     document.getElementById('userFullName').value = user.full_name || '';
+    editingFullName = user.full_name || '';
+    showFieldProblem(document.getElementById('userFullName'), null);
     document.getElementById('userEmail').value = user.email || '';
     document.getElementById('userRole').value = user.role || 'cashier';
     // your own role is changed by another administrator, never by yourself (the server refuses it too)
@@ -400,8 +401,17 @@ function closeUserModal() {
     editingUserId = null;
 }
 
+/* The full name box: the reason it cannot be saved, shown under it. */
+function checkUserFullName() {
+    const box = document.getElementById('userFullName');
+    const problem = fullNameProblem(box.value, editingUserId ? editingFullName : null);
+    showFieldProblem(box, problem);
+    return !problem;
+}
+
 async function handleUserSubmit(event) {
     event.preventDefault();
+    if (!checkUserFullName()) { document.getElementById('userFullName').focus(); return; }
     const userData = {
         username: document.getElementById('userUsername').value,
         full_name: document.getElementById('userFullName').value,
@@ -482,14 +492,14 @@ async function deleteUser(id) {
     // all said "Delete" while the text between them said "Deactivate".
     const user = allUsers.find(u => Number(u.id) === Number(id));
     const who = user ? `${escHtml(user.full_name || user.username)} (${escHtml(user.username || '')})` : 'this account';
-    showConfirmDialog('Deactivate account', `Deactivate ${who}? They can no longer sign in, and their username and email stay reserved. Nothing they recorded is removed. You can bring the account back later from the Trash or with "Show deactivated".`, async () => {
+    showConfirmDialog('Deactivate account', `Deactivate ${who}? They can no longer sign in, and their username and email stay reserved. Nothing they recorded is removed. You can bring the account back later from Settings → Trash.`, async () => {
         try {
             const response = await fetch(`${API_BASE}/auth/users/${id}`, {
                 method: 'DELETE', headers: getAuthHeaders()
             });
             const data = await response.json();
             if (data.success) {
-                showSuccessDialog('Account deactivated', 'The account can no longer sign in. It is in the Trash, where it can be restored.', { tone: 'danger', icon: 'person_off' });
+                showSuccessDialog('Account deactivated', 'The account can no longer sign in. It is in Settings → Trash, where it can be restored.', { tone: 'danger', icon: 'person_off' });
                 if (typeof updateTrashCount === 'function') updateTrashCount();
                 await loadUsers();
             } else {
@@ -499,7 +509,7 @@ async function deleteUser(id) {
             console.error('Error deactivating user:', error);
             showToast('The account could not be deactivated', 'error');
         }
-    }, 'Yes, deactivate', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">person_off</span>');
+    }, 'Deactivate account', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">person_off</span>');
 }
 
 document.addEventListener('click', (e) => {

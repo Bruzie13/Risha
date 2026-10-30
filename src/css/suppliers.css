@@ -53,5 +53,8 @@
 }
 @media (max-width: 640px) {
   #supplierViewToggle .inv-view-label { display: none; }
-  #supplierViewToggle .inv-view-btn { width: 34px; padding: 0; }
+  /* the tabs take a row of their own under the search, shared evenly, so a
+     count ("3 to decide") fits beside its icon */
+  #supplierViewToggle { flex: 1 1 100%; }
+  #supplierViewToggle .inv-view-btn { flex: 1; width: auto; padding: 0 8px; }
 }

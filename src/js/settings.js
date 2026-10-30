@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', function () {
     setupNotifToggle();
     setupEmailSettings();
     setupAppearance();
-    updateDate();
 
     const nameEl = document.getElementById('userName');
     const user = getUser();
@@ -208,13 +207,6 @@ function setupAppearance() {
     markAppearanceDirty(false);
 }
 
-function updateDate() {
-    var el = document.getElementById('settingsDateDisplay');
-    if (!el) return;
-    var d = new Date();
-    el.textContent = d.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
-}
-
 function setupTabs() {
     var tabs = document.querySelectorAll('.settings-tab');
     tabs.forEach(function (tab) {
@@ -225,6 +217,11 @@ function setupTabs() {
             panels.forEach(function (p) { p.classList.remove('active'); });
             var target = document.getElementById('panel-' + tab.dataset.tab);
             if (target) target.classList.add('active');
+            // the Trash is drawn fresh each time it is opened, so a delete made
+            // on another page shows up; ?kind= picks its first tab
+            if (tab.dataset.tab === 'trash' && typeof mountTrash === 'function') {
+                mountTrash(document.getElementById('trashMount'), new URLSearchParams(window.location.search).get('kind'));
+            }
         });
     });
 }
@@ -283,13 +280,22 @@ function setupNotifToggle() {
     });
 }
 
+/* Your full name: the reason it cannot be saved, shown under the box. */
+function checkSettingsFullName() {
+    var box = document.getElementById('settingsFullName');
+    if (!box) return true;
+    var problem = fullNameProblem(box.value, (getUser() || {}).full_name);
+    showFieldProblem(box, problem);
+    return !problem;
+}
+
 async function saveProfile() {
     var nameInput = document.getElementById('settingsFullName');
     var emailInput = document.getElementById('settingsEmail');
     var name = nameInput ? nameInput.value.trim() : '';
     var email = emailInput ? emailInput.value.trim() : '';
-    if (!name) {
-        showToast('Please enter your full name', 'error');
+    if (!checkSettingsFullName()) {
+        if (nameInput) nameInput.focus();
         return;
     }
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {

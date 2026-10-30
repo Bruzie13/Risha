@@ -101,15 +101,6 @@ async function notifyProductCreated(product, userId) {
     });
 }
 
-async function notifyUserLogin(user, ip) {
-    await Notification.create({
-        title: 'User Login',
-        message: `${user.full_name || user.username} logged in from ${ip || 'unknown location'}`,
-        type: 'info',
-        user_id: user.id
-    });
-}
-
 // Tells the administrators someone is waiting on them. Says who, never why:
 // the decision is made on the Users page.
 async function notifyPasswordResetRequested(user, requestId) {
@@ -158,6 +149,5 @@ module.exports = {
     notifyExpiringSoon,
     notifyOverstock,
     notifyPOStatusChanged,
-    notifyProductCreated,
-    notifyUserLogin
+    notifyProductCreated
 };

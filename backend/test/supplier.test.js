@@ -66,3 +66,17 @@ test('supplier: a value saved before the rules may stay when it is not changed',
     assert.match(supplierProblem({ ...old, name: '099' }, false, old), /at least one letter/, 'a changed one is judged');
     assert.equal(supplierProblem({ ...old, name: '' }, false, old), 'Enter the supplier name.', 'but it cannot be emptied');
 });
+
+test('supplier phone: a real number for its country, kept one way', () => {
+    const { phoneForStorage } = require('../utils/supplier');
+    for (const fake of ['0000000000', '1234567', '+6300000000', '0917 000 000']) {
+        assert.match(supplierProblem({ ...good, phone: fake }, true), /Enter a real phone number/, fake);
+    }
+    for (const real of ['09171234567', '0917 123 4567', '+63 917 123 4567', '(02) 8123 4567', '+1 212 555 0123']) {
+        assert.equal(supplierProblem({ ...good, phone: real }, true), null, real);
+    }
+    assert.equal(phoneForStorage('0917 123 4567'), '+639171234567');
+    assert.equal(phoneForStorage('+1 (212) 555-0123'), '+12125550123');
+    assert.equal(phoneForStorage('0000000000'), null);
+    assert.equal(supplierProblem({ phone: '0000000000' }, false, { phone: '0000000000' }), null, 'an older number may stay as it is');
+});

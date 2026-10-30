@@ -1,5 +1,14 @@
 const { tooLong } = require('../utils/lengths');
-const { shopToday, expiryProblem } = require('../utils/expiry');
+const { shopToday, expiryProblem, missingExpiryProblem } = require('../utils/expiry');
+const pool = require('../config/database');
+
+/* A category's name, for the rules that depend on it (which ones must have an
+   expiration date). Unknown or empty: null. */
+async function categoryName(id) {
+    if (id == null || id === '') return null;
+    const [rows] = await pool.query('SELECT name FROM categories WHERE id = ?', [id]);
+    return rows.length ? rows[0].name : null;
+}
 const { imageProblem } = require('../utils/image');
 const { SKU_TYPES, skuTypeProblem, skuFor } = require('../utils/sku');
 const { productProblem } = require('../utils/product');
@@ -133,8 +142,10 @@ exports.createProduct = async (req, res) => {
             return res.status(400).json({ success: false, message: problem });
         }
 
-        // stock being added cannot already be past its date
-        const expiryIssue = expiryProblem(expiration_date, shopToday());
+        // food, health and litter products have to say when they expire,
+        // and stock being added cannot already be past its date
+        const expiryIssue = missingExpiryProblem(await categoryName(category_id), expiration_date)
+            || expiryProblem(expiration_date, shopToday());
         if (expiryIssue) {
             return res.status(400).json({ success: false, message: expiryIssue });
         }
@@ -256,6 +267,13 @@ exports.updateProduct = async (req, res) => {
             if (expiryIssue) {
                 return res.status(400).json({ success: false, message: expiryIssue });
             }
+        }
+        // a food, health or litter product cannot be left (or put) without one
+        if (oldProduct && (updateData.expiration_date !== undefined || updateData.category_id !== undefined)) {
+            const category = updateData.category_id !== undefined ? updateData.category_id : oldProduct.category_id;
+            const expiry = updateData.expiration_date !== undefined ? updateData.expiration_date : oldProduct.expiration_date;
+            const missing = missingExpiryProblem(await categoryName(category), expiry);
+            if (missing) return res.status(400).json({ success: false, message: missing });
         }
         if (updateData.image_url !== undefined) {
             const pictureIssue = imageProblem(updateData.image_url);
@@ -532,7 +550,8 @@ exports.bulkCreateProducts = async (req, res) => {
                     errors.push({ sku: p.sku, error: 'SKU already exists' });
                     continue;
                 }
-                const expiryIssue = expiryProblem(p.expiration_date, shopToday());
+                const expiryIssue = missingExpiryProblem(await categoryName(p.category_id), p.expiration_date)
+                    || expiryProblem(p.expiration_date, shopToday());
                 if (expiryIssue) {
                     errors.push({ sku: p.sku, error: expiryIssue });
                     continue;

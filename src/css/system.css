@@ -827,6 +827,7 @@ p, li, .breadcrumb, .rp-card-sub, .settings-toggle-desc { text-wrap: pretty; }
   color: var(--text-secondary); border-radius: var(--radius-md); }
 .pw-eye .material-symbols-outlined { font-size: 18px; }
 .pw-eye:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.pw-eye[hidden] { display: none; }
 @media (hover: hover) and (pointer: fine) { .pw-eye:hover { background: var(--bg-inset); color: var(--text-primary); } }
 
 /* ----- Things you can click that are not buttons: cards, a chip, rows. They
@@ -1065,9 +1066,9 @@ html.rail-only.sidebar-hidden .sidebar .sidebar-nav .nav-link .nav-label { white
   .sp-row .sp-waiting { text-align: left; }
   .sp-row-head { display: none; }
 }
-/* the Orders button's count is a word as well as a number ("3 to do"), so it
-   sits inside the button instead of on its corner */
-#deliveriesBadge { position: static; margin-left: 6px; height: 18px; font-size: 11.5px; font-weight: 700; padding: 0 7px; display: inline-flex; align-items: center; }
+/* the Orders and Price changes counts are words as well as numbers ("3 to
+   do", "2 to decide"), so they sit inside the button instead of on its corner */
+#deliveriesBadge, #pricesBadge { position: static; margin-left: 6px; height: 18px; font-size: 11.5px; font-weight: 700; padding: 0 7px; display: inline-flex; align-items: center; }
 /* the supplier's one item is just its icon in the slim strip; its name shows when the sidebar is opened */
 html.rail-only.sidebar-hidden .sidebar .sidebar-nav .nav-link.rail-icon-only .nav-label { display: none; }
 
@@ -1139,3 +1140,202 @@ input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; a
 .trash-tabs { display: flex; width: 100%; margin-top: 12px; }
 .trash-tabs .seg-btn { flex: 1; justify-content: center; }
 .trash-tab-count { font-weight: 500; opacity: 0.75; margin-left: 2px; }
+/* the count on the selected (blue) Settings tab reads in its white */
+.settings-tab.active .trash-count { color: inherit; opacity: 0.85; }
+
+/* Small messages share one column at the top right (cornerStack in auth.js):
+   answers to a button (showToast) first, new alerts (showAlertPop) under them.
+   Clicks pass through the gaps; an alert opens the list of alerts. */
+.corner-stack { position: fixed; right: 16px; top: 16px; z-index: 9999; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  max-width: calc(100vw - 32px); pointer-events: none; }
+.alert-pop-stack { display: flex; flex-direction: column; gap: 8px; width: 340px; max-width: 100%; pointer-events: none; }
+.alert-pop { position: relative; display: flex; align-items: flex-start; gap: 12px; padding: 12px 36px 12px 14px;
+  background: var(--bg-card); border: 1px solid var(--border-glass); border-radius: var(--radius-lg);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.18); cursor: pointer; pointer-events: auto;
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+  @starting-style { opacity: 0; transform: translateY(-12px); } }
+.alert-pop:hover { border-color: var(--border-glass-strong); }
+.alert-pop-body { flex: 1; min-width: 0; }
+.alert-pop .notif-title { white-space: normal; }
+.alert-pop-close { position: absolute; top: 8px; right: 8px; display: flex; padding: 2px; border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-muted); cursor: pointer; }
+.alert-pop-close:hover { background: var(--gray-50); color: var(--text-primary); }
+@media (prefers-reduced-motion: reduce) { .alert-pop { transition: none; } }
+
+/* Supplier portal: the shop's last "no" on a price, with its reason */
+.rp-sub.price-declined { color: var(--danger); white-space: normal; max-width: 260px; margin-left: auto; }
+
+/* ----- The same on every system (Linux especially) -----
+   A text box or dropdown left at "line-height: normal" takes its height from
+   the system's own font metrics, which differ between macOS, Windows and
+   Linux, so the boxes and the buttons beside them came out uneven. They get
+   one line height, and every dropdown gets the shop's own look instead of the
+   system's (GTK draws a taller, differently padded one). */
+.form-input, .form-select, .rp-search, input.search-box,
+.filter-bar select, .filter-bar input, select,
+input[type="date"], input[type="time"], input[type="datetime-local"], input[type="search"], input[type="text"], input[type="number"], input[type="email"], input[type="tel"], input[type="password"] {
+  line-height: 1.3;
+  box-sizing: border-box;
+}
+select:not([multiple]):not([size]) {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2395A5A6' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+  cursor: pointer;
+}
+/* buttons, chips and tabs: the icon sits on the text's centre line whatever
+   the system font is */
+.btn-primary .material-symbols-outlined, .btn-secondary .material-symbols-outlined,
+.btn-view .material-symbols-outlined, .inv-view-btn .material-symbols-outlined,
+.report-tab .material-symbols-outlined, .settings-tab .material-symbols-outlined,
+.hero-chip .material-symbols-outlined { line-height: 1; vertical-align: middle; }
+
+/* A label/value row in a window (expiring products, product details…): a long
+   name with no spaces wraps instead of squeezing the value to one letter a
+   line; the value keeps its width (up to 60%) and stays readable. */
+.details-row { gap: 14px; }
+.details-label { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
+.details-value { flex: 0 0 auto; overflow-wrap: anywhere; }
+
+/* A file picker (Import → Choose CSV file): a dashed drop area with the
+   system's own outlined button in place of the browser's grey one. */
+input[type="file"] {
+  width: 100%;
+  padding: 10px;
+  border: 1.5px dashed var(--border-glass-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+input[type="file"]::file-selector-button {
+  margin-right: 12px;
+  min-height: 36px;
+  padding: 0 15px;
+  border: 1.5px solid color-mix(in srgb, var(--primary) 55%, var(--bg-card));
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--primary-dark);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 var(--edge) 0 color-mix(in srgb, var(--primary) 55%, var(--bg-card));
+  transition: background var(--transition), border-color var(--transition), transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+}
+input[type="file"]:hover { border-color: var(--primary); }
+input[type="file"]:hover::file-selector-button { background: var(--bg-card-hover); border-color: var(--primary); }
+input[type="file"]:active::file-selector-button { transform: translateY(var(--edge)); box-shadow: none; }
+input[type="file"]:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ----- Long text never runs over its neighbour -----
+   A name typed with no spaces (a product, a customer, a supplier, a note) is
+   broken onto the next line wherever it would overflow, everywhere: lists,
+   cards, windows, the sidebar. Short labels that must stay whole (buttons,
+   tabs, badges, chips, table headers, money figures) are left as they were.
+   Table cells wrap the same way but keep their width, so a long name widens
+   its column (the table scrolls) instead of squeezing normal words. */
+body { overflow-wrap: anywhere; }
+td { overflow-wrap: break-word; }
+th, button, .btn-primary, .btn-secondary, .btn-view, .btn-edit, .btn-delete, .btn-warning, .btn-danger,
+.report-tab, .settings-tab, .inv-view-btn, .seg-btn, .rp-seg button, .plan-view-label,
+[class*="badge"], [class*="chip"], [class*="pill"], .rp-tab-count, .trash-count,
+.kpi-value, .stat-value, .rp-figure-value, .rp-att-value, .num, kbd, code, input, select, textarea {
+  overflow-wrap: normal;
+}
+
+/* Sales history: one Dates field in place of From and To. It reads the range
+   chosen and opens a panel with quick picks and the two dates. */
+.date-range { position: relative; }
+.date-range-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 40px; padding: 0 12px 0 13px;
+  border: 1.5px solid var(--border-glass-strong); border-radius: var(--radius-md);
+  background: var(--bg-card); color: var(--text-primary);
+  font: inherit; font-size: 14px; font-weight: 600; white-space: nowrap; cursor: pointer;
+  transition: border-color var(--transition);
+}
+.date-range-btn .material-symbols-outlined { font-size: 18px; color: var(--text-muted); }
+.date-range.is-set .date-range-btn { border-color: var(--primary); }
+.date-range.is-set .date-range-btn .material-symbols-outlined:first-child { color: var(--primary); }
+.date-range-chev { transition: transform 200ms var(--ease-out); }
+.date-range-btn[aria-expanded="true"] .date-range-chev { transform: rotate(180deg); }
+@media (hover: hover) and (pointer: fine) { .date-range-btn:hover { border-color: var(--primary); } }
+.date-range-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.date-range-pop {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 50;
+  width: 320px; max-width: calc(100vw - 32px); padding: 12px;
+  background: var(--bg-card); border: 1.5px solid var(--border-glass); border-radius: var(--radius-lg);
+  box-shadow: 0 14px 34px rgba(0,0,0,0.16);
+  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
+  @starting-style { opacity: 0; transform: translateY(-4px); }
+}
+.date-range-pop[hidden] { display: none; }
+.date-range-quick { display: flex; flex-wrap: wrap; gap: 6px; }
+.date-range-quick button {
+  min-height: 32px; padding: 0 11px; border: 1px solid var(--border-glass); border-radius: 999px;
+  background: var(--bg-raised); color: var(--text-secondary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+@media (hover: hover) and (pointer: fine) { .date-range-quick button:hover { border-color: var(--primary); color: var(--primary-dark); } }
+.date-range-custom { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-glass); }
+.date-range-custom label { display: flex; flex-direction: column; gap: 4px; margin: 0; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+.date-range-custom input[type="date"] { width: 100%; min-width: 0; }
+.date-range-pop .field-error:empty { display: none; }
+.date-range-pop .field-error { margin-top: 8px; }
+.date-range-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+@media (prefers-reduced-motion: reduce) { .date-range-pop, .date-range-chev { transition: none; } }
+/* the period chosen, among the quick picks */
+.date-range-quick button.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+/* A phone box with a country picker (js/phone-field.js): the flag and code sit
+   inside the box on a tinted strip, and the list of countries opens above any
+   window, in the system's own colours. */
+.iti { display: block; width: 100%; }
+.iti input.form-input, .iti input[type="tel"], .iti input[type="text"] { width: 100%; }
+.iti--separate-dial-code .iti__selected-flag {
+  background: var(--bg-raised); border-right: 1px solid var(--border-glass);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+.iti__selected-dial-code { color: var(--text-primary); font-weight: 600; }
+.iti--container { z-index: 10050; }
+.iti__country-list {
+  background: var(--bg-card); color: var(--text-primary);
+  border: 1px solid var(--border-glass); border-radius: var(--radius-md);
+  box-shadow: 0 14px 34px rgba(0,0,0,0.16); font-size: 14px; max-width: 320px; overflow-wrap: normal;
+}
+.iti__country.iti__highlight { background: var(--bg-raised); }
+.iti__dial-code { color: var(--text-muted); }
+.iti__divider { border-bottom-color: var(--border-glass); }
+
+/* Answers to a button (showToast in auth.js): small cards at the top right,
+   above the alerts and the same look. Clicks pass through them; only the ×
+   can be pressed. */
+.center-note-stack { display: flex; flex-direction: column; gap: 8px; width: 340px; max-width: 100%; pointer-events: none; }
+.center-note-stack:empty { display: none; }
+.alert-pop.center-note { pointer-events: none; cursor: default; align-items: center; }
+.alert-pop.center-note .alert-pop-close { pointer-events: auto; top: 50%; transform: translateY(-50%); }
+.center-note-icon { flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; }
+.center-note-icon .material-symbols-outlined { font-size: 21px; }
+.center-note-text { font-size: 14.5px; font-weight: 600; line-height: 1.4; color: var(--text-primary); }
+.center-note-success .center-note-icon { background: color-mix(in srgb, var(--success) 14%, var(--bg-card)); color: var(--success); }
+.center-note-error .center-note-icon { background: color-mix(in srgb, var(--danger) 12%, var(--bg-card)); color: var(--danger); }
+.center-note-warning .center-note-icon { background: color-mix(in srgb, var(--warning) 16%, var(--bg-card)); color: var(--warning); }
+.center-note-info .center-note-icon { background: color-mix(in srgb, var(--primary) 12%, var(--bg-card)); color: var(--primary); }
+.center-note-success { border-color: color-mix(in srgb, var(--success) 45%, var(--border-glass)); }
+.center-note-error { border-color: color-mix(in srgb, var(--danger) 45%, var(--border-glass)); }
+
+/* The assistant button: a red pill with a paw and "Ask FETCH", so it says
+   what it is (Carlo, 30 Oct). On a phone only the paw shows. */
+.fa-fab { width: auto; height: 50px; padding: 0 20px 0 15px; gap: 8px; border-radius: 999px;
+  font-family: inherit; font-size: 15px; font-weight: 700; letter-spacing: 0.01em; white-space: nowrap; }
+.fa-fab .fa-paw { width: 24px; height: 24px; flex-shrink: 0; }
+.fa-head-title .fa-paw { width: 20px; height: 20px; color: var(--brand-red); }
+@media (max-width: 600px) {
+  .fa-fab { width: 52px; height: 52px; padding: 0; justify-content: center; }
+  .fa-fab-label { display: none; }
+}

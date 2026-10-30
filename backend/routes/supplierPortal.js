@@ -18,7 +18,7 @@ const Notification = require('../models/Notification');
 const logAudit = require('../services/audit');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, scorecard, starRating } = require('../utils/supply');
-const { supplierProblem } = require('../utils/supplier');
+const { supplierProblem, phoneForStorage } = require('../utils/supplier');
 const SupplierPerformance = require('../models/SupplierPerformance');
 
 const DAY = col => `DATE_FORMAT(CONVERT_TZ(${col},'+00:00','+08:00'), '%Y-%m-%d')`;
@@ -82,6 +82,7 @@ router.put('/me', async (req, res) => {
         };
         const problem = supplierProblem(next, false, req.supplier);
         if (problem) return bad(res, problem);
+        if (phoneForStorage(next.phone)) next.phone = phoneForStorage(next.phone);
         await pool.query('UPDATE suppliers SET contact_person = ?, phone = ?, address = ?, city = ? WHERE id = ?',
             [next.contact_person || null, next.phone || null, next.address || null, next.city || null, req.supplier.id]);
         logAudit(req.user.id, 'update', 'suppliers', req.supplier.id,
@@ -97,10 +98,16 @@ router.get('/products', async (req, res) => {
         const [rows] = await pool.query(
             `SELECT p.id, p.name, p.sku, p.brand, c.name AS category,
                     p.stock_quantity, p.reorder_level, p.cost_price,
-                    pp.proposed_price AS pending_price
+                    pp.proposed_price AS pending_price,
+                    dp.proposed_price AS declined_price, dp.decline_reason, dp.decided_at AS declined_at
              FROM products p
              LEFT JOIN categories c ON c.id = p.category_id
              LEFT JOIN price_proposals pp ON pp.product_id = p.id AND pp.supplier_id = p.supplier_id AND pp.status = 'pending'
+             -- the last decision on this product's price, shown when it was a no
+             LEFT JOIN price_proposals dp ON dp.id = (
+                 SELECT d.id FROM price_proposals d
+                 WHERE d.product_id = p.id AND d.supplier_id = p.supplier_id AND d.status <> 'pending'
+                 ORDER BY d.decided_at DESC, d.id DESC LIMIT 1) AND dp.status = 'rejected'
              WHERE p.supplier_id = ? AND p.is_active = TRUE
              ORDER BY p.name`, [req.supplier.id]);
         // The study has the supplier planning deliveries from the shop's

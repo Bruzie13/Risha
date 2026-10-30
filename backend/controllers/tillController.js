@@ -249,8 +249,12 @@ exports.reopenCount = async (req, res) => {
     try {
         const id = Number(req.params.id);
         if (!Number.isInteger(id)) return res.status(404).json({ success: false, message: 'Count not found' });
-        const [rows] = await pool.query('SELECT * FROM cash_reconciliations WHERE id = ?', [id]);
+        const [rows] = await pool.query("SELECT *, DATE_FORMAT(business_date, '%Y-%m-%d') AS day FROM cash_reconciliations WHERE id = ?", [id]);
         if (!rows.length) return res.status(404).json({ success: false, message: 'Count not found' });
+        // a count can only be done for today, so an earlier day's cannot be
+        // reopened: it would just be deleted. (A count dated after today was
+        // made by mistake and may still be removed.)
+        if (rows[0].day < shopToday()) return res.status(400).json({ success: false, message: "Only today's count can be reopened. An earlier day's count cannot be done again." });
         await pool.query('DELETE FROM cash_reconciliations WHERE id = ?', [id]);
         logAudit(req.user.id, 'delete', 'cash_reconciliations', id, rows[0], null, req.ip);
         res.json({ success: true, message: 'Count removed. It can be recorded again.' });

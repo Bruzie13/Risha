@@ -165,9 +165,14 @@ function setupSalesControls() {
     document.querySelectorAll('#rangeSeg button').forEach(b => b.addEventListener('click', () => {
         currentRange = b.dataset.range;
         setSeg('rangeSeg', 'range', currentRange);
-        document.getElementById('customRange').hidden = currentRange !== 'custom';
-        if (currentRange !== 'custom') loadSales();
+        document.getElementById('reportRangeError').textContent = '';
+        closeReportRange();
+        loadSales();
     }));
+    document.getElementById('reportRangeBtn').addEventListener('click', () => {
+        const pop = document.getElementById('reportRangePop');
+        if (pop.hidden) openReportRange(); else closeReportRange();
+    });
     document.querySelectorAll('#groupSeg button').forEach(b => b.addEventListener('click', () => {
         currentGroup = b.dataset.group;
         setSeg('groupSeg', 'group', currentGroup);
@@ -179,13 +184,48 @@ function applyDateRange() {
     const from = document.getElementById('startDate').value;
     const to = document.getElementById('endDate').value;
     const problem = reportDateProblem(from, to);
-    if (problem) { showToast(problem, 'error'); return; }
+    const err = document.getElementById('reportRangeError');
+    if (problem) { err.textContent = problem; return; }
+    err.textContent = '';
+    currentRange = 'custom';
+    setSeg('rangeSeg', 'range', 'custom');
+    closeReportRange();
     loadSales();
 }
+
+/* The Period field: it reads the period chosen ("Last 30 days", or the dates
+   picked) and opens a panel with the quick picks and From/To. */
+const RANGE_WORDS = { 7: 'Last 7 days', 30: 'Last 30 days', month: 'This month', all: 'All time' };
+function showReportRange() {
+    const el = document.getElementById('reportRangeText');
+    if (!el) return;
+    if (currentRange !== 'custom') { el.textContent = RANGE_WORDS[currentRange] || 'Last 30 days'; return; }
+    const { from, to } = rangeDates();
+    const short = day => new Date(day + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    el.textContent = from === to ? prettyYmd(from)
+        : `${from.slice(0, 4) === to.slice(0, 4) ? short(from) : prettyYmd(from)} – ${prettyYmd(to)}`;
+}
+function openReportRange() {
+    document.getElementById('reportRangePop').hidden = false;
+    document.getElementById('reportRangeBtn').setAttribute('aria-expanded', 'true');
+    setTimeout(() => document.addEventListener('click', outsideReportRange), 0);
+    document.addEventListener('keydown', escReportRange);
+}
+function closeReportRange() {
+    const pop = document.getElementById('reportRangePop');
+    if (!pop || pop.hidden) return;
+    pop.hidden = true;
+    document.getElementById('reportRangeBtn').setAttribute('aria-expanded', 'false');
+    document.removeEventListener('click', outsideReportRange);
+    document.removeEventListener('keydown', escReportRange);
+}
+function outsideReportRange(e) { if (!e.target.closest('#reportRange')) closeReportRange(); }
+function escReportRange(e) { if (e.key === 'Escape') { closeReportRange(); document.getElementById('reportRangeBtn').focus(); } }
 
 /* ---------- Loading ---------- */
 
 async function loadSales() {
+    showReportRange();
     const { from, to } = rangeDates();
     displayCount = PAGE_SIZE;
     try {
@@ -212,9 +252,11 @@ async function loadSales() {
         currentReportData = data.data;
         renderCaption(from, to);
         showNotice('salesNotice', empty ? 'No sales were recorded in this period.' : '');
-        renderSummary(data.data.summary || {});
+        const [before, daily] = await Promise.all([previousPeriod(from, to), dailyRows(from, to, data.data.rows)]);
+        renderSummary(data.data.summary || {}, before);
+        renderGaps(from, to, daily);
         renderSalesTable();
-        renderSalesChart(data.data.rows || []);
+        renderSalesChart(data.data.rows || [], from, to);
         renderBars('topProductsList', (data.data.top_products || []).map(p => ({
             label: p.name, value: Number(p.quantity) || 0, text: formatQty(p.quantity) + ' sold'
         })));
@@ -240,19 +282,105 @@ function renderCaption(from, to) {
     const el = document.getElementById('rangeCaption');
     const a = parseYmd(from), b = parseYmd(to);
     el.textContent = a && b
-        ? (from === to ? niceDate(a) : `${niceDate(a, a.getFullYear() !== b.getFullYear())} – ${niceDate(b)}`)
+        ? (from === to ? niceDate(a) : `${niceDate(a, a.getFullYear() !== b.getFullYear())} – ${niceDate(b)}`) + ', compared with the same number of days just before'
         : 'All sales on record';
+    document.getElementById('overTimeSub').textContent = currentGroup === 'daily'
+        ? 'revenue per day; every day of the period is shown' : `revenue per ${GROUP_WORD[currentGroup]}`;
     const word = GROUP_WORD[currentGroup];
     document.getElementById('salesChartTitle').textContent = `Revenue by ${word}`;
     document.getElementById('salesTableTitle').textContent = `Breakdown by ${word}`;
     document.getElementById('salesTablePeriodHead').textContent = GROUP_HEAD[currentGroup];
 }
 
-function renderSummary(summary) {
+function renderSummary(summary, before) {
+    const sales = Number(summary.total_transactions) || 0, items = Number(summary.total_items_sold) || 0;
     document.getElementById('summaryRevenue').textContent = formatCurrency(summary.total_revenue || 0);
-    document.getElementById('summaryTransactions').textContent = formatNumber(summary.total_transactions || 0);
+    document.getElementById('summaryTransactions').textContent = `${formatNumber(sales)} sale${sales === 1 ? '' : 's'}`;
     document.getElementById('summaryAvg').textContent = formatCurrency(summary.avg_transaction_value || 0);
-    document.getElementById('summaryItems').textContent = formatQty(summary.total_items_sold || 0);
+    document.getElementById('summaryItems').textContent = `${formatQty(items)} item${items === 1 ? '' : 's'}`;
+    const p = before && before.summary;
+    const span = before ? `vs ${prettySpan(before.from, before.to)}` : '';
+    setDelta('deltaRevenue', summary.total_revenue, p && p.total_revenue, formatCurrency, span);
+    setDelta('deltaTransactions', summary.total_transactions, p && p.total_transactions, formatNumber);
+    setDelta('deltaAvg', summary.avg_transaction_value, p && p.avg_transaction_value, formatCurrency);
+    setDelta('deltaItems', summary.total_items_sold, p && p.total_items_sold, formatQty);
+}
+
+/* "↓ 69% vs Sep 1 – Sep 30 (₱249,950.05)": how a figure compares with the
+   same number of days just before. Red down, green up; nothing for All time. */
+function setDelta(id, now, then, fmt, span) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'rp-delta';
+    if (then == null) { el.textContent = ''; return; }
+    const a = Number(now) || 0, b = Number(then) || 0;
+    if (!b) { el.textContent = a ? `No sales in the days before${span ? ' (' + span.replace(/^vs /, '') + ')' : ''}` : ''; return; }
+    const pct = Math.round((a - b) / b * 100);
+    el.classList.add(pct > 0 ? 'up' : pct < 0 ? 'down' : 'same');
+    el.textContent = `${pct > 0 ? '↑' : pct < 0 ? '↓' : '='} ${Math.abs(pct)}%${span ? ' ' + span : ''} (${fmt(b)})`;
+}
+
+// "Sep 1 – Sep 30" (the year only when it is not this year)
+const prettySpan = (from, to) => {
+    const a = parseYmd(from), b = parseYmd(to);
+    const thisYear = b.getFullYear() === new Date().getFullYear();
+    return from === to ? niceDate(a, !thisYear) : `${niceDate(a, a.getFullYear() !== b.getFullYear())} – ${niceDate(b, !thisYear)}`;
+};
+const shiftDay = (day, n) => { const d = parseYmd(day); d.setDate(d.getDate() + n); return ymd(d); };
+
+/* The same number of days just before the period, for the comparisons. */
+async function previousPeriod(from, to) {
+    if (!from || !to) return null;
+    const days = Math.round((parseYmd(to) - parseYmd(from)) / 86400000) + 1;
+    const pTo = shiftDay(from, -1), pFrom = shiftDay(pTo, -(days - 1));
+    try {
+        const res = await fetch(`${API_BASE}/sales/report?period=daily&date_from=${pFrom}&date_to=${pTo}`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        return data.success ? { from: pFrom, to: pTo, summary: data.data.summary || {} } : null;
+    } catch (e) { return null; }
+}
+
+/* Sales per day for the period (the report's own rows when it is shown by day). */
+async function dailyRows(from, to, rows) {
+    if (currentGroup === 'daily') return rows || [];
+    if (!from || !to) return [];
+    try {
+        const res = await fetch(`${API_BASE}/sales/report?period=daily&date_from=${from}&date_to=${to}`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        return data.success ? data.data.rows || [] : [];
+    } catch (e) { return []; }
+}
+
+/* Every day from `from` to `to`, oldest first, with the day's row or null. */
+function everyDay(from, to, rows) {
+    const byDay = new Map((rows || []).map(r => [String(r.date).slice(0, 10), r]));
+    const out = [];
+    for (let d = from; d <= to; d = shiftDay(d, 1)) out.push({ day: d, row: byDay.get(d) || null });
+    return out;
+}
+
+/* Runs of days with no sales, as "Oct 11 – 25". Today is left out until it
+   is over: a day still going is not a day without sales. */
+function noSaleRuns(from, to, rows) {
+    const today = ymd(new Date());
+    const last = to >= today ? shiftDay(today, -1) : to;
+    if (!from || !last || last < from) return { days: 0, runs: [] };
+    const runs = []; let start = null, days = 0;
+    everyDay(from, last, rows).forEach(({ day, row }, i, all) => {
+        const none = !row || !rowSales(row);
+        if (none) { days++; if (!start) start = day; }
+        if (start && (!none || i === all.length - 1)) { runs.push([start, none ? day : shiftDay(day, -1)]); start = null; }
+    });
+    return { days, runs };
+}
+
+function renderGaps(from, to, daily) {
+    const el = document.getElementById('summaryGaps');
+    const { days, runs } = noSaleRuns(from, to, daily);
+    if (!days) { el.textContent = ''; return; }
+    const short = d => niceDate(parseYmd(d), false);
+    const named = runs.slice(0, 3).map(([a, b]) => a === b ? short(a) : `${short(a)} – ${b.slice(0, 7) === a.slice(0, 7) ? parseYmd(b).getDate() : short(b)}`);
+    el.textContent = `${formatNumber(days)} day${days === 1 ? '' : 's'} had no sales (${named.join(', ')}${runs.length > 3 ? ` and ${runs.length - 3} more` : ''})`;
 }
 
 /* ---------- Rows ---------- */
@@ -342,7 +470,38 @@ function baseChartOptions(t) {
     };
 }
 
-function renderSalesChart(rows) {
+/* Days with no sales, three or more in a row, drawn as a hatched band with
+   its words, so a closed fortnight shows as one instead of disappearing. */
+const noSalesBands = {
+    id: 'noSalesBands',
+    beforeDatasetsDraw(chart, args, opts) {
+        const bands = opts && opts.bands;
+        if (!bands || !bands.length) return;
+        const { ctx, chartArea: area, scales: { x } } = chart;
+        const step = x.getPixelForValue(1) - x.getPixelForValue(0);
+        ctx.save();
+        bands.forEach(([i, j]) => {
+            const left = x.getPixelForValue(i) - step / 2, right = x.getPixelForValue(j) + step / 2;
+            ctx.fillStyle = opts.fill;
+            ctx.fillRect(left, area.top, right - left, area.bottom - area.top);
+            ctx.strokeStyle = opts.line; ctx.lineWidth = 1;
+            for (let k = left - (area.bottom - area.top); k < right; k += 8) {
+                ctx.beginPath();
+                ctx.moveTo(Math.max(k, left), area.bottom - Math.max(0, left - k));
+                ctx.lineTo(Math.min(k + (area.bottom - area.top), right), area.top + Math.max(0, k + (area.bottom - area.top) - right));
+                ctx.stroke();
+            }
+            if (right - left > 90) {
+                ctx.fillStyle = opts.text; ctx.textAlign = 'center';
+                ctx.font = `600 12px ${opts.font}`;
+                ctx.fillText('No sales recorded', (left + right) / 2, area.top + (area.bottom - area.top) * 0.4);
+            }
+        });
+        ctx.restore();
+    }
+};
+
+function renderSalesChart(rows, from, to) {
     const canvas = document.getElementById('salesChart');
     const empty = document.getElementById('salesChartEmpty');
     if (salesChart) { salesChart.destroy(); salesChart = null; }
@@ -351,8 +510,25 @@ function renderSalesChart(rows) {
     empty.hidden = has;
     if (!has || typeof Chart === 'undefined') return;
 
-    // the API returns newest first; a time axis reads left to right
-    const ordered = [...rows].reverse();
+    // the API returns newest first; a time axis reads left to right. By day,
+    // every day of the period has its place, sales or not.
+    let ordered = [...rows].reverse();
+    const bands = [];
+    if (currentGroup === 'daily') {
+        const first = from || String(ordered[0].date).slice(0, 10), last = to || String(ordered[ordered.length - 1].date).slice(0, 10);
+        ordered = everyDay(first, last, rows).map(({ day, row }) => row || { date: day, total_amount: 0, total_sales: 0, item_count: 0, none: true });
+        const today = ymd(new Date());
+        let start = -1;
+        ordered.forEach((r, i) => {
+            const none = r.none && String(r.date).slice(0, 10) < today;
+            if (none && start < 0) start = i;
+            if ((!none || i === ordered.length - 1) && start >= 0) {
+                const end = none ? i : i - 1;
+                if (end - start + 1 >= 3) bands.push([start, end]);
+                start = -1;
+            }
+        });
+    }
     const t = chartTheme();
     const options = baseChartOptions(t);
     options.scales.y.ticks.callback = v => formatCompactCurrency(v);
@@ -362,17 +538,20 @@ function renderSalesChart(rows) {
             title: items => periodLabel(ordered[items[0].dataIndex]),
             label: item => {
                 const r = ordered[item.dataIndex];
+                if (r.none) return 'No sales recorded';
                 return [formatCurrency(rowRevenue(r)), `${formatNumber(rowSales(r))} sales · ${formatQty(rowItems(r))} items`];
             }
         }
     };
+    options.plugins.noSalesBands = { bands, fill: t.grid, line: t.barSoft, text: t.text, font: t.font };
     salesChart = new Chart(canvas.getContext('2d'), {
         type: 'bar',
         data: {
             labels: ordered.map(shortLabel),
             datasets: [{ data: ordered.map(rowRevenue), backgroundColor: t.bar, borderRadius: 2, maxBarThickness: 36 }]
         },
-        options
+        options,
+        plugins: [noSalesBands]
     });
 }
 

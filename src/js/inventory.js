@@ -327,10 +327,10 @@ function displayProductsGrid(products) {
                 </div>
             </div>
             ${expiry}
+            <!-- no Edit here: it is in the View window (Carlo, 30 Oct) -->
             <div class="pcard-actions">
                 <button onclick="viewProductDetails(${p.id})"><span class="material-symbols-outlined">visibility</span> <span class="pca-label">View</span></button>
-                ${viewer ? '' : `<button onclick="openEditProductModal(${p.id})"><span class="material-symbols-outlined">edit</span> <span class="pca-label">Edit</span></button>
-                <button onclick="openReorderDialog(${p.id})" title="Order more of this product from its supplier"><span class="material-symbols-outlined">add_shopping_cart</span> <span class="pca-label">Reorder</span></button>
+                ${viewer ? '' : `<button onclick="openReorderDialog(${p.id})" title="Order more of this product from its supplier"><span class="material-symbols-outlined">add_shopping_cart</span> <span class="pca-label">Reorder</span></button>
                 <button class="pca-danger" onclick="deleteProduct(${p.id})" title="Delete"><span class="material-symbols-outlined">delete</span></button>`}
             </div>
         </div>`;
@@ -537,18 +537,12 @@ function setStatusFilter(status, chipEl) {
     document.querySelectorAll('#statusChips .chip').forEach(c => c.classList.remove('active'));
     if (chipEl) chipEl.classList.add('active');
     else document.querySelector(`#statusChips .chip[data-status="${status}"]`)?.classList.add('active');
-    const banner = document.getElementById('reorderBanner');
-    if (banner) banner.style.display = 'none';
     loadProducts();
 }
 
 function filterLowStock(chipEl) {
     // the Restock needed chip: everything at/below reorder level (low + out of stock)
     setStatusFilter('reorder', chipEl);
-    const banner = document.getElementById('reorderBanner');
-    if (banner) banner.style.display = 'flex';
-    const ct = document.getElementById('reorderCount');
-    if (ct) ct.textContent = `${formatNumber(Number(productStats?.reorder_count) || 0)} product(s) need reordering`;
 }
 
 /* "Clear filters" beside Sort: shown while anything narrows or reorders the
@@ -579,8 +573,6 @@ function showAllProducts() {
     lowStockOnly = false;
     reorderTab = false;
     statusFilter = '';
-    const banner = document.getElementById('reorderBanner');
-    if (banner) { banner.style.display = 'none'; }
     document.getElementById('searchInput').value = '';
     document.getElementById('categoryFilter').value = '';
     document.getElementById('speciesFilter').value = '';
@@ -614,11 +606,6 @@ async function updateStats() {
             const el = document.getElementById(id);
             if (el) el.textContent = n(chipCounts[id]);
         }
-        const ct = document.getElementById('reorderCount');
-        const banner = document.getElementById('reorderBanner');
-        if (ct && banner && banner.style.display !== 'none') {
-            ct.textContent = `${n(s.reorder_count)} product(s) need reordering`;
-        }
     } catch (e) { /* stats are cosmetic; next refresh retries */ }
 }
 
@@ -632,8 +619,6 @@ function filterProducts() {
     if (lowStockOnly || reorderTab) {
         lowStockOnly = false;
         reorderTab = false;
-        const banner = document.getElementById('reorderBanner');
-        if (banner) { banner.style.display = 'none'; }
     }
     // Debounced: each keystroke would otherwise fire a server query
     clearTimeout(searchDebounce);
@@ -656,6 +641,7 @@ function openAddProductModal() {
     document.getElementById('skuHint').textContent = 'Made by the system from the product type. It never changes once saved.';
     // new stock needs at least a week before it expires
     document.getElementById('expiration_date').min = earliestExpiryYmd();
+    markExpiryRequired();
     updateImagePreview();
     document.getElementById('productModal').classList.add('active');
 }
@@ -681,6 +667,7 @@ async function openEditProductModal(id) {
             document.getElementById('image_url').value = product.image_url || '';
             updateImagePreview();
             document.getElementById('category_id').value = product.category_id;
+            markExpiryRequired();
             document.getElementById('unit_price').value = product.unit_price;
             document.getElementById('cost_price').value = product.cost_price || '';
             document.getElementById('stock_quantity').value = product.stock_quantity;
@@ -851,7 +838,7 @@ async function deleteProduct(id) {
             });
             const data = await response.json();
             if (data.success) {
-                showSuccessDialog('Product deleted', `${escHtml(target ? target.name : 'The product')} is in the Trash. Open Trash to restore it.`, { tone: 'danger' });
+                showSuccessDialog('Product deleted', `${escHtml(target ? target.name : 'The product')} is in the Trash. Restore it from Settings → Trash.`, { tone: 'danger' });
                 closeProductDetailsModal();
                 await loadProducts();
                 updateTrashCount();
@@ -862,7 +849,7 @@ async function deleteProduct(id) {
             console.error('Error deleting product:', error);
             showToast(couldNot('delete product', error), 'error');
         }
-    }, 'Yes, Delete', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
+    }, 'Delete product', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
 }
 
 // Handle product form submission
@@ -870,6 +857,21 @@ let editingOriginalExpiry = '';   // the date the product being edited already h
 
 /* ---- Product form: every field is checked, and says exactly what is wrong ---- */
 let editingOriginalSku = '';
+/* Products in these categories go off: they need an expiration date
+   (backend/utils/expiry.js has the same list). */
+const MUST_EXPIRE = ['food', 'health & wellness', 'litter & waste'];
+function chosenCategoryName() {
+    const sel = document.getElementById('category_id');
+    return sel && sel.value && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent.trim() : '';
+}
+const expiryRequired = () => MUST_EXPIRE.includes(chosenCategoryName().toLowerCase());
+
+// the expiry label says "*" while the chosen category needs a date
+function markExpiryRequired() {
+    const label = document.querySelector('label[for="expiration_date"]');
+    if (label) label.textContent = expiryRequired() ? 'Expiration date *' : 'Expiration date';
+}
+
 const PRODUCT_FIELDS = ['name', 'category_id', 'sku_type', 'barcode', 'unit_price', 'cost_price', 'stock_quantity', 'reorder_level', 'supplier_id', 'expiration_date', 'brand', 'max_stock_level'];
 const PRICE_MAX = 99999999.99;
 
@@ -902,7 +904,8 @@ function productFieldProblem(id) {
             if (!twoDecimals.test(v)) return 'Use at most 2 decimal places, for example 120.50.';
             return null;
         case 'cost_price': {
-            if (!v) return null;
+            if (!v) return 'Enter the cost price (what the shop pays the supplier). It has to be more than ₱0.';
+            if (Number.isFinite(num) && num <= 0) return 'Enter the cost price (what the shop pays the supplier). It has to be more than ₱0.';
             if (!Number.isFinite(num)) return 'The cost price has to be a number, for example 95.00.';
             if (num < 0) return 'The cost price cannot be less than ₱0.';
             if (num > PRICE_MAX) return 'The cost price is too large (₱99,999,999.99 at most).';
@@ -937,8 +940,9 @@ function productFieldProblem(id) {
         case 'supplier_id':
             return v ? null : 'Choose a supplier. A product needs one so it can be reordered.';
         case 'expiration_date':
+            if (!v) return expiryRequired() ? `${chosenCategoryName()} products need an expiration date. Enter the date printed on the pack.` : null;
             // a product that has already expired keeps its date while other things are edited
-            return v && v !== editingOriginalExpiry ? expiryDateProblem(v) : null;
+            return v !== editingOriginalExpiry ? expiryDateProblem(v) : null;
         case 'brand':
             return v.length > 50 ? 'The brand is too long (50 characters at most).' : null;
     }
@@ -984,6 +988,12 @@ async function showNextSku() {
 // checked when the user leaves a field, and again while a wrong one is corrected
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('sku_type')?.addEventListener('change', showNextSku);
+    // a new category may make the date needed (or not): say so at once
+    document.getElementById('category_id')?.addEventListener('change', () => {
+        markExpiryRequired();
+        const expiry = document.getElementById('expiration_date');
+        if (expiry && (expiry.classList.contains('input-invalid') || !expiryRequired())) checkProductField('expiration_date');
+    });
     PRODUCT_FIELDS.forEach(id => {
         const input = document.getElementById(id);
         if (!input) return;
@@ -1094,7 +1104,7 @@ async function saveProduct(productData) {
         showConfirmDialog('This name is already in use',
             `${escHtml(askAgain)} Two products with one name are hard to tell apart at the till. Save this one under the same name anyway?`,
             () => saveProduct(Object.assign({}, productData, { allow_same_name: true })),
-            'Yes, save it');
+            'Save anyway');
     }
 }
 
@@ -1237,12 +1247,16 @@ function showReorderResult(data, count) {
 // Auto-reorder function — shows product selection list
 const REORDER_PAGE_SIZE = 5;
 
-async function autoReorder() {
+/* `given`: the products picked on the page (Bulk reorder). Without it, the
+   full low-stock list (the Reorder button). Each product shows its suggested
+   amount in a box that can be changed before anything is sent. */
+async function autoReorder(given) {
     if (!canManage()) { showToast("Your role can't reorder.", 'error'); return; }
     // Only a page of products is loaded, so ask the backend for the full
     // low-stock list (light = no image payloads).
     let lowStock = [];
-    try {
+    if (Array.isArray(given)) lowStock = given;
+    else try {
         const res = await fetch(`${API_URL}/products/low-stock?fields=light`, { headers: getAuthHeaders() });
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) lowStock = data.data;
@@ -1253,7 +1267,19 @@ async function autoReorder() {
     if (!lowStock.length) { showToast('No products need reordering', 'info'); return; }
 
     let displayed = REORDER_PAGE_SIZE;
-    const selected = new Set();
+    // products picked on the page start ticked; from the low-stock list you tick them
+    const selected = new Set(Array.isArray(given) ? lowStock.filter(p => p.supplier_name).map(p => p.id) : []);
+    // how many to order, per product, kept while the list is paged
+    const qty = new Map(lowStock.map(p => [p.id, String(reorderSuggestion(p))]));
+    const unitsOf = id => { const v = qty.get(id); return reorderQuantityProblem(v) ? 0 : Number(String(v).trim()); };
+    const costOf = id => { const p = lowStock.find(x => x.id === id); return p ? Number(p.cost_price) || 0 : 0; };
+    const submitLabel = () => {
+        const units = Array.from(selected).reduce((a, id) => a + unitsOf(id), 0);
+        const total = Array.from(selected).reduce((a, id) => a + unitsOf(id) * costOf(id), 0);
+        return selected.size
+            ? `Order ${selected.size} product${selected.size === 1 ? '' : 's'} · ${formatNumber(units)} item${units === 1 ? '' : 's'}${total > 0 ? ' · ' + formatCurrency(total) : ''}`
+            : 'Tick the products to order';
+    };
 
     const existing = document.getElementById('reorderModalOverlay');
     if (existing) existing.remove();
@@ -1263,7 +1289,7 @@ async function autoReorder() {
     overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s ease;';
 
     const dialog = document.createElement('div');
-    dialog.style.cssText = 'background:var(--bg-card,#fff);border-radius:12px;padding:0;max-width:600px;width:95%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp 0.25s ease;';
+    dialog.style.cssText = 'background:var(--bg-card,#fff);border-radius:12px;padding:0;max-width:680px;width:95%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp 0.25s ease;';
 
     function render() {
         const items = lowStock.slice(0, displayed);
@@ -1279,15 +1305,18 @@ async function autoReorder() {
             return `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border-color,#eee);">
                 <input type="checkbox" id="reord-${p.id}" ${orderable ? checked : 'disabled'} title="${orderable ? '' : 'Assign a supplier to this product first'}" style="width:18px;height:18px;cursor:${orderable ? 'pointer' : 'not-allowed'};flex-shrink:0;">
                 <div style="flex:1;min-width:0;">
-                    <div style="font-weight:600;font-size:14px;color:var(--text-primary);">${escHtml(p.name)}</div>
+                    <div style="font-weight:600;font-size:14px;color:var(--text-primary);overflow-wrap:anywhere;">${escHtml(p.name)}</div>
                     <div style="font-size:12px;color:var(--text-muted,#888);">${escHtml(p.sku || '')} · ${orderable ? escHtml(p.supplier_name) : '<span style="color:var(--danger);font-weight:600;">No supplier: assign one first</span>'}</div>
                 </div>
                 <div style="text-align:right;flex-shrink:0;">
-                    <div style="font-size:12px;color:var(--text-muted,#888);">Stock: <strong>${formatNumber(p.stock_quantity)}</strong></div>
+                    <div style="font-size:12px;color:var(--text-muted,#888);">In stock: <strong style="color:${p.stock_quantity <= p.reorder_level ? statusColor : 'inherit'};">${formatNumber(p.stock_quantity)}</strong></div>
                     <div style="font-size:12px;color:var(--text-muted,#888);">Reorder at: <strong>${p.reorder_level}</strong></div>
                 </div>
-                <span style="font-size:12px;font-weight:600;padding:3px 8px;border-radius:4px;background:${statusColor}15;color:${statusColor}">${status}</span>
-            </div>`;
+                <label style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;font-size:11.5px;font-weight:600;color:var(--text-muted,#888);">To order
+                    <input type="text" inputmode="numeric" autocomplete="off" maxlength="5" class="form-input reord-qty" data-id="${p.id}" value="${escHtml(qty.get(p.id))}" ${orderable ? '' : 'disabled'} aria-label="How many ${escHtml(p.name)} to order" style="width:78px;min-height:34px;padding:4px 8px;text-align:right;font-weight:700;">
+                </label>
+            </div>
+            <div class="reord-err" id="reord-err-${p.id}" role="alert" style="display:none;padding:0 16px 8px 46px;font-size:12.5px;font-weight:600;color:var(--danger);"></div>`;
         }).join('');
 
         const remaining = lowStock.length - displayed;
@@ -1306,20 +1335,21 @@ async function autoReorder() {
             <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border-color,#eee);flex-shrink:0;">
                 <div style="display:flex;align-items:center;gap:8px;">
                     <span class="material-symbols-outlined" style="color:var(--primary);font-size:22px;">smart_toy</span>
-                    <h3 style="margin:0;font-size:17px;font-weight:700;color:var(--text-primary);">Reorder ${lowStock.length} Low-Stock Items</h3>
+                    <h3 style="margin:0;font-size:17px;font-weight:700;color:var(--text-primary);">${Array.isArray(given) ? `Reorder ${lowStock.length} selected product${lowStock.length === 1 ? '' : 's'}` : `Reorder ${lowStock.length} low-stock product${lowStock.length === 1 ? '' : 's'}`}</h3>
                 </div>
                 <button id="reorderClose" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted,#888);padding:0;line-height:1;">&times;</button>
             </div>
             ${blocked ? `<div style="padding:10px 18px;font-size:13px;line-height:1.45;background:var(--danger-bg);color:var(--text-primary);border-bottom:1px solid var(--border-color,#eee);flex-shrink:0;">
                 <strong>${blocked} of these ${blocked === 1 ? 'has' : 'have'} no supplier</strong>, so ${blocked === 1 ? 'it' : 'they'} cannot be ordered yet. Open the product, choose a supplier, then come back.
             </div>` : ''}
+            <div style="padding:10px 18px;font-size:13px;line-height:1.45;color:var(--text-secondary);border-bottom:1px solid var(--border-color,#eee);flex-shrink:0;">The amount in each box is the suggested order. Change any of them before sending; each supplier gets one order by email.</div>
             <div id="reorderList" style="overflow-y:auto;flex:1;min-height:0;">
                 ${rowsHtml}
             </div>
             ${loadMoreHtml}
             <div style="display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--border-color,#eee);flex-shrink:0;">
                 <button id="reorderCancelBtn" style="flex:1;padding:11px;border:2px solid var(--border-color,#e0e0e0);border-radius:8px;background:var(--bg-card,#fff);color:var(--text-secondary,#555);font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;">Cancel</button>
-                <button id="reorderSubmitBtn" style="flex:2;padding:11px;border:none;border-radius:8px;background:var(--primary,#F28B82);color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;">Reorder Selected (${selected.size})</button>
+                <button id="reorderSubmitBtn" style="flex:2;padding:11px;border:none;border-radius:8px;background:var(--primary,#F28B82);color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;">${submitLabel()}</button>
             </div>
         `;
     }
@@ -1346,8 +1376,22 @@ async function autoReorder() {
             if (e.target.checked) selected.add(id);
             else selected.delete(id);
             const btn = document.getElementById('reorderSubmitBtn');
-            if (btn) btn.textContent = `Reorder Selected (${selected.size})`;
+            if (btn) btn.textContent = submitLabel();
         }
+    });
+
+    // a changed amount is kept, ticks its product and updates the total
+    dialog.addEventListener('input', e => {
+        const box = e.target.closest('.reord-qty');
+        if (!box) return;
+        const id = Number(box.dataset.id);
+        qty.set(id, box.value);
+        const err = document.getElementById('reord-err-' + id);
+        if (err) err.style.display = 'none';
+        box.classList.remove('input-invalid');
+        if (!selected.has(id)) { selected.add(id); const cb = document.getElementById('reord-' + id); if (cb) cb.checked = true; }
+        const btn = document.getElementById('reorderSubmitBtn');
+        if (btn) btn.textContent = submitLabel();
     });
 
     dialog.addEventListener('click', e => {
@@ -1363,18 +1407,33 @@ async function autoReorder() {
                 if (cb) cb.checked = true;
             });
             const btn = document.getElementById('reorderSubmitBtn');
-            if (btn) btn.textContent = `Reorder Selected (${selected.size})`;
+            if (btn) btn.textContent = submitLabel();
         }
         if (e.target.id === 'reorderSubmitBtn') {
             if (selected.size === 0) { showToast('Select at least one product to reorder', 'warning'); return; }
             const ids = Array.from(selected);
+            // every ticked product needs a whole amount; the reason shows under it
+            const wrong = ids.filter(id => reorderQuantityProblem(qty.get(id)));
+            if (wrong.length) {
+                wrong.forEach(id => {
+                    const err = document.getElementById('reord-err-' + id);
+                    const box = dialog.querySelector(`.reord-qty[data-id="${id}"]`);
+                    if (err) { err.textContent = reorderQuantityProblem(qty.get(id)); err.style.display = 'block'; }
+                    if (box) box.classList.add('input-invalid');
+                });
+                const first = lowStock.find(p => p.id === wrong[0]);
+                showToast(`Check the amount for ${first ? first.name : 'a product'}.`, 'error');
+                return;
+            }
+            const items = ids.map(id => ({ product_id: id, quantity: unitsOf(id) }));
+            const units = items.reduce((a, l) => a + l.quantity, 0);
             overlay.remove();
             // Second confirmation before the purchase orders are created
             showConfirmDialog(
                 'Final check',
-                `This will create purchase orders for ${ids.length} product${ids.length === 1 ? '' : 's'} and <strong>email each order to its assigned supplier straight away</strong>. Proceed?`,
-                () => doReorder(ids),
-                'Yes, Create Orders',
+                `This orders ${formatNumber(units)} item${units === 1 ? '' : 's'} of ${ids.length} product${ids.length === 1 ? '' : 's'} and <strong>emails each order to its supplier straight away</strong>. Proceed?`,
+                () => doReorder(items),
+                'Create and email orders',
                 '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">receipt_long</span>'
             );
         }
@@ -1400,16 +1459,18 @@ function reorderResultText(data, count) {
     return `${orders}. ${sent} emailed, ${failed} still to send — see the notes below.`;
 }
 
-async function doReorder(productIds) {
+// items: [{ product_id, quantity }], the amounts chosen in the window
+async function doReorder(items) {
     try {
         const response = await fetch(`${API_URL}/purchase-orders/auto-generate`, {
             method: 'POST', headers: getAuthHeaders(),
-            body: JSON.stringify({ product_ids: productIds })
+            body: JSON.stringify({ items })
         });
         const data = await response.json();
         if (data.success) {
             const count = data.count || (Array.isArray(data.data) ? data.data.length : 0);
             showReorderResult(data, count);
+            clearSelection();
             await loadProducts();
         } else {
             showToast('Error: ' + (data.message || 'the server gave no reason'), 'error');
@@ -1506,7 +1567,10 @@ function placeBulkBar() {
         const r = content.getBoundingClientRect();
         const cs = getComputedStyle(content);
         bar.style.left = Math.round(r.left + parseFloat(cs.paddingLeft)) + 'px';
-        bar.style.right = Math.round(Math.max(88, window.innerWidth - r.right + parseFloat(cs.paddingRight))) + 'px';
+        // clear of the Ask FETCH button in the corner
+        const fab = document.getElementById('faFab');
+        const corner = fab ? fab.offsetWidth + 34 : 88;
+        bar.style.right = Math.round(Math.max(corner, window.innerWidth - r.right + parseFloat(cs.paddingRight))) + 'px';
     }
     content.style.paddingBottom = (bar.offsetHeight + 32) + 'px';
 }
@@ -1521,29 +1585,13 @@ function clearSelection() {
     updateBulkBar();
 }
 
-async function bulkReorder() {
+/* Bulk reorder: the picked products in the Reorder window, each with its
+   suggested amount to change before sending. */
+function bulkReorder() {
     if (!canManage()) { showToast("Your role can't reorder.", 'error'); return; }
-    const ids = getSelectedIds();
-    if (ids.length === 0) return;
-    showConfirmDialog('Bulk reorder', `Generate purchase orders for ${ids.length} selected product(s)?`, () => {
-        // Second confirmation before the purchase orders are created
-        showConfirmDialog('Final check', `This will create the purchase orders and <strong>email each one to its assigned supplier straight away</strong>. Proceed?`, async () => {
-        try {
-            const response = await fetch(`${API_URL}/purchase-orders/auto-generate`, {
-                method: 'POST', headers: getAuthHeaders(),
-                body: JSON.stringify({ product_ids: ids })
-            });
-            const data = await response.json();
-            const count = data.count || (Array.isArray(data.data) ? data.data.length : 0);
-            showReorderResult(data, count);
-            clearSelection();
-            await loadProducts();
-        } catch (error) {
-            console.error('Bulk reorder error:', error);
-            showToast(couldNot('reorder', error), 'error');
-        }
-        }, 'Yes, Send Orders', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">outgoing_mail</span>');
-    }, 'Yes, Reorder', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">inventory</span>');
+    const picked = getSelectedIds().map(id => allProducts.find(p => p.id === id)).filter(Boolean);
+    if (!picked.length) return;
+    autoReorder(picked);
 }
 
 async function bulkAdjustStock() {
@@ -1581,7 +1629,7 @@ async function bulkAdjustStock() {
             } finally {
                 stockSaving = false;
             }
-        }, 'Yes, Adjust', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">assignment</span>');
+        }, type === 'in' ? 'Add stock' : 'Remove stock', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">assignment</span>');
     });
 }
 
@@ -1771,7 +1819,7 @@ async function bulkDelete() {
                 const data = await res.json();
                 if (data.success) successCount++;
             }
-            showSuccessDialog('Products deleted', `Moved ${successCount} of ${ids.length} selected product${ids.length === 1 ? '' : 's'} to the Trash. Open Trash to restore any of them.`, { tone: 'danger' });
+            showSuccessDialog('Products deleted', `Moved ${successCount} of ${ids.length} selected product${ids.length === 1 ? '' : 's'} to the Trash. Restore any of them from Settings → Trash.`, { tone: 'danger' });
             updateTrashCount();
             clearSelection();
             await loadProducts();
@@ -1779,7 +1827,7 @@ async function bulkDelete() {
             console.error('Bulk delete error:', error);
             showToast(couldNot('delete products', error), 'error');
         }
-    }, 'Yes, Delete All', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
+    }, `Delete ${ids.length} product${ids.length === 1 ? '' : 's'}`, '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
 }
 
 // Close modals when clicking outside
@@ -1902,6 +1950,7 @@ async function importCsvProducts() {
                 reorder_level: parseInt(row.reorder_level) || 10,
                 description: row.description || null,
                 barcode: row.barcode || null,
+                expiration_date: csvDay(row.expiration_date),
                 supplier_id: supplierId
             });
         });
@@ -1942,9 +1991,23 @@ async function importCsvProducts() {
     }
 }
 
+/* A date from the file as YYYY-MM-DD: typed that way, or as Excel saves it
+   (10/30/2027, month first). Anything else is passed on as it is, and the
+   server says what is wrong with it. Empty: null. */
+function csvDay(value) {
+    const v = String(value || '').trim();
+    if (!v) return null;
+    const us = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (us) return `${us[3]}-${us[1].padStart(2, '0')}-${us[2].padStart(2, '0')}`;
+    return v;
+}
+
 function downloadCsvTemplate() {
-    const headers = ['sku', 'name', 'brand', 'category', 'unit_price', 'cost_price', 'stock_quantity', 'reorder_level', 'unit_type', 'description', 'barcode', 'species'];
-    const sample = ['DOG-001', 'Sample Product', 'BrandName', 'Food', '199.99', '120.00', '50', '10', 'piece', 'Product description', '4801234567890', 'Dog'];
+    const headers = ['sku', 'name', 'brand', 'category', 'unit_price', 'cost_price', 'stock_quantity', 'reorder_level', 'unit_type', 'description', 'barcode', 'species', 'expiration_date'];
+    // the sample's food expires a year from today, so the template imports as it is
+    const nextYear = new Date(); nextYear.setFullYear(nextYear.getFullYear() + 1);
+    const sample = ['DOG-001', 'Sample Product', 'BrandName', 'Food', '199.99', '120.00', '50', '10', 'piece', 'Product description', '4801234567890', 'Dog',
+        `${nextYear.getFullYear()}-${String(nextYear.getMonth() + 1).padStart(2, '0')}-${String(nextYear.getDate()).padStart(2, '0')}`];
     const csv = headers.join(',') + '\n' + sample.join(',');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -1955,12 +2018,15 @@ function downloadCsvTemplate() {
     URL.revokeObjectURL(url);
 }
 /* ===== Barcode assignment ===== */
-/* A barcode is taken as it is printed: makers use different kinds, so the
-   only limit is the box's 100 characters (backend/utils/product.js agrees).
-   The same barcode on two products is refused when saving. */
+/* A barcode is the code printed under the bars: letters and numbers only (no
+   spaces or symbols), up to the
+   box's 100 (backend/utils/product.js agrees). The same barcode on two
+   products is refused when saving. */
 let editingOriginalBarcode = '';
 function barcodeFormatProblem(code) {
     const c = String(code || '').trim();
+    if (!c) return null;
+    if (!/^[A-Za-z0-9]+$/.test(c)) return 'A barcode can have letters and numbers only (for example 4801234567890 or ABC123). Spaces and symbols like - = / are not allowed.';
     if (c.length > 100) return 'The barcode is too long (100 characters at most).';
     return null;
 }
@@ -2129,6 +2195,9 @@ function closeImageManager() {
     loadProducts();
 }
 
+// what each row's picture is as saved, so the mark beside it can say whether the box was changed
+const rowSaved = new Map();
+
 function renderImageManagerList() {
     const list = document.getElementById('imageManagerList');
     const countEl = document.getElementById('imageManagerCount');
@@ -2179,10 +2248,14 @@ function renderImageManagerList() {
     list.querySelectorAll('.img-row').forEach(row => {
         const id = parseInt(row.dataset.id);
         const input = row.querySelector('.img-input');
+        rowSaved.set(id, input.value.trim());
         const thumb = row.querySelector('.img-thumb');
         const ph = row.querySelector('.img-thumb-ph');
-        // live thumbnail as they paste
+        // live thumbnail as they paste; the mark of the last save goes, since
+        // what is in the box now has not been saved
         input.addEventListener('input', () => {
+            row.querySelector('.bc-status').innerHTML = input.value.trim() !== (rowSaved.get(id) || '')
+                ? '<span class="material-symbols-outlined" title="Not saved yet: press Enter" style="font-size:16px;color:var(--warning);">edit</span>' : '';
             const url = input.value.trim();
             if (url) { thumb.src = url; thumb.style.display = 'block'; ph.style.display = 'none'; thumb.onerror = () => { thumb.style.display = 'none'; ph.style.display = 'flex'; }; }
             else { thumb.style.display = 'none'; ph.style.display = 'flex'; }
@@ -2203,7 +2276,12 @@ async function saveRowImage(id, value, row) {
         });
         const data = await res.json();
         if (res.ok && data.success !== false) {
-            status.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:var(--success);">check_circle</span>';
+            rowSaved.set(id, url);
+            // a saved picture is a tick; a removed one says so, never the same tick
+            status.innerHTML = url
+                ? '<span class="material-symbols-outlined" title="Picture saved" style="font-size:18px;color:var(--success);">check_circle</span>'
+                : '<span class="material-symbols-outlined" title="Picture removed" style="font-size:18px;color:var(--text-muted);">hide_image</span>';
+            if (!url) showToast('Picture removed', 'success');
             for (const prod of [toolCatalog.find(p => p.id === id), allProducts.find(p => p.id === id)]) {
                 if (prod) { prod.image_url = url || null; prod.has_image = !!url; }
             }

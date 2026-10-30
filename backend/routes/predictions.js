@@ -309,6 +309,16 @@ function forecastSeries(series, days = FORECAST_DAYS, opts = {}) {
     // horizon, so the ensemble can be judged against its own ingredients.
     const sumOf = (rows, field) => rows.reduce((a, p) => a + (Number(p[field]) || 0), 0);
     const parts = { baseline: sumOf(predictions, 'predicted_quantity'), ml: null, rf: null, gb: null };
+    // the same, day by day, so the backtest can score each method on only the
+    // days it hides (see holdoutTest)
+    const num = v => v === undefined ? null : Number(v) || 0;
+    parts.daily = predictions.map((p, i) => ({
+        date: p.date,
+        baseline: p.predicted_quantity,
+        ml: mlPreds ? num(mlPreds[i] && mlPreds[i].predicted_quantity) : null,
+        rf: mlPreds ? num(mlPreds[i] && mlPreds[i].rf) : null,
+        gb: mlPreds ? num(mlPreds[i] && mlPreds[i].gb) : null
+    }));
     if (mlPreds) {
         parts.ml = sumOf(mlPreds, 'predicted_quantity');
         if (mlPreds[0] && mlPreds[0].rf !== undefined) { parts.rf = sumOf(mlPreds, 'rf'); parts.gb = sumOf(mlPreds, 'gb'); }
@@ -425,10 +435,20 @@ function holdoutTest(series, shopTypicalQty, compare = false, factor = 1) {
         rawTotal,
         predTotal: rawTotal * (fc.basis === 'new' ? 1 : factor),
         actualTotal,
-        // each method's own total covers the whole run, so they are only
-        // like-for-like when no day was left out of it
-        parts: horizon === holdout ? fc.parts : null
+        // each method scored on the hidden days only, as the forecast itself
+        // is above. Totals over the whole run would count days that were left
+        // out between the two (a closed fortnight), so they are used only
+        // when the run is exactly the hidden days.
+        parts: fc.parts && fc.parts.daily ? hiddenParts(fc.parts.daily, hidden) : (horizon === holdout ? fc.parts : null)
     };
+}
+
+/* What each method forecast for the hidden days alone. A method that did not
+   run (no model for a short history) stays null. */
+function hiddenParts(daily, hidden) {
+    const days = daily.filter(d => hidden.has(d.date));
+    const total = field => days.some(d => d[field] === null) ? null : days.reduce((a, d) => a + d[field], 0);
+    return { baseline: total('baseline'), ml: total('ml'), rf: total('rf'), gb: total('gb') };
 }
 
 // Backtest: the accuracy shown on the page. Scored with WAPE (weighted

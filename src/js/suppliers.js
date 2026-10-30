@@ -132,13 +132,9 @@ function supplierFieldProblem(field, value) {
             return null;
         case 'email':
             return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v) ? null : 'Enter the email address in full, like name@example.com.';
-        case 'phone': {
-            const digits = v.replace(/\D/g, '').length;
-            if (!/^[0-9+()\-\s]+$/.test(v)) return 'Enter the phone number using digits, spaces and + ( ) - only.';
-            if (digits < 7) return 'The phone number is too short: it needs at least 7 digits.';
-            if (digits > 15) return 'The phone number has too many digits (15 at most).';
-            return null;
-        }
+        case 'phone':
+            // a real number for the country picked by the flag (js/phone-field.js)
+            return typeof phoneProblem === 'function' ? phoneProblem(document.getElementById('phone'), true) : null;
         case 'city':
             if (v.length < 2) return 'The city is too short: use at least 2 characters.';
             if (!person.test(v) || !hasLetter.test(v)) return "The city can use letters, spaces and . ' - only, with no numbers.";
@@ -163,6 +159,7 @@ function clearSupplierChecks() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    if (typeof phoneField === 'function') phoneField(document.getElementById('phone'));
     SUPPLIER_FIELDS.forEach(f => {
         const box = document.getElementById(f);
         if (!box) return;
@@ -177,6 +174,7 @@ function openAddSupplierModal() {
     editingSupplierId = null;
     document.getElementById('supplierModalTitle').textContent = 'Add supplier';
     document.getElementById('supplierForm').reset();
+    if (typeof setPhoneValue === 'function') setPhoneValue(document.getElementById('phone'), '');
     supplierOriginal = {};
     clearSupplierChecks();
     document.getElementById('supplierModal').classList.add('active');
@@ -192,7 +190,8 @@ function openEditSupplierModal(id) {
     document.getElementById('name').value = supplier.name || '';
     document.getElementById('contact_person').value = supplier.contact_person || '';
     document.getElementById('email').value = supplier.email || '';
-    document.getElementById('phone').value = supplier.phone || '';
+    if (typeof setPhoneValue === 'function') setPhoneValue(document.getElementById('phone'), supplier.phone || '');
+    else document.getElementById('phone').value = supplier.phone || '';
     document.getElementById('address').value = supplier.address || '';
     document.getElementById('city').value = supplier.city || '';
     document.getElementById('payment_terms').value = supplier.payment_terms || 'net30';
@@ -226,7 +225,7 @@ async function handleSupplierSubmit(event) {
         name: document.getElementById('name').value,
         contact_person: document.getElementById('contact_person').value || null,
         email: document.getElementById('email').value || null,
-        phone: document.getElementById('phone').value || null,
+        phone: (typeof phoneValue === 'function' ? phoneValue(document.getElementById('phone')) : document.getElementById('phone').value) || null,
         address: document.getElementById('address').value || null,
         city: document.getElementById('city').value || null,
         payment_terms: document.getElementById('payment_terms').value || 'net30',
@@ -280,7 +279,7 @@ async function deleteSupplier(id) {
     const left = [];
     if (products) left.push(`<strong>${products} product${products === 1 ? '' : 's'}</strong> will be left with no supplier and cannot be reordered until you assign one`);
     if (orders) left.push(`<strong>${orders} order${orders === 1 ? ' is' : 's are'} still in progress</strong> with this supplier`);
-    const question = `Delete ${escHtml(supplier.name || 'this supplier')}? It goes to the Trash, where it can be restored.`
+    const question = `Delete ${escHtml(supplier.name || 'this supplier')}? It goes to the Trash (Settings → Trash), where it can be restored.`
         + (left.length ? '<span style="display:block;margin-top:8px;">' + left.map(l => '<span style="display:block;margin-top:4px;">' + l + '.</span>').join('') + '</span>' : '');
     showConfirmDialog('Delete supplier', question, async () => {
         try {
@@ -290,7 +289,7 @@ async function deleteSupplier(id) {
             const data = await response.json();
             if (data.success) {
                 const leftSomething = !!(data.left && (data.left.products || data.left.open_orders));
-                showSuccessDialog('Supplier deleted', escHtml(data.message || 'The supplier is in the Trash.') + ' Open Trash to restore it.', { tone: 'danger', stay: leftSomething });
+                showSuccessDialog('Supplier deleted', escHtml(data.message || 'The supplier is in the Trash.') + ' Restore it from Settings → Trash.', { tone: 'danger', stay: leftSomething });
                 await loadSuppliers();
                 if (typeof updateTrashCount === 'function') updateTrashCount();
             } else {
@@ -300,7 +299,7 @@ async function deleteSupplier(id) {
             console.error('Error deleting supplier:', error);
             showToast(couldNot('delete supplier', error), 'error');
         }
-    }, 'Yes, Delete', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
+    }, 'Delete supplier', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
 }
 
 // ===== Performance Scorecard =====
@@ -324,7 +323,7 @@ function advancePOFromModal(id, nextStatus, poNumber, supplierId) {
     }
     showConfirmDialog('Update purchase order', 'Mark ' + poNumber + ' as ' + nextStatus + '?',
         function () { sendModalAdvance(id, nextStatus, poNumber, supplierId, ''); },
-        'Yes, Update', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">local_shipping</span>');
+        nextStatus === 'shipped' ? 'Mark shipped' : 'Mark ' + nextStatus, '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">local_shipping</span>');
 }
 
 async function sendModalAdvance(id, nextStatus, poNumber, supplierId, expiration_date) {
@@ -365,7 +364,7 @@ function emailPOFromModal(id, poNumber, supplierId, status) {
     var name = escHtml(s && s.name ? s.name : 'the supplier');
     showConfirmDialog(e.label, e.ask(escHtml(poNumber), name),
         function () { sendPOEmailNow(id, poNumber, supplierId); },
-        'Yes, ' + e.label, '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">' + e.icon + '</span>');
+        e.label, '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">' + e.icon + '</span>');
 }
 
 async function sendPOEmailNow(id, poNumber, supplierId) {

@@ -56,4 +56,16 @@ function expiryProblem(value, today, previous) {
     return null;
 }
 
-module.exports = { MIN_SHELF_DAYS, shopToday, asDay, earliestExpiry, expiryProblem };
+/* Products in these categories go off, so one cannot be saved without an
+   expiration date (Carlo, 30 Oct 2026). Toys, accessories and cages never
+   expire and may leave it empty. The page has the same list (inventory.js). */
+const MUST_EXPIRE = ['food', 'health & wellness', 'litter & waste'];
+const needsExpiry = categoryName => MUST_EXPIRE.includes(String(categoryName || '').trim().toLowerCase());
+
+/** A product of `categoryName` with expiration date `value`: the reason it is refused, or null. */
+function missingExpiryProblem(categoryName, value) {
+    if (!needsExpiry(categoryName) || (value != null && value !== '')) return null;
+    return `${String(categoryName).trim()} products need an expiration date. Enter the date printed on the pack.`;
+}
+
+module.exports = { MIN_SHELF_DAYS, shopToday, asDay, earliestExpiry, expiryProblem, needsExpiry, missingExpiryProblem };

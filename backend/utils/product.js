@@ -22,15 +22,16 @@ const FIELDS = [...new Map([...IMPORTANT, ...NOT_NEGATIVE, ...LONGEST, ...LARGES
 
 const blank = v => v == null || String(v).trim() === '';
 
-/* A barcode is taken as it is printed on the product: makers use different
-   kinds (EAN, UPC, their own codes with letters), so there is no rule on its
-   length or digits beyond fitting the column (100 characters, checked with
-   the other lengths below). It only has to be the product's own: the same
-   barcode on two products is refused where the product is saved. */
+/* A barcode is the code printed under the bars: letters and numbers only, no
+   spaces or symbols (Carlo, 30 Oct 2026), of any length that fits the column (100, checked with the other
+   lengths below); no check-digit rule, since makers print different kinds.
+   It has to be the product's own: the same barcode on two products is
+   refused where the product is saved. One already saved may stay as it is. */
+const BARCODE_DIGITS = 'A barcode can have letters and numbers only (for example 4801234567890 or ABC123). Spaces and symbols like - = / are not allowed.';
 function barcodeProblem(value, previous) {
     if (value == null || String(value).trim() === '') return null;
     if (previous != null && String(value).trim() === String(previous).trim()) return null;
-    if (/[\u0000-\u001F]/.test(String(value))) return 'The barcode has a character that cannot be printed. Scan it or type it again.';
+    if (!/^[A-Za-z0-9]+$/.test(String(value).trim())) return BARCODE_DIGITS;
     return null;
 }
 
@@ -54,6 +55,9 @@ function productProblem(data, adding, activeSupplierIds, previous) {
     if (missing.length) return `Fill in ${missing.length === 1 ? 'this' : 'these'} first: ${missing.join(', ')}.`;
 
     if (checked('unit_price') && !(Number(d.unit_price) > 0)) return 'Unit price must be more than zero.';
+    // the cost is what orders and stock value are worked out from, so a product
+    // cannot be saved without one (Carlo, 30 Oct 2026)
+    if (checked('cost_price') && !(Number(d.cost_price) > 0)) return 'Enter the cost price (what the shop pays the supplier). It has to be more than ₱0.';
     if (checked('category_id') && !(Number.isInteger(Number(d.category_id)) && Number(d.category_id) > 0)) return 'Choose a category from the list.';
     for (const [k, label] of NOT_NEGATIVE) {
         if (sent(k) && !blank(d[k]) && !(Number(d[k]) >= 0)) return `${label} cannot be less than zero.`;

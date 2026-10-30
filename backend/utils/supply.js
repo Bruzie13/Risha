@@ -96,6 +96,17 @@ function priceProblem(price) {
     return null;
 }
 
+/* Why the shop declined a supplier's price. The supplier reads it on their
+   portal, so it has to say something: 3 to 300 characters with a letter. */
+const DECLINE_REASON_MAX = 300;
+function declineReasonProblem(reason) {
+    const text = typeof reason === 'string' ? reason.trim() : '';
+    if (!text) return 'Type why you are declining this price. The supplier will see it.';
+    if (text.length < 3 || !/[A-Za-z]/.test(text)) return 'Write the reason in words, like "Too high compared with other suppliers".';
+    if (text.length > DECLINE_REASON_MAX) return 'Keep the reason to ' + DECLINE_REASON_MAX + ' characters or fewer.';
+    return null;
+}
+
 /* How a supplier has done on the orders the shop has received.
    on time   arrived on or before the date promised (or, where the supplier
              never promised one, the date the shop asked for). Orders with
@@ -167,4 +178,4 @@ function starRating(score, rule = STAR_RULE) {
         summary: stars + ' of 5 stars. ' + (meets ? 'Meets the standard (' + rule.standard + ' stars or more).' : 'Below the standard: it needs ' + rule.standard + ' stars or more.') };
 }
 
-module.exports = { termDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, scorecard, starRating, STAR_RULE, reorderSupplierProblem };
+module.exports = { termDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, declineReasonProblem, DECLINE_REASON_MAX, scorecard, starRating, STAR_RULE, reorderSupplierProblem };

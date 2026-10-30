@@ -51,21 +51,6 @@
   padding-right: 12px;
 }
 
-.inactive-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: 12px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--text-muted);
-  cursor: pointer;
-  user-select: none;
-}
-
-.inactive-toggle input { accent-color: var(--primary); cursor: pointer; }
-.inactive-toggle:hover { color: var(--text-secondary); }
-
 /* Sits under the address in the Email column: an account stays locked out of
    sign-in until this reads Verified, so it earns its own line. */
 .verify-badge {

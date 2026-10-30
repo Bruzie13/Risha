@@ -17,15 +17,19 @@
         return e;
     }
 
+    const PAW = '<svg class="fa-paw" viewBox="0 0 48 48" fill="currentColor" aria-hidden="true"><ellipse cx="24" cy="31" rx="10" ry="8.5"/><ellipse cx="11.5" cy="20" rx="4.2" ry="5.4" transform="rotate(-18 11.5 20)"/><ellipse cx="19.5" cy="12.5" rx="4.2" ry="5.6"/><ellipse cx="28.5" cy="12.5" rx="4.2" ry="5.6"/><ellipse cx="36.5" cy="20" rx="4.2" ry="5.4" transform="rotate(18 36.5 20)"/></svg>';
+
     function build() {
+        // a paw and the words, so it says what it is (Carlo picked this, 30 Oct)
         const fab = el('button', { className: 'fa-fab', id: 'faFab', title: 'FETCH Assistant & Help' },
-            '<span class="material-symbols-outlined">smart_toy</span>');
+            PAW + '<span class="fa-fab-label">Ask FETCH</span>');
+        fab.setAttribute('aria-label', 'Ask FETCH: the assistant and help');
         fab.addEventListener('click', toggle);
 
         const panel = el('div', { className: 'fa-panel', id: 'faPanel' });
         panel.innerHTML = `
             <div class="fa-head">
-                <div class="fa-head-title"><span class="material-symbols-outlined">smart_toy</span> FETCH Assistant &amp; Help</div>
+                <div class="fa-head-title">${PAW} FETCH Assistant &amp; Help</div>
                 <div class="fa-head-btns">
                     <button class="fa-close" id="faSize" title="Make larger" aria-label="Make larger"><span class="material-symbols-outlined">open_in_full</span></button>
                     <button class="fa-close" id="faClose" title="Close"><span class="material-symbols-outlined">close</span></button>

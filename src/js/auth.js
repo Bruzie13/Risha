@@ -364,7 +364,7 @@ function logout() {
                     setTimeout(function () { window.location.href = 'login.html'; }, Math.max(0, 500 - (Date.now() - shown)));
                 });
         },
-        'Yes, Logout'
+        'Log out'
     );
 }
 
@@ -483,6 +483,18 @@ function countedCashProblem(text) {
     return null;
 }
 
+/* A person's full name: letters, spaces and . ' - only, no numbers
+   (backend/utils/accounts.js has the same rule). `before` is the name already
+   saved, which may stay as it is. */
+function fullNameProblem(value, before) {
+    const v = String(value || '').trim().replace(/\s+/g, ' ');
+    if (!v) return 'Enter the full name.';
+    if (before != null && v === String(before).trim().replace(/\s+/g, ' ')) return null;
+    if (v.length < 2) return 'The full name is too short: use at least 2 characters.';
+    if (!/^[\p{L}\p{M} .'-]+$/u.test(v) || !/\p{L}/u.test(v)) return "The full name can use letters, spaces and . ' - only, with no numbers.";
+    return null;
+}
+
 /* Shows the problem under a money box (in its .field-error) and marks the box. */
 function showFieldProblem(box, problem) {
     const err = document.getElementById(box.id + 'Error');
@@ -518,7 +530,7 @@ function showPromptDialog(title, message, onConfirm, confirmText, icon, inputTyp
     const { name, tone } = parseLegacyIcon(icon, 'edit_note');
     const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', tone, name, title, message);
     const body = dialog.querySelector('.dialog-body');
-    body.innerHTML = `<input id="promptInput" class="form-input" type="${escAttr(inputType || 'number')}" value="${escAttr(defaultValue)}"${o.min ? ` min="${escAttr(o.min)}"` : ''}>
+    body.innerHTML = `<input id="promptInput" class="form-input" type="${escAttr(inputType || 'number')}" value="${escAttr(defaultValue)}"${o.min ? ` min="${escAttr(o.min)}"` : ''}${o.maxLength ? ` maxlength="${escAttr(o.maxLength)}"` : ''}${o.placeholder ? ` placeholder="${escAttr(o.placeholder)}"` : ''}>
         <div id="promptError" role="alert" style="display:none;margin-top:8px;font-size:13px;font-weight:600;color:var(--danger);"></div>`;
     body.insertAdjacentHTML('afterend', dialogActions('Cancel', confirmText || 'Confirm', 'btn-primary'));
 
@@ -539,6 +551,8 @@ function showPromptDialog(title, message, onConfirm, confirmText, icon, inputTyp
         onConfirm(input.value);
     };
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+    // a message about what was typed before goes once the box is changed
+    input.addEventListener('input', () => { dialog.querySelector('#promptError').style.display = 'none'; });
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
     dialog.querySelector('#confirmCancelBtn').addEventListener('click', close);
     dialog.querySelector('#confirmOkBtn').addEventListener('click', submit);
@@ -711,32 +725,59 @@ async function performSearch(query) {
     }
 }
 
+/* Small messages share one column at the top right: the answer to a button
+   you pressed (showToast) first, new alerts that arrived by themselves under
+   it. Bigger results open as a window in the middle (showSuccessDialog).
+   (Carlo, 30 Oct.) */
+function cornerStack() {
+    let corner = document.getElementById('cornerStack');
+    if (!corner) {
+        corner = document.createElement('div');
+        corner.id = 'cornerStack';
+        corner.className = 'corner-stack';
+        document.body.appendChild(corner);
+    }
+    return corner;
+}
+
+/* The answer to something you pressed ("Saved", "Not saved: …"): a small card
+   at the top right, the same look as a new alert (Carlo, 30 Oct). It never
+   blocks the page: clicks go through it to what is underneath, and only its ×
+   is a button. It closes by itself after 5 seconds, with a line
+   around its edge counting down; a burst of them (scanning items) shows the
+   latest three. */
+const TOAST_TONES = {
+    success: { icon: 'check_circle', color: 'var(--success)' },
+    error: { icon: 'error', color: 'var(--danger)' },
+    warning: { icon: 'warning', color: 'var(--warning)' },
+    info: { icon: 'info', color: 'var(--primary)' }
+};
 function showToast(message, type) {
-    type = type || 'info';
+    const tone = TOAST_TONES[type] || TOAST_TONES.info;
     let container = document.getElementById('toastContainer');
     if (!container) {
         container = document.createElement('div');
         container.id = 'toastContainer';
-        container.className = 'toast-container';
-        document.body.appendChild(container);
+        container.className = 'center-note-stack';
+        container.setAttribute('role', 'status');
+        container.setAttribute('aria-live', 'polite');
+        cornerStack().prepend(container);
     }
-    const toast = document.createElement('div');
-    toast.className = 'toast toast-' + type;
-    const icons = {
-        success: '<span class="material-symbols-outlined" style="font-size:16px;">check_circle</span>',
-        error: '<span class="material-symbols-outlined" style="font-size:16px;">error</span>',
-        warning: '<span class="material-symbols-outlined" style="font-size:16px;">warning_amber</span>',
-        info: '<span class="material-symbols-outlined" style="font-size:16px;">info</span>'
-    };
-    toast.innerHTML = (icons[type] || icons.info) + ' ' + escHtml(message);
-    container.appendChild(toast);
-    // Never a stack: a burst of actions (scanning several items) shows the
-    // latest few, not a column of messages down the screen.
+    const note = document.createElement('div');
+    note.className = 'alert-pop center-note center-note-' + (TOAST_TONES[type] ? type : 'info');
+    note.innerHTML = `<div class="center-note-icon"><span class="material-symbols-outlined">${tone.icon}</span></div>
+        <div class="alert-pop-body"><div class="center-note-text">${escHtml(message)}</div></div>`;
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'alert-pop-close';
+    close.title = 'Close';
+    close.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">close</span>';
+    close.addEventListener('click', () => note.remove());
+    note.appendChild(close);
+    container.appendChild(note);
     while (container.children.length > 3) container.firstElementChild.remove();
-    // Every message stays 5 seconds, and a line running around its edge shows
-    // the time left, so it never vanishes before it is read.
-    addCountdownRing(toast, TOAST_MS);
-    setTimeout(() => toast.remove(), TOAST_MS);
+    addCountdownRing(note, TOAST_MS, tone.color);
+    setTimeout(() => note.remove(), TOAST_MS);
 }
 const TOAST_MS = 5000;
 
@@ -807,17 +848,79 @@ async function refreshNotifCount() {
             if (chipCount) chipCount.textContent = count;
             const chip = document.getElementById('alertChip');
             if (chip) chip.classList.toggle('has-alerts', count > 0);
-            if (lastNotifCount !== -1 && count > lastNotifCount && Notification.permission === 'granted') {
-                new Notification('RISHA — New Notification', {
-                    body: `You have ${count} unread notification(s)`,
-                    icon: '/images/logo.jpeg'
-                });
-            }
+            // a new page, or more unread than last time: say what came in
+            if (lastNotifCount === -1 || count > lastNotifCount) announceNewAlerts();
             lastNotifCount = count;
         }
     } catch (e) {
         // silent
     }
+}
+
+/* A new alert pops up at the top right with what it says, not just a bigger
+   number on the bell. The newest alert already shown is kept for the tab
+   (alertsShownUpTo), so moving between pages never repeats one; the first
+   page after signing in shows the newest unread ones. The till skips this:
+   a card over the checkout would get in the way of a sale. */
+const ALERT_POP_MAX = 3;
+const ALERT_POP_MS = 8000;
+
+async function announceNewAlerts() {
+    if (window.location.pathname.includes('pos.html')) return;
+    try {
+        const res = await fetch(`${API_BASE}/notifications?status=unread&limit=20`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        const unread = (data && data.data) || [];
+        if (!unread.length) return;
+        let shownUpTo = null;
+        try { shownUpTo = sessionStorage.getItem('alertsShownUpTo'); } catch (e) {}
+        const fresh = unread.filter(n => shownUpTo === null || n.id > Number(shownUpTo));
+        try { sessionStorage.setItem('alertsShownUpTo', String(Math.max(...unread.map(n => n.id), Number(shownUpTo) || 0))); } catch (e) {}
+        if (!fresh.length) return;
+        fresh.slice(0, ALERT_POP_MAX).forEach(showAlertPop);
+        const more = fresh.length - ALERT_POP_MAX;
+        if (more > 0) showAlertPop({ more });
+        if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+            new Notification(fresh[0].title, { body: fresh[0].message, icon: '/images/logo.jpeg' });
+        }
+    } catch (e) {
+        // silent: the bell still shows the count
+    }
+}
+
+function showAlertPop(n) {
+    let stack = document.getElementById('alertPopStack');
+    if (!stack) {
+        stack = document.createElement('div');
+        stack.id = 'alertPopStack';
+        stack.className = 'alert-pop-stack';
+        stack.setAttribute('role', 'status');
+        stack.setAttribute('aria-live', 'polite');
+        cornerStack().appendChild(stack);
+    }
+    const pop = document.createElement('div');
+    pop.className = 'alert-pop';
+    pop.title = 'Show the alerts';
+    pop.innerHTML = n.more
+        ? `<div class="alert-pop-body"><div class="notif-title">${n.more} more new ${n.more === 1 ? 'alert' : 'alerts'}</div>
+               <div class="notif-msg">Open the list to see them all</div></div>`
+        : `<div class="notif-icon ${escHtml(n.type)}">${getNotifIcon(n.type)}</div>
+           <div class="alert-pop-body"><div class="notif-title">${escHtml(n.title)}</div>
+               <div class="notif-msg">${escHtml(n.message)}</div></div>`;
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'alert-pop-close';
+    close.title = 'Close';
+    close.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">close</span>';
+    close.addEventListener('click', (e) => { e.stopPropagation(); pop.remove(); });
+    pop.appendChild(close);
+    pop.addEventListener('click', () => {
+        pop.remove();
+        if (!document.getElementById('notifDropdown')) openNotifDropdown(document.getElementById('alertChip') || document.getElementById('notifBellBtn'));
+    });
+    stack.appendChild(pop);
+    addCountdownRing(pop, ALERT_POP_MS, 'var(--primary)');
+    setTimeout(() => pop.remove(), ALERT_POP_MS);
 }
 
 function startNotifPolling() {

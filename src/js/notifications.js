@@ -153,7 +153,7 @@ function clearRead() {
         'Clear read notifications',
         'This permanently deletes every notification you have already read. Unread alerts are kept. This cannot be undone.',
         doClearRead,
-        'Yes, Clear Them',
+        'Clear read',
         '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete_sweep</span>'
     );
 }

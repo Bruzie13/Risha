@@ -162,3 +162,22 @@ test('days without data: nothing to look at gives nothing', () => {
     assert.equal(noDataDays(new Map(), new Map(), null, '2026-04-10').days.size, 0);
     assert.equal(noDataDays(new Map(), new Map(), '2026-04-11', '2026-04-10').days.size, 0);
 });
+
+test('accuracy test: a closed fortnight inside the hidden days does not drop the method comparison', () => {
+    const { holdoutTest, backtestSplit, forecastSeries: fs } = require('../routes/predictions')._internals;
+    // sells about 3 a day; nothing recorded Oct 11 to 25 (left out), sales again Oct 26 to 28
+    const days = [];
+    for (let t = Date.parse('2026-06-01T00:00:00Z'); t <= Date.parse('2026-10-28T00:00:00Z'); t += DAY) {
+        const date = new Date(t).toISOString().slice(0, 10);
+        if (date >= '2026-10-11' && date <= '2026-10-25') continue;
+        days.push({ date, quantity: 2 + (days.length % 3) });
+    }
+    const split = backtestSplit(days);
+    assert.ok(split.horizon > split.holdout, 'the hidden days straddle the gap');
+    const t = holdoutTest(days, 4, true);
+    assert.ok(t.parts, 'each method still gets a score');
+    // scored on the 14 hidden days only, not the 30-day run with the gap in it
+    const whole = fs(split.train, split.horizon, { compare: true, shopTypical: 4 }).parts.baseline;
+    assert.ok(t.parts.baseline < whole * 0.6, `hidden days only: ${t.parts.baseline} against ${whole} for the whole run`);
+    if (t.parts.ml !== null) assert.ok(Math.abs(t.parts.ml - t.rawTotal) < 0.5, 'the model alone is what the forecast used');
+});

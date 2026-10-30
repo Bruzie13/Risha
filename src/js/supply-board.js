@@ -1,6 +1,7 @@
-/* Suppliers → Orders. Everything between the shop and its suppliers that
-   still needs someone: offers to answer, price changes to decide, orders on
-   their way, and deliveries not yet paid for.
+/* Suppliers → Orders and Price changes. Everything between the shop and its
+   suppliers that still needs someone: offers to answer, orders on their way
+   and deliveries not yet paid for (Orders), and prices a supplier wants to
+   change (Price changes, a tab of its own).
 
    This took the place of the live delivery map. Instead of watching a
    driver's phone, the shop reads what the supplier has told it — the date
@@ -144,23 +145,27 @@
         var unpaid = orders.filter(function (o) { return o.status === 'received'; });
         var prices = board.price_proposals || [];
 
-        // The badge counts what is waiting on the shop, not everything in motion.
+        // The badges count what is waiting on the shop, not everything in motion.
         var late = moving.filter(function (o) { return o.promised_date && o.promised_date < todayYmd(); }).length;
-        var needs = offers.length + prices.length + late;
+        var needs = offers.length + late;
         var badge = document.getElementById('deliveriesBadge');
         // the number says what it counts (see the title for the parts)
         if (badge) {
             badge.textContent = needs + ' to do';
-            badge.title = [offers.length && offers.length + ' offer(s) to answer', prices.length && prices.length + ' price change(s) to decide',
-                late && late + ' delivery date(s) passed'].filter(Boolean).join(', ');
+            badge.title = [offers.length && offers.length + ' offer(s) to answer', late && late + ' delivery date(s) passed'].filter(Boolean).join(', ');
             badge.style.display = needs ? '' : 'none';
+        }
+        var priceBadge = document.getElementById('pricesBadge');
+        if (priceBadge) {
+            priceBadge.textContent = prices.length + ' to decide';
+            priceBadge.title = prices.length + ' price change(s) to accept or decline';
+            priceBadge.style.display = prices.length ? '' : 'none';
         }
 
         document.getElementById('offersCard').hidden = !offers.length;
         document.getElementById('offersList').innerHTML = offers.map(card).join('');
 
-        document.getElementById('pricesCard').hidden = !prices.length;
-        document.getElementById('pricesBody').innerHTML = prices.map(function (p) {
+        document.getElementById('pricesBody').innerHTML = prices.length ? prices.map(function (p) {
             var now = p.live_price != null ? Number(p.live_price) : null, next = Number(p.proposed_price);
             var change = now ? Math.round((next - now) / now * 1000) / 10 : null;
             return '<tr><td><span class="rp-strong">' + escHtml(p.product_name) + '</span>'
@@ -172,7 +177,7 @@
                 + '<td class="num">' + (manages()
                     ? '<button class="btn-view" data-price="' + Number(p.id) + '" data-approve="1">Accept</button> <button class="btn-view" data-price="' + Number(p.id) + '" data-approve="0">Decline</button>'
                     : '') + '</td></tr>';
-        }).join('');
+        }).join('') : '<tr><td colspan="5" class="rp-loading">No price changes waiting. When a supplier proposes a new price, it shows here to accept or decline.</td></tr>';
 
         document.getElementById('deliveriesList').innerHTML = moving.length
             ? moving.map(card).join('')
@@ -212,11 +217,25 @@
         }
         var price = e.target.closest('button[data-price]');
         if (price) {
-            var approve = price.dataset.approve === '1';
-            showConfirmDialog(approve ? 'Accept this price' : 'Decline this price',
-                approve ? 'The product\'s cost in inventory changes to the proposed price.' : 'The price stays as it is and the supplier is not charged anything new.',
-                async function () { if (await send('POST', '/price-proposals/' + Number(price.dataset.price) + '/decide', { approve: approve })) refresh(false); },
-                approve ? 'Accept price' : 'Decline');
+            var pp = '/price-proposals/' + Number(price.dataset.price) + '/decide';
+            if (price.dataset.approve === '1') {
+                showConfirmDialog('Accept this price', 'The product\'s cost in inventory changes to the proposed price.',
+                    async function () { if (await send('POST', pp, { approve: true })) refresh(false); }, 'Accept price');
+            } else {
+                // the supplier reads the reason on their portal (same rule as the server's)
+                showPromptDialog('Decline this price', 'The price stays as it is. Say why, so the supplier knows: they will see this.',
+                    async function (reason) { if (await send('POST', pp, { approve: false, reason: reason.trim() })) refresh(false); },
+                    'Decline', '<span class="material-symbols-outlined" style="color:var(--danger);">cancel</span>', 'text', '', {
+                        maxLength: 300,
+                        placeholder: 'e.g. Too high compared with other suppliers',
+                        validate: function (v) {
+                            var t = v.trim();
+                            if (!t) return 'Type why you are declining this price. The supplier will see it.';
+                            if (t.length < 3 || !/[A-Za-z]/.test(t)) return 'Write the reason in words, like "Too high compared with other suppliers".';
+                            return null;
+                        }
+                    });
+            }
             return;
         }
         var btn = e.target.closest('button[data-act]');
@@ -249,7 +268,7 @@
                 } });
         } else if (act === 'confirmed' || act === 'shipped') {
             showConfirmDialog('Update order', 'Mark ' + name + ' as ' + act + '? Use this when the supplier told you by phone or message rather than through their own login.',
-                function () { setStatus(id, act); }, 'Yes, update');
+                function () { setStatus(id, act); }, act === 'shipped' ? 'Mark shipped' : 'Mark confirmed');
         }
     }
 
@@ -299,41 +318,51 @@
         }
     }
 
-    /* ---------- View toggle: supplier list vs orders ---------- */
+    /* ---------- View toggle: supplier list, orders, price changes ---------- */
+
+    var PANELS = { deliveries: 'deliveriesPanel', prices: 'pricesPanel' };
 
     function setView(view) {
-        var panel = document.getElementById('deliveriesPanel');
         var table = document.getElementById('supplierTableWrap');
         var pager = document.getElementById('supplierPagination');
-        if (!panel || !table) return;
-        var isOrders = view === 'deliveries';
-        panel.style.display = isOrders ? '' : 'none';
-        table.style.display = isOrders ? 'none' : '';
-        if (pager) pager.style.display = isOrders ? 'none' : '';
+        if (!table) return;
+        if (!PANELS[view]) view = 'list';
+        Object.keys(PANELS).forEach(function (v) {
+            var p = document.getElementById(PANELS[v]);
+            if (p) p.style.display = v === view ? '' : 'none';
+        });
+        var isBoard = view !== 'list';
+        table.style.display = isBoard ? 'none' : '';
+        if (pager) pager.style.display = isBoard ? 'none' : '';
         document.querySelectorAll('#supplierViewToggle .inv-view-btn').forEach(function (b) {
             var on = b.dataset.view === view;
             b.classList.toggle('active', on);
             b.setAttribute('aria-selected', on ? 'true' : 'false');
         });
         try { localStorage.setItem(VIEW_KEY, view); } catch (e) {}
-        visible = isOrders;
-        if (isOrders) { refresh(false); startPolling(); } else stopPolling();
+        visible = isBoard;
+        if (isBoard) { refresh(false); startPolling(); } else stopPolling();
     }
 
     window.refreshDeliveries = refresh;
 
     window.addEventListener('load', function () {
-        var panel = document.getElementById('deliveriesPanel');
-        if (!panel) return;
-        panel.addEventListener('click', onAction);
-        panel.addEventListener('submit', onNote);
+        if (!document.getElementById('deliveriesPanel')) return;
+        Object.keys(PANELS).forEach(function (v) {
+            var p = document.getElementById(PANELS[v]);
+            if (!p) return;
+            p.addEventListener('click', onAction);
+            p.addEventListener('submit', onNote);
+        });
         document.querySelectorAll('#supplierViewToggle .inv-view-btn').forEach(function (b) {
             b.addEventListener('click', function () { setView(b.dataset.view); });
         });
         var saved = 'list';
         try { saved = localStorage.getItem(VIEW_KEY) || 'list'; } catch (e) {}
-        if (new URLSearchParams(window.location.search).get('view') === 'orders') saved = 'deliveries';
-        setView(saved === 'deliveries' ? 'deliveries' : 'list');
+        var asked = new URLSearchParams(window.location.search).get('view');
+        if (asked === 'orders') saved = 'deliveries';
+        if (asked === 'prices') saved = 'prices';
+        setView(saved);
         // one early fetch so the badge is right even from the list view
         setTimeout(function () { refresh(false); }, 700);
     });

@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=55">
+    <link rel="stylesheet" href="css/global.css?v=56">
     <link rel="stylesheet" href="css/settings.css?v=24">
     <script>
         (function() {
@@ -48,7 +48,7 @@
             if (ts && ts !== '1') document.documentElement.style.zoom = ts;
         }());
     </script>
-    <link rel="stylesheet" href="css/system.css?v=79">
+    <link rel="stylesheet" href="css/system.css?v=97">
 </head>
 <body>
 
@@ -109,9 +109,6 @@
                 <h1>Settings</h1>
                 <div class="breadcrumb">Your account and how the system looks</div>
             </div>
-            <div class="page-header-actions">
-                <span style="padding:6px 14px;border:1px solid var(--border-glass);border-radius:var(--radius-md);font-size:12px;color:var(--text-muted);font-weight:500;" id="settingsDateDisplay"></span>
-            </div>
         </div>
 
         <div class="content">
@@ -132,6 +129,10 @@
                     <button class="settings-tab" data-tab="email" id="emailTabBtn" style="display:none;">
                         <span class="material-symbols-outlined">mail</span>
                         Email
+                    </button>
+                    <button class="settings-tab" data-tab="trash" data-needs="manage" title="Deleted products and suppliers, and deactivated accounts, to restore">
+                        <span class="material-symbols-outlined">delete</span>
+                        Trash <span class="trash-count" data-trash-count="all">…</span>
                     </button>
                 </div>
 
@@ -160,7 +161,8 @@
                                 <div class="settings-divider"></div>
                                 <div class="settings-field">
                                     <label>Full name</label>
-                                    <input maxlength="100" type="text" class="form-input" id="settingsFullName" placeholder="Your full name">
+                                    <input maxlength="100" type="text" class="form-input" id="settingsFullName" placeholder="Your full name" onblur="checkSettingsFullName()">
+                                    <div class="field-error" id="settingsFullNameError" role="alert"></div>
                                 </div>
                                 <div class="settings-field">
                                     <label>Email</label>
@@ -227,7 +229,7 @@
                         </div>
                         <div class="settings-card" id="backupCard" style="display:none;margin-bottom:20px;">
                             <div class="settings-card-header">
-                                <h3>Data backup</h3>
+                                <h3>Database backup</h3>
                                 <p>Full database export — keep copies somewhere safe</p>
                             </div>
                             <div class="settings-card-body">
@@ -337,6 +339,18 @@
                         </div>
                     </div>
 
+                    <div class="settings-panel" id="panel-trash" data-needs="manage">
+                        <div class="settings-card">
+                            <div class="settings-card-header">
+                                <h3>Trash</h3>
+                                <p>Deleted products and suppliers, and deactivated accounts, for the whole system. Restore puts one back as it was.</p>
+                            </div>
+                            <div class="settings-card-body" id="trashMount">
+                                <div class="trash-empty">Loading the Trash…</div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="settings-panel" id="panel-email">
                         <div class="settings-card">
                             <div class="settings-card-header">
@@ -415,13 +429,14 @@
     </script>
     <script src="js/utils.js"></script>
     <script src="js/format.js"></script>
-    <script src="js/auth.js?v=68"></script>
+    <script src="js/auth.js?v=77"></script>
     <script src="js/loader.js?v=6"></script>
 <script src="js/clear-input.js?v=2"></script>
-<script src="js/password-eye.js?v=1"></script>
+<script src="js/password-eye.js?v=2"></script>
 <script src="js/motion.js?v=22"></script>
-<script src="js/jump.js?v=32"></script>
-<script src="js/assistant.js?v=29"></script>
-    <script src="js/settings.js?v=50"></script>
+<script src="js/jump.js?v=34"></script>
+<script src="js/assistant.js?v=30"></script>
+    <script src="js/trash.js?v=2"></script>
+    <script src="js/settings.js?v=53"></script>
 </body>
 </html>

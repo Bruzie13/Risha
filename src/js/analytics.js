@@ -87,14 +87,23 @@ function wirePlanControls() {
     });
     document.getElementById('predictionsTableBody').addEventListener('click', e => {
         const row = e.target.closest('tr[data-id]');
-        if (row) openProductDetail(Number(row.dataset.id));
+        if (!row) return;
+        row.closest('.rp-card').after(document.getElementById('productDetail'));
+        openProductDetail(Number(row.dataset.id));
     });
     ['reorderTableBody', 'excessBody', 'expiryBody'].forEach(id => {
         document.getElementById(id).addEventListener('click', e => {
             const row = e.target.closest('tr[data-id]');
-            if (row) openProductDetail(Number(row.dataset.id));
+            if (!row) return;
+            // the product's forecast opens under the list it was picked from
+            row.closest('.rp-card').after(document.getElementById('productDetail'));
+            openProductDetail(Number(row.dataset.id));
         });
     });
+    document.querySelectorAll('.plan-view').forEach(b => b.addEventListener('click', () => showPlanView(b.dataset.view)));
+    let start = new URLSearchParams(window.location.search).get('view');
+    if (!start) try { start = localStorage.getItem('planView'); } catch (e) {}
+    showPlanView(start);
 }
 
 /* ---------- Words ---------- */
@@ -151,6 +160,9 @@ function renderPlan() {
                 ? `Sales were recorded on only ${plan.recent_sale_days} of the last 30 days. Forecasts lean on recent sales, so they are lower than usual, `
                   + 'and many products show as not selling. They will correct themselves as daily sales are recorded.'
                 : '');
+    // one short line up top; what the forecast is based on is in "About this forecast"
+    document.getElementById('planLead').textContent = `Forecast for the next ${plan.forecast_days} days`
+        + (plan.last_sale_date && !stale ? `, from sales up to ${planDate(plan.last_sale_date)}.` : '.');
     document.getElementById('planCaption').textContent =
         `Based on ${plan.history_days ? plan.history_days + ' days of sales on record' + (plan.model && plan.model.fit_days ? ` (the model reads the last ${plan.model.fit_days})` : '') : 'sales on record'}. Forecasts cover the next ${plan.forecast_days} days.`
         + (plan.last_sale_date && !stale ? ` Last sale recorded ${planDate(plan.last_sale_date)}.` : '')
@@ -160,21 +172,70 @@ function renderPlan() {
 
     document.getElementById('kpiForecastUnits').textContent = formatNumber(t.expected_units) + (t.expected_units === 1 ? ' item' : ' items');
     document.getElementById('kpiForecastRevenue').textContent = formatCurrency(t.expected_revenue);
-    document.getElementById('kpiToReorder').textContent = formatNumber(t.to_reorder);
-    document.getElementById('kpiToReorderNote').textContent = t.to_reorder
-        ? (t.out_of_stock ? `${t.out_of_stock} already out of stock` : `of ${t.products} products`)
-        : 'Nothing needs ordering';
     document.getElementById('kpiAccuracy').textContent = t.accuracy != null ? formatDecimal(t.accuracy, 0) + '%' : 'Not available';
     document.getElementById('kpiAccuracyNote').textContent = t.accuracy != null
         ? 'How close the forecast came in a test on the last two weeks'
         : 'Needs recent sales to test against';
+    // the two facts shown on the folded "About this forecast" bar
+    document.getElementById('aboutAccuracy').textContent = t.accuracy != null
+        ? `${formatDecimal(t.accuracy, 0)}% accurate in its last test` : 'Accuracy not tested yet';
+    document.getElementById('aboutHistory').textContent = plan.history_days
+        ? `Learns from ${formatNumber(plan.history_days)} days of sales` : 'Learns from the sales on record';
 
+    renderAttention();
     renderReorder();
     renderExcess();
     renderExpiry();
     renderAllProducts();
     renderDemandGroups();
     renderModel();
+}
+
+/* The four tabs at the top: what to order, what is expiring, what is
+   overstocked, and the forecast they come from. Each says what it holds in
+   words ("1 product, out of stock"); the dot carries the urgency. */
+function renderAttention() {
+    const t = plan.totals;
+    const today = ymd(new Date());
+    const products = n => `${formatNumber(n)} product${n === 1 ? '' : 's'}`;
+    const reorder = plan.products.filter(p => p.stock_status !== 'ok');
+    const dueToday = reorder.filter(p => p.order_by && p.order_by <= today).length;
+    const atRisk = plan.products.filter(p => p.expired_units > 0 || p.expiry_risk_units > 0);
+    const expired = atRisk.filter(p => p.expired_units > 0).length;
+    const expiring = atRisk.length - expired;
+    const excess = plan.products.filter(p => p.excess_units > 0).length;
+    setView('viewReorder',
+        !reorder.length ? 'Nothing to order'
+            : products(reorder.length) + (t.out_of_stock ? `, ${formatNumber(t.out_of_stock)} out of stock` : dueToday ? `, ${formatNumber(dueToday)} to order today` : ', running low'),
+        !reorder.length ? 'ok' : (t.out_of_stock || dueToday ? 'red' : 'amber'));
+    setView('viewExpiry',
+        !atRisk.length ? 'Nothing expired or at risk' : `${formatNumber(expired)} expired, ${formatNumber(expiring)} at risk`,
+        expired ? 'red' : expiring ? 'amber' : 'ok');
+    setView('viewExcess',
+        excess ? `${products(excess)}, ${formatCompactCurrency(t.excess_value)} tied up` : 'No product is overstocked',
+        excess ? 'grey' : 'ok');
+    setView('viewForecast', `${formatNumber(t.expected_units)} item${t.expected_units === 1 ? '' : 's'} in the next ${plan.forecast_days} days`, 'none');
+}
+
+function setView(id, note, tone) {
+    const tab = document.getElementById(id);
+    if (!tab) return;
+    tab.dataset.tone = tone;
+    tab.querySelector('.plan-view-note').textContent = note;
+}
+
+/* One view at a time. The choice is kept for the next visit, and ?view=
+   (reorder, expiry, excess, forecast) opens one directly. */
+const PLAN_VIEWS = ['reorder', 'expiry', 'excess', 'forecast'];
+function showPlanView(view) {
+    if (!PLAN_VIEWS.includes(view)) view = 'reorder';
+    document.querySelectorAll('.plan-view').forEach(b => {
+        const on = b.dataset.view === view;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    document.querySelectorAll('.plan-pane').forEach(p => { p.hidden = p.dataset.pane !== view; });
+    try { localStorage.setItem('planView', view); } catch (e) {}
 }
 
 function renderReorder() {
@@ -325,8 +386,7 @@ function renderModel() {
             + row('Both together (the ensemble)', cmp.ensemble, 'The average of the two models', cmp.ensemble === best)
             + row('Simple trend only', cmp.statistical_baseline, 'No machine learning, for comparison', false)
             + row('What this page uses', cmp.system_forecast, 'The ensemble, corrected for how far off it was the time before', true);
-        note.textContent = `Tested on ${cmp.products} product${cmp.products === 1 ? '' : 's'} that sold ${formatNumber(cmp.actual_units)} items in the test period. `
-            + 'Accuracy is how close the forecast total came to the items actually sold.' + correctionText(model.adjustment);
+        note.textContent = `Tested on ${cmp.products} product${cmp.products === 1 ? '' : 's'} that sold ${formatNumber(cmp.actual_units)} items in the test period.`;
     }
     const limits = document.getElementById('modelLimits');
     if (limits) {
@@ -347,14 +407,6 @@ function renderModel() {
     })));
 }
 
-/* The correction now applied to the forecast, in words, for the note under the table. */
-function correctionText(adj) {
-    if (!adj || !adj.groups || !adj.groups.length) return '';
-    const times = f => '×' + formatDecimal(f, 2);
-    if (adj.groups.every(g => Math.abs(g.factor - 1) < 0.005)) return ' No correction is applied to today\'s forecast: too little was sold in the test period to judge by.';
-    return ` Today's forecast is then corrected by half of the miss in this test, category by category: ${adj.groups.map(g => `${g.category} ${times(g.factor)}`).join(', ')}.`;
-}
-
 function renderAllProducts() {
     // The search box and the group buttons are usable before the forecast has
     // arrived. What was typed or picked is kept, and applied when it does.
@@ -371,6 +423,8 @@ function renderAllProducts() {
         .filter(p => planFilter === 'all' || p.demand === planFilter)
         .filter(p => !planSearch || p.name.toLowerCase().includes(planSearch) || (p.sku || '').toLowerCase().includes(planSearch))
         .sort((a, b) => b.expected_30d - a.expected_30d || b.sold_30d - a.sold_30d || a.name.localeCompare(b.name));
+    document.getElementById('planListSub').textContent = groupText(planFilter, all)
+        + (planSearch ? ` ${formatNumber(rows.length)} match “${planSearch}”.` : '');
 
     const tbody = document.getElementById('predictionsTableBody');
     if (!rows.length) {
@@ -389,6 +443,37 @@ function renderAllProducts() {
             <td>${badge(p.stock_status)}</td>
         </tr>`).join('');
     updatePagination('predictionsPagination', rows, predDisplayCount, 'showMorePredictions', 'showLessPredictions', PRED_PAGE_SIZE);
+}
+
+/* The line under "All products": what the chosen group is, with its figures. */
+function groupText(group, all) {
+    const items = n => `${formatNumber(Math.round(n))} item${Math.round(n) === 1 ? '' : 's'}`;
+    const products = n => `${formatNumber(n)} product${n === 1 ? '' : 's'}`;
+    const expected = list => list.reduce((a, p) => a + p.expected_30d, 0);
+    const shopTotal = expected(all);
+    const share = list => shopTotal > 0 ? ` (${Math.round(expected(list) / shopTotal * 100)}% of the shop's)` : '';
+    const list = group === 'all' ? all : all.filter(p => p.demand === group);
+    let text;
+    if (!list.length) return 'No products in this group right now.';
+    if (group === 'all') {
+        text = `${products(list.length)}, together expected to sell ${items(shopTotal)} in the next 30 days. Sorted by expected sales, highest first.`;
+    } else if (group === 'none') {
+        const units = list.reduce((a, p) => a + (Number(p.stock) || 0), 0);
+        const value = list.reduce((a, p) => a + (Number(p.stock) || 0) * (Number(p.unit_price) || 0), 0);
+        text = `Nothing sold in the last 30 days: ${products(list.length)} still holding ${items(units)} in stock, ${formatCurrency(value)} at selling price.`;
+    } else {
+        // one decimal: most products sell a few a month, and whole numbers
+        // made the groups look the same ("2 or more" next to "2 to 2")
+        const each = list.map(p => Math.round(p.expected_30d * 10) / 10);
+        const low = Math.min(...each), high = Math.max(...each);
+        const n = v => formatDecimal(v, 1);
+        const range = group === 'fast' ? `${n(low)} or more items each`
+            : group === 'slow' ? `${n(high)} items or fewer each`
+            : low === high ? `about ${n(low)} items each` : `${n(low)} to ${n(high)} items each`;
+        const which = { fast: 'The top quarter of your products by expected sales', steady: 'The middle of your products by expected sales', slow: 'The bottom quarter of your products by expected sales' }[group];
+        text = `${which}: ${products(list.length)} expected to sell ${range} in the next 30 days, ${items(expected(list))} together${share(list)}.`;
+    }
+    return text;
 }
 
 function showMorePredictions() { predDisplayCount += PRED_PAGE_SIZE; renderAllProducts(); }

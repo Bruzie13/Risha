@@ -24,11 +24,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=55">
+    <link rel="stylesheet" href="css/global.css?v=56">
     <link rel="stylesheet" href="css/reports.css?v=30">
-    <link rel="stylesheet" href="css/suppliers.css?v=23">
+    <link rel="stylesheet" href="css/suppliers.css?v=24">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=79">
+        <link rel="stylesheet" href="css/system.css?v=97">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -94,15 +94,19 @@
                             <span class="material-symbols-outlined">list</span>
                             <span class="inv-view-label">Suppliers</span>
                         </button>
-                        <button class="inv-view-btn" data-view="deliveries" role="tab" aria-selected="false" title="Orders on the way, offers, prices and payments">
+                        <button class="inv-view-btn" data-view="deliveries" role="tab" aria-selected="false" title="Offers, orders on the way and payments">
                             <span class="material-symbols-outlined">local_shipping</span>
                             <span class="inv-view-label">Orders</span>
                             <span class="view-btn-badge" id="deliveriesBadge" style="display:none;">0</span>
                         </button>
+                        <button class="inv-view-btn" data-view="prices" role="tab" aria-selected="false" title="Prices a supplier wants to change, to accept or decline">
+                            <span class="material-symbols-outlined">sell</span>
+                            <span class="inv-view-label">Price changes</span>
+                            <span class="view-btn-badge" id="pricesBadge" style="display:none;">0</span>
+                        </button>
                     </div>
                 </div>
                 <div class="toolbar-right">
-                    <button class="btn-secondary" data-needs="manage" onclick="openTrash('suppliers')" title="Deleted suppliers, products and accounts, to restore"><span class="material-symbols-outlined" style="font-size:16px;">delete</span> Trash <span class="trash-count" data-trash-count="suppliers">…</span></button>
                     <button class="btn-primary" data-needs="manage" onclick="openAddSupplierModal()"><span class="material-symbols-outlined" style="font-size:16px;">add</span> Add supplier</button>
                 </div>
             </div>
@@ -129,7 +133,7 @@
                 </div>
             </div>
 
-            <!-- Orders view — everything between the shop and its suppliers that still needs someone -->
+            <!-- Orders view — offers, orders on the way and deliveries to pay for -->
             <div id="deliveriesPanel" class="rp" data-jump-title="Orders" style="display:none;">
                 <div class="rp-card panel-card" id="offersCard" hidden>
                     <div class="rp-card-head">
@@ -139,21 +143,6 @@
                         </div>
                     </div>
                     <div class="sp-orders" id="offersList"></div>
-                </div>
-
-                <div class="rp-card panel-card" id="pricesCard" hidden>
-                    <div class="rp-card-head">
-                        <div>
-                            <h2>Price changes to decide</h2>
-                            <span class="rp-card-sub">Accepting a price updates the product's cost in inventory</span>
-                        </div>
-                    </div>
-                    <div class="rp-table-wrap">
-                        <table class="rp-table">
-                            <thead><tr><th>Product</th><th>Supplier</th><th class="num">Now</th><th class="num">Proposed</th><th></th></tr></thead>
-                            <tbody id="pricesBody"></tbody>
-                        </table>
-                    </div>
                 </div>
 
                 <div class="rp-card panel-card">
@@ -178,6 +167,24 @@
                         <table class="rp-table">
                             <thead><tr><th>Order</th><th>Supplier</th><th>Delivered</th><th>Payment due</th><th class="num">Amount</th><th></th></tr></thead>
                             <tbody id="unpaidBody"><tr><td colspan="6" class="rp-loading">Loading…</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Price changes view — a price a supplier proposed, waiting for the shop's yes or no -->
+            <div id="pricesPanel" class="rp" data-jump-title="Price changes" style="display:none;">
+                <div class="rp-card panel-card" id="pricesCard">
+                    <div class="rp-card-head">
+                        <div>
+                            <h2>Price changes to decide</h2>
+                            <span class="rp-card-sub"><strong>Accept</strong> to change the product's cost in inventory to the new price. <strong>Decline</strong> to keep the price as it is; you type why, and the supplier sees it on their portal.</span>
+                        </div>
+                    </div>
+                    <div class="rp-table-wrap">
+                        <table class="rp-table">
+                            <thead><tr><th>Product</th><th>Supplier</th><th class="num">Now</th><th class="num">Proposed</th><th></th></tr></thead>
+                            <tbody id="pricesBody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -320,7 +327,7 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label">Phone *</label>
-                            <input type="tel" class="form-input" id="phone" required maxlength="20" autocomplete="off" placeholder="e.g. 0917 123 4567">
+                            <input type="tel" class="form-input" id="phone" required maxlength="20" autocomplete="off">
                             <div class="field-error" id="phoneError" role="alert"></div>
                         </div>
                     </div>
@@ -400,16 +407,19 @@
     </script>
         <script src="js/utils.js"></script>
 <script src="js/format.js"></script>
-<script src="js/auth.js?v=68"></script>
+<script src="js/auth.js?v=77"></script>
 <script src="js/loader.js?v=6"></script>
 <script src="js/clear-input.js?v=2"></script>
 <script src="js/motion.js?v=22"></script>
-<script src="js/jump.js?v=32"></script>
-<script src="js/assistant.js?v=29"></script>
+<script src="js/jump.js?v=34"></script>
+<script src="js/assistant.js?v=30"></script>
     <script src="js/po-progress.js?v=3"></script>
-    <script src="js/suppliers.js?v=40"></script>
-    <script src="js/trash.js?v=1"></script>
-    <script src="js/supply-board.js?v=12"></script>
+    <link rel="stylesheet" href="vendor/intl-tel-input-18.2.1/css/intlTelInput.css">
+    <script src="vendor/intl-tel-input-18.2.1/js/intlTelInput.min.js"></script>
+    <script src="js/phone-field.js?v=1"></script>
+    <script src="js/suppliers.js?v=43"></script>
+    <script src="js/trash.js?v=2"></script>
+    <script src="js/supply-board.js?v=16"></script>
 </body>
 </html>
 

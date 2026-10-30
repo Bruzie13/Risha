@@ -4,7 +4,7 @@
 const { noteProblem, RECENT_NOTES_SQL } = require('../utils/notes');
 const pool = require('../config/database');
 const logAudit = require('../services/audit');
-const { dueDate } = require('../utils/supply');
+const { dueDate, declineReasonProblem } = require('../utils/supply');
 
 const DAY = col => `DATE_FORMAT(CONVERT_TZ(${col},'+00:00','+08:00'), '%Y-%m-%d')`;
 const clean = (v, max) => String(v == null ? '' : v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim().slice(0, max);
@@ -111,26 +111,30 @@ exports.postMessage = async (req, res) => {
 };
 
 // Accepting a proposed price is what changes the cost in inventory.
+// Declining needs a reason, which the supplier sees on their portal.
 exports.decidePrice = async (req, res) => {
+    const id = Number(req.params.id);
+    const approve = req.body?.approve === true;
+    const reason = approve ? null : declineReasonProblem(req.body?.reason);
+    if (reason) return res.status(400).json({ success: false, message: reason });
     const conn = await pool.getConnection();
     try {
-        const id = Number(req.params.id);
-        const approve = req.body?.approve === true;
         await conn.beginTransaction();
         const [rows] = Number.isInteger(id)
             ? await conn.execute("SELECT * FROM price_proposals WHERE id = ? AND status = 'pending' FOR UPDATE", [id])
             : [[]];
         if (!rows.length) { await conn.rollback(); return res.status(404).json({ success: false, message: 'That proposal is no longer waiting.' }); }
         const p = rows[0];
-        await conn.execute('UPDATE price_proposals SET status = ?, decided_by = ?, decided_at = NOW() WHERE id = ?',
-            [approve ? 'approved' : 'rejected', req.user.id, id]);
+        const declineReason = approve ? null : String(req.body.reason).trim();
+        await conn.execute('UPDATE price_proposals SET status = ?, decided_by = ?, decided_at = NOW(), decline_reason = ? WHERE id = ?',
+            [approve ? 'approved' : 'rejected', req.user.id, declineReason, id]);
         if (approve) {
             // only for a product that supplier still supplies
             await conn.execute('UPDATE products SET cost_price = ? WHERE id = ? AND supplier_id = ?', [p.proposed_price, p.product_id, p.supplier_id]);
         }
         await conn.commit();
         logAudit(req.user.id, 'update', 'price_proposals', id,
-            { product_id: p.product_id, price: p.current_price }, { approved: approve, price: p.proposed_price }, req.ip);
+            { product_id: p.product_id, price: p.current_price }, { approved: approve, price: p.proposed_price, ...(approve ? {} : { reason: declineReason }) }, req.ip);
         res.json({ success: true, message: approve ? 'Price updated in inventory.' : 'Proposal declined. The price is unchanged.' });
     } catch (e) {
         await conn.rollback();

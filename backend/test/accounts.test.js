@@ -30,3 +30,24 @@ test('other accounts are not affected by the rule', () => {
     assert.equal(adminRemovalProblem(1, { id: 7, role: 'admin', is_active: 0 }, 1, 'delete'), null, 'an administrator who is already deactivated is not the last active one');
     assert.equal(adminRemovalProblem(1, null, 1, 'delete'), null);
 });
+
+test('full name: letters, spaces and . \' - only, no numbers', () => {
+    const { fullNameProblem } = require('../utils/accounts');
+    assert.equal(fullNameProblem('Juan Carlos'), null);
+    assert.equal(fullNameProblem('María Peña-Cruz'), null, 'ñ, accents and a hyphen');
+    assert.equal(fullNameProblem("Ma. Lourdes D'Souza"), null);
+    assert.match(fullNameProblem('landsi1234123421412412341'), /no numbers/);
+    assert.match(fullNameProblem('Juan 2'), /no numbers/);
+    assert.match(fullNameProblem('Juan_Carlos'), /no numbers/, 'other symbols are refused too');
+    assert.match(fullNameProblem('...'), /no numbers/, 'needs a letter');
+    assert.match(fullNameProblem('J'), /too short/);
+    assert.match(fullNameProblem('   '), /Enter the full name/);
+    assert.match(fullNameProblem(undefined), /Enter the full name/);
+});
+
+test('full name: a name saved before the rule may be kept when editing', () => {
+    const { fullNameProblem } = require('../utils/accounts');
+    assert.equal(fullNameProblem('landsi1234', 'landsi1234'), null, 'unchanged');
+    assert.match(fullNameProblem('landsi12345', 'landsi1234'), /no numbers/, 'changed, so the rule applies');
+    assert.match(fullNameProblem('', 'landsi1234'), /Enter the full name/, 'cannot be emptied');
+});

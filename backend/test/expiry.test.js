@@ -41,3 +41,15 @@ test('asDay: text and Date both come out as the same calendar day', () => {
     assert.equal(asDay(new Date(2026, 9, 10)), '2026-10-10', 'a DATE column read at local midnight');
     assert.equal(asDay(null), '');
 });
+
+test('food, health and litter products must have an expiration date', () => {
+    const { missingExpiryProblem, needsExpiry } = require('../utils/expiry');
+    assert.match(missingExpiryProblem('Food', ''), /Food products need an expiration date/);
+    assert.match(missingExpiryProblem('Health & Wellness', null), /Health & Wellness products need/);
+    assert.match(missingExpiryProblem(' litter & waste ', undefined), /need an expiration date/, 'case and spaces do not matter');
+    assert.equal(missingExpiryProblem('Food', '2027-01-01'), null);
+    assert.equal(missingExpiryProblem('Toys', ''), null, 'toys never expire');
+    assert.equal(missingExpiryProblem('Accessories', null), null);
+    assert.equal(missingExpiryProblem(null, ''), null, 'no category: nothing to require');
+    assert.equal(needsExpiry('Cages & Habitats'), false);
+});

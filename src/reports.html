@@ -24,11 +24,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css?v=55">
-    <link rel="stylesheet" href="css/reports.css?v=36">
+    <link rel="stylesheet" href="css/global.css?v=56">
+    <link rel="stylesheet" href="css/reports.css?v=45">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=79">
+        <link rel="stylesheet" href="css/system.css?v=97">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -100,12 +100,29 @@
                 <div class="rp-toolbar">
                     <div class="rp-field">
                         <span class="rp-field-label">Period</span>
-                        <div class="rp-seg" id="rangeSeg">
-                            <button type="button" data-range="7">Last 7 days</button>
-                            <button type="button" data-range="30" class="active">Last 30 days</button>
-                            <button type="button" data-range="month">This month</button>
-                            <button type="button" data-range="all">All time</button>
-                            <button type="button" data-range="custom">Custom</button>
+                        <!-- one field, as on Sales history: it reads the period and opens quick picks and the two dates -->
+                        <div class="date-range" id="reportRange">
+                            <button type="button" class="date-range-btn" id="reportRangeBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="reportRangePop" title="Choose the period the report covers">
+                                <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
+                                <span id="reportRangeText">Last 30 days</span>
+                                <span class="material-symbols-outlined date-range-chev" aria-hidden="true">expand_more</span>
+                            </button>
+                            <div class="date-range-pop" id="reportRangePop" role="dialog" aria-label="Choose the period" hidden>
+                                <div class="date-range-quick" id="rangeSeg">
+                                    <button type="button" data-range="7">Last 7 days</button>
+                                    <button type="button" data-range="30" class="active">Last 30 days</button>
+                                    <button type="button" data-range="month">This month</button>
+                                    <button type="button" data-range="all">All time</button>
+                                </div>
+                                <div class="date-range-custom">
+                                    <label><span>From</span><input type="date" id="startDate"></label>
+                                    <label><span>To</span><input type="date" id="endDate"></label>
+                                </div>
+                                <div class="field-error" id="reportRangeError" role="alert"></div>
+                                <div class="date-range-actions">
+                                    <button type="button" class="btn-primary" onclick="applyDateRange()">Apply</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="rp-field">
@@ -118,33 +135,37 @@
                     </div>
                     <button class="btn-secondary rp-export" onclick="exportExcel()"><span class="material-symbols-outlined">download</span> Export Excel</button>
                 </div>
-                <div class="rp-custom" id="customRange" hidden>
-                    <label>From <input type="date" id="startDate"></label>
-                    <label>To <input type="date" id="endDate"></label>
-                    <button class="btn-primary" onclick="applyDateRange()">Apply</button>
-                </div>
 
-                <p class="rp-caption" id="rangeCaption">&nbsp;</p>
                 <div class="rp-notice" id="salesNotice" hidden></div>
 
-                <div class="rp-figures">
-                    <div class="rp-figure">
+                <!-- Revenue leads; each figure says how it compares with the
+                     same number of days just before -->
+                <h3 class="rp-group">Summary <small id="rangeCaption">&nbsp;</small></h3>
+                <div class="rp-sum">
+                    <div class="rp-sum-card rp-sum-lead">
                         <span class="rp-figure-label">Revenue</span>
                         <span class="rp-figure-value" id="summaryRevenue">—</span>
+                        <span class="rp-delta" id="deltaRevenue"></span>
+                        <span class="rp-figure-note" id="summaryGaps"></span>
                     </div>
-                    <div class="rp-figure">
+                    <div class="rp-sum-card">
                         <span class="rp-figure-label">Sales made</span>
                         <span class="rp-figure-value" id="summaryTransactions">—</span>
+                        <span class="rp-delta" id="deltaTransactions"></span>
                     </div>
-                    <div class="rp-figure">
+                    <div class="rp-sum-card">
                         <span class="rp-figure-label">Average per sale</span>
                         <span class="rp-figure-value" id="summaryAvg">—</span>
+                        <span class="rp-delta" id="deltaAvg"></span>
                     </div>
-                    <div class="rp-figure">
+                    <div class="rp-sum-card">
                         <span class="rp-figure-label">Items sold</span>
                         <span class="rp-figure-value" id="summaryItems">—</span>
+                        <span class="rp-delta" id="deltaItems"></span>
                     </div>
                 </div>
+
+                <h3 class="rp-group">Over time <small id="overTimeSub">revenue per day; every day of the period is shown</small></h3>
 
                 <div class="rp-card panel-card" data-jump-title="Revenue chart">
                     <div class="rp-card-head">
@@ -154,6 +175,7 @@
                     <p class="rp-empty" id="salesChartEmpty" hidden>No sales in this period.</p>
                 </div>
 
+                <h3 class="rp-group">What sold <small>in this period</small></h3>
                 <div class="rp-grid-2">
                     <div class="rp-card panel-card" data-jump-title="Best-selling products">
                         <div class="rp-card-head">
@@ -174,6 +196,7 @@
                     </div>
                 </div>
 
+                <h3 class="rp-group">Breakdown <small>the same figures, row by row</small></h3>
                 <div class="rp-card panel-card" data-jump-title="Sales breakdown">
                     <div class="rp-card-head">
                         <h2 id="salesTableTitle">Breakdown by day</h2>
@@ -199,34 +222,25 @@
 
             <!-- ============ STOCK PLANNING ============ -->
             <section class="tab-content" id="tab-analytics" role="tabpanel" style="display:none;">
+                <!-- Four views, one job each: what to order, what is expiring,
+                     what is overstocked, and the forecast they all come from.
+                     Each tab says how many are in it. -->
                 <div class="rp-toolbar">
-                    <p class="rp-caption rp-caption-inline" id="planCaption">Looks at recent sales to estimate what each product will sell over the next 30 days.</p>
+                    <p class="rp-caption rp-caption-inline" id="planLead">Looks at recent sales to estimate what each product will sell over the next 30 days.</p>
                     <button class="btn-secondary rp-export" onclick="refreshAnalytics()"><span class="material-symbols-outlined">refresh</span> Refresh</button>
                 </div>
                 <div class="rp-notice" id="planNotice" hidden></div>
 
-                <div class="rp-figures">
-                    <div class="rp-figure">
-                        <span class="rp-figure-label">Expected to sell, next 30 days</span>
-                        <span class="rp-figure-value" id="kpiForecastUnits">—</span>
-                    </div>
-                    <div class="rp-figure">
-                        <span class="rp-figure-label">Expected revenue, next 30 days</span>
-                        <span class="rp-figure-value" id="kpiForecastRevenue">—</span>
-                    </div>
-                    <div class="rp-figure">
-                        <span class="rp-figure-label">Products to reorder</span>
-                        <span class="rp-figure-value" id="kpiToReorder">—</span>
-                        <span class="rp-figure-note" id="kpiToReorderNote"></span>
-                    </div>
-                    <div class="rp-figure">
-                        <span class="rp-figure-label">Forecast accuracy</span>
-                        <span class="rp-figure-value" id="kpiAccuracy">—</span>
-                        <span class="rp-figure-note" id="kpiAccuracyNote"></span>
-                    </div>
+                <div class="plan-views" role="tablist" aria-label="Stock planning">
+                    <button type="button" class="plan-view" role="tab" data-view="reorder" id="viewReorder"><span class="plan-view-label">To reorder</span><span class="plan-view-note">…</span></button>
+                    <button type="button" class="plan-view" role="tab" data-view="expiry" id="viewExpiry"><span class="plan-view-label">Expiry</span><span class="plan-view-note">…</span></button>
+                    <button type="button" class="plan-view" role="tab" data-view="excess" id="viewExcess"><span class="plan-view-label">Too much stock</span><span class="plan-view-note">…</span></button>
+                    <button type="button" class="plan-view" role="tab" data-view="forecast" id="viewForecast"><span class="plan-view-label">Forecast</span><span class="plan-view-note">…</span></button>
                 </div>
 
-                <div class="rp-card panel-card" data-jump-title="What to reorder">
+                <div class="plan-pane" data-pane="reorder" role="tabpanel">
+                <p class="plan-pane-lead"><strong>What to order from your suppliers now.</strong> A product shows here when it is out of stock, at or below its reorder level, or expected to run out within three weeks. The suggested amount covers the next 30 days of the forecast.</p>
+                <div class="rp-card panel-card" id="planReorder" data-jump-title="What to reorder">
                     <div class="rp-card-head">
                         <div>
                             <h2>What to reorder</h2>
@@ -257,7 +271,39 @@
                     <div id="reorderPagination" class="pagination-bar"></div>
                 </div>
 
-                <div class="rp-card panel-card" data-jump-title="Too much stock">
+                </div>
+
+                <div class="plan-pane" data-pane="expiry" role="tabpanel" hidden>
+                <p class="plan-pane-lead"><strong>Stock to take off the shelf, or to sell first.</strong> Expired stock still counted in inventory, and stock the forecast says will still be on the shelf on its expiry date.</p>
+                <div class="rp-card panel-card" id="planExpiry" data-jump-title="Expired or about to expire">
+                    <div class="rp-card-head">
+                        <div>
+                            <h2>Expired or about to expire</h2>
+                            <span class="rp-card-sub" id="expirySub">Stock expected to still be on the shelf on its expiry date, and stock already expired</span>
+                        </div>
+                    </div>
+                    <div class="rp-table-wrap">
+                        <table class="rp-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Expires</th>
+                                    <th class="num">In stock</th>
+                                    <th class="num">Likely left over</th>
+                                    <th class="num">Value at cost</th>
+                                </tr>
+                            </thead>
+                            <tbody id="expiryBody"><tr><td colspan="5" class="rp-loading">Loading…</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div id="expiryPagination" class="pagination-bar"></div>
+                </div>
+
+                </div>
+
+                <div class="plan-pane" data-pane="excess" role="tabpanel" hidden>
+                <p class="plan-pane-lead"><strong>Money tied up on the shelf.</strong> More than three months of stock at the rate the forecast expects, or stock that has not sold in 30 days. Hold off reordering these.</p>
+                <div class="rp-card panel-card" id="planExcess" data-jump-title="Too much stock">
                     <div class="rp-card-head">
                         <div>
                             <h2>Too much stock</h2>
@@ -281,35 +327,44 @@
                     <div id="excessPagination" class="pagination-bar"></div>
                 </div>
 
-                <div class="rp-card panel-card" data-jump-title="Expiry risk">
-                    <div class="rp-card-head">
-                        <div>
-                            <h2>Likely to expire before it sells</h2>
-                            <span class="rp-card-sub" id="expirySub">Stock expected to still be on the shelf on its expiry date, and stock already expired</span>
-                        </div>
-                    </div>
-                    <div class="rp-table-wrap">
-                        <table class="rp-table">
-                            <thead>
-                                <tr>
-                                    <th>Product</th>
-                                    <th>Expires</th>
-                                    <th class="num">In stock</th>
-                                    <th class="num">Likely left over</th>
-                                    <th class="num">Value at cost</th>
-                                </tr>
-                            </thead>
-                            <tbody id="expiryBody"><tr><td colspan="5" class="rp-loading">Loading…</td></tr></tbody>
-                        </table>
-                    </div>
-                    <div id="expiryPagination" class="pagination-bar"></div>
                 </div>
 
+                <div class="plan-pane" data-pane="forecast" role="tabpanel" hidden>
+                <p class="plan-pane-lead"><strong>What the shop expects to sell in the next 30 days.</strong> The reorder, expiry and too-much-stock lists are all worked out from this forecast.</p>
+                <h3 class="rp-group">Next 30 days <small>what the shop expects to sell</small></h3>
+                <div class="rp-figures rp-figures-2">
+                    <div class="rp-figure">
+                        <span class="rp-figure-label">Expected to sell, next 30 days</span>
+                        <span class="rp-figure-value" id="kpiForecastUnits">—</span>
+                    </div>
+                    <div class="rp-figure">
+                        <span class="rp-figure-label">Expected revenue, next 30 days</span>
+                        <span class="rp-figure-value" id="kpiForecastRevenue">—</span>
+                    </div>
+                </div>
+                <div class="rp-grid-2">
+                    <div class="rp-card panel-card" data-jump-title="Expected sales by category">
+                        <div class="rp-card-head">
+                            <h2>Expected sales by category</h2>
+                            <span class="rp-card-sub">Items, next 30 days</span>
+                        </div>
+                        <div class="rp-bars" id="categoryDemand"></div>
+                    </div>
+                    <div class="rp-card panel-card" data-jump-title="Expected sales by brand">
+                        <div class="rp-card-head">
+                            <h2>Expected sales by brand</h2>
+                            <span class="rp-card-sub">Items, next 30 days</span>
+                        </div>
+                        <div class="rp-bars" id="brandDemand"></div>
+                    </div>
+                </div>
+
+                <h3 class="rp-group">Every product <small>select one to see its sales and forecast</small></h3>
                 <div class="rp-card panel-card" data-jump-title="All products">
                     <div class="rp-card-head">
                         <div>
                             <h2>All products</h2>
-                            <span class="rp-card-sub">Select a product to see its sales history and forecast</span>
+                            <span class="rp-card-sub" id="planListSub">Select a product to see its sales history and forecast</span>
                         </div>
                         <input maxlength="100" type="search" class="rp-search" id="planSearch" placeholder="Search products" aria-label="Search products">
                     </div>
@@ -354,6 +409,7 @@
                     <p class="rp-footnote">Solid line: units actually sold each day. Dashed line: the forecast. The shaded band is the range the forecast is likely to fall within.</p>
                 </div>
 
+                <h3 class="rp-group">Sales patterns</h3>
                 <div class="rp-grid-2">
                     <div class="rp-card panel-card" data-jump-title="Busiest days">
                         <div class="rp-card-head">
@@ -372,24 +428,18 @@
                     </div>
                 </div>
 
-                <div class="rp-grid-2">
-                    <div class="rp-card panel-card" data-jump-title="Expected sales by category">
-                        <div class="rp-card-head">
-                            <h2>Expected sales by category</h2>
-                            <span class="rp-card-sub">Items, next 30 days</span>
-                        </div>
-                        <div class="rp-bars" id="categoryDemand"></div>
+                <details class="rp-how rp-about">
+                    <summary class="rp-about-sum">
+                        <span class="rp-about-icon material-symbols-outlined" aria-hidden="true">insights</span>
+                        <span class="rp-about-title">About this forecast<small>Where the numbers come from, and how far to trust them</small></span>
+                        <span class="rp-about-facts"><span class="rp-about-fact" id="aboutAccuracy">…</span><span class="rp-about-fact" id="aboutHistory">…</span></span>
+                        <span class="rp-about-chev material-symbols-outlined" aria-hidden="true">expand_more</span>
+                    </summary>
+                    <div class="rp-about-tiles">
+                        <div class="rp-about-tile"><span class="rp-about-tile-label">Sales used</span><p id="planCaption"></p></div>
+                        <div class="rp-about-tile"><span class="rp-about-tile-label">Forecast accuracy</span><span class="rp-about-tile-value" id="kpiAccuracy">—</span><p id="kpiAccuracyNote"></p></div>
                     </div>
-                    <div class="rp-card panel-card" data-jump-title="Expected sales by brand">
-                        <div class="rp-card-head">
-                            <h2>Expected sales by brand</h2>
-                            <span class="rp-card-sub">Items, next 30 days</span>
-                        </div>
-                        <div class="rp-bars" id="brandDemand"></div>
-                    </div>
-                </div>
-
-                <div class="rp-card panel-card" data-jump-title="How good is the forecast">
+                    <div class="rp-card panel-card" data-jump-title="How good is the forecast">
                     <div class="rp-card-head">
                         <div>
                             <h2>How good is the forecast</h2>
@@ -405,8 +455,6 @@
                                 </table>
                             </div>
                             <p class="rp-footnote" id="modelCompareNote"></p>
-                            <!-- what the forecast has no way of knowing, said on the page and not left for the reader to guess -->
-                            <p class="rp-footnote" id="modelLimits"></p>
                         </div>
                         <div>
                             <div class="rp-subhead">What the model looks at most</div>
@@ -414,25 +462,19 @@
                         </div>
                     </div>
                 </div>
-
-                <details class="rp-how">
-                    <summary>How these numbers are worked out</summary>
-                    <div class="rp-how-body">
-                        <p><strong>Expected sales.</strong> For each product the system reads its daily sales and estimates the next 30 days. The estimate comes from two machine-learning models working together: Random Forest, which averages many decision trees so one unusual day does not swing the result, and Gradient Boosting, which learns from the first model's mistakes. They learn from all products together, from the last four months of sales with recent days counting for more, and look at the day of the week, weekends, public holidays, the time of the month, the month of the year and each product's own recent sales. Their answer is then corrected by half of how far it was off in its latest test, category by category. Today is left out until it is over, so a half-finished day is never mistaken for a slow one.</p>
-                        <p><strong>New products.</strong> A product with under six weeks of sales is too new for the two models and is forecast from a simple trend of its recent weeks. One with under two weeks gets a cautious first estimate: what it has sold so far, spread over two weeks.</p>
-                        <p><strong>Unusual days.</strong> Before anything is forecast, a freak day is capped at four times what the product sells on a typical selling day, so one mistyped quantity or one bulk purchase cannot swing the forecast. Days with no usable record (sales entered without their items, or the shop closed for three days or more) are left out and not counted as days when nothing sold.</p>
-                        <p><strong>Stock lasts.</strong> Current stock divided by expected daily sales.</p>
-                        <p><strong>Reorder now.</strong> The product is at or below its reorder level, or would run out before a new delivery arrives (<span id="howLead">7</span> days). <strong>Reorder soon</strong> means it would run out within three weeks.</p>
-                        <p><strong>Order by.</strong> The last day an order can be placed and still arrive before the stock runs out: the run-out date less the delivery time.</p>
-                        <p><strong>Suggested order.</strong> Enough to cover the next 30 days plus the delivery wait, and never less than what brings stock back to twice the reorder level, minus anything a supplier is already bringing.</p>
-                        <p><strong>Reorder point and safety stock.</strong> The reorder point is the stock level at which to order: expected sales during the delivery wait, plus safety stock. Safety stock is a buffer for days when sales run above average; the more a product's sales jump around, the larger it is.</p>
-                        <p><strong>Too much stock.</strong> Whatever is left after three months of expected sales, valued at what the shop paid for it.</p>
-                        <p><strong>Likely to expire.</strong> Current stock less what is expected to sell before the expiry date.</p>
-                        <p><strong>Selling fast / slowly.</strong> The top and bottom quarter of your products by expected sales. <strong>Not selling</strong> means nothing sold in the last 30 days.</p>
-                        <p><strong>What the forecast cannot know.</strong> It learns only from this shop's own past sales. Until a full year is on record it has not seen every season, so it cannot allow for one, such as the weeks before Christmas. Holidays whose dates move (Holy Week, Eid), promotions, price changes, a new competitor and a supplier running short are not things it is told: it learns of them only once they show in the sales. A product that sells a few times a month is forecast as an average rate, not as the days it will sell on. Treat every figure as an estimate to check against what you know, most of all before a large order.</p>
-                        <p><strong>Forecast accuracy.</strong> The system hides the most recent two weeks, forecasts them from older sales only, and compares the total with what actually sold. 100% means the forecast matched exactly. The forecast it tests carries the correction it would have had at the time, so the figure is for the same forecast this page uses.</p>
+                    <div class="rp-subhead rp-about-head">How these numbers are worked out</div>
+                    <div class="rp-about-terms">
+                        <p><strong>Expected sales</strong>Two machine-learning models, Random Forest and Gradient Boosting, read each product's daily sales and estimate the next 30 days.</p>
+                        <p><strong>New products</strong>Under six weeks of sales: a simple trend of its recent weeks is used instead.</p>
+                        <p><strong>Order by</strong>The last day to order so the delivery arrives before the stock runs out.</p>
+                        <p><strong>Suggested order</strong>Enough for the next 30 days plus the delivery wait, less what is already on order.</p>
+                        <p><strong>Too much stock</strong>More than three months of expected sales on the shelf.</p>
+                        <p><strong>Likely to expire</strong>Stock expected to still be on the shelf on its expiry date.</p>
+                        <p><strong>Selling fast / slowly</strong>The top and bottom quarter of products by expected sales.</p>
+                        <p><strong>Accuracy</strong>The last two weeks are hidden, forecast from older sales, and compared with what sold.</p>
                     </div>
                 </details>
+                </div>
             </section>
 
             <!-- ============ VOID REQUESTS ============ -->
@@ -543,16 +585,16 @@
     </script>
         <script src="js/format.js"></script>
 <script src="js/utils.js"></script>
-<script src="js/auth.js?v=68"></script>
+<script src="js/auth.js?v=77"></script>
 <script src="js/loader.js?v=6"></script>
 <script src="js/clear-input.js?v=2"></script>
 <script src="js/motion.js?v=22"></script>
-<script src="js/jump.js?v=32"></script>
-<script src="js/assistant.js?v=29"></script>
+<script src="js/jump.js?v=34"></script>
+<script src="js/assistant.js?v=30"></script>
     <script src="js/xlsx.js?v=3"></script>
-    <script src="js/reports.js?v=40"></script>
-    <script src="js/analytics.js?v=41"></script>
-    <script src="js/audit.js?v=25"></script>
+    <script src="js/reports.js?v=44"></script>
+    <script src="js/analytics.js?v=47"></script>
+    <script src="js/audit.js?v=26"></script>
 </body>
 </html>
 

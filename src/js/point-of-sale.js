@@ -166,11 +166,6 @@ async function openEodModal() {
     const modal = document.getElementById('eodModal');
     if (!modal) return;
     modal.classList.add('active');
-    const dateInput = document.getElementById('eodDate');
-    // local calendar day (toISOString() is UTC and reads as yesterday before 8am here);
-    // a day that has not come yet cannot be counted, so the picker stops at today
-    dateInput.max = localTodayYmd();
-    if (!dateInput.value) dateInput.value = localTodayYmd();
     await loadEod();
     await loadEodHistory();
 }
@@ -182,15 +177,12 @@ function closeEodModal() {
 let eodExpected = 0;
 
 async function loadEod() {
-    const dateInput = document.getElementById('eodDate');
-    // a date typed past today is put back to today, with the reason
-    if (dateInput.value > localTodayYmd()) {
-        dateInput.value = localTodayYmd();
-        showToast('You cannot count a day that has not happened yet. Choose today or an earlier date.', 'error');
-    }
-    const date = dateInput.value;
+    // the count is always for today (the server decides the day, in Philippine
+    // time); the date is shown, not picked
+    document.getElementById('eodDate').innerHTML = '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:16px;color:var(--text-muted);">calendar_today</span>'
+        + escHtml(new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })) + ' <span style="font-weight:500;color:var(--text-muted);">· today</span>';
     try {
-        const res = await fetch(`${API_BASE}/sales/eod?date=${date}`, { headers: getAuthHeaders() });
+        const res = await fetch(`${API_BASE}/sales/eod`, { headers: getAuthHeaders() });
         const data = await res.json();
         if (!data.success) return;
         const d = data.data;
@@ -233,7 +225,6 @@ function updateEodDiff() {
 }
 
 async function saveEod() {
-    const date = document.getElementById('eodDate').value;
     const box = document.getElementById('eodCounted');
     const counted = box.value.trim();
     const problem = countedCashProblem(counted);
@@ -242,7 +233,7 @@ async function saveEod() {
     try {
         const res = await fetch(`${API_BASE}/sales/eod`, {
             method: 'POST', headers: getAuthHeaders(),
-            body: JSON.stringify({ date, counted_cash: counted, notes: document.getElementById('eodNotes').value })
+            body: JSON.stringify({ counted_cash: counted, notes: document.getElementById('eodNotes').value })
         });
         const data = await res.json();
         if (data.success) {
@@ -292,6 +283,8 @@ async function loadEodHistory() {
             const label = diff === 0 ? 'Balanced' : diff > 0 ? 'Over ' + formatCurrency(diff) : 'Short ' + formatCurrency(Math.abs(diff));
             // business_date arrives as a UTC datetime; read the calendar day in local time
             const d = new Date(r.business_date);
+            // only today's count can be done again (a later date is a mistake and may be removed)
+            const canReopen = d >= new Date(new Date().toDateString());
             const opening = parseFloat(r.opening_cash) || 0;
             return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border-subtle);font-size:12.5px;">
                 <span style="min-width:0;">
@@ -300,7 +293,7 @@ async function loadEodHistory() {
                 </span>
                 <span style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
                     <span style="font-weight:600;color:${color};">${label}</span>
-                    ${canManage() ? `<button class="btn-view" onclick="reopenCount(${Number(r.id)})" title="Remove this count so it can be recorded again">Reopen</button>` : ''}
+                    ${canManage() && canReopen ? `<button class="btn-view" onclick="reopenCount(${Number(r.id)})" title="Remove this count so it can be recorded again">Reopen</button>` : ''}
                 </span>
             </div>${(r.cash_moves || []).length ? `<div style="background:var(--bg-raised);border-bottom:1px solid var(--border-subtle);">${r.cash_moves.map(m => eodMoveRow(m, false)).join('')}</div>` : ''}`;
         }).join('');
@@ -417,13 +410,18 @@ async function deleteSale(id) {
             console.error('Error deleting sale:', error);
             showToast(couldNot('delete sale', error), 'error');
         }
-    }, 'Yes, Delete', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
+    }, 'Delete sale', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
 }
 
 async function printReceipt(saleId) {
     // open synchronously (popup blockers), then fill once the items arrive —
     // the list endpoint has no line items, so fetch the full sale
     const receiptWindow = window.open('', 'Receipt', 'width=400,height=600');
+    // a browser that blocks pop-ups gives no window: say how to let it through
+    if (!receiptWindow) {
+        showErrorDialog('The receipt could not open', 'This browser blocked the receipt window. Allow pop-ups for this site (the icon at the right of the address bar), then press Print receipt again.');
+        return;
+    }
     let sale = null;
     try {
         const res = await fetch(`${API_BASE}/sales/${saleId}`, { headers: getAuthHeaders() });
@@ -601,12 +599,77 @@ function filterSalesByDate() {
     const from = document.getElementById('dateFrom')?.value;
     const to = document.getElementById('dateTo')?.value;
     const problem = salesDateProblem(from, to);
-    if (problem) { showToast(problem, 'error'); return; }
+    const err = document.getElementById('salesRangeError');
+    if (problem) {
+        if (err) err.textContent = problem;
+        else showToast(problem, 'error');
+        return;
+    }
+    if (err) err.textContent = '';
+    showSalesRange();
+    closeSalesRange();
     loadSales();
 }
 
 function clearDateFilter() {
     document.getElementById('dateFrom').value = '';
     document.getElementById('dateTo').value = '';
+    const err = document.getElementById('salesRangeError');
+    if (err) err.textContent = '';
+    showSalesRange();
+    closeSalesRange();
     loadSales();
 }
+
+/* ---------- The Dates field ----------
+   One field instead of From and To: it shows the range chosen ("Oct 1 –
+   Oct 30, 2026") and opens a panel with quick picks and the two dates. */
+function showSalesRange() {
+    const from = document.getElementById('dateFrom')?.value;
+    const to = document.getElementById('dateTo')?.value;
+    const el = document.getElementById('salesRangeText');
+    if (!el) return;
+    const sameYear = from && to && from.slice(0, 4) === to.slice(0, 4);
+    const short = ymd => new Date(ymd + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    el.textContent = !from && !to ? 'All dates'
+        : from && to && from === to ? prettyDay(from)
+        : from && to ? `${sameYear ? short(from) : prettyDay(from)} – ${prettyDay(to)}`
+        : from ? `From ${prettyDay(from)}` : `Up to ${prettyDay(to)}`;
+    document.getElementById('salesRange')?.classList.toggle('is-set', !!(from || to));
+}
+
+function toggleSalesRange() {
+    const pop = document.getElementById('salesRangePop');
+    if (!pop) return;
+    if (pop.hidden) {
+        pop.hidden = false;
+        document.getElementById('salesRangeBtn').setAttribute('aria-expanded', 'true');
+        setTimeout(() => document.addEventListener('click', outsideSalesRange), 0);
+        document.addEventListener('keydown', escSalesRange);
+    } else closeSalesRange();
+}
+function closeSalesRange() {
+    const pop = document.getElementById('salesRangePop');
+    if (!pop || pop.hidden) return;
+    pop.hidden = true;
+    document.getElementById('salesRangeBtn').setAttribute('aria-expanded', 'false');
+    document.removeEventListener('click', outsideSalesRange);
+    document.removeEventListener('keydown', escSalesRange);
+}
+function outsideSalesRange(e) { if (!e.target.closest('#salesRange')) closeSalesRange(); }
+function escSalesRange(e) { if (e.key === 'Escape') { closeSalesRange(); document.getElementById('salesRangeBtn')?.focus(); } }
+
+// a quick pick fills both dates and shows those sales at once
+document.addEventListener('click', e => {
+    const b = e.target.closest('#salesRangePop .date-range-quick button');
+    if (!b) return;
+    const today = localTodayYmd();
+    const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return asYmd(d); };
+    const clamp = ymd => firstSaleDay && ymd < firstSaleDay ? firstSaleDay : ymd;
+    const r = b.dataset.range;
+    if (r === 'all') { clearDateFilter(); return; }
+    const from = r === 'today' ? today : r === 'month' ? today.slice(0, 8) + '01' : daysAgo(Number(r) - 1);
+    document.getElementById('dateFrom').value = clamp(from);
+    document.getElementById('dateTo').value = today;
+    filterSalesByDate();
+});
