@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function () {
     setupNotifToggle();
     setupEmailSettings();
     setupAppearance();
+    setupCompany();
 
     const nameEl = document.getElementById('userName');
     const user = getUser();
@@ -68,8 +69,7 @@ function applyThemeMode(mode, persist) {
     reflectSeg('themeModeSeg', 'mode', mode);
     var toggle = document.getElementById('settingsDarkModeToggle');
     if (toggle) toggle.checked = dark;
-    var btn = document.getElementById('themeToggleBtn');
-    if (btn) btn.querySelector('.material-symbols-outlined').textContent = dark ? 'light_mode' : 'dark_mode';
+    // (the sidebar button under the profile is the Trash now, not a theme switch)
 }
 
 /* --- UI font family --- */
@@ -643,4 +643,50 @@ async function saveAvatar(dataUrl) {
     } catch (e) {
         showToast(couldNot('save photo', e), 'error');
     }
+}
+
+/* ===== A supplier's company details (Profile tab) =====
+   What the portal's My details tab used to show (UAT, 31 Oct): the fixed
+   details the shop keeps, and the contact details the supplier may change. */
+async function setupCompany() {
+    var user = getUser() || {};
+    if (user.role !== 'supplier') return;
+    var card = document.getElementById('companyCard');
+    if (!card) return;
+    try {
+        var res = await fetch(API_BASE + '/supplier-portal/me', { headers: getAuthHeaders() });
+        var data = await res.json();
+        if (!data.success) return;
+        var me = data.data || {};
+        card.hidden = false;
+        document.getElementById('companyFixed').innerHTML = [['Company', me.name], ['Email', me.email], ['Payment terms', me.payment_terms]].map(function (r) {
+            return '<div class="rp-detail-item"><span class="rp-detail-label">' + escHtml(r[0]) + '</span><span class="rp-detail-value">' + (r[1] ? escHtml(r[1]) : '—') + '</span></div>';
+        }).join('');
+        document.getElementById('coContact').value = me.contact_person || '';
+        document.getElementById('coAddress').value = me.address || '';
+        document.getElementById('coCity').value = me.city || '';
+        var phone = document.getElementById('coPhone');
+        if (typeof phoneField === 'function') { phoneField(phone); setPhoneValue(phone, me.phone || ''); } else phone.value = me.phone || '';
+    } catch (e) { /* the card stays hidden */ }
+}
+
+async function saveCompany() {
+    var phone = document.getElementById('coPhone');
+    var problem = typeof phoneProblem === 'function' ? phoneProblem(phone, true) : null;
+    showFieldProblem(phone, problem);
+    if (problem) { phone.focus(); return; }
+    try {
+        var res = await fetch(API_BASE + '/supplier-portal/me', {
+            method: 'PUT', headers: getAuthHeaders(),
+            body: JSON.stringify({
+                contact_person: document.getElementById('coContact').value,
+                phone: typeof phoneValue === 'function' ? phoneValue(phone) : phone.value,
+                address: document.getElementById('coAddress').value,
+                city: document.getElementById('coCity').value
+            })
+        });
+        var data = await res.json();
+        if (!data.success) { showToast(data.message || 'Not saved', 'error'); return; }
+        showToast(data.message || 'Saved', 'success');
+    } catch (e) { showToast(couldNot('save your details', e), 'error'); }
 }

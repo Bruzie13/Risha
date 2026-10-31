@@ -158,6 +158,7 @@ router.get('/orders', async (req, res) => {
                     po.promise_note, po.delivery_ref, po.proposed_by_supplier,
                     ${DAY('po.received_at')} AS received_day,
                     po.paid_at IS NOT NULL AS paid,
+                    ${DAY('po.paid_at')} AS paid_day,
                     -- payment is only tracked for orders received since it was switched on
                     (po.status = 'received' AND ${DAY('po.received_at')} >= ${PAYMENTS_SINCE}) AS payment_tracked,
                     (SELECT COUNT(*) FROM po_messages m WHERE m.po_id = po.id) AS message_count
@@ -183,6 +184,15 @@ router.get('/orders', async (req, res) => {
         });
         res.json({ success: true, data: orders });
     } catch (e) { fail(res, 'orders', e); }
+});
+
+// The receipt for a payment the shop made to this supplier (UAT, 31 Oct).
+router.get('/orders/:id/receipt', async (req, res) => {
+    try {
+        const r = await require('../controllers/supplyController')._paymentReceipt(Number(req.params.id), req.supplier.id);
+        if (!r) return notFound(res);
+        res.json({ success: true, data: r });
+    } catch (e) { fail(res, 'receipt', e); }
 });
 
 // Accept an order: say when it will arrive and how much of each line is coming.

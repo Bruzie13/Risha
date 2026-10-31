@@ -25,6 +25,7 @@ router.post('/eod', authenticateToken, authorizeRole('admin', 'manager', 'cashie
 router.get('/:id', authenticateToken, saleController.getSaleById);
 router.post('/:id/void', authenticateToken, authorizeRole('admin', 'manager'), saleController.voidSale);
 router.post('/:id/void-request', authenticateToken, authorizeRole('cashier'), tillController.requestVoid);
+router.post('/:id/void-request/cancel', authenticateToken, authorizeRole('cashier'), tillController.cancelVoidRequest);
 router.post('/:id/void-request/dismiss', authenticateToken, authorizeRole('admin', 'manager'), tillController.dismissVoidRequest);
 // Selling is the cashier's job. Admins and managers manage inventory instead.
 router.post('/', authenticateToken, authorizeRole(...SELLING_ROLES), saleController.createSale);

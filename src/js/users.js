@@ -499,7 +499,7 @@ async function deleteUser(id) {
             });
             const data = await response.json();
             if (data.success) {
-                showSuccessDialog('Account deactivated', 'The account can no longer sign in. It is in Settings → Trash, where it can be restored.', { tone: 'danger', icon: 'person_off' });
+                showSuccessDialog('Account deactivated', 'The account can no longer sign in. It is in Settings → Trash, where it can be restored.', { tone: 'danger', icon: 'person_off', link: { label: 'Go to Trash', href: 'settings.html?tab=trash&kind=accounts' } });
                 if (typeof updateTrashCount === 'function') updateTrashCount();
                 await loadUsers();
             } else {

@@ -522,7 +522,8 @@ function expiryDateProblem(value) {
     return `The expiration date must be at least ${MIN_SHELF_DAYS} days from today: ${shown} or later.`;
 }
 
-/* opts.min sets the earliest value the box offers. opts.validate(value) may
+/* opts.hint is a line under the box (what leaving it empty does, say).
+   opts.min sets the earliest value the box offers. opts.validate(value) may
    return a message: the question then stays open and shows it, instead of
    closing and leaving the person to start again. */
 function showPromptDialog(title, message, onConfirm, confirmText, icon, inputType, defaultValue, opts) {
@@ -531,6 +532,7 @@ function showPromptDialog(title, message, onConfirm, confirmText, icon, inputTyp
     const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', tone, name, title, message);
     const body = dialog.querySelector('.dialog-body');
     body.innerHTML = `<input id="promptInput" class="form-input" type="${escAttr(inputType || 'number')}" value="${escAttr(defaultValue)}"${o.min ? ` min="${escAttr(o.min)}"` : ''}${o.maxLength ? ` maxlength="${escAttr(o.maxLength)}"` : ''}${o.placeholder ? ` placeholder="${escAttr(o.placeholder)}"` : ''}>
+        ${o.hint ? `<p class="prompt-hint" style="margin:8px 0 0;font-size:13px;line-height:1.45;color:var(--text-muted);">${escHtml(o.hint)}</p>` : ''}
         <div id="promptError" role="alert" style="display:none;margin-top:8px;font-size:13px;font-weight:600;color:var(--danger);"></div>`;
     body.insertAdjacentHTML('afterend', dialogActions('Cancel', confirmText || 'Confirm', 'btn-primary'));
 
@@ -567,6 +569,15 @@ function showSuccessDialog(title, message, opts) {
     const iconName = o.icon || (tone === 'danger' ? 'delete' : tone === 'info' ? 'info' : 'check');
     const { overlay, dialog, tone: t } = buildDialogShell('successDialogOverlay', tone, iconName, title, message);
     dialog.querySelector('.dialog-body').insertAdjacentHTML('afterend', dialogActions('', o.button || 'Done', 'btn-primary', 'successOkBtn'));
+    // opts.link: a second button that goes somewhere ("Go to Trash", "Open in Inventory")
+    if (o.link && o.link.href) {
+        const go = document.createElement('a');
+        go.className = 'btn-secondary';
+        go.href = o.link.href;
+        go.textContent = o.link.label || 'Open';
+        const actions = dialog.querySelector('#successOkBtn').parentElement;
+        actions.insertBefore(go, actions.firstChild);
+    }
 
     const close = () => {
         clearTimeout(timer);
@@ -916,6 +927,7 @@ function showAlertPop(n) {
     pop.appendChild(close);
     pop.addEventListener('click', () => {
         pop.remove();
+        if (n.id) { openNotifDetails(n.id); return; }
         if (!document.getElementById('notifDropdown')) openNotifDropdown(document.getElementById('alertChip') || document.getElementById('notifBellBtn'));
     });
     stack.appendChild(pop);
@@ -995,7 +1007,7 @@ async function openNotifDropdown(anchor) {
             <div class="notif-dropdown-body">
                 ${notifs.length === 0 ? '<div class="notif-empty">No notifications yet</div>' :
                     notifs.map(n => `
-                        <div class="notif-item ${n.is_read ? 'read' : 'unread'}" onclick="markNotifRead(${n.id})">
+                        <div class="notif-item ${n.is_read ? 'read' : 'unread'}" role="button" tabindex="0" onclick="openNotifDetails(${n.id})" onkeydown="if(event.key==='Enter'){openNotifDetails(${n.id});}" title="Open the details">
                             <span class="notif-read-indicator">${n.is_read ? '' : '●'}</span>
                             <div class="notif-icon ${n.type}">${getNotifIcon(n.type)}</div>
                             <div class="notif-content">
@@ -1034,7 +1046,42 @@ function closeNotifOutside(e) {
     }
 }
 
-async function markNotifRead(id) {
+/* A notification, opened (UAT, 31 Oct): its details, formatted (who, which
+   sale, how much, what an email listed), and a button to where it is
+   handled. Opening one marks it read. */
+async function openNotifDetails(id) {
+    let d;
+    try {
+        const res = await fetch(`${API_BASE}/notifications/${id}/details`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) { showToast(data.message || 'The notification could not be opened', 'error'); return; }
+        d = data.data;
+    } catch (e) { showToast(couldNot('open the notification', e), 'error'); return; }
+    document.getElementById('notifDropdown')?.remove();
+    const tone = d.type === 'stockout' || d.type === 'expiration' ? 'danger' : d.type === 'low_stock' || d.type === 'overstock' ? 'warning' : 'primary';
+    const iconName = { low_stock: 'inventory_2', stockout: 'remove_shopping_cart', expiration: 'schedule', overstock: 'stacks', reorder: 'local_shipping', info: 'notifications' }[d.type] || 'notifications';
+    const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', tone, iconName, escHtml(d.title), escHtml(d.message || ''));
+    dialog.classList.add('notif-detail-dialog');
+    const rows = (d.rows || []).map(([k, v]) => `<div class="notif-detail-row"><span>${escHtml(k)}</span><span>${escHtml(v)}</span></div>`).join('');
+    const items = (d.items || []).length ? `<div class="notif-detail-items"><b>Items</b><ul>${d.items.map(i => `<li>${escHtml(i)}</li>`).join('')}</ul></div>` : '';
+    dialog.querySelector('.dialog-body').innerHTML = `<div class="notif-detail-rows">${rows}<div class="notif-detail-row"><span>Received</span><span>${escHtml(d.at || '')}</span></div></div>${items}`;
+    dialog.querySelector('.dialog-body').insertAdjacentHTML('afterend', dialogActions('', 'Close', 'btn-secondary', 'notifDetailClose'));
+    if (d.link && d.link.href) {
+        const go = document.createElement('a');
+        go.className = 'btn-primary';
+        go.href = d.link.href;
+        go.textContent = d.link.label || 'Open';
+        dialog.querySelector('#notifDetailClose').parentElement.appendChild(go);
+    }
+    const close = () => { document.removeEventListener('keydown', onKey); overlay.remove(); };
+    const onKey = e => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    dialog.querySelector('#notifDetailClose').addEventListener('click', close);
+    markNotifRead(id, true);
+}
+
+async function markNotifRead(id, quiet) {
     // a view-only account reads notices; it does not mark them (the mark is shared)
     if (!canManage()) return;
     try {
@@ -1042,7 +1089,7 @@ async function markNotifRead(id) {
         refreshNotifCount();
         document.dispatchEvent(new CustomEvent('notifs-changed'));
         const dd = document.getElementById('notifDropdown');
-        if (dd) {
+        if (dd && !quiet) {
             closeNotifDropdown();
             openNotifDropdown();
         }
@@ -1208,11 +1255,20 @@ document.addEventListener('DOMContentLoaded', () => {
         applyRoleInterface();
     }
 
+    /* The button under the profile used to switch dark mode; that lives in
+       Settings → Preferences → Appearance now, and the button opens the Trash
+       (UAT, 31 Oct). Only the roles with a Trash see it. */
     var themeBtn = document.getElementById('themeToggleBtn');
     if (themeBtn) {
-        themeBtn.innerHTML = isDarkMode() ? '<span class="material-symbols-outlined">light_mode</span>' : '<span class="material-symbols-outlined">dark_mode</span>';
-        themeBtn.title = isDarkMode() ? 'Switch to light mode' : 'Switch to dark mode';
-        themeBtn.addEventListener('click', toggleTheme);
+        if (typeof canManage === 'function' && canManage()) {
+            themeBtn.dataset.trash = '1';
+            themeBtn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
+            themeBtn.title = 'Trash: deleted products, suppliers and accounts';
+            themeBtn.setAttribute('aria-label', 'Open the Trash');
+            themeBtn.addEventListener('click', function () { window.location.href = 'settings.html?tab=trash'; });
+        } else {
+            themeBtn.hidden = true;
+        }
     }
 
     /* The logo at the top of the sidebar folds it away (the arrow button is
@@ -1286,4 +1342,55 @@ function couldNot(action, err) {
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'Could not ' + action + ': this computer is offline. Reconnect and try again.';
     if (!err || err.name === 'TypeError' || /fetch|network|load failed/i.test(String(err.message || ''))) return 'Could not ' + action + ': the server could not be reached. Check the connection and try again.';
     return 'Could not ' + action + ': ' + String(err.message || err).replace(/\.$/, '') + '.';
+}
+
+/* A payment to a supplier, as a receipt (UAT, 31 Oct: every payment has one).
+   Shown in a window with Print; the same for the shop and the supplier. */
+function paymentReceiptHtml(r) {
+    const money = n => formatCurrency(Number(n) || 0);
+    const paid = new Date(Number(r.paid_at)).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const items = (r.items || []).map(i => `<tr><td>${escHtml(i.name)}</td><td class="num">${escHtml(String(i.quantity))}</td><td class="num">${money(i.unit_price)}</td><td class="num">${money(i.quantity * i.unit_price)}</td></tr>`).join('');
+    return `<div class="pay-receipt">
+        <div class="pay-receipt-head"><b>RISHA PET SUPPLIES</b><span>Payment receipt</span><strong>${escHtml(r.receipt_no)}</strong></div>
+        <div class="pay-receipt-rows">
+            <div><span>Paid to</span><span>${escHtml(r.supplier || '—')}</span></div>
+            <div><span>For order</span><span>${escHtml(r.po_number)}</span></div>
+            <div><span>Paid on</span><span>${escHtml(paid)}</span></div>
+            <div><span>How</span><span>${escHtml(r.method)}${r.reference ? ' · ref. ' + escHtml(r.reference) : ''}</span></div>
+            ${r.recorded_by ? `<div><span>Recorded by</span><span>${escHtml(r.recorded_by)}</span></div>` : ''}
+        </div>
+        ${items ? `<table class="pay-receipt-items"><thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Amount</th></tr></thead><tbody>${items}</tbody></table>` : ''}
+        <div class="pay-receipt-total"><span>Amount paid</span><strong>${money(r.amount)}</strong></div>
+    </div>`;
+}
+
+function showPaymentReceipt(r) {
+    const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', 'success', 'receipt_long', 'Payment receipt', escHtml(r.receipt_no));
+    dialog.classList.add('pay-receipt-dialog');
+    dialog.querySelector('.dialog-body').innerHTML = paymentReceiptHtml(r);
+    dialog.querySelector('.dialog-body').insertAdjacentHTML('afterend', dialogActions('Close', 'Print', 'btn-primary', 'payReceiptPrint'));
+    const close = () => { document.removeEventListener('keydown', onKey); overlay.remove(); };
+    const onKey = e => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    dialog.querySelector('#confirmCancelBtn').addEventListener('click', close);
+    // printed from a hidden frame, so a blocked pop-up cannot stop it
+    dialog.querySelector('#payReceiptPrint').addEventListener('click', () => {
+        const frame = document.createElement('iframe');
+        frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+        document.body.appendChild(frame);
+        const doc = frame.contentDocument;
+        doc.open();
+        doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escHtml(r.receipt_no)}</title><style>
+            body{font-family:Arial,sans-serif;font-size:13px;color:#111;margin:24px;}
+            .pay-receipt-head{display:flex;flex-direction:column;align-items:center;gap:2px;border-bottom:1px dashed #999;padding-bottom:10px;margin-bottom:10px;}
+            .pay-receipt-head b{font-size:16px;letter-spacing:1px}.pay-receipt-rows div{display:flex;justify-content:space-between;gap:16px;padding:3px 0;}
+            .pay-receipt-rows span:first-child{color:#555}table{width:100%;border-collapse:collapse;margin:10px 0;}th,td{text-align:left;padding:4px 0;border-bottom:1px dashed #ccc;}
+            .num{text-align:right}.pay-receipt-total{display:flex;justify-content:space-between;font-size:15px;border-top:1px solid #111;padding-top:8px;}
+        </style></head><body>${paymentReceiptHtml(r)}</body></html>`);
+        doc.close();
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+        setTimeout(() => frame.remove(), 1000);
+    });
 }

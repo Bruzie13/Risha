@@ -101,6 +101,17 @@ function wirePlanControls() {
         });
     });
     document.querySelectorAll('.plan-view').forEach(b => b.addEventListener('click', () => showPlanView(b.dataset.view)));
+    // Sales patterns: days of the week or months, in one card
+    document.querySelectorAll('#patternSeg button').forEach(b => b.addEventListener('click', () => {
+        const which = b.dataset.pattern;
+        document.querySelectorAll('#patternSeg button').forEach(x => {
+            x.classList.toggle('active', x === b);
+            x.setAttribute('aria-selected', x === b ? 'true' : 'false');
+        });
+        document.querySelectorAll('[data-pattern-pane]').forEach(el => { el.hidden = el.dataset.patternPane !== which; });
+        document.getElementById('patternSub').textContent = which === 'days'
+            ? 'Average items sold per day, last 6 months' : 'Total items sold, last 12 months';
+    }));
     let start = new URLSearchParams(window.location.search).get('view');
     if (!start) try { start = localStorage.getItem('planView'); } catch (e) {}
     showPlanView(start);
@@ -336,11 +347,14 @@ function renderExpiry() {
     if (!rows.length) { setRow('expiryBody', 5, 'Nothing is expected to expire unsold.'); document.getElementById('expiryPagination').innerHTML = ''; return; }
     document.getElementById('expiryBody').innerHTML = rows.slice(0, expiryShown).map(p => {
         const gone = p.expired_units > 0;
+        // a label on every row, and the row coloured by how close it is (UAT, 31 Oct):
+        // red for expired or within 30 days, amber for later
+        const soon = !gone && p.days_to_expiry != null && p.days_to_expiry <= 30;
         const when = gone
-            ? `<span class="rp-urgent">Expired</span><span class="rp-sub">${escHtml(planDate(p.expires_on))}</span>`
-            : `${escHtml(planDate(p.expires_on))}<span class="rp-sub">in ${p.days_to_expiry} day${p.days_to_expiry === 1 ? '' : 's'}</span>`;
+            ? `<span class="rp-risk-chip expired">Expired</span><span class="rp-sub">${escHtml(planDate(p.expires_on))}</span>`
+            : `<span class="rp-risk-chip ${soon ? 'soon' : 'later'}">At risk</span>${escHtml(planDate(p.expires_on))}<span class="rp-sub">in ${p.days_to_expiry} day${p.days_to_expiry === 1 ? '' : 's'}</span>`;
         const left = gone ? p.expired_units : p.expiry_risk_units;
-        return `<tr data-id="${p.product_id}" tabindex="0">
+        return `<tr data-id="${p.product_id}" tabindex="0" class="rp-risk-row ${gone ? 'expired' : soon ? 'soon' : 'later'}">
             <td><span class="rp-strong">${escHtml(p.name)}</span>${p.sku ? `<span class="rp-sub">${escHtml(p.sku)}</span>` : ''}</td>
             <td>${when}</td>
             <td class="num">${formatQty(p.stock)}</td>

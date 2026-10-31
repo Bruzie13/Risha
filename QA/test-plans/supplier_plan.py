@@ -48,7 +48,7 @@ PLAN = {
             ('Order confirmation', [
                 ('Click the **Confirm order** button on an order waiting for confirmation',
                  'A window asks for the **Date you will deliver** and **How many of each you can send**'),
-                ('Choose the delivery date, check the quantities, then click **Confirm order**',
+                ('Choose the delivery date (today or later, and not more than a year away), check the quantities (each not more than ordered, at least one above 0), then click **Confirm order**',
                  '"Order confirmed." is shown and the order is marked confirmed'),
             ]),
             ('Shipping', [
@@ -58,7 +58,7 @@ PLAN = {
                  '"Order marked as shipped." is shown and the order is marked **Shipped**'),
             ]),
             ('Delivery date', [
-                ('Click **Change delivery date** on an order, choose the new date, type the reason in **Why it changed**, then click **Save new date**',
+                ('Click **Change delivery date** on an order, choose the new date (today or later, and not more than a year away), type the reason in **Why it changed**, then click **Save new date**',
                  '"Delivery date updated." is shown with the new date'),
             ]),
             ('Order notes', [
@@ -67,7 +67,9 @@ PLAN = {
             ]),
             ('Payments', [
                 ('Click the **Payments** tab',
-                 'The delivered orders that the shop has not paid yet are listed with the amount and due date, together with the supplier\'s payment terms'),
+                 'The delivered orders that the shop has not paid yet are listed with the amount and due date, together with the supplier\'s payment terms. A payment that is overdue or due within 3 days is said at the top, and the tab shows how many are overdue'),
+                ('Under **Paid**, click **Receipt** on an order the shop has paid',
+                 'The **Payment receipt** opens with its receipt number, the order, the amount, how it was paid and the reference, with a **Print** button'),
             ]),
             ('Price changes', [
                 ('Click the **Products** tab',
@@ -92,6 +94,8 @@ PLAN = {
                  'The **Settings** page opens on the **Profile** tab with the supplier\'s name and email'),
                 ('Click **Upload photo**, then choose a picture from the computer',
                  '"Profile photo updated" is shown and the picture appears at the lower-left of the sidebar'),
+                ('Under **Company details** on the same page, change the phone number (example: 0928 123 4567), then click **Save company details**',
+                 '"Your details were updated." is shown'),
             ]),
             ('Password', [
                 ('Click the **Password** tab, enter the valid current password and a valid new password twice, then click **Update password**',

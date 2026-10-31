@@ -228,7 +228,9 @@ body, .main-wrapper { background: var(--bg-card); }
 .till-tender input::-webkit-outer-spin-button, .till-tender input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .till-tender input::placeholder { color: #9FB0BF; }
 .till-tender input:focus { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.6); }
-.till-quick { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+/* Exact (two places wide), then +1 to +1000: two even rows of five */
+.till-quick { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+.till-quick button.exact { grid-column: span 2; }
 .till-quick button { height: 34px; padding: 0; border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.22); color: #fff; font: inherit; font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; transition: background-color var(--transition), transform 120ms var(--ease-out); }
 .till-quick button:hover { background: rgba(255, 255, 255, 0.34); }
 .till-quick button:active { transform: translateY(1px); }
@@ -354,3 +356,8 @@ body, .main-wrapper { background: var(--bg-card); }
 @media (prefers-reduced-motion: reduce) {
   .till-act:active, .till-charge:active, .till-quick button:active, .till-row:active .tr-add { transform: none; }
 }
+
+/* Cash in/out and End of day: what the drawer should hold now (UAT, 31 Oct) */
+.pos-drawer-now { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 12px; padding: 10px 14px;
+  border-radius: var(--radius-md); background: var(--bg-raised); border: 1px solid var(--border-glass); font-size: 13.5px; color: var(--text-secondary); }
+.pos-drawer-now strong { font-size: 18px; color: var(--text-primary); font-variant-numeric: tabular-nums; }

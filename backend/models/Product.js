@@ -345,7 +345,7 @@ class Product {
              LEFT JOIN suppliers s ON s.id = p.supplier_id
              LEFT JOIN audit_logs d ON d.id = (SELECT MAX(a.id) FROM audit_logs a WHERE a.table_name = 'products' AND a.record_id = p.id AND a.action = 'delete')
              LEFT JOIN users u ON u.id = d.user_id
-             WHERE p.is_active = FALSE
+             WHERE p.is_active = FALSE AND p.purged_at IS NULL
              ORDER BY deleted_at DESC
              LIMIT 500`);
         return rows;
@@ -353,7 +353,7 @@ class Product {
 
     /** Bring a deleted product back. */
     static async restore(id) {
-        const [r] = await pool.execute('UPDATE products SET is_active = TRUE WHERE id = ? AND is_active = FALSE', [id]);
+        const [r] = await pool.execute('UPDATE products SET is_active = TRUE WHERE id = ? AND is_active = FALSE AND purged_at IS NULL', [id]);
         return r.affectedRows > 0;
     }
 

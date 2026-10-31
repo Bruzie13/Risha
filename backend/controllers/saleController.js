@@ -361,6 +361,8 @@ exports.getEod = async (req, res) => {
                         // what the cashier recorded themselves, so not a secret
                         cash_in: drawer.cash_in,
                         cash_out: drawer.cash_out,
+                        // the drawer's total, shown as the UAT panel asked (31 Oct)
+                        drawer_now: drawer.expected,
                         counted: !!done,
                         // only once the count is in
                         result: done ? {

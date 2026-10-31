@@ -12,6 +12,7 @@ const canChangeNotices = authorizeRole('admin', 'manager');
 router.get('/', authenticateToken, notificationController.getAllNotifications);
 router.get('/summary', authenticateToken, notificationController.getSummary);
 router.get('/count', authenticateToken, notificationController.getNotificationCount);
+router.get('/:id/details', authenticateToken, notificationController.getDetails);
 router.put('/read-all', authenticateToken, canChangeNotices, notificationController.markAllAsRead);
 router.put('/:id/read', authenticateToken, canChangeNotices, notificationController.markAsRead);
 router.delete('/read', authenticateToken, canChangeNotices, notificationController.clearRead);

@@ -350,6 +350,21 @@ async function ensureTillTables() {
     }
 }
 
+/* "Delete permanently" from the Trash (UAT, 31 Oct): the record is marked
+   purged, so it leaves the Trash for good and cannot be restored, while its
+   past sales and orders stay in the reports. */
+async function ensureTrashColumns() {
+    for (const table of ['products', 'suppliers', 'users']) {
+        try { await pool.execute(`ALTER TABLE ${table} ADD COLUMN purged_at DATETIME NULL`); } catch (e) { /* column exists */ }
+    }
+    // how a delivery was paid, for its receipt (UAT, 31 Oct)
+    for (const col of ['paid_method VARCHAR(30) NULL', 'paid_ref VARCHAR(80) NULL', 'paid_by INT NULL']) {
+        try { await pool.execute(`ALTER TABLE purchase_orders ADD COLUMN ${col}`); } catch (e) { /* column exists */ }
+    }
+    // a notification's own extra details (what an email listed), shown when it is opened
+    try { await pool.execute('ALTER TABLE notifications ADD COLUMN details TEXT NULL'); } catch (e) { /* column exists */ }
+}
+
 async function ensureSupplyTables() {
     try {
         const conn = await pool.getConnection();
@@ -713,6 +728,7 @@ async function runMigrations() {
     await ensureResetRequestTable();
     await ensureTillTables();
     await ensureSupplyTables();
+    await ensureTrashColumns();
     await ensureEmailCodesTable();
     await ensureEmailLogsTable();
     await ensureIndexes();

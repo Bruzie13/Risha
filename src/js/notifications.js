@@ -89,7 +89,8 @@ function renderNotifications() {
         return;
     }
     list.innerHTML = loadedNotifs.map(n => `
-        <div class="notif-list-item ${n.is_read ? '' : 'unread'}">
+        <div class="notif-list-item ${n.is_read ? '' : 'unread'}" role="button" tabindex="0" title="Open the details"
+             onclick="if(!event.target.closest('.notif-actions')) openNotifDetails(${n.id})" onkeydown="if(event.key==='Enter') openNotifDetails(${n.id})">
             <div class="notif-icon ${n.type}">${getNotifIcon(n.type)}</div>
             <div class="notif-info">
                 <div class="notif-title">${escHtml(n.title)}</div>

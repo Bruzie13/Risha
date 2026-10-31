@@ -292,12 +292,16 @@ exports.autoGeneratePO = async (req, res) => {
             emailResults.push(emailResult);
         }
 
-        if (createdOrders.length > 0) {
-            await Notification.create({
-                title: 'Auto-Reorder Generated',
-                message: `Auto-generated ${createdOrders.length} purchase order(s) for low-stock products`,
-                type: 'reorder'
-            });
+        // one notice per order, saying what was sent and to whom (UAT, 31 Oct);
+        // opening it shows the items and whether the email arrived
+        for (let i = 0; i < createdOrders.length; i++) {
+            const order = createdOrders[i], r = emailResults[i] || {};
+            Notification.create({
+                title: r.sent ? `Purchase order emailed to ${r.supplier_name}` : `Purchase order not emailed: ${r.supplier_name}`,
+                message: `${order.po_number}: ${formatPeso(order.total_amount)}`
+                    + (r.sent ? `, sent to ${r.email}.` : `. It was created but not emailed (${r.reason || 'no reason given'}).`),
+                type: 'reorder', related_type: 'purchase_order', related_id: order.id
+            }).catch(e => console.error('Notif error:', e.message));
         }
 
         const sentCount = emailResults.filter(e => e.sent).length;
@@ -348,6 +352,20 @@ const EMAIL_FOR_STATUS = {
     cancelled: { kind: 'cancelled', about: 'telling them not to ship it', sent: (po, n) => `Told ${n} not to ship ${po}.` }
 };
 
+const formatPeso = n => '₱' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// sent once per order; the others (reminders) at most once a day
+const ONCE = ['received', 'cancelled'];
+
+/* When this order was last emailed about `about` (ms), from the Activity log. */
+async function lastStageEmail(orderId, about) {
+    const [rows] = await pool.query(
+        `SELECT UNIX_TIMESTAMP(MAX(created_at)) * 1000 AS at FROM audit_logs
+         WHERE table_name = 'purchase_orders' AND record_id = ? AND action = 'email' AND new_value LIKE ?`,
+        [orderId, `%${about}%`]);
+    return rows[0] && rows[0].at ? Number(rows[0].at) : null;
+}
+
 exports.emailPO = async (req, res) => {
     try {
         const { id } = req.params;
@@ -368,6 +386,19 @@ exports.emailPO = async (req, res) => {
             return res.status(400).json({ success: false, message: order.status === 'proposed'
                 ? `${order.po_number} is still an offer from ${supplier.name}: confirm it or decline it instead.`
                 : `${order.po_number} has nothing to email about.` });
+        }
+        // Not again and again (UAT, 31 Oct): thanks and a cancellation are sent
+        // once; a reminder once a day. Resending the order itself stays free,
+        // for after a bounce.
+        if (stage.kind !== 'order') {
+            const last = await lastStageEmail(order.id, stage.about);
+            const when = last && new Date(last).toLocaleString('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+            if (last && ONCE.includes(stage.kind)) {
+                return res.status(409).json({ success: false, message: `This was already sent to ${supplier.name} on ${when}. It is sent once only.` });
+            }
+            if (last && Date.now() - last < 24 * 60 * 60 * 1000) {
+                return res.status(409).json({ success: false, message: `${supplier.name} was already asked on ${when}. You can ask again after a day.` });
+            }
         }
         const poItems = await PurchaseOrder.getPOItems(order.id);
         const items = poItems.map(i => ({
@@ -395,6 +426,11 @@ exports.emailPO = async (req, res) => {
         if (!sent) {
             return res.status(502).json({ success: false, message: 'The email could not be sent. Please try again.' });
         }
+        Notification.create({
+            title: `Emailed ${supplier.name}`,
+            message: stage.sent(order.po_number, supplier.name),
+            type: 'info', related_type: 'purchase_order', related_id: order.id
+        }).catch(e => console.error('Notif error:', e.message));
         logAudit(req.user.id, 'email', 'purchase_orders', order.id, null, {
             po_number: order.po_number,
             supplier_name: supplier.name,

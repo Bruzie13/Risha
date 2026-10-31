@@ -1339,3 +1339,74 @@ th, button, .btn-primary, .btn-secondary, .btn-view, .btn-edit, .btn-delete, .bt
   .fa-fab { width: 52px; height: 52px; padding: 0; justify-content: center; }
   .fa-fab-label { display: none; }
 }
+
+/* Supplier Performance: an email that was already sent says so instead of offering it again */
+.po-email-sent { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 10px; border-radius: var(--radius-md); font-size: 12.5px; font-weight: 600; color: var(--success); background: color-mix(in srgb, var(--success) 10%, var(--bg-card)); white-space: nowrap; }
+.sidebar-btn[hidden] { display: none !important; }
+
+/* Settings → Trash: how long it keeps things, and each item's two buttons */
+.trash-keep { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; padding: 10px 12px; border-radius: var(--radius-md);
+  background: var(--bg-raised); border: 1px solid var(--border-glass); font-size: 13.5px; color: var(--text-secondary); }
+.trash-keep .material-symbols-outlined { font-size: 18px; color: var(--text-muted); }
+.trash-keep label { font-weight: 600; color: var(--text-primary); margin: 0; }
+.trash-keep .form-select { width: auto; min-height: 34px; padding-top: 4px; padding-bottom: 4px; }
+.trash-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; flex-shrink: 0; }
+.trash-actions .btn-delete { min-height: 34px; }
+.trash-left { color: var(--warning); font-weight: 600; }
+
+/* A notification, opened: its details as label / value rows, then the items */
+.notif-item, .notif-list-item { cursor: pointer; }
+.app-dialog.notif-detail-dialog { max-width: 520px; }
+.notif-detail-rows { margin-top: 4px; border: 1px solid var(--border-glass); border-radius: var(--radius-md); overflow: hidden; text-align: left; }
+.notif-detail-row { display: grid; grid-template-columns: 9.5em minmax(0, 1fr); gap: 12px; padding: 8px 12px; font-size: 13.5px; border-top: 1px solid var(--border-subtle); }
+.notif-detail-row:first-child { border-top: 0; }
+.notif-detail-row span:first-child { color: var(--text-muted); font-weight: 600; }
+.notif-detail-row span:last-child { color: var(--text-primary); }
+.notif-detail-items { margin-top: 12px; text-align: left; font-size: 13.5px; }
+.notif-detail-items b { color: var(--text-primary); }
+.notif-detail-items ul { margin: 6px 0 0; padding-left: 18px; max-height: 180px; overflow-y: auto; color: var(--text-secondary); }
+.notif-detail-items li { margin: 2px 0; }
+
+/* A payment receipt (showPaymentReceipt in auth.js) */
+.app-dialog.pay-receipt-dialog { max-width: 520px; }
+.pay-receipt { text-align: left; font-size: 13.5px; }
+.pay-receipt-head { display: flex; flex-direction: column; align-items: center; gap: 2px; padding-bottom: 10px; margin-bottom: 8px; border-bottom: 1px dashed var(--border-glass-strong); }
+.pay-receipt-head b { letter-spacing: 0.08em; color: var(--text-primary); }
+.pay-receipt-head span { color: var(--text-muted); font-size: 12.5px; }
+.pay-receipt-rows > div { display: flex; justify-content: space-between; gap: 16px; padding: 4px 0; }
+.pay-receipt-rows span:first-child { color: var(--text-muted); }
+.pay-receipt-rows span:last-child { color: var(--text-primary); font-weight: 600; text-align: right; }
+.pay-receipt-items { width: 100%; margin: 10px 0; border-collapse: collapse; font-size: 13px; }
+.pay-receipt-items th, .pay-receipt-items td { padding: 5px 0; border-bottom: 1px dashed var(--border-glass); text-align: left; }
+.pay-receipt-items .num { text-align: right; }
+.pay-receipt-total { display: flex; justify-content: space-between; align-items: baseline; padding-top: 8px; border-top: 1.5px solid var(--text-primary); }
+.pay-receipt-total strong { font-size: 18px; color: var(--text-primary); }
+.pay-method { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+.pay-method button { min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--border-glass-strong); background: var(--bg-card); color: var(--text-secondary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.pay-method button.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.sp-due-notice { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; padding: 10px 14px; border-radius: var(--radius-md); font-size: 13.5px; color: var(--text-primary);
+  background: color-mix(in srgb, var(--warning) 12%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent); }
+.sp-due-notice.over { background: color-mix(in srgb, var(--danger) 9%, var(--bg-card)); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+.sp-due-notice .material-symbols-outlined { color: var(--warning); }
+.sp-due-notice.over .material-symbols-outlined { color: var(--danger); }
+
+/* ----- Buttons take the colour theme (UAT, 31 Oct) -----
+   The outlined buttons were white whatever the theme. They are now filled
+   with a light tint of the theme's own colour (Settings → Appearance), so a
+   blue theme gives blue buttons, a green one green; the text stays dark
+   enough to read. */
+.btn-secondary, .show-more-btn, .reset-btn, .btn-action, .po-advance-btn, .po-email-btn {
+  background: color-mix(in srgb, var(--primary) 14%, var(--bg-card));
+}
+.btn-secondary:hover, .show-more-btn:hover, .reset-btn:hover, .btn-action:hover, .po-advance-btn:hover, .po-email-btn:hover {
+  background: color-mix(in srgb, var(--primary) 22%, var(--bg-card));
+}
+.btn-view, .btn-edit {
+  background: color-mix(in srgb, var(--primary) 10%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--bg-card));
+  color: var(--primary-dark);
+}
+.btn-view:hover, .btn-edit:hover {
+  background: color-mix(in srgb, var(--primary) 18%, var(--bg-card));
+  border-color: var(--primary);
+}

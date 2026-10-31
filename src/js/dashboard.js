@@ -327,11 +327,11 @@ function advancePO(id, nextStatus, poNumber, offer) {
     if (nextStatus === 'received') {
         showPromptDialog(
             `Receive ${escHtml(poNumber)}`,
-            'Stock will be added. Enter the new batch\'s expiration date. Leave it blank only to keep a current date that has not passed yet:',
+            'Stock will be added. Enter the new batch\'s expiration date:',
             (dateVal) => sendPOAdvance(id, 'received', poNumber, dateVal),
             'Mark Received',
             '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">inventory</span>',
-            'date', '', { min: earliestExpiryYmd(), validate: expiryDateProblem }
+            'date', '', { min: earliestExpiryYmd(), validate: expiryDateProblem, hint: 'Leave it blank only to keep a current date that has not passed yet.' }
         );
         return;
     }

@@ -132,47 +132,10 @@ async function loadPortal() {
 
 /* ---------- Details ---------- */
 
+/* The company name heads the page. The details themselves moved to Settings →
+   Profile (UAT, 31 Oct). */
 function renderDetails() {
-    const me = portal.me;
-    document.getElementById('supplierName').textContent = me.name || 'Supplier';
-    const rows = [
-        ['Company', me.name], ['Contact person', me.contact_person], ['Email', me.email], ['Phone', me.phone],
-        ['Address', [me.address, me.city].filter(Boolean).join(', ')], ['Payment terms', me.payment_terms]
-    ];
-    document.getElementById('supplierDetails').innerHTML = rows.map(([label, value]) => `
-        <div class="rp-detail-item">
-            <span class="rp-detail-label">${escHtml(label)}</span>
-            <span class="rp-detail-value">${value ? escHtml(value) : '—'}</span>
-        </div>`).join('');
-}
-
-function openDetails() {
-    const me = portal.me || {};
-    const field = (id, label, value, max) => `
-        <div class="form-group">
-            <label class="form-label" for="${id}">${label}</label>
-            <input type="text" class="form-input" id="${id}" maxlength="${max}" value="${escHtml(value || '')}">
-        </div>`;
-    openSpModal('Edit contact details',
-        field('spContact', 'Contact person', me.contact_person, 255)
-        + field('spPhone', 'Phone', me.phone, 20)
-        + field('spAddress', 'Address', me.address, 500)
-        + field('spCity', 'City', me.city, 100),
-        'Save details',
-        async () => {
-            const phoneBox = document.getElementById('spPhone');
-            const problem = typeof phoneProblem === 'function' ? phoneProblem(phoneBox, true) : null;
-            if (problem) { showToast(problem, 'error'); return false; }
-            return portalSend('PUT', '/me', {
-            contact_person: document.getElementById('spContact').value,
-            phone: typeof phoneValue === 'function' ? phoneValue(phoneBox) : phoneBox.value,
-            address: document.getElementById('spAddress').value,
-            city: document.getElementById('spCity').value
-            });
-        });
-    // the phone box gets the country picker (js/phone-field.js)
-    const phoneBox = document.getElementById('spPhone');
-    if (phoneBox && typeof phoneField === 'function') { phoneField(phoneBox); setPhoneValue(phoneBox, me.phone || ''); }
+    document.getElementById('supplierName').textContent = (portal.me && portal.me.name) || 'Supplier';
 }
 
 /* ---------- Products and prices ---------- */
@@ -509,8 +472,19 @@ function renderPayments() {
     const terms = portal.me && portal.me.payment_terms;
     document.getElementById('paymentsSub').textContent = 'Delivered orders the shop has not yet marked as paid'
         + (terms ? `. Your payment terms: ${terms}` : '');
-    if (!unpaid.length) { portalRow('paymentsBody', 4, 'Nothing is waiting to be paid.'); return; }
+    renderPaid();
+    // due soon or overdue: said at the top of Payments and on the tab (UAT, 31 Oct)
     const today = todayYmd();
+    const soonDay = (() => { const d = new Date(); d.setDate(d.getDate() + 3); return d.toISOString().slice(0, 10); })();
+    const over = unpaid.filter(o => o.payment_due && o.payment_due < today);
+    const soon = unpaid.filter(o => o.payment_due && o.payment_due >= today && o.payment_due <= soonDay);
+    const notice = document.getElementById('paymentsNotice');
+    notice.innerHTML = over.length || soon.length
+        ? `<div class="sp-due-notice ${over.length ? 'over' : ''}"><span class="material-symbols-outlined" aria-hidden="true">${over.length ? 'error' : 'schedule'}</span><span>`
+          + [over.length ? `${over.length} payment${over.length === 1 ? ' is' : 's are'} overdue` : '', soon.length ? `${soon.length} ${soon.length === 1 ? 'is' : 'are'} due within 3 days` : ''].filter(Boolean).join(' and ')
+          + '. The shop has been reminded.</span></div>' : '';
+    if (over.length) setTabCount('tabCountPay', over.length, 'overdue');
+    if (!unpaid.length) { portalRow('paymentsBody', 4, 'Nothing is waiting to be paid.'); return; }
     document.getElementById('paymentsBody').innerHTML = unpaid.map(o => `
         <tr>
             <td class="rp-strong">${escHtml(o.po_number)}</td>
@@ -521,6 +495,30 @@ function renderPayments() {
             <td class="num rp-strong">${formatCurrency(o.total_amount)}</td>
         </tr>`).join('');
 }
+
+/* The payments the shop has made, each with its receipt. */
+function renderPaid() {
+    const paid = portal.orders.filter(o => o.paid).slice(0, 20);
+    if (!paid.length) { portalRow('paidBody', 4, 'No payments yet.'); return; }
+    document.getElementById('paidBody').innerHTML = paid.map(o => `
+        <tr>
+            <td class="rp-strong">${escHtml(o.po_number)}</td>
+            <td>${o.paid_day ? escHtml(portalDate(o.paid_day)) : '—'}</td>
+            <td class="num rp-strong">${formatCurrency(o.total_amount)}</td>
+            <td class="num"><button class="btn-view" data-receipt="${Number(o.id)}"><span class="material-symbols-outlined" style="font-size:15px;">receipt_long</span> Receipt</button></td>
+        </tr>`).join('');
+}
+
+document.addEventListener('click', async e => {
+    const b = e.target.closest('#paidBody button[data-receipt]');
+    if (!b) return;
+    try {
+        const res = await fetch(`${API_BASE}/supplier-portal/orders/${Number(b.dataset.receipt)}/receipt`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) { showToast(data.message || 'The receipt could not be opened', 'error'); return; }
+        showPaymentReceipt(data.data);
+    } catch (err) { showToast(couldNot('open the receipt', err), 'error'); }
+});
 
 function renderScorecard() {
     const s = portal.score || {};

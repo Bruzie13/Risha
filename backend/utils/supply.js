@@ -96,6 +96,19 @@ function priceProblem(price) {
     return null;
 }
 
+/* How the shop paid a supplier (UAT, 31 Oct: every payment gets a receipt).
+   Cash needs nothing more; a transfer, GCash or a check needs its reference
+   number, which goes on the receipt. */
+const PAYMENT_METHODS = { cash: 'Cash', bank_transfer: 'Bank transfer', gcash: 'GCash', check: 'Check' };
+function paymentProblem(method, ref) {
+    if (!PAYMENT_METHODS[method]) return 'Choose how it was paid: Cash, Bank transfer, GCash or Check.';
+    const r = typeof ref === 'string' ? ref.trim() : '';
+    if (method !== 'cash' && !r) return `Enter the ${method === 'check' ? 'check' : 'reference'} number, so it is on the receipt.`;
+    if (r.length > 80) return 'Keep the reference number to 80 characters or fewer.';
+    if (r && !/^[A-Za-z0-9 \-\/#.]+$/.test(r)) return 'The reference number can have letters, numbers, spaces and - / # . only.';
+    return null;
+}
+
 /* Why the shop declined a supplier's price. The supplier reads it on their
    portal, so it has to say something: 3 to 300 characters with a letter. */
 const DECLINE_REASON_MAX = 300;
@@ -178,4 +191,4 @@ function starRating(score, rule = STAR_RULE) {
         summary: stars + ' of 5 stars. ' + (meets ? 'Meets the standard (' + rule.standard + ' stars or more).' : 'Below the standard: it needs ' + rule.standard + ' stars or more.') };
 }
 
-module.exports = { termDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, declineReasonProblem, DECLINE_REASON_MAX, scorecard, starRating, STAR_RULE, reorderSupplierProblem };
+module.exports = { PAYMENT_METHODS, paymentProblem, termDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, declineReasonProblem, DECLINE_REASON_MAX, scorecard, starRating, STAR_RULE, reorderSupplierProblem };

@@ -838,7 +838,7 @@ async function deleteProduct(id) {
             });
             const data = await response.json();
             if (data.success) {
-                showSuccessDialog('Product deleted', `${escHtml(target ? target.name : 'The product')} is in the Trash. Restore it from Settings → Trash.`, { tone: 'danger' });
+                showSuccessDialog('Product deleted', `${escHtml(target ? target.name : 'The product')} is in the Trash. Restore it from Settings → Trash.`, { tone: 'danger', link: { label: 'Go to Trash', href: 'settings.html?tab=trash&kind=products' } });
                 closeProductDetailsModal();
                 await loadProducts();
                 updateTrashCount();
@@ -1819,7 +1819,7 @@ async function bulkDelete() {
                 const data = await res.json();
                 if (data.success) successCount++;
             }
-            showSuccessDialog('Products deleted', `Moved ${successCount} of ${ids.length} selected product${ids.length === 1 ? '' : 's'} to the Trash. Restore any of them from Settings → Trash.`, { tone: 'danger' });
+            showSuccessDialog('Products deleted', `Moved ${successCount} of ${ids.length} selected product${ids.length === 1 ? '' : 's'} to the Trash. Restore any of them from Settings → Trash.`, { tone: 'danger', link: { label: 'Go to Trash', href: 'settings.html?tab=trash&kind=products' } });
             updateTrashCount();
             clearSelection();
             await loadProducts();

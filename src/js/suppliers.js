@@ -289,7 +289,7 @@ async function deleteSupplier(id) {
             const data = await response.json();
             if (data.success) {
                 const leftSomething = !!(data.left && (data.left.products || data.left.open_orders));
-                showSuccessDialog('Supplier deleted', escHtml(data.message || 'The supplier is in the Trash.') + ' Restore it from Settings → Trash.', { tone: 'danger', stay: leftSomething });
+                showSuccessDialog('Supplier deleted', escHtml(data.message || 'The supplier is in the Trash.') + ' Restore it from Settings → Trash.', { tone: 'danger', stay: leftSomething, link: { label: 'Go to Trash', href: 'settings.html?tab=trash&kind=suppliers' } });
                 await loadSuppliers();
                 if (typeof updateTrashCount === 'function') updateTrashCount();
             } else {
@@ -315,10 +315,10 @@ function perfNextStep(status) {
 function advancePOFromModal(id, nextStatus, poNumber, supplierId) {
     if (nextStatus === 'received') {
         showPromptDialog('Receive ' + poNumber,
-            'Stock will be added. Enter the new batch\'s expiration date. Leave it blank only to keep a current date that has not passed yet:',
+            'Stock will be added. Enter the new batch\'s expiration date:',
             function (dateVal) { sendModalAdvance(id, 'received', poNumber, supplierId, dateVal); },
             'Mark Received', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">inventory</span>', 'date', '',
-            { min: earliestExpiryYmd(), validate: expiryDateProblem });
+            { min: earliestExpiryYmd(), validate: expiryDateProblem, hint: 'Leave it blank only to keep a current date that has not passed yet.' });
         return;
     }
     showConfirmDialog('Update purchase order', 'Mark ' + poNumber + ' as ' + nextStatus + '?',
@@ -474,7 +474,13 @@ async function showPerformance(supplierId) {
                     : '';
                 // the email that fits where the order is (none for an offer)
                 var mailFor = ORDER_EMAIL[r.status];
-                var email = (canManage() && mailFor)
+                // thanks and a cancellation go once; a reminder once a day: say so instead of offering it again
+                var sentAt = r.stage_emailed_at ? Number(r.stage_emailed_at) : 0;
+                var sentDay = sentAt ? new Date(sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+                var done = sentAt && mailFor && (r.status === 'received' || r.status === 'cancelled' || (r.status !== 'pending' && Date.now() - sentAt < 864e5));
+                var email = (canManage() && mailFor && done)
+                    ? '<span class="po-email-sent" title="Already sent ' + escHtml(sentDay) + '"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;">done_all</span> ' + (r.status === 'received' ? 'Thanks sent' : r.status === 'cancelled' ? 'Cancellation sent' : 'Asked') + ' ' + escHtml(sentDay) + '</span>'
+                    : (canManage() && mailFor)
                     ? '<button class="po-email-btn" onclick="emailPOFromModal(' + r.id + ', \'' + escHtml(r.po_number || ('#' + r.id)) + '\', ' + supplierId + ', \'' + r.status + '\')" title="' + escHtml(mailFor.ask(r.po_number || ('#' + r.id), 'the supplier')) + '"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;">' + mailFor.icon + '</span> ' + mailFor.label + '</button>'
                     : '';
                 return '<tr>'

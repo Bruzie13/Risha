@@ -11,6 +11,7 @@ router.post('/price-proposals/:id/decide', authenticateToken, authorizeRole('adm
 router.get('/:id/messages', authenticateToken, authorizeRole('admin', 'manager'), supplyController.getMessages);
 router.post('/:id/messages', authenticateToken, authorizeRole('admin', 'manager'), supplyController.postMessage);
 router.put('/:id/payment', authenticateToken, authorizeRole('admin', 'manager'), supplyController.setPayment);
+router.get('/:id/receipt', authenticateToken, authorizeRole('admin', 'manager'), supplyController.getReceipt);
 router.post('/auto-generate', authenticateToken, authorizeRole('admin', 'manager'), purchaseOrderController.autoGeneratePO);
 router.put('/:id/status', authenticateToken, authorizeRole('admin', 'manager'), purchaseOrderController.updatePOStatus);
 router.post('/:id/send-email', authenticateToken, authorizeRole('admin', 'manager'), purchaseOrderController.emailPO);

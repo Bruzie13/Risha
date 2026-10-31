@@ -1041,6 +1041,11 @@ exports.toggleUserStatus = async (req, res) => {
             });
         }
 
+        // an account deleted for good from the Trash stays off
+        if (!user.is_active) {
+            const [[gone]] = await pool.query('SELECT purged_at FROM users WHERE id = ?', [id]);
+            if (gone && gone.purged_at) return res.status(400).json({ success: false, message: 'This account was deleted permanently from the Trash, so it cannot be restored.' });
+        }
         if (user.is_active) {
             const blocked = adminRemovalProblem(req.user.id, user, await User.countActiveAdmins(), 'deactivate');
             if (blocked) {

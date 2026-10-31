@@ -20,12 +20,27 @@
 
     const when = ms => ms ? new Date(Number(ms)).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'some time ago';
     const countWords = n => n ? `${n} deleted` : 'empty';
+    // how long the Trash keeps things (0: until deleted by hand); set in Settings → Trash
+    let retention = 30;
+    const leftDays = ms => {
+        if (!retention || !ms) return null;
+        return Math.max(0, Math.ceil((Number(ms) + retention * 864e5 - Date.now()) / 864e5));
+    };
+    // where a restored record went back to, for the link in its message
+    const WHERE = {
+        products: r => ({ label: 'Open in Inventory', href: 'inventory.html?search=' + encodeURIComponent(r.sku || r.name || '') }),
+        suppliers: r => ({ label: 'Open in Suppliers', href: 'suppliers.html?search=' + encodeURIComponent(r.name || '') }),
+        accounts: r => ({ label: 'Open in Users', href: 'users.html?search=' + encodeURIComponent(r.username || '') })
+    };
 
     async function loadTrash() {
         try {
             const res = await fetch(`${API_BASE}/trash`, { headers: getAuthHeaders() });
             const data = await res.json();
-            if (data.success && data.data) trash = Object.assign({ products: [], suppliers: [], accounts: [] }, data.data);
+            if (data.success && data.data) {
+                trash = Object.assign({ products: [], suppliers: [], accounts: [] }, data.data);
+                if (data.data.retention_days != null) retention = Number(data.data.retention_days);
+            }
         } catch (e) { /* the window still opens and says what it could not load */ }
         paintCounts();
     }
@@ -50,13 +65,17 @@
             title = r.full_name || r.username;
             subs.push(`${escHtml(r.username)} · ${escHtml(roleLabel ? roleLabel(r.role) : r.role)}${r.email ? ' · ' + escHtml(r.email) : ''}`);
         }
-        subs.push(`${kind === 'accounts' ? 'Deactivated' : 'Deleted'} ${escHtml(when(r.deleted_at))}${r.deleted_by ? ' by ' + escHtml(r.deleted_by) : ''}`);
+        subs.push(`${kind === 'accounts' ? 'Deactivated' : 'Deleted'} ${escHtml(when(r.deleted_at))}${r.deleted_by ? ' by ' + escHtml(r.deleted_by) : ''}`
+            + (leftDays(r.deleted_at) != null ? ` · <span class="trash-left">deleted for good in ${leftDays(r.deleted_at)} day${leftDays(r.deleted_at) === 1 ? '' : 's'}</span>` : ''));
         return `<div class="trash-row">
             <div class="trash-info">
                 <div class="trash-name">${escHtml(title)}</div>
                 ${subs.map(s => `<div class="trash-sub">${s}</div>`).join('')}
             </div>
-            <button type="button" class="btn-secondary trash-restore" data-kind="${kind}" data-id="${r.id}"><span class="material-symbols-outlined" style="font-size:16px;">restore_from_trash</span> Restore</button>
+            <div class="trash-actions">
+                <button type="button" class="btn-secondary trash-restore" data-kind="${kind}" data-id="${r.id}"><span class="material-symbols-outlined" style="font-size:16px;">restore_from_trash</span> Restore</button>
+                <button type="button" class="btn-delete trash-purge" data-kind="${kind}" data-id="${r.id}" title="Delete permanently: it cannot be restored"><span class="material-symbols-outlined" style="font-size:16px;">delete_forever</span> Delete permanently</button>
+            </div>
         </div>`;
     }
 
@@ -68,7 +87,18 @@
         let current = kinds.includes(tab) ? tab : kinds[0];
 
         const body = box;
+        const isAdmin = typeof getUserRole === 'function' && getUserRole() === 'admin';
+        const keepText = d => d ? `Deleted items are removed for good after ${d} days.` : 'Deleted items stay until they are deleted permanently by hand.';
         body.innerHTML = `
+            <div class="trash-keep">
+                <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
+                ${isAdmin
+                    ? `<label for="trashKeep">Empty the Trash by itself</label>
+                       <select id="trashKeep" class="form-select">
+                           ${[20, 30, 60, 0].map(d => `<option value="${d}"${d === retention ? ' selected' : ''}>${d ? 'after ' + d + ' days' : 'never'}</option>`).join('')}
+                       </select>`
+                    : `<span>${keepText(retention)}</span>`}
+            </div>
             <div class="seg trash-tabs" role="tablist" aria-label="What was deleted">
                 ${kinds.map(k => `<button type="button" class="seg-btn" role="tab" data-tab="${k}">${KINDS[k].label} <span class="trash-tab-count">${countWords(trash[k].length)}</span></button>`).join('')}
             </div>
@@ -92,6 +122,41 @@
             if (b) { current = b.dataset.tab; render(); }
         });
         search.addEventListener('input', render);
+        // the administrator chooses how long the Trash keeps things
+        body.querySelector('#trashKeep')?.addEventListener('change', async e => {
+            const days = Number(e.target.value);
+            try {
+                const res = await fetch(`${API_BASE}/trash/settings`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify({ retention_days: days }) });
+                const data = await res.json();
+                if (!data.success) { showToast(data.message || 'Not saved', 'error'); e.target.value = String(retention); return; }
+                retention = days;
+                showToast(data.message, 'success');
+                render();
+            } catch (err) { showToast(couldNot('save it', err), 'error'); e.target.value = String(retention); }
+        });
+
+        // Delete permanently: asked first, then gone from the Trash for good
+        list.addEventListener('click', e => {
+            const btn = e.target.closest('.trash-purge');
+            if (!btn) return;
+            const kind = btn.dataset.kind, id = Number(btn.dataset.id);
+            const rec = trash[kind].find(r => r.id === id) || {};
+            const name = rec.name || rec.full_name || rec.username || 'this item';
+            showConfirmDialog('Delete permanently?',
+                `Are you sure you want to permanently delete <strong>${escHtml(name)}</strong>? It leaves the Trash and cannot be restored. Its past sales and orders stay in the reports.`,
+                async () => {
+                    try {
+                        const res = await fetch(`${API_BASE}/trash/${kind}/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+                        const data = await res.json();
+                        if (!data.success) { showErrorDialog('Not deleted', data.message || 'the server gave no reason'); return; }
+                        trash[kind] = trash[kind].filter(r => r.id !== id);
+                        paintCounts();
+                        render();
+                        showToast(data.message, 'success');
+                    } catch (err) { showToast(couldNot('delete it', err), 'error'); }
+                }, 'Delete permanently', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete_forever</span>');
+        });
+
         list.addEventListener('click', async e => {
             const btn = e.target.closest('.trash-restore');
             if (!btn) return;
@@ -107,7 +172,9 @@
                     paintCounts();
                     render();
                     const name = rec.name || rec.full_name || rec.username || 'It';
-                    showToast(kind === 'accounts' ? `${name} can sign in again.` : (data.message || `${name} is back.`), 'success');
+                    // with a link to where it went back to
+                    showSuccessDialog('Restored', escHtml(kind === 'accounts' ? `${name} can sign in again.` : (data.message || `${name} is back.`)),
+                        { icon: 'restore_from_trash', link: WHERE[kind](rec) });
                     // the page behind shows it again
                     ['loadProducts', 'loadSuppliers', 'loadUsers'].forEach(f => { if (typeof window[f] === 'function') window[f](); });
                 } else {

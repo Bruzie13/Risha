@@ -194,7 +194,72 @@
                 + '<td class="num">' + (manages() ? '<button class="btn-view" data-paid="' + Number(o.id) + '">Mark paid</button>' : '') + '</td></tr>';
         }).join('') : '<tr><td colspan="6" class="rp-loading">Every delivered order has been paid.</td></tr>';
 
+        var paidList = board.paid || [];
+        document.getElementById('paidBody').innerHTML = paidList.length ? paidList.map(function (p) {
+            return '<tr><td class="rp-strong">' + escHtml(p.po_number) + '</td>'
+                + '<td>' + escHtml(p.supplier_name || '—') + '</td>'
+                + '<td>' + escHtml(new Date(Number(p.paid_at)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })) + '</td>'
+                + '<td>' + escHtml(p.method) + '</td>'
+                + '<td class="num rp-strong">' + formatCurrency(p.total_amount) + '</td>'
+                + '<td class="num"><button class="btn-view" data-receipt="' + Number(p.id) + '"><span class="material-symbols-outlined" style="font-size:15px;">receipt_long</span> Receipt</button></td></tr>';
+        }).join('') : '<tr><td colspan="6" class="rp-loading">No payments recorded yet.</td></tr>';
+
         Object.keys(openNotes).forEach(function (id) { if (openNotes[id] && document.getElementById('board-notes-' + id)) loadNotes(Number(id)); });
+    }
+
+    /* ---------- Payments: how it was paid, and its receipt ---------- */
+
+    async function openReceipt(id) {
+        try {
+            var res = await fetch(API + '/' + id + '/receipt', { headers: getAuthHeaders() });
+            var data = await res.json();
+            if (!data.success) { showToast(data.message || 'The receipt could not be opened', 'error'); return; }
+            showPaymentReceipt(data.data);
+        } catch (e) { showToast(couldNot('open the receipt', e), 'error'); }
+    }
+
+    // Mark paid asks how it was paid (and the reference number), then shows the receipt
+    function markPaid(id) {
+        var po = find(id);
+        var methods = [['cash', 'Cash'], ['bank_transfer', 'Bank transfer'], ['gcash', 'GCash'], ['check', 'Check']];
+        var shell = buildDialogShell('confirmDialogOverlay', 'success', 'payments', 'Mark as paid',
+            'Record that ' + escHtml(po ? po.po_number : 'this order') + ' (' + formatCurrency(po ? po.total_amount : 0) + ') has been paid to ' + escHtml(po ? po.supplier_name : 'the supplier') + '. A receipt is made for it.');
+        var dialog = shell.dialog, overlay = shell.overlay, method = '';
+        dialog.querySelector('.dialog-body').innerHTML =
+            '<label class="form-label" style="display:block;text-align:left;margin-top:6px;">How was it paid?</label>'
+            + '<div class="pay-method">' + methods.map(function (m) { return '<button type="button" data-method="' + m[0] + '">' + m[1] + '</button>'; }).join('') + '</div>'
+            + '<label class="form-label" for="payRef" style="display:block;text-align:left;">Reference number <span id="payRefNote" style="font-weight:500;color:var(--text-muted);">(not needed for cash)</span></label>'
+            + '<input id="payRef" class="form-input" type="text" maxlength="80" placeholder="e.g. BDO-2026-10441">'
+            + '<div id="payError" role="alert" style="display:none;margin-top:8px;font-size:13px;font-weight:600;color:var(--danger);text-align:left;"></div>';
+        dialog.querySelector('.dialog-body').insertAdjacentHTML('afterend', dialogActions('Cancel', 'Mark paid', 'btn-primary'));
+        var err = dialog.querySelector('#payError');
+        var close = function () { overlay.remove(); };
+        dialog.querySelector('.pay-method').addEventListener('click', function (e) {
+            var b = e.target.closest('button[data-method]');
+            if (!b) return;
+            method = b.dataset.method;
+            dialog.querySelectorAll('.pay-method button').forEach(function (x) { x.classList.toggle('active', x === b); });
+            dialog.querySelector('#payRefNote').textContent = method === 'cash' ? '(not needed for cash)' : method === 'check' ? '(the check number)' : '(needed)';
+            err.style.display = 'none';
+        });
+        overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+        dialog.querySelector('#confirmCancelBtn').addEventListener('click', close);
+        dialog.querySelector('#confirmOkBtn').addEventListener('click', async function () {
+            var ref = dialog.querySelector('#payRef').value.trim();
+            // the same rule as the server's (utils/supply.js paymentProblem)
+            var problem = !method ? 'Choose how it was paid: Cash, Bank transfer, GCash or Check.'
+                : method !== 'cash' && !ref ? 'Enter the ' + (method === 'check' ? 'check' : 'reference') + ' number, so it is on the receipt.'
+                : ref && !/^[A-Za-z0-9 \-\/#.]+$/.test(ref) ? 'The reference number can have letters, numbers, spaces and - / # . only.' : null;
+            if (problem) { err.textContent = problem; err.style.display = 'block'; return; }
+            try {
+                var res = await fetch(API + '/' + id + '/payment', { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify({ paid: true, method: method, reference: ref }) });
+                var data = await res.json();
+                if (!data.success) { err.textContent = data.message || 'Not saved'; err.style.display = 'block'; return; }
+                close();
+                refresh(false);
+                if (data.data) showPaymentReceipt(data.data);
+            } catch (e2) { err.textContent = 'That could not be saved. Try again.'; err.style.display = 'block'; }
+        });
     }
 
     /* ---------- Actions ---------- */
@@ -207,14 +272,10 @@
     }
 
     function onAction(e) {
+        var receipt = e.target.closest('button[data-receipt]');
+        if (receipt) { openReceipt(Number(receipt.dataset.receipt)); return; }
         var paid = e.target.closest('button[data-paid]');
-        if (paid) {
-            var pid = Number(paid.dataset.paid), po = find(pid);
-            showConfirmDialog('Mark as paid', 'Record that ' + escHtml(po ? po.po_number : 'this order') + ' has been paid to the supplier?', async function () {
-                if (await send('PUT', '/' + pid + '/payment', { paid: true })) refresh(false);
-            }, 'Mark paid');
-            return;
-        }
+        if (paid) { markPaid(Number(paid.dataset.paid)); return; }
         var price = e.target.closest('button[data-price]');
         if (price) {
             var pp = '/price-proposals/' + Number(price.dataset.price) + '/decide';
@@ -260,9 +321,9 @@
                 (short ? 'The supplier sent less than ordered on some lines; only what they confirmed is added to stock. ' : 'The items are added to stock. ')
                 + (expired.length
                     ? named + (expired.length === 1 ? ' has' : ' have') + ' already expired. The expired stock will be removed and replaced by the new batch. Enter the new batch\'s expiration date:'
-                    : 'Enter the new batch\'s expiration date, or leave it blank to keep the current one:'),
+                    : 'Enter the new batch\'s expiration date:'),
                 function (dateVal) { setStatus(id, 'received', dateVal ? { expiration_date: dateVal } : null); },
-                'Receive into stock', null, 'date', '', { min: earliestExpiryYmd(), validate: function (v) {
+                'Receive into stock', null, 'date', '', { min: earliestExpiryYmd(), hint: expired.length ? '' : 'Leave it blank to keep the current one.', validate: function (v) {
                     if (!v && expired.length) return 'Enter the new batch\'s expiration date: the current one has already passed.';
                     return expiryDateProblem(v);
                 } });

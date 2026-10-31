@@ -18,7 +18,15 @@ class SupplierPerformance {
                         UNIX_TIMESTAMP(po.updated_at) * 1000 as updated_at,
                         DATEDIFF(po.updated_at, po.order_date) as lead_days,
                         GREATEST(COALESCE(MAX(el.clicked_at IS NOT NULL), 0), po.confirmed_at IS NOT NULL) as confirmed,
-                        MAX(el.opened_at IS NOT NULL) as viewed
+                        MAX(el.opened_at IS NOT NULL) as viewed,
+                        -- when the email for where the order is now was last sent,
+                        -- so the page can say "Thanks sent" instead of offering it again
+                        (SELECT UNIX_TIMESTAMP(MAX(al.created_at)) * 1000 FROM audit_logs al
+                          WHERE al.table_name = 'purchase_orders' AND al.record_id = po.id AND al.action = 'email'
+                            AND al.new_value LIKE CONCAT('%', CASE po.status
+                                WHEN 'received' THEN 'thanking them' WHEN 'cancelled' THEN 'telling them not to ship'
+                                WHEN 'confirmed' THEN 'asking when it will ship' WHEN 'shipped' THEN 'asking about the delivery'
+                                ELSE 'the order' END, '%')) AS stage_emailed_at
                  FROM purchase_orders po
                  LEFT JOIN email_logs el
                         ON el.email_type = 'po'

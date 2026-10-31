@@ -117,8 +117,8 @@ class Notification {
         const connection = await pool.getConnection();
         try {
             const [result] = await connection.execute(
-                `INSERT INTO notifications (type, title, message, product_id, user_id, related_id, related_type)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO notifications (type, title, message, product_id, user_id, related_id, related_type, details)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     data.type || 'info',
                     data.title,
@@ -126,7 +126,9 @@ class Notification {
                     data.product_id || null,
                     data.user_id || null,
                     data.related_id || null,
-                    data.related_type || null
+                    data.related_type || null,
+                    // { rows: [[label, value]], items: [text] }, shown when the notice is opened
+                    data.details ? JSON.stringify(data.details) : null
                 ]
             );
             return { id: result.insertId, ...data };

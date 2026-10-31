@@ -28,8 +28,8 @@
     <link rel="stylesheet" href="css/pos.css?v=36">
 <script>/* the till has one page, so its sidebar starts as the slim strip (see "The slim strip" in css/system.css); the logo opens it, and that choice is kept (railOpen) */document.documentElement.classList.add('rail-only');document.documentElement.classList.toggle('sidebar-hidden', localStorage.getItem('railOpen') !== 'true');</script>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=97">
-        <link rel="stylesheet" href="css/pos-register.css?v=4">
+        <link rel="stylesheet" href="css/system.css?v=98">
+        <link rel="stylesheet" href="css/pos-register.css?v=5">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -123,7 +123,7 @@
                         <div class="till-empty"><span class="material-symbols-outlined">shopping_basket</span><b>Nothing in this sale yet</b><span>Scan a barcode or press Add on a product.</span></div>
                     </div>
                     <div class="till-customer">
-                        <input maxlength="100" type="text" id="posCustomerName" placeholder="Customer (optional)" aria-label="Customer name, optional">
+                        <input maxlength="100" type="text" id="posCustomerName" placeholder="Customer Name (optional)" aria-label="Customer name, optional">
                         <input maxlength="20" type="text" id="posCustomerPhone" placeholder="Phone (optional)" aria-label="Customer phone, optional">
                     </div>
                     <div class="till-sum">
@@ -148,6 +148,9 @@
                     </div>
                     <div class="till-quick">
                         <button type="button" class="exact" onclick="quickCash('exact')">Exact</button>
+                        <button type="button" onclick="quickCash(1)">+1</button>
+                        <button type="button" onclick="quickCash(5)">+5</button>
+                        <button type="button" onclick="quickCash(10)">+10</button>
                         <button type="button" onclick="quickCash(20)">+20</button>
                         <button type="button" onclick="quickCash(50)">+50</button>
                         <button type="button" onclick="quickCash(100)">+100</button>
@@ -227,7 +230,6 @@
             </div>
             <div class="modal-footer">
                 <span style="margin-right:auto;font-size:12.5px;color:var(--text-muted);">A wrong sale cannot be removed from the till. Ask for a void and a manager will review it.</span>
-                <button type="button" class="btn-secondary" onclick="closeMySales()">Close</button>
             </div>
         </div>
     </div>
@@ -251,6 +253,7 @@
                         <span class="pos-eod-value" id="posEodTxns">—</span>
                     </div>
                 </div>
+                <div class="pos-drawer-now"><span>Cash in the drawer now</span><strong id="posEodDrawer">—</strong></div>
                 <div class="pos-eod-figures" id="posEodMoves" hidden>
                     <div>
                         <span class="pos-eod-label">Cash put in today</span>
@@ -302,6 +305,7 @@
             </div>
             <div class="modal-body">
                 <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.5;margin-bottom:14px;">Record any cash that leaves or enters the drawer for a reason other than a sale: the owner collecting the takings, paying a supplier, adding coins for change. It adjusts what the drawer should hold, so the end-of-day count still comes out right. The administrator is told about each one.</p>
+                <div class="pos-drawer-now"><span>Cash in the drawer now</span><strong id="posCashDrawer">—</strong></div>
                 <div id="posCashEntry">
                     <div class="seg pos-cash-kind" id="posCashKind" role="group" aria-label="Was the cash taken out or put in?">
                         <button type="button" class="seg-btn active" data-kind="out" onclick="setPosCashKind('out')"><span class="material-symbols-outlined">north_east</span> Taken out</button>
@@ -329,14 +333,14 @@
 
         <script src="js/format.js"></script>
 <script src="js/utils.js"></script>
-<script src="js/auth.js?v=77"></script>
+<script src="js/auth.js?v=78"></script>
 <script src="js/loader.js?v=6"></script>
 <script src="js/clear-input.js?v=2"></script>
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=34"></script>
 <script src="js/assistant.js?v=30"></script>
     <script src="js/escpos-print.js?v=4"></script>
-    <script src="js/pos.js?v=50"></script>
+    <script src="js/pos.js?v=51"></script>
 </body>
 </html>
 

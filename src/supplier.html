@@ -28,7 +28,7 @@
     <link rel="stylesheet" href="css/reports.css?v=30">
 <script>/* the supplier has one page, so its sidebar starts as the slim strip (see "The slim strip" in css/system.css); the logo opens it, and that choice is kept (railOpen) */document.documentElement.classList.add('rail-only');document.documentElement.classList.toggle('sidebar-hidden', localStorage.getItem('railOpen') !== 'true');</script>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=97">
+        <link rel="stylesheet" href="css/system.css?v=98">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -107,7 +107,6 @@
                 <button type="button" class="sp-tab" role="tab" data-sp-tab="products">Products<span class="sp-tab-count is-warn" id="tabCountLow" hidden title="Products you supply that are running low at the shop (at or below their reorder level)"></span></button>
                 <button type="button" class="sp-tab" role="tab" data-sp-tab="rating">Rating</button>
                 <button type="button" class="sp-tab" role="tab" data-sp-tab="past">Past orders</button>
-                <button type="button" class="sp-tab" role="tab" data-sp-tab="details">My details</button>
             </div>
             <div class="rp-card panel-card" id="spOpen" data-sp-panel="open" data-jump-title="Open orders">
                 <div class="rp-card-head">
@@ -128,10 +127,18 @@
                         <span class="rp-card-sub" id="paymentsSub">Delivered orders the shop has not yet marked as paid</span>
                     </div>
                 </div>
+                <div id="paymentsNotice"></div>
                 <div class="rp-table-wrap">
                     <table class="rp-table">
                         <thead><tr><th>Order</th><th>Delivered</th><th>Payment due</th><th class="num">Amount</th></tr></thead>
                         <tbody id="paymentsBody"><tr><td colspan="4" class="rp-loading">Loading…</td></tr></tbody>
+                    </table>
+                </div>
+                <div class="rp-subhead" style="padding-left:0;">Paid</div>
+                <div class="rp-table-wrap">
+                    <table class="rp-table">
+                        <thead><tr><th>Order</th><th>Paid on</th><th class="num">Amount</th><th></th></tr></thead>
+                        <tbody id="paidBody"><tr><td colspan="4" class="rp-loading">Loading…</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -188,16 +195,6 @@
                 <div id="pastPagination" class="pagination-bar"></div>
             </div>
 
-            <div class="rp-card panel-card" id="spDetails" data-sp-panel="details" data-jump-title="Your details">
-                <div class="rp-card-head">
-                    <div>
-                        <h2>Your details on file</h2>
-                        <span class="rp-card-sub">Purchase orders are emailed to the address below. Ask the shop to change your company name, email or payment terms.</span>
-                    </div>
-                    <button class="btn-secondary" onclick="openDetails()"><span class="material-symbols-outlined">edit</span> Edit contact details</button>
-                </div>
-                <div class="rp-detail-grid" id="supplierDetails"></div>
-            </div>
         </div>
     </div>
 
@@ -235,13 +232,13 @@
     </script>
     <script src="js/format.js"></script>
     <script src="js/utils.js"></script>
-    <script src="js/auth.js?v=77"></script>
+    <script src="js/auth.js?v=78"></script>
     <script src="js/loader.js?v=6"></script>
 <script src="js/clear-input.js?v=2"></script>
     <script src="js/po-progress.js?v=3"></script>
     <link rel="stylesheet" href="vendor/intl-tel-input-18.2.1/css/intlTelInput.css">
     <script src="vendor/intl-tel-input-18.2.1/js/intlTelInput.min.js"></script>
     <script src="js/phone-field.js?v=1"></script>
-    <script src="js/supplier-portal.js?v=19"></script>
+    <script src="js/supplier-portal.js?v=20"></script>
 </body>
 </html>

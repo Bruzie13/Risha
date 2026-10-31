@@ -673,3 +673,12 @@
 @media (max-width: 640px) {
   .rp-sum { grid-template-columns: 1fr; }
 }
+
+/* Stock planning → Expiry: every row labelled (Expired / At risk) and tinted
+   by how close it is: red for expired or within 30 days, amber for later. */
+.rp-risk-chip { display: inline-block; margin: 0 6px 3px 0; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
+.rp-risk-chip.expired, .rp-risk-chip.soon { background: color-mix(in srgb, var(--danger) 14%, var(--bg-card)); color: var(--danger); }
+.rp-risk-chip.later { background: color-mix(in srgb, var(--warning) 16%, var(--bg-card)); color: var(--warning); }
+.rp-table tr.rp-risk-row.expired td, .rp-table tr.rp-risk-row.soon td { background: color-mix(in srgb, var(--danger) 7%, var(--bg-card)); }
+.rp-table tr.rp-risk-row.later td { background: color-mix(in srgb, var(--warning) 7%, var(--bg-card)); }
+.rp-chart[hidden], .rp-footnote[hidden] { display: none; }

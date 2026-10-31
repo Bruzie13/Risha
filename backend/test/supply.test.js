@@ -155,3 +155,16 @@ test('declining a price: a reason in words is needed', () => {
     assert.equal(declineReasonProblem('  Mahal  '), null);
     assert.equal(declineReasonProblem('x'.repeat(300)), null);
 });
+
+test('paying a supplier: how it was paid, and its reference number', () => {
+    const { paymentProblem } = require('../utils/supply');
+    assert.equal(paymentProblem('cash', ''), null, 'cash needs no reference');
+    assert.equal(paymentProblem('bank_transfer', 'BDO-2026-10441'), null);
+    assert.equal(paymentProblem('gcash', '1009 233 441'), null);
+    assert.match(paymentProblem('', ''), /Choose how it was paid/);
+    assert.match(paymentProblem('crypto', 'x'), /Choose how it was paid/);
+    assert.match(paymentProblem('gcash', '  '), /reference number/);
+    assert.match(paymentProblem('check', ''), /check number/);
+    assert.match(paymentProblem('bank_transfer', 'x'.repeat(81)), /80 characters/);
+    assert.match(paymentProblem('bank_transfer', 'ref<script>'), /letters, numbers/);
+});

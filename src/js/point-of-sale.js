@@ -21,6 +21,15 @@ window.addEventListener('load', async () => {
 let salesTotal = 0;
 let salesSearchDebounce = null;
 
+/* A sale's status as a badge. A completed sale a cashier asked to void says
+   so ("Void requested") until a manager decides, instead of "Completed". */
+function saleStatusBadge(s) {
+    if (s.payment_status === 'voided') return '<span class="status-badge status-expired" title="Voided: its items went back to stock">Voided</span>';
+    if (s.payment_status === 'completed' && Number(s.void_requested)) return '<span class="status-badge status-low-stock" title="A cashier asked for this sale to be voided; it waits in Reports, Void requests">Void requested</span>';
+    if (s.payment_status === 'completed') return '<span class="status-badge status-in-stock">Completed</span>';
+    return '<span class="status-badge status-expired">' + escHtml(s.payment_status || 'N/A') + '</span>';
+}
+
 function salesQuery() {
     const params = new URLSearchParams();
     const search = document.getElementById('searchInput')?.value?.trim();
@@ -115,11 +124,7 @@ function displaySales(sales) {
             <td>${s.item_count || 0}</td>
             <td>${formatCurrency(parseFloat(s.final_amount ?? s.total_amount ?? 0))}</td>
             <td>${escHtml(s.payment_method || 'N/A')}</td>
-            <td>${s.payment_status === 'completed'
-                ? '<span class="status-badge status-in-stock">Completed</span>'
-                : s.payment_status === 'voided'
-                    ? '<span class="status-badge status-expired" title="Voided — stock was restored">Voided</span>'
-                    : '<span class="status-badge status-expired">' + escHtml(s.payment_status || 'N/A') + '</span>'}</td>
+            <td>${saleStatusBadge(s)}</td>
             <td>
                 <button class="btn-view" onclick="viewSaleDetails(${s.id})">View</button>
                 ${viewer || s.payment_status === 'voided' ? '' : `<button class="btn-delete" onclick="voidSale(${s.id})">Void</button>`}
@@ -357,11 +362,7 @@ async function viewSaleDetails(id) {
                 <div class="details-row"><span class="details-label">Customer</span><span class="details-value">${escHtml(sale.customer_name || 'N/A')}</span></div>
                 <div class="details-row"><span class="details-label">Phone</span><span class="details-value">${escHtml(sale.customer_phone || 'N/A')}</span></div>
                 <div class="details-row"><span class="details-label">Payment</span><span class="details-value">${escHtml(sale.payment_method)}</span></div>
-                <div class="details-row"><span class="details-label">Status</span><span class="details-value">${sale.payment_status === 'completed'
-                    ? '<span class="status-badge status-in-stock">Completed</span>'
-                    : sale.payment_status === 'voided'
-                        ? '<span class="status-badge status-expired" title="Voided: its items went back to stock">Voided</span>'
-                        : '<span class="status-badge status-expired">' + escHtml(sale.payment_status || 'N/A') + '</span>'}</span></div>
+                <div class="details-row"><span class="details-label">Status</span><span class="details-value">${saleStatusBadge(sale)}</span></div>
                 <div class="details-row"><span class="details-label">Discount</span><span class="details-value">${parseFloat(sale.discount || 0)}%</span></div>
                 <div class="details-row"><span class="details-label">Notes</span><span class="details-value">${escHtml(sale.notes || 'None')}</span></div>
                 <div class="details-items"><h4>Items sold</h4>

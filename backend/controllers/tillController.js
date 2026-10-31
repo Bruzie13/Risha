@@ -94,9 +94,18 @@ exports.getCashMoves = async (req, res) => {
         const today = shopToday();
         const [counted] = await pool.query(
             'SELECT id FROM cash_reconciliations WHERE business_date = ? AND counted_by = ?', [today, req.user.id]);
-        res.json({ success: true, data: { date: today, counted: counted.length > 0, ...(await cashMovesToday(req.user.id, today)) } });
+        res.json({ success: true, data: { date: today, counted: counted.length > 0, drawer_now: await drawerNow(req.user.id, today), ...(await cashMovesToday(req.user.id, today)) } });
     } catch (e) { fail(res, 'getCashMoves', e); }
 };
+
+/* The cash that should be in the cashier's drawer now: starting cash, plus
+   cash sales, plus cash put in, less cash taken out. Shown on Cash in/out and
+   End of day, as the UAT panel asked (31 Oct). */
+async function drawerNow(cashierId, today) {
+    const conn = await pool.getConnection();
+    try { return (await require('./saleController')._cashierDrawer(conn, cashierId, today)).expected; }
+    finally { conn.release(); }
+}
 
 exports.addCashMove = async (req, res) => {
     try {
@@ -137,7 +146,7 @@ exports.addCashMove = async (req, res) => {
         res.json({
             success: true,
             message: kind === 'out' ? `Recorded: ${peso} taken out.` : `Recorded: ${peso} put in.`,
-            data: await cashMovesToday(req.user.id, today)
+            data: { drawer_now: await drawerNow(req.user.id, today), ...(await cashMovesToday(req.user.id, today)) }
         });
     } catch (e) { fail(res, 'addCashMove', e); }
 };
@@ -202,6 +211,25 @@ exports.requestVoid = async (req, res) => {
         emailVoidRequest(rows[0], req.user, reason);
         res.json({ success: true, message: 'Sent to a manager for voiding.' });
     } catch (e) { fail(res, 'requestVoid', e); }
+};
+
+// The cashier who asked can take the request back while it still waits.
+exports.cancelVoidRequest = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        if (!Number.isInteger(id)) return res.status(404).json({ success: false, message: 'Sale not found' });
+        const [result] = await pool.query(
+            `UPDATE sales SET void_requested_at = NULL, void_request_reason = NULL
+             WHERE id = ? AND created_by = ? AND void_requested_at IS NOT NULL AND payment_status <> 'voided'`, [id, req.user.id]);
+        if (!result.affectedRows) return res.status(400).json({ success: false, message: 'There is no void request of yours waiting on that sale.' });
+        logAudit(req.user.id, 'update', 'sales', id, null, { void_request_cancelled: true }, req.ip);
+        Notification.create({
+            title: 'Void request cancelled',
+            message: `The cashier took back the request to void sale #${id}. The sale stands.`,
+            type: 'info', related_id: id, related_type: 'sale'
+        }).catch(e => console.error('Notif error:', e.message));
+        res.json({ success: true, message: 'Void request cancelled. The sale stands.' });
+    } catch (e) { fail(res, 'cancelVoidRequest', e); }
 };
 
 // The review list for managers: what cashiers have asked to be voided, and

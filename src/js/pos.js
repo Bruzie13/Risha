@@ -402,7 +402,7 @@ function showLessPosProducts() {
 // Find a product by scanned/typed code (barcode or SKU, case/space tolerant)
 // and add it to the cart. Falls back to a server search since only a page of
 // products is loaded. Resolves true if something was added.
-async function scanToCart(rawCode) {
+async function scanToCart(rawCode, quiet) {
     const code = String(rawCode || '').trim();
     if (code.length < 2) return false;
     const norm = code.toLowerCase();
@@ -416,13 +416,15 @@ async function scanToCart(rawCode) {
             const data = await res.json();
             const rows = (data.success && Array.isArray(data.data)) ? data.data : [];
             // exact barcode/SKU hit, or a single unambiguous match
-            found = exact(rows) || (rows.length === 1 ? rows[0] : null);
+            // (while typing, only an exact code: a half-typed one must not add anything)
+            found = exact(rows) || (!quiet && rows.length === 1 ? rows[0] : null);
             // keep it in memory so addToCart/cart stock checks can find it
             if (found && !allProducts.some(p => p.id === found.id)) allProducts.push(found);
         } catch (e) { /* treated as not found */ }
     }
     if (found) { addToCart(found.id); return true; }
-    showToast('No product found for "' + code + '"', 'error');
+    // while typing, a code that is not complete yet is no mistake
+    if (!quiet) showToast('No product found for "' + code + '"', 'error');
     return false;
 }
 
@@ -493,6 +495,20 @@ function setupBarcodeListener() {
     }
     manualEnter(scanInput);
     manualEnter(searchInput);
+
+    // Typed by hand, the barcode box is searched as you type (Carlo's UAT, 31
+    // Oct: one way only, no Enter needed): once the typing pauses and the
+    // code is a product's full barcode or SKU, that product is added.
+    let typedTimer = null;
+    scanInput?.addEventListener('input', () => {
+        clearTimeout(typedTimer);
+        const code = scanInput.value.trim();
+        if (code.length < 3) return;
+        typedTimer = setTimeout(async () => {
+            if (scanInput.value.trim() !== code) return;
+            if (await scanToCart(code, true)) scanInput.value = '';
+        }, 600);
+    });
 }
 
 function addToCart(productId) {
@@ -1035,7 +1051,9 @@ async function loadMySales() {
                 : s.void_requested ? '<span class="status-badge status-low-stock">Void requested</span>'
                 : '<span class="status-badge status-in-stock">Completed</span>';
             const actions = `<button class="btn-view" data-reprint="${id}">Reprint</button>`
-                + (voided || s.void_requested ? '' : `<button class="btn-delete" data-void="${id}">Ask for void</button>`);
+                + (voided ? ''
+                    : s.void_requested ? `<button class="btn-secondary" data-unvoid="${id}">Cancel request</button>`
+                    : `<button class="btn-delete" data-void="${id}">Ask for void</button>`);
             return `<tr class="${voided ? 'pos-mysales-voided' : ''}">
                 <td>${new Date(Number(s.created_at)).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</td>
                 <td>#${id}<span style="color:var(--text-muted);"> · ${formatQty(s.item_count)} item${Number(s.item_count) === 1 ? '' : 's'}</span></td>
@@ -1056,7 +1074,22 @@ document.addEventListener('click', e => {
     if (reprint) { printReceipt(Number(reprint.dataset.reprint)); return; }
     const ask = e.target.closest('[data-void]');
     if (ask) requestVoid(Number(ask.dataset.void));
+    const unask = e.target.closest('[data-unvoid]');
+    if (unask) cancelVoidRequest(Number(unask.dataset.unvoid));
 });
+
+/* A void request the cashier made by mistake, taken back before it is decided. */
+function cancelVoidRequest(id) {
+    showConfirmDialog('Cancel the void request?', `Sale #${id} stays as it is, and the manager no longer sees the request.`, async () => {
+        try {
+            const res = await fetch(`${API_BASE}/sales/${id}/void-request/cancel`, { method: 'POST', headers: getAuthHeaders() });
+            const data = await res.json();
+            if (!data.success) { showToast(data.message || 'The request was not cancelled', 'error'); return; }
+            showToast(data.message, 'success');
+            loadMySales();
+        } catch (e) { showToast(couldNot('cancel the request', e), 'error'); }
+    }, 'Cancel request');
+}
 
 function requestVoid(id) {
     showPromptDialog(
@@ -1108,6 +1141,7 @@ async function openPosEod() {
         document.getElementById('posEodMoves').hidden = !moved;
         document.getElementById('posEodCashIn').textContent = formatCurrency(d.cash_in || 0);
         document.getElementById('posEodCashOut').textContent = formatCurrency(d.cash_out || 0);
+        document.getElementById('posEodDrawer').textContent = formatCurrency(d.drawer_now || 0);
         showPosEodResult(d.counted ? { ...d.result, opening_cash: d.opening_cash } : null);
         if (!d.counted) document.getElementById('posEodCounted').focus();
     } catch (e) {
@@ -1161,6 +1195,7 @@ function setPosCashKind(kind) {
 }
 
 function renderPosCash(d) {
+    if (d.drawer_now != null) document.getElementById('posCashDrawer').textContent = formatCurrency(d.drawer_now);
     const list = document.getElementById('posCashList');
     const moves = d.moves || [];
     document.getElementById('posCashTotals').textContent = moves.length

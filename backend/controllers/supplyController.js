@@ -4,7 +4,7 @@
 const { noteProblem, RECENT_NOTES_SQL } = require('../utils/notes');
 const pool = require('../config/database');
 const logAudit = require('../services/audit');
-const { dueDate, declineReasonProblem } = require('../utils/supply');
+const { dueDate, declineReasonProblem, paymentProblem, PAYMENT_METHODS } = require('../utils/supply');
 
 const DAY = col => `DATE_FORMAT(CONVERT_TZ(${col},'+00:00','+08:00'), '%Y-%m-%d')`;
 const clean = (v, max) => String(v == null ? '' : v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim().slice(0, max);
@@ -53,6 +53,12 @@ exports.getBoard = async (req, res) => {
             delete o.supplier_logins;
             o.payment_due = o.status === 'received' ? dueDate(o.received_day, o.payment_terms) : null;
         });
+        // the latest payments, each with its receipt
+        const [paid] = await pool.query(
+            `SELECT po.id, po.po_number, po.total_amount, UNIX_TIMESTAMP(po.paid_at) * 1000 AS paid_at, po.paid_method, s.name AS supplier_name
+             FROM purchase_orders po LEFT JOIN suppliers s ON s.id = po.supplier_id
+             WHERE po.paid_at IS NOT NULL ORDER BY po.paid_at DESC LIMIT 20`);
+        paid.forEach(p => { p.method = PAYMENT_METHODS[p.paid_method] || 'Not recorded'; delete p.paid_method; });
         const [prices] = await pool.query(
             `SELECT pp.id, pp.current_price, pp.proposed_price, pp.note,
                     UNIX_TIMESTAMP(pp.created_at) * 1000 AS created_at,
@@ -62,7 +68,7 @@ exports.getBoard = async (req, res) => {
              JOIN products p ON p.id = pp.product_id
              JOIN suppliers s ON s.id = pp.supplier_id
              WHERE pp.status = 'pending' ORDER BY pp.created_at LIMIT 100`);
-        res.json({ success: true, data: { orders, price_proposals: prices } });
+        res.json({ success: true, data: { orders, price_proposals: prices, paid } });
     } catch (e) { fail(res, 'board', e); }
 };
 
@@ -76,11 +82,54 @@ exports.setPayment = async (req, res) => {
         // Paying for goods that have not arrived is a different decision from
         // ticking a box; keep this to orders actually received.
         if (rows[0].status !== 'received') return res.status(400).json({ success: false, message: 'Only a received order can be marked paid.' });
-        await pool.query('UPDATE purchase_orders SET paid_at = ? WHERE id = ?', [paid ? new Date() : null, id]);
+        const method = String(req.body?.method || '');
+        const ref = String(req.body?.reference || '').trim();
+        if (paid) {
+            const problem = paymentProblem(method, ref);
+            if (problem) return res.status(400).json({ success: false, message: problem });
+        }
+        await pool.query('UPDATE purchase_orders SET paid_at = ?, paid_method = ?, paid_ref = ?, paid_by = ? WHERE id = ?',
+            paid ? [new Date(), method, ref || null, req.user.id, id] : [null, null, null, null, id]);
         logAudit(req.user.id, 'update', 'purchase_orders', id,
-            { po_number: rows[0].po_number, paid: !!rows[0].paid_at }, { po_number: rows[0].po_number, paid }, req.ip);
-        res.json({ success: true, message: paid ? 'Marked as paid.' : 'Marked as unpaid.' });
+            { po_number: rows[0].po_number, paid: !!rows[0].paid_at },
+            { po_number: rows[0].po_number, paid, ...(paid ? { method: PAYMENT_METHODS[method], reference: ref || undefined } : {}) }, req.ip);
+        res.json({ success: true, message: paid ? 'Marked as paid.' : 'Marked as unpaid.', data: paid ? await paymentReceipt(id) : null });
     } catch (e) { fail(res, 'payment', e); }
+};
+
+/* A payment's receipt: what was paid, to whom, how and when. The same for
+   the shop and for the supplier. */
+async function paymentReceipt(id, supplierId) {
+    const [[o]] = await pool.query(
+        `SELECT po.id, po.po_number, po.total_amount, po.paid_at, po.paid_method, po.paid_ref,
+                DATE_FORMAT(CONVERT_TZ(po.received_at,'+00:00','+08:00'), '%Y-%m-%d') AS received_day,
+                s.id AS supplier_id, s.name AS supplier, s.email AS supplier_email, u.full_name AS recorded_by
+         FROM purchase_orders po
+         LEFT JOIN suppliers s ON s.id = po.supplier_id
+         LEFT JOIN users u ON u.id = po.paid_by
+         WHERE po.id = ? AND po.paid_at IS NOT NULL`, [id]);
+    if (!o || (supplierId && Number(o.supplier_id) !== Number(supplierId))) return null;
+    const [items] = await pool.query(
+        `SELECT p.name, COALESCE(pi.confirmed_quantity, pi.quantity) AS quantity, pi.unit_price
+         FROM po_items pi JOIN products p ON p.id = pi.product_id WHERE pi.po_id = ? ORDER BY pi.id`, [id]);
+    const paidAt = new Date(o.paid_at);
+    const stamp = paidAt.toLocaleString('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/-/g, '');
+    return {
+        receipt_no: `PAY-${stamp}-${String(o.id).padStart(4, '0')}`,
+        po_number: o.po_number, supplier: o.supplier, supplier_email: o.supplier_email,
+        amount: Number(o.total_amount), method: PAYMENT_METHODS[o.paid_method] || 'Not recorded', reference: o.paid_ref || null,
+        paid_at: paidAt.getTime(), received_day: o.received_day, recorded_by: o.recorded_by || null,
+        items: items.map(i => ({ name: i.name, quantity: Number(i.quantity), unit_price: Number(i.unit_price) }))
+    };
+}
+exports._paymentReceipt = paymentReceipt;
+
+exports.getReceipt = async (req, res) => {
+    try {
+        const r = await paymentReceipt(Number(req.params.id));
+        if (!r) return res.status(404).json({ success: false, message: 'That order has no payment recorded.' });
+        res.json({ success: true, data: r });
+    } catch (e) { fail(res, 'receipt', e); }
 };
 
 exports.getMessages = async (req, res) => {

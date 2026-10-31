@@ -74,14 +74,13 @@ PLAN = {
             ('Product addition', [
                 ('Click the **Add** button',
                  'The **Add new product** window opens'),
-                ('Fill in the product details:\nProduct name: Pedigree Adult Beef 3kg\nCategory: Food\nProduct type: Dry food\nSpecies: Dog\n'
-                 'Unit price (₱): 650 (greater than 0)\nCost price (₱): 520 (greater than 0 and not greater than the unit price)\nStock: 20 (not lower than 0)\n'
-                 f'Reorder level: 10\nSupplier: PetCo Wholesale\nExpiration date: {YEAR_AHEAD}',
+                ('Fill in the product details, in the order of the form:\n**Product name:** Pedigree Adult Beef 3kg\n**Category:** Food\n**Product type:** Dry food\n'
+                 '**Unit price (₱):** 650 (greater than 0)\n**Cost price (₱):** 520 (greater than 0 and not greater than the unit price)\n**Stock on hand:** 20 (not lower than 0)\n'
+                 '**Reorder level:** 10\n**Supplier:** PetCo\n**Expiration date:** one year from today (it must be at least one week away)\n'
+                 '**Barcode:** 4809876543210 (letters and numbers only)\n**Species:** Dog',
                  'The SKU is filled in by itself based on the product type (example: DRY-121). The **Expiration date** label shows "*" because Food needs one, and it can only be one week or more from today'),
                 ('Click **Save product** at the lower-right of the window',
                  '"Product added" is shown and the new product appears in the list'),
-                ('Click the **Add** button again, fill in a product in **Food** but leave **Expiration date** empty, then click **Save product**',
-                 '"Food products need an expiration date. Enter the date printed on the pack." shows under the box and the product is not saved'),
             ]),
             ('Product import', [
                 ('Click **Import** at the right of the **Add** button',
@@ -91,17 +90,23 @@ PLAN = {
                 ('Fill in the template with the products, choose the supplier in **Supplier for these products** (example: PetCo Wholesale), then choose the file in **Choose CSV File**',
                  'A preview shows how many products were read from the file and the first rows'),
                 ('Click **Import products**',
-                 '"Import complete" is shown with the number of products imported, and the products appear in the list'),
-                ('Import a file with a Food row that has no **expiration_date**',
-                 'That row is left out and listed with "Food products need an expiration date. Enter the date printed on the pack."'),
+                 'If no product with the same SKU, barcode or name exists yet, "Import complete" is shown with the number of products imported and they appear in the list. Otherwise those rows are left out and listed with the reason (example: "SKU already exists")'),
             ]),
             ('Reordering', [
                 ('Click the **Reorder** button, tick the products to order, change the amount in **To order** if needed (example: 20), then click **Order … products**',
                  'A question asks to order that many items and email each order to its supplier'),
                 ('Click **Create and email orders**',
                  '"Purchase orders sent" is shown and each supplier receives its order by email, with the amounts chosen'),
-                ('Click the **Reorder** button, tick a product, type abc in its **To order** box, then click **Order … products**',
-                 '"\'abc\' is not a whole number. Type one number only, like 20 (no + or - signs, no letters)." shows under that product and nothing is sent'),
+            ]),
+            ('Bulk reorder', [
+                ('Click two product cards (anywhere except their buttons)',
+                 'The bar at the bottom of the screen shows "2 selected"'),
+                ('Click **Bulk reorder** in that bar',
+                 'The **Reorder 2 selected products** window lists both, ticked, each with its stock, reorder level and the suggested amount in **To order**'),
+                ('Change one amount in **To order** (example: 15), then click **Order 2 products**',
+                 'The button shows the items and total being ordered; a question asks to order them and email each order to its supplier'),
+                ('Click **Create and email orders**',
+                 '"Purchase orders sent" is shown and each supplier receives its order by email, with the amounts chosen'),
             ]),
             ('Barcode assignment', [
                 ('Click **Barcodes** at the right of the **Reorder** button',
@@ -110,8 +115,6 @@ PLAN = {
                  'A check mark (✓) appears beside the barcode box to show that the barcode is saved, and the cursor moves to the next product'),
                 ('Click the generate icon at the right of another product\'s barcode box',
                  'An in-store barcode is made and saved for that product, and a check mark (✓) appears beside its barcode box to show that it is saved'),
-                ('Type a barcode with a symbol or a space in another product\'s box (example: 480-1234), then press Enter',
-                 '"A barcode can have letters and numbers only (for example 4801234567890 or ABC123). Spaces and symbols like - = / are not allowed." is shown and nothing is saved'),
             ]),
             ('Product images', [
                 ('Click **Images** at the right of the **Barcodes** button',
@@ -157,9 +160,7 @@ PLAN = {
                 ('Click the trash icon at the lower-right of a product card',
                  'A question asks to delete the product'),
                 ('Click **Delete product**',
-                 '"Product deleted" is shown, saying the product is in the Trash (Settings → Trash), and it is removed from the list'),
-                ('Click **View** on another product, click **Edit**, clear **Cost price**, then click **Save product**',
-                 '"Enter the cost price (what the shop pays the supplier). It has to be more than ₱0." shows under the box and the product is not saved'),
+                 '"Product deleted" is shown, saying the product is in the Trash, with a **Go to Trash** button, and it is removed from the list'),
             ]),
         ]),
         ('SALES HISTORY MODULE', [
@@ -186,8 +187,6 @@ PLAN = {
                  'Only the sales made this month are listed, and the field reads the range (example: "Oct 1 – Oct 30, 2026")'),
                 ('Click the **Dates** field again, choose the **From** and **To** dates, then click **Apply**',
                  'Only the sales made within those dates are listed'),
-                ('Click the **Dates** field, choose a **From** date later than the **To** date, then click **Apply**',
-                 '"The start date is after the end date" shows in the panel and the list does not change'),
             ]),
             ('Sale details and receipt', [
                 ('Click **View** at the right of a sale',
@@ -218,12 +217,10 @@ PLAN = {
             ('Supplier addition', [
                 ('Click the **Add supplier** button at the upper-right of the page',
                  'The **Add supplier** window opens'),
-                ('Fill in the supplier details, then click **Save supplier**:\nSupplier name: Pawfect Pet Trading\nContact person: Ana Dela Cruz (letters only, no numbers)\n'
-                 'Email: pawfect.trading@example.com (a valid email)\nPhone: 0917 123 4567 (a real number; the box shows +63 for the Philippines)\n'
-                 'Address: 123 Rizal Street (optional)\nCity: Quezon City (optional)\nPayment terms: Net 30',
+                ('Fill in the supplier details:\n**Supplier name:** Pawfect Pet Trading\n**Contact person:** Ana Dela Cruz (letters only, no numbers)\n'
+                 '**Email:** pawfect.trading@example.com (a valid email)\n**Phone:** 0917 123 4567 (a real number; the box shows +63 for the Philippines)\n'
+                 '**Address:** 123 Rizal Street (optional)\n**City:** Quezon City (optional)\n**Payment terms:** Net 30\nThen click **Save supplier**',
                  '"Supplier added" is shown and the supplier appears in the list'),
-                ('Click **Add supplier** again, fill in the details with 0000000000 as the **Phone**, then click **Save supplier**',
-                 '"Enter a real phone number for Philippines, like 0905 123 4567. Pick another country with the flag if the number is from abroad." shows under the box and the supplier is not saved'),
             ]),
             ('Supplier performance', [
                 ('Click the stars in the **Rating** column of a supplier',
@@ -241,7 +238,7 @@ PLAN = {
                 ('Click **Delete** at the right of a supplier',
                  'A question asks to delete the supplier'),
                 ('Click **Delete supplier**',
-                 '"Supplier deleted" is shown, saying it can be restored from Settings → Trash, and the supplier is removed from the list'),
+                 '"Supplier deleted" is shown with a **Go to Trash** button, and the supplier is removed from the list'),
             ]),
             ('Purchase orders', [
                 ('Click the **Orders** tab at the right of **Suppliers**',
@@ -267,9 +264,11 @@ PLAN = {
             ]),
             ('Unpaid deliveries', [
                 ('Under **Delivered, not yet paid**, click **Mark paid** on an order',
-                 'A question asks to record the order as paid'),
-                ('Choose the payment method used (example: Bank transfer), then click **Mark paid**',
-                 '"Marked as paid." is shown, the payment method is recorded and the order is removed from the unpaid list'),
+                 'The **Mark as paid** window asks how it was paid (Cash, Bank transfer, GCash or Check) and for the reference number'),
+                ('Choose **Bank transfer**, enter the reference number (example: BDO-2026-10441), then click **Mark paid**',
+                 'The **Payment receipt** opens with its receipt number, the supplier, the order, the amount, the method and reference, and who recorded it; the order moves from the unpaid list to **Paid**'),
+                ('Under **Paid**, click **Receipt** on the same order, then **Print**',
+                 'The same receipt opens and prints'),
             ]),
             ('Price changes', [
                 ('Click the **Price changes** tab at the right of **Orders** (it shows how many are waiting, example "3 to decide")',
@@ -280,14 +279,16 @@ PLAN = {
                  '"Price updated in inventory." is shown, the price leaves the list, the count on the tab goes down, and the product\'s cost price is the new one'),
                 ('Click **Decline** on another price, type the reason (example: Too high compared with other suppliers), then click **Decline**',
                  '"Proposal declined. The price is unchanged." is shown, and the supplier sees "declined" and the reason on their portal'),
-                ('Click **Decline** on a price, leave the reason empty, then click **Decline**',
-                 '"Type why you are declining this price. The supplier will see it." is shown and nothing is declined'),
             ]),
         ]),
         ('REPORTS MODULE', [
             ('Sales report', [
                 ('Click **Reports** in the sidebar',
-                 'The **Reports** page opens on the **Sales** tab. Under **Summary**, Revenue is shown large with how it compares with the same number of days just before (example: "↓ 67% vs Sep 1 – Sep 30 (₱240,953.80)") and how many days had no sales; Sales made, Average per sale and Items sold each show their own comparison. Below are **Over time** (revenue per day, every day of the period, with days without sales marked "No sales recorded"), **What sold** and **Breakdown**'),
+                 'The **Reports** page opens on the **Sales** tab with four parts:\n'
+                 '**Summary:** Revenue, shown large, with how it compares with the same number of days just before and how many days had no sales; Sales made, Average per sale and Items sold, each with its own comparison\n'
+                 '**Over time:** revenue per day, every day of the period; days without sales are marked "No sales recorded"\n'
+                 '**What sold:** best-selling products and sales by category\n'
+                 '**Breakdown:** the same figures as a table'),
                 ('Click the **Period** field (it reads "Last 30 days"), then click **Last 7 days**, **Last 30 days**, **This month** and **All time** one at a time (open the field again each time)',
                  'The figures, comparisons and charts change to show each period, and the field reads the period chosen. **All time** shows no comparison'),
                 ('Click the **Period** field, choose a **From** date not later than the **To** date, then click **Apply**',
@@ -296,8 +297,6 @@ PLAN = {
                  'The chart and the table group the sales by week, then by month; the comparisons stay'),
                 ('Click **Export Excel** at the right of **Show by**',
                  '"Sales report exported" is shown and an Excel file of the report is downloaded'),
-                ('Click the **Period** field, choose a **From** date later than the **To** date, then click **Apply**',
-                 '"The start date is after the end date." shows in the panel and the report does not change'),
             ]),
             ('Stock planning', [
                 ('Click the **Stock planning** tab',
@@ -307,7 +306,7 @@ PLAN = {
                 ('Click **Create and email**',
                  '"Purchase orders created" is shown and each supplier receives its order'),
                 ('Click the **Expiry** tab, then the **Too much stock** tab',
-                 'Expiry lists stock already expired and stock likely to expire before it sells; Too much stock lists products with more than three months of stock, with the money tied up'),
+                 'Expiry lists stock already expired and stock likely to expire before it sells, each row labelled **Expired** or **At risk** and coloured (red for expired or within 30 days); Too much stock lists products with more than three months of stock, with the money tied up'),
                 ('Click the **Forecast** tab, then click a product name under **All products**',
                  'The product\'s past sales and its 30-day forecast are shown under the list'),
                 ('At the bottom of the **Forecast** tab, click **About this forecast**',
@@ -355,7 +354,7 @@ PLAN = {
                 ('Click **Deactivate** at the right of another user',
                  'A question asks to deactivate the account'),
                 ('Click **Deactivate account**',
-                 '"Account deactivated" is shown and that user can no longer sign in'),
+                 '"Account deactivated" is shown with a **Go to Trash** button, and that user can no longer sign in'),
             ]),
         ]),
         ('SETTINGS MODULE', [
@@ -384,18 +383,20 @@ PLAN = {
                  '"Test email sent" is shown and the test email arrives in that inbox (if it is not in the inbox, check the Spam folder)'),
             ]),
             ('Trash', [
-                ('Click the **Trash** tab in Settings (it shows how many are waiting, example "17 deleted")',
-                 'The Trash opens with three tabs, **Products**, **Suppliers** and **Accounts**, each with its count; each item says when it was deleted and by whom, with a **Restore** button'),
+                ('Click the **Trash** button under the account at the lower-left of the sidebar (or the **Trash** tab in Settings)',
+                 'The Trash opens with three tabs, **Products**, **Suppliers** and **Accounts**, each with its count; each item says when it was deleted, by whom and in how many days it is deleted for good, with **Restore** and **Delete permanently** buttons'),
                 ('On **Products**, click **Restore** on the product deleted in Product manipulation',
-                 '"<product name> is back in Inventory." is shown, the product leaves the Trash and appears in Inventory again'),
+                 'The **Restored** window says "<product name> is back in Inventory." with an **Open in Inventory** button; the product leaves the Trash'),
                 ('Click **Suppliers**, then **Restore** on the supplier deleted in Supplier deletion',
-                 '"<supplier name> is back on the supplier list. Assign it to products again where needed." is shown and the supplier is on the Suppliers page again'),
+                 'The **Restored** window says "<supplier name> is back on the supplier list…" with an **Open in Suppliers** button'),
                 ('Click **Accounts**, then **Restore** on the account deactivated in User deactivation',
-                 '"<name> can sign in again." is shown and the account is active again on the Users page'),
+                 'The **Restored** window says "<name> can sign in again." with an **Open in Users** button'),
+                ('Click **Delete permanently** on another item, then **Delete permanently**',
+                 'A question asks "Are you sure you want to permanently delete …?"; then "<name> was deleted permanently." is shown and it leaves the Trash'),
+                ('Choose **after 60 days** in **Empty the Trash by itself**',
+                 '"The Trash now keeps things for 60 days." is shown, and each item says how many days it has left'),
                 ('Type a name in **Search the Trash** (example: Pedigree)',
                  'Only the deleted items that match are listed; with no match, "Nothing in the Trash matches that search." is shown'),
-                ('Restore a product whose barcode another product now uses',
-                 '"<name> could not be restored: its barcode … is now used by "<other product>" … Give "<other product>" another barcode first, or remove it there." is shown and the product stays in the Trash'),
             ]),
         ]),
         ('NOTIFICATIONS MODULE', [
@@ -406,6 +407,8 @@ PLAN = {
                  'The **Notifications** page opens with all the low stock, out of stock and expiring alerts'),
                 ('Choose **Low Stock** in **All Types**',
                  'Only the low stock alerts are listed'),
+                ('Click a notification (example: a void request)',
+                 'Its details open: who asked, which sale, the cashier, the total, the items and the reason, with a button to where it is handled (example: **Open Void requests**). It is marked as read'),
                 ('Click the check mark at the right of a notification',
                  'The notification is marked as read'),
                 ('Click **Mark all read** at the upper-right of the page',

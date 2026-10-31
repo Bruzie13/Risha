@@ -87,6 +87,41 @@ async function runAllChecks() {
     await checkExpiringProducts();
     await checkOverstock();
     await cleanOldNotifications();
+    await checkPaymentsDue();
+    try { await require('../controllers/trashController').emptyOld(); }
+    catch (e) { console.error('[Scheduler] Trash clean-up error:', e.message); }
+}
+
+/* A delivery the shop has not paid yet: one notice when it is due within
+   three days, and one when it is overdue (UAT, 31 Oct). */
+async function checkPaymentsDue() {
+    try {
+        const { dueDate } = require('./supply');
+        const [orders] = await pool.query(
+            `SELECT po.id, po.po_number, po.total_amount, s.name AS supplier, s.payment_terms,
+                    DATE_FORMAT(CONVERT_TZ(po.received_at,'+00:00','+08:00'), '%Y-%m-%d') AS received_day
+             FROM purchase_orders po JOIN suppliers s ON s.id = po.supplier_id
+             WHERE po.status = 'received' AND po.paid_at IS NULL
+               AND DATE_FORMAT(CONVERT_TZ(po.received_at,'+00:00','+08:00'), '%Y-%m-%d') >=
+                   (SELECT setting_value FROM app_settings WHERE setting_key = 'payment_tracking_since')`);
+        const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+        const soon = new Date(Date.now() + 8 * 3600e3 + 3 * 864e5).toISOString().slice(0, 10);
+        const peso = n => '₱' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        for (const o of orders) {
+            const due = dueDate(o.received_day, o.payment_terms);
+            if (!due || due > soon) continue;
+            const over = due < today;
+            const title = over ? `Payment overdue: ${o.po_number}` : `Payment due soon: ${o.po_number}`;
+            const [had] = await pool.query('SELECT id FROM notifications WHERE related_type = ? AND related_id = ? AND title = ? LIMIT 1', ['purchase_order', o.id, title]);
+            if (had.length) continue;
+            await Notification.create({
+                title, type: 'info', related_type: 'purchase_order', related_id: o.id,
+                message: `${peso(o.total_amount)} to ${o.supplier} ${over ? 'was' : 'is'} due on ${due}. Mark it paid under Suppliers, Orders, once it is paid.`
+            });
+        }
+    } catch (err) {
+        console.error('[Scheduler] Payments due check error:', err.message);
+    }
 }
 
 async function checkLowStock() {
@@ -142,7 +177,13 @@ async function checkLowStock() {
                 await Notification.create({
                     title: `Low-Stock Email Sent to ${group.name}`,
                     message: `Auto-emailed ${group.name} about ${group.items.length} low-stock product(s)`,
-                    type: 'low_stock'
+                    type: 'low_stock',
+                    related_type: 'supplier', related_id: Number(sid),
+                    // what the email listed, shown when the notice is opened
+                    details: {
+                        rows: [['Emailed to', `${group.name} (${group.email})`], ['Products in the email', String(group.items.length)]],
+                        items: group.items.map(p => `${p.name} (${p.sku}): ${Number(p.stock_quantity)} left, reorder level ${Number(p.reorder_level)}`)
+                    }
                 });
             }
         }
