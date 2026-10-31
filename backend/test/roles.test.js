@@ -19,6 +19,7 @@ test('cashier: can reach exactly what the till needs', () => {
     assert.ok(apiAllowed('cashier', 'POST', '/api/sales/till/open'), 'starting cash');
     assert.ok(apiAllowed('cashier', 'GET', '/api/sales/mine'), 'own sales today');
     assert.ok(apiAllowed('cashier', 'POST', '/api/sales/42/void-request'));
+    assert.ok(apiAllowed('cashier', 'POST', '/api/sales/42/void-request/cancel'), 'take back their own request');
 });
 
 test('cashier: everything else is refused', () => {
@@ -47,6 +48,8 @@ test('supplier: only its own portal and its own profile', () => {
     assert.ok(apiAllowed('supplier', 'POST', '/api/supplier-portal/orders/7/confirm'));
     assert.ok(apiAllowed('supplier', 'POST', '/api/supplier-portal/orders/7/ship'));
     assert.ok(apiAllowed('supplier', 'PUT', '/api/supplier-portal/orders/7/promise'));
+    assert.ok(apiAllowed('supplier', 'GET', '/api/supplier-portal/orders/7/receipt'), 'the receipt of a paid order');
+    assert.ok(!apiAllowed('supplier', 'GET', '/api/purchase-orders/7/receipt'), "but not through the shop's own route");
     assert.ok(apiAllowed('supplier', 'POST', '/api/supplier-portal/orders/7/messages'));
     assert.ok(apiAllowed('supplier', 'POST', '/api/supplier-portal/offers'));
     assert.ok(apiAllowed('supplier', 'POST', '/api/supplier-portal/products/3/price'));

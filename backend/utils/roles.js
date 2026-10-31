@@ -49,6 +49,7 @@ const API_ALLOW = {
         ['POST', /^\/api\/sales\/till\/cash$/],
         ['GET', /^\/api\/sales\/mine$/],
         ['POST', /^\/api\/sales\/\d+\/void-request$/],
+        ['POST', /^\/api\/sales\/\d+\/void-request\/cancel$/],   // their own request, still waiting
         ['GET', /^\/api\/receipt-printer\/status$/],   // the till's own receipt printer
         ['POST', /^\/api\/receipt-printer\/print$/],
         ...SELF
@@ -59,7 +60,7 @@ const API_ALLOW = {
         ['POST', /^\/api\/supplier-portal\/products\/\d+\/price$/],
         ['POST', /^\/api\/supplier-portal\/orders\/\d+\/(confirm|ship)$/],
         ['PUT', /^\/api\/supplier-portal\/orders\/\d+\/promise$/],
-        ['GET', /^\/api\/supplier-portal\/orders\/\d+\/messages$/],
+        ['GET', /^\/api\/supplier-portal\/orders\/\d+\/(messages|receipt)$/],
         ['POST', /^\/api\/supplier-portal\/orders\/\d+\/messages$/],
         ['POST', /^\/api\/supplier-portal\/offers$/],
         ...SELF
