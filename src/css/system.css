@@ -1390,23 +1390,34 @@ th, button, .btn-primary, .btn-secondary, .btn-view, .btn-edit, .btn-delete, .bt
 .sp-due-notice .material-symbols-outlined { color: var(--warning); }
 .sp-due-notice.over .material-symbols-outlined { color: var(--danger); }
 
-/* ----- Buttons take the colour theme (UAT, 31 Oct) -----
-   The outlined buttons were white whatever the theme. They are now filled
-   with a light tint of the theme's own colour (Settings → Appearance), so a
-   blue theme gives blue buttons, a green one green; the text stays dark
-   enough to read. */
-.btn-secondary, .show-more-btn, .reset-btn, .btn-action, .po-advance-btn, .po-email-btn {
-  background: color-mix(in srgb, var(--primary) 14%, var(--bg-card));
-}
-.btn-secondary:hover, .show-more-btn:hover, .reset-btn:hover, .btn-action:hover, .po-advance-btn:hover, .po-email-btn:hover {
-  background: color-mix(in srgb, var(--primary) 22%, var(--bg-card));
-}
+/* ----- Buttons take the colour theme (UAT, 31 Oct; 1 Nov) -----
+   The outlined buttons were white whatever the theme. They are filled with
+   a tint of the theme's sidebar colour (Settings → Appearance), the colour
+   that tells one theme from another: --primary is the same blue in Navy,
+   Red and Charcoal, so a tint of it hardly changed. The text mixes the same
+   colour with the normal text colour, so it stays readable in dark mode. */
+.btn-secondary, .show-more-btn, .reset-btn, .btn-action, .po-advance-btn, .po-email-btn,
 .btn-view, .btn-edit {
-  background: color-mix(in srgb, var(--primary) 10%, var(--bg-card));
-  border-color: color-mix(in srgb, var(--primary) 40%, var(--bg-card));
-  color: var(--primary-dark);
+  background: color-mix(in srgb, var(--brand-sky) 18%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--brand-sky) 50%, var(--bg-card));
+  color: color-mix(in srgb, var(--brand-sky) 70%, var(--text-primary));
 }
+.btn-secondary:hover, .show-more-btn:hover, .reset-btn:hover, .btn-action:hover, .po-advance-btn:hover, .po-email-btn:hover,
 .btn-view:hover, .btn-edit:hover {
-  background: color-mix(in srgb, var(--primary) 18%, var(--bg-card));
-  border-color: var(--primary);
+  background: color-mix(in srgb, var(--brand-sky) 28%, var(--bg-card));
+  border-color: var(--brand-sky);
 }
+
+/* ----- Ask FETCH and Reorder take the theme too (UAT, 1 Nov) -----
+   Both used colours that several themes share (the red main action is the
+   same in Risha and Navy & Sky; the yellow Reorder in every theme), so they
+   looked unchanged. They now use the sidebar colour, which every theme has
+   its own of. Status colours (Expired, Low stock, Delete…) keep their
+   meaning and stay as they are. */
+.fa-fab, .fa-fab:hover, .fa-fab.active { background: var(--brand-sky); box-shadow: 0 3px 0 var(--brand-sky-3), var(--shadow-md); }
+.fa-input-row button { background: var(--brand-sky); }
+.fa-msg.fa-user { background: var(--brand-sky); }
+.fa-head-title .fa-paw { color: var(--brand-sky); }
+.btn-warning { background: var(--brand-sky); border-color: var(--brand-sky); color: #fff; box-shadow: 0 var(--edge) 0 var(--brand-sky-3); }
+.btn-warning:hover { background: var(--brand-sky-2); box-shadow: 0 var(--edge) 0 var(--brand-sky-3); }
+.btn-warning .material-symbols-outlined { color: inherit; }

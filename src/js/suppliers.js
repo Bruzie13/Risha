@@ -490,7 +490,9 @@ async function showPerformance(supplierId) {
                     + '<td style="font-variant-numeric:tabular-nums;">' + val + '</td>'
                     + '<td>' + lead + '</td>'
                     + '<td>' + ordered + '</td>'
-                    + '<td><div class="po-actions">' + advance + email + '</div></td>'
+                    + '<td><div class="po-actions">' + advance + email
+                    + (canManage() ? '<button class="po-email-btn" onclick="openOrderReceipt(\'/purchase-orders/' + Number(r.id) + '/order-receipt\')"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;">receipt_long</span> Receipt</button>' : '')
+                    + '</div></td>'
                     + '</tr>';
             }).join('');
         }

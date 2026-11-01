@@ -59,3 +59,8 @@ From `UAT NOTES PART 3.pdf`. **All done 31 Oct** (not yet committed or deployed)
 - ✓ **AU6** Product addition: remove 4 (the empty expiration date case).
 - ✓ **AU7** Every step whose only point is one error message: remove it (all plans).
 - ✓ **AU8** Reports, Sales report 1: remove the example, and break the long text into lines.
+
+## While checking after Part 3 (1 Nov 2026)
+- **S1b** Button colours hardly changed between themes: they now take the theme's **sidebar** colour (Navy, Red and Charcoal share the same blue "primary"). Not yet in the test plans.
+- **SA1b** "Lahat ng transaction dapat may receipt": every **supplier order** (offer, waiting, confirmed, shipped, received, cancelled) has an **Order receipt** with Print — Supplier portal (Open orders and Past orders) and the shop (Suppliers → Orders cards, and each supplier's purchase order history). Add a test step to the Supplier and Admin plans when Carlo says the system is done.
+- **S1c** "Ask FETCH din dapat nagbabago kulay": Ask FETCH (and the assistant's send button, paw and your own messages) and the Inventory **Reorder** button now take the theme's sidebar colour. A scan of every page in all 7 themes found nothing else fixed except status colours (Expired, Low stock, In stock, Delete, alerts), which keep their meaning on purpose.

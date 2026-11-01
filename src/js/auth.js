@@ -1364,10 +1364,52 @@ function paymentReceiptHtml(r) {
     </div>`;
 }
 
-function showPaymentReceipt(r) {
-    const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', 'success', 'receipt_long', 'Payment receipt', escHtml(r.receipt_no));
+function showPaymentReceipt(r) { showReceiptDialog('Payment receipt', r.receipt_no, paymentReceiptHtml(r)); }
+
+/* An order to a supplier, as a receipt (UAT, 1 Nov: every order has one, at
+   any stage). Same look and Print as the payment receipt. */
+function orderReceiptHtml(r) {
+    const money = n => formatCurrency(Number(n) || 0);
+    const when = t => t ? new Date(Number(t)).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+    const day = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+    const row = (label, value) => value ? `<div><span>${label}</span><span>${escHtml(value)}</span></div>` : '';
+    const items = (r.items || []).map(i => `<tr><td>${escHtml(i.name)}${i.sending !== i.ordered ? `<br><small>${escHtml(String(i.sending))} of ${escHtml(String(i.ordered))} ordered</small>` : ''}</td><td class="num">${escHtml(String(i.sending))}</td><td class="num">${money(i.unit_price)}</td><td class="num">${money(i.sending * i.unit_price)}</td></tr>`).join('');
+    const paid = r.payment ? `Paid ${new Date(Number(r.payment.paid_at)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · ${r.payment.receipt_no}`
+        : r.status === 'received' ? 'Not yet paid' : r.status === 'cancelled' ? '' : 'Paid after delivery';
+    return `<div class="pay-receipt">
+        <div class="pay-receipt-head"><b>RISHA PET SUPPLIES</b><span>Order receipt</span><strong>${escHtml(r.po_number)}</strong></div>
+        <div class="pay-receipt-rows">
+            ${row('Supplier', r.supplier || '—')}
+            ${row('Status', r.stage)}
+            ${row('Ordered', when(r.ordered_at) + (r.ordered_by ? ' by ' + r.ordered_by : ''))}
+            ${row(r.status === 'received' ? 'Delivery date given' : 'Delivery date', day(r.delivery_day))}
+            ${row('Confirmed', when(r.confirmed_at))}
+            ${row('Shipped', when(r.shipped_at) + (r.delivery_ref ? ' · DR ' + r.delivery_ref : ''))}
+            ${row('Received', when(r.received_at))}
+            ${row('Payment terms', r.payment_terms)}
+            ${row('Payment', paid)}
+        </div>
+        ${items ? `<table class="pay-receipt-items"><thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Amount</th></tr></thead><tbody>${items}</tbody></table>` : ''}
+        <div class="pay-receipt-total"><span>Order total</span><strong>${money(r.total)}</strong></div>
+    </div>`;
+}
+function showOrderReceipt(r) { showReceiptDialog('Order receipt', r.po_number, orderReceiptHtml(r)); }
+
+// Ask the server for an order's receipt and show it; `path` is the shop's or the supplier's own address.
+async function openOrderReceipt(path) {
+    try {
+        const res = await fetch(API_BASE + path, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.message || 'The receipt could not be loaded.');
+        showOrderReceipt(data.data);
+    } catch (e) { showToast(e.message || 'The receipt could not be loaded.', 'error'); }
+}
+
+// A receipt in a window, with Close and Print (payments and orders).
+function showReceiptDialog(title, number, html) {
+    const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', 'success', 'receipt_long', title, escHtml(number));
     dialog.classList.add('pay-receipt-dialog');
-    dialog.querySelector('.dialog-body').innerHTML = paymentReceiptHtml(r);
+    dialog.querySelector('.dialog-body').innerHTML = html;
     dialog.querySelector('.dialog-body').insertAdjacentHTML('afterend', dialogActions('Close', 'Print', 'btn-primary', 'payReceiptPrint'));
     const close = () => { document.removeEventListener('keydown', onKey); overlay.remove(); };
     const onKey = e => { if (e.key === 'Escape') close(); };
@@ -1381,13 +1423,13 @@ function showPaymentReceipt(r) {
         document.body.appendChild(frame);
         const doc = frame.contentDocument;
         doc.open();
-        doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escHtml(r.receipt_no)}</title><style>
+        doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escHtml(number)}</title><style>
             body{font-family:Arial,sans-serif;font-size:13px;color:#111;margin:24px;}
             .pay-receipt-head{display:flex;flex-direction:column;align-items:center;gap:2px;border-bottom:1px dashed #999;padding-bottom:10px;margin-bottom:10px;}
             .pay-receipt-head b{font-size:16px;letter-spacing:1px}.pay-receipt-rows div{display:flex;justify-content:space-between;gap:16px;padding:3px 0;}
             .pay-receipt-rows span:first-child{color:#555}table{width:100%;border-collapse:collapse;margin:10px 0;}th,td{text-align:left;padding:4px 0;border-bottom:1px dashed #ccc;}
-            .num{text-align:right}.pay-receipt-total{display:flex;justify-content:space-between;font-size:15px;border-top:1px solid #111;padding-top:8px;}
-        </style></head><body>${paymentReceiptHtml(r)}</body></html>`);
+            .num{text-align:right}small{color:#666}.pay-receipt-total{display:flex;justify-content:space-between;font-size:15px;border-top:1px solid #111;padding-top:8px;}
+        </style></head><body>${html}</body></html>`);
         doc.close();
         frame.contentWindow.focus();
         frame.contentWindow.print();

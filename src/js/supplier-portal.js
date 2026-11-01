@@ -23,6 +23,7 @@ const ORDER_STATUS = {
 window.addEventListener('load', () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
     document.getElementById('openOrders').addEventListener('click', onOrderClick);
+    document.getElementById('pastOrdersBody').addEventListener('click', onOrderClick);
     document.getElementById('openOrders').addEventListener('submit', onNoteSubmit);
     document.querySelectorAll('.sp-tab').forEach(t => t.addEventListener('click', () => setSpTab(t.dataset.spTab)));
     let first = 'open';
@@ -125,7 +126,7 @@ async function loadPortal() {
         notice.hidden = false;
         document.getElementById('openOrders').innerHTML = '<p class="rp-loading">Nothing to show.</p>';
         portalRow('productsBody', 7, 'Nothing to show.');
-        portalRow('pastOrdersBody', 4, 'Nothing to show.');
+        portalRow('pastOrdersBody', 5, 'Nothing to show.');
         portalRow('paymentsBody', 4, 'Nothing to show.');
     }
 }
@@ -241,7 +242,8 @@ function itemsSummary(o) {
 
 function orderActions(o) {
     const id = Number(o.id);
-    const notes = `<button class="btn-secondary" data-act="notes" data-id="${id}">Notes${Number(o.message_count) ? ' (' + Number(o.message_count) + ')' : ''}</button>`;
+    const notes = `<button class="btn-secondary" data-act="notes" data-id="${id}">Notes${Number(o.message_count) ? ' (' + Number(o.message_count) + ')' : ''}</button>`
+        + `<button class="btn-secondary" data-act="receipt" data-id="${id}">Receipt</button>`;   // every order has one (UAT, 1 Nov)
     if (o.status === 'pending') return `<button class="btn-primary" data-act="confirm" data-id="${id}">Confirm order</button>${notes}`;
     if (o.status === 'confirmed') return `<button class="btn-primary" data-act="ship" data-id="${id}">Mark as shipped</button>
         <button class="btn-secondary" data-act="date" data-id="${id}">Change delivery date</button>${notes}`;
@@ -286,7 +288,7 @@ function renderOrders() {
 
 function renderPast(past) {
     past = past || portal.orders.filter(o => ['received', 'cancelled'].includes(o.status));
-    if (!past.length) { portalRow('pastOrdersBody', 4, 'No past orders yet.'); document.getElementById('pastPagination').innerHTML = ''; return; }
+    if (!past.length) { portalRow('pastOrdersBody', 5, 'No past orders yet.'); document.getElementById('pastPagination').innerHTML = ''; return; }
     document.getElementById('pastOrdersBody').innerHTML = past.slice(0, pastShown).map(o => {
         const s = ORDER_STATUS[o.status] || { text: o.status, tone: 'ok' };
         const items = (o.items || []).map(i => `${escHtml(formatQty(sendingOf(i)))} × ${escHtml(i.name)}`);
@@ -296,6 +298,7 @@ function renderPast(past) {
             <td><span class="rp-badge rp-badge-${s.tone}">${escHtml(s.text)}</span>${o.payment_tracked || o.paid
                 ? `<span class="rp-sub">${o.paid ? 'Paid' : 'Not yet paid'}</span>` : ''}</td>
             <td class="num rp-strong">${formatCurrency(o.total_amount)}</td>
+            <td class="num"><button class="btn-view" data-act="receipt" data-id="${Number(o.id)}">Receipt</button></td>
         </tr>`;
     }).join('');
     updatePagination('pastPagination', past, pastShown, 'showMorePast', 'showLessPast', PAST_PAGE);
@@ -311,6 +314,7 @@ function onOrderClick(e) {
     else if (btn.dataset.act === 'ship') openShip(id);
     else if (btn.dataset.act === 'date') openDate(id);
     else if (btn.dataset.act === 'notes') toggleNotes(id);
+    else if (btn.dataset.act === 'receipt') openOrderReceipt('/supplier-portal/orders/' + id + '/order-receipt');
 }
 
 function openConfirm(id) {

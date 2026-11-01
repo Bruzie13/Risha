@@ -124,6 +124,54 @@ async function paymentReceipt(id, supplierId) {
 }
 exports._paymentReceipt = paymentReceipt;
 
+/* Every order has its own receipt too (UAT, 1 Nov: "lahat ng transaction
+   dapat may receipt"): what was ordered from whom, where it is, the dates
+   along the way and, once paid, the payment's receipt number. */
+const ORDER_STAGE = {
+    proposed: 'Offer, waiting for the shop', pending: 'Waiting for the supplier to confirm', confirmed: 'Confirmed',
+    shipped: 'Shipped', received: 'Received', cancelled: 'Cancelled'
+};
+async function orderReceipt(id, supplierId) {
+    const [[o]] = await pool.query(
+        `SELECT po.id, po.po_number, po.status, po.total_amount, po.delivery_ref, po.created_at,
+                DATE_FORMAT(COALESCE(po.promised_date, po.expected_delivery_date), '%Y-%m-%d') AS delivery_day,
+                po.confirmed_at, po.shipped_at, po.received_at, po.paid_at, po.paid_method, po.paid_ref,
+                s.id AS supplier_id, s.name AS supplier, s.email AS supplier_email, s.payment_terms,
+                u.full_name AS ordered_by
+         FROM purchase_orders po
+         LEFT JOIN suppliers s ON s.id = po.supplier_id
+         LEFT JOIN users u ON u.id = po.created_by
+         WHERE po.id = ?`, [id]);
+    if (!o || (supplierId && Number(o.supplier_id) !== Number(supplierId))) return null;
+    const [items] = await pool.query(
+        `SELECT p.name, pi.quantity, pi.confirmed_quantity, pi.unit_price
+         FROM po_items pi JOIN products p ON p.id = pi.product_id WHERE pi.po_id = ? ORDER BY pi.id`, [id]);
+    const ms = d => (d ? new Date(d).getTime() : null);
+    const pay = o.paid_at ? await paymentReceipt(id, supplierId) : null;
+    return {
+        po_number: o.po_number, status: o.status, stage: ORDER_STAGE[o.status] || o.status,
+        supplier: o.supplier, supplier_email: o.supplier_email, payment_terms: o.payment_terms || null,
+        ordered_by: o.ordered_by || null, ordered_at: ms(o.created_at), delivery_day: o.delivery_day,
+        confirmed_at: ms(o.confirmed_at), shipped_at: ms(o.shipped_at), delivery_ref: o.delivery_ref || null,
+        received_at: ms(o.received_at),
+        payment: pay ? { receipt_no: pay.receipt_no, paid_at: pay.paid_at, method: pay.method } : null,
+        total: Number(o.total_amount),
+        items: items.map(i => ({
+            name: i.name, ordered: Number(i.quantity), unit_price: Number(i.unit_price),
+            sending: i.confirmed_quantity == null ? Number(i.quantity) : Number(i.confirmed_quantity)
+        }))
+    };
+}
+exports._orderReceipt = orderReceipt;
+
+exports.getOrderReceipt = async (req, res) => {
+    try {
+        const r = await orderReceipt(Number(req.params.id));
+        if (!r) return res.status(404).json({ success: false, message: 'That order was not found.' });
+        res.json({ success: true, data: r });
+    } catch (e) { fail(res, 'orderReceipt', e); }
+};
+
 exports.getReceipt = async (req, res) => {
     try {
         const r = await paymentReceipt(Number(req.params.id));

@@ -195,6 +195,15 @@ router.get('/orders/:id/receipt', async (req, res) => {
     } catch (e) { fail(res, 'receipt', e); }
 });
 
+// The receipt of one of this supplier's own orders, at any stage (UAT, 1 Nov).
+router.get('/orders/:id/order-receipt', async (req, res) => {
+    try {
+        const r = await require('../controllers/supplyController')._orderReceipt(Number(req.params.id), req.supplier.id);
+        if (!r) return notFound(res);
+        res.json({ success: true, data: r });
+    } catch (e) { fail(res, 'order receipt', e); }
+});
+
 // Accept an order: say when it will arrive and how much of each line is coming.
 router.post('/orders/:id/confirm', async (req, res) => {
     try {

@@ -108,7 +108,8 @@
 
     function actions(o) {
         var id = Number(o.id);
-        var notes = '<button class="btn-secondary" data-act="notes" data-id="' + id + '">Notes' + (Number(o.message_count) ? ' (' + Number(o.message_count) + ')' : '') + '</button>';
+        var notes = '<button class="btn-secondary" data-act="notes" data-id="' + id + '">Notes' + (Number(o.message_count) ? ' (' + Number(o.message_count) + ')' : '') + '</button>'
+            + '<button class="btn-secondary" data-act="receipt" data-id="' + id + '">Receipt</button>';   // every order has one (UAT, 1 Nov)
         // reading an order's notes is for administrators and managers (the server refuses anyone else)
         if (!manages()) return '';
         if (o.status === 'proposed') return '<button class="btn-primary" data-act="accept" data-id="' + id + '">Confirm order</button>'
@@ -305,6 +306,7 @@
         if (!o) return;
         var name = escHtml(o.po_number);
         if (act === 'notes') { toggleNotes(id); return; }
+        if (act === 'receipt') { openOrderReceipt('/purchase-orders/' + id + '/order-receipt'); return; }
         if (act === 'accept') {
             showConfirmDialog('Confirm this order', 'This accepts ' + escHtml(o.supplier_name || 'the supplier') + '\'s offer: ' + name + ' becomes a confirmed order for ' + formatCurrency(o.total_amount) + '.',
                 function () { setStatus(id, 'confirmed'); }, 'Confirm order');
