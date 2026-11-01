@@ -322,5 +322,9 @@
 .tp-body { flex: 1; display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; padding: 7px; }
 .tp-panel { flex: 1; height: 100%; border-radius: 4px; background: #fff; border: 1px solid rgba(16, 40, 63, 0.10); }
 .tp-btn { width: 30px; height: 12px; border-radius: 4px; }
+.tp-panel { position: relative; }
+.tp-chip { position: absolute; left: 5px; bottom: 5px; width: 28px; height: 11px; border-radius: 3px; border: 1px solid; }
+.tp-side { display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; height: 100%; }
+.tp-fab { width: 24px; height: 11px; border-radius: 999px; }
 .theme-name { font-size: 13.5px; font-weight: 600; padding: 0 2px 2px; }
 .theme-card.active .theme-name::after { content: ' ✓'; color: var(--primary); }

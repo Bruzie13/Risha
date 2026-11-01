@@ -50,6 +50,12 @@
 
     // how many characters are left, shown only near the end of a limited box
     function leftText(el) {
+        // a phone box counts digits for its country (phone-field.js)
+        if (el.dataset.maxDigits) {
+            var most = Number(el.dataset.maxDigits), used = el.value.replace(/\D/g, '').length;
+            if (used < most - 2) return '';
+            return used >= most ? 'Limit reached (' + most + ' digits for ' + (el.dataset.maxDigitsWhere || 'this country') + ')' : (most - used) + ' left';
+        }
         var max = el.maxLength;
         if (!(max > 0 && max < 1000)) return '';
         var n = max - el.value.length;

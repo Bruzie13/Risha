@@ -156,7 +156,10 @@ function setupAppearance() {
                 '<span class="theme-preview" style="background:' + a.paper + ';">' +
                     '<span class="tp-rail" style="background:' + a.rail + ';"><i></i><i></i><i></i></span>' +
                     '<span class="tp-main"><span class="tp-band" style="background:' + a.band + ';"></span>' +
-                    '<span class="tp-body"><span class="tp-panel"></span><span class="tp-btn" style="background:' + a.act + ';"></span></span></span>' +
+                    // what the theme colours: an outlined button tinted with the sidebar
+                    // colour, the main action, and Ask FETCH in the sidebar colour
+                    '<span class="tp-body"><span class="tp-panel"><span class="tp-chip" style="background:color-mix(in srgb, ' + a.rail + ' 18%, #fff);border-color:color-mix(in srgb, ' + a.rail + ' 50%, #fff);"></span></span>' +
+                    '<span class="tp-side"><span class="tp-btn" style="background:' + a.act + ';"></span><span class="tp-fab" style="background:' + a.rail + ';"></span></span></span></span>' +
                 '</span><span class="theme-name">' + a.name + '</span></button>';
         }).join('');
         grid.querySelectorAll('.theme-card').forEach(function (el) {
@@ -211,20 +214,84 @@ function setupTabs() {
     var tabs = document.querySelectorAll('.settings-tab');
     tabs.forEach(function (tab) {
         tab.addEventListener('click', function () {
-            tabs.forEach(function (t) { t.classList.remove('active'); });
-            tab.classList.add('active');
-            var panels = document.querySelectorAll('.settings-panel');
-            panels.forEach(function (p) { p.classList.remove('active'); });
-            var target = document.getElementById('panel-' + tab.dataset.tab);
-            if (target) target.classList.add('active');
-            // the Trash is drawn fresh each time it is opened, so a delete made
-            // on another page shows up; ?kind= picks its first tab
-            if (tab.dataset.tab === 'trash' && typeof mountTrash === 'function') {
-                mountTrash(document.getElementById('trashMount'), new URLSearchParams(window.location.search).get('kind'));
-            }
+            if (tab.classList.contains('active')) return;
+            askBeforeLeaving(function () { openSettingsTab(tab, tabs); });
         });
     });
 }
+
+function openSettingsTab(tab, tabs) {
+    tabs.forEach(function (t) { t.classList.remove('active'); });
+    tab.classList.add('active');
+    var panels = document.querySelectorAll('.settings-panel');
+    panels.forEach(function (p) { p.classList.remove('active'); });
+    var target = document.getElementById('panel-' + tab.dataset.tab);
+    if (target) target.classList.add('active');
+    // the Trash is drawn fresh each time it is opened, so a delete made
+    // on another page shows up; ?kind= picks its first tab
+    if (tab.dataset.tab === 'trash' && typeof mountTrash === 'function') {
+        mountTrash(document.getElementById('trashMount'), new URLSearchParams(window.location.search).get('kind'));
+    }
+}
+
+/* ----- Changes not saved (UAT, 1 Nov) -----
+   A field remembers its value the first time it is touched. Switching tab,
+   following a link (the sidebar, Trash) or reloading while a field differs,
+   or while Appearance has unsaved changes, asks first. Toggles that save on
+   the spot, the photo and the Trash are left out: they are never unsaved. */
+var SAVES_ITSELF = ['settingsDarkModeToggle', 'settingsSidebarToggle', 'settingsNotifToggle', 'avatarFile'];
+function fieldValue(el) { return el.type === 'checkbox' ? String(el.checked) : el.value; }
+function watchedFields(scope) {
+    return Array.prototype.filter.call((scope || document).querySelectorAll('.settings-panel input, .settings-panel select, .settings-panel textarea'), function (el) {
+        return el.type !== 'file' && el.type !== 'hidden' && SAVES_ITSELF.indexOf(el.id) < 0 && !el.closest('#trashMount');
+    });
+}
+function rememberField(e) {
+    var el = e.target;
+    if (el.dataset && el.dataset.orig === undefined && watchedFields().indexOf(el) >= 0) el.dataset.orig = fieldValue(el);
+}
+document.addEventListener('focusin', rememberField, true);
+document.addEventListener('pointerdown', rememberField, true);
+function unsavedIn(panel) {
+    if (panel.id === 'panel-preferences' && appearanceDirty) return true;
+    return watchedFields(panel).some(function (el) { return el.dataset.orig !== undefined && el.dataset.orig !== fieldValue(el); });
+}
+// after a save: what is in the fields now is what is saved
+function markSaved(scope) { watchedFields(scope).forEach(function (el) { delete el.dataset.orig; }); }
+function discardPanel(panel) {
+    if (panel.id === 'panel-preferences' && appearanceDirty) discardAppearance();
+    watchedFields(panel).forEach(function (el) {
+        if (el.dataset.orig === undefined) return;
+        if (el.type === 'checkbox') el.checked = el.dataset.orig === 'true'; else el.value = el.dataset.orig;
+        delete el.dataset.orig;
+    });
+    clearFieldErrors();
+}
+function askBeforeLeaving(go) {
+    var panel = document.querySelector('.settings-panel.active');
+    if (!panel || !unsavedIn(panel)) { go(); return; }
+    var tab = document.querySelector('.settings-tab.active');
+    // the tab's words without its icon's name or a count
+    var name = tab ? Array.prototype.filter.call(tab.childNodes, function (n) { return n.nodeType === 3; })
+        .map(function (n) { return n.textContent; }).join(' ').trim() || 'this tab' : 'this tab';
+    showConfirmDialog('Changes not saved', 'You changed something in <strong>' + escHtml(name) + '</strong> and did not save it. Leave without saving?',
+        function () { discardPanel(panel); go(); }, 'Leave without saving',
+        '<span class="material-symbols-outlined" style="color:var(--warning);">edit_note</span>');
+}
+// links (the sidebar, Go to…) ask the same way; the Trash button and Log out
+// leave by script, so the browser's own question covers those and reloading
+document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href]');
+    if (!a || a.target === '_blank' || (a.getAttribute('href') || '').charAt(0) === '#') return;
+    var panel = document.querySelector('.settings-panel.active');
+    if (!panel || !unsavedIn(panel)) return;
+    e.preventDefault(); e.stopPropagation();
+    askBeforeLeaving(function () { window.location.href = a.href; });
+}, true);
+window.addEventListener('beforeunload', function (e) {
+    var panel = document.querySelector('.settings-panel.active');
+    if (panel && unsavedIn(panel)) { e.preventDefault(); e.returnValue = ''; }
+});
 
 function loadSettings() {
     var user = getUser();
@@ -321,6 +388,7 @@ async function saveProfile() {
             var nameEl = document.getElementById('userName');
             if (nameEl) nameEl.textContent = name;
             if (typeof applyUserIdentity === 'function') applyUserIdentity();
+            markSaved(document.getElementById('settingsFullName').closest('.settings-card'));
             showSuccessDialog('Profile updated', 'Your account details have been saved.', { icon: 'person' });
         } else {
             showToast(data.message || 'Failed to update profile', 'error');
@@ -397,6 +465,7 @@ async function savePosSettings() {
         });
         var data = await res.json();
         if (!data.success) { showToast(data.message || 'The limit could not be saved', 'error'); return; }
+        markSaved(document.getElementById('posMaxDiscountInput').closest('.settings-card'));
         showToast('Cashiers can now discount up to ' + data.data.max_discount_percent + '%', 'success');
     } catch (e) { showToast('The limit could not be saved', 'error'); }
 }
@@ -463,6 +532,7 @@ async function saveEmailSettings() {
         });
         var data = await res.json();
         if (data.success) {
+            markSaved(document.getElementById('panel-email'));
             setEmailStatus('Saved — Gmail details checked ✓', 'success');
             showSuccessDialog('Email settings saved', 'Gmail details checked — supplier emails are good to go.', { icon: 'mark_email_read' });
             document.getElementById('emailSenderPass').value = '';
@@ -568,6 +638,7 @@ async function changePassword() {
             currentPw.value = '';
             newPw.value = '';
             confirmPw.value = '';
+            markSaved(document.getElementById('panel-password'));
         } else {
             showFieldError('errorCurrentPw', data.message || 'Failed to change password');
             showErrorDialog('Password not changed', data.message || 'Failed to change password.');
@@ -687,6 +758,7 @@ async function saveCompany() {
         });
         var data = await res.json();
         if (!data.success) { showToast(data.message || 'Not saved', 'error'); return; }
+        markSaved(document.getElementById('companyCard'));
         showToast(data.message || 'Saved', 'success');
     } catch (e) { showToast(couldNot('save your details', e), 'error'); }
 }

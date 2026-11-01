@@ -1302,7 +1302,9 @@ th, button, .btn-primary, .btn-secondary, .btn-view, .btn-edit, .btn-delete, .bt
   border-radius: var(--radius-md) 0 0 var(--radius-md);
 }
 .iti__selected-dial-code { color: var(--text-primary); font-weight: 600; }
-.iti--container { z-index: 10050; }
+/* above windows (2000) and dialogs; written so it outranks the library's own
+   z-index: 1060, which loads after this file */
+body > .iti--container { z-index: 10050; }
 .iti__country-list {
   background: var(--bg-card); color: var(--text-primary);
   border: 1px solid var(--border-glass); border-radius: var(--radius-md);
