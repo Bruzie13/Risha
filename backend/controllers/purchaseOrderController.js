@@ -356,6 +356,9 @@ const formatPeso = n => '₱' + Number(n || 0).toLocaleString('en-PH', { minimum
 
 // sent once per order; the others (reminders) at most once a day
 const ONCE = ['received', 'cancelled'];
+// an email still on its way: a second click arriving meanwhile would pass the
+// checks below, since the record is written once it has gone (1 Nov)
+const SENDING = new Set();
 
 /* When this order was last emailed about `about` (ms), from the Activity log. */
 async function lastStageEmail(orderId, about) {
@@ -390,6 +393,10 @@ exports.emailPO = async (req, res) => {
         // Not again and again (UAT, 31 Oct): thanks and a cancellation are sent
         // once; a reminder once a day. Resending the order itself stays free,
         // for after a bounce.
+        const sendingKey = order.id + ':' + stage.kind;
+        if (SENDING.has(sendingKey)) {
+            return res.status(409).json({ success: false, message: `This email to ${supplier.name} is being sent right now.` });
+        }
         if (stage.kind !== 'order') {
             const last = await lastStageEmail(order.id, stage.about);
             const when = last && new Date(last).toLocaleString('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -400,44 +407,47 @@ exports.emailPO = async (req, res) => {
                 return res.status(409).json({ success: false, message: `${supplier.name} was already asked on ${when}. You can ask again after a day.` });
             }
         }
-        const poItems = await PurchaseOrder.getPOItems(order.id);
-        const items = poItems.map(i => ({
-            product_name: i.product_name,
-            quantity: i.quantity,
-            unit_price: i.unit_price,
-            total_price: i.subtotal
-        }));
-        let sent;
-        if (stage.kind === 'order') {
-            sent = await sendPOEmail(supplier.id, supplier.email, supplier.name, order.po_number, items, order.total_amount);
-        } else {
-            const [[extra]] = await pool.query(
-                `SELECT DATE_FORMAT(promised_date, '%Y-%m-%d') AS promised, delivery_ref FROM purchase_orders WHERE id = ?`, [order.id]);
-            const day = v => v ? new Date(typeof v === 'string' && v.length === 10 ? v + 'T00:00:00+08:00' : Number(v))
-                .toLocaleDateString('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric' }) : null;
-            sent = await sendOrderUpdateEmail(stage.kind, supplier.id, supplier.email, supplier.name, order.po_number, items, order.total_amount, {
-                promisedDay: day(extra && extra.promised) || day(order.expected_delivery_date ? String(order.expected_delivery_date).slice(0, 10) : null),
-                shippedDay: day(order.shipped_at),
-                deliveryRef: extra && extra.delivery_ref,
-                receivedDay: day(order.received_at),
-                cancelledDay: day(order.updated_at)
-            });
-        }
-        if (!sent) {
-            return res.status(502).json({ success: false, message: 'The email could not be sent. Please try again.' });
-        }
-        Notification.create({
-            title: `Emailed ${supplier.name}`,
-            message: stage.sent(order.po_number, supplier.name),
-            type: 'info', related_type: 'purchase_order', related_id: order.id
-        }).catch(e => console.error('Notif error:', e.message));
-        logAudit(req.user.id, 'email', 'purchase_orders', order.id, null, {
-            po_number: order.po_number,
-            supplier_name: supplier.name,
-            email: supplier.email,
-            about: stage.about
-        }, req.ip);
-        res.json({ success: true, message: stage.sent(order.po_number, supplier.name) });
+        SENDING.add(sendingKey);
+        try {
+            const poItems = await PurchaseOrder.getPOItems(order.id);
+            const items = poItems.map(i => ({
+                product_name: i.product_name,
+                quantity: i.quantity,
+                unit_price: i.unit_price,
+                total_price: i.subtotal
+            }));
+            let sent;
+            if (stage.kind === 'order') {
+                sent = await sendPOEmail(supplier.id, supplier.email, supplier.name, order.po_number, items, order.total_amount);
+            } else {
+                const [[extra]] = await pool.query(
+                    `SELECT DATE_FORMAT(promised_date, '%Y-%m-%d') AS promised, delivery_ref FROM purchase_orders WHERE id = ?`, [order.id]);
+                const day = v => v ? new Date(typeof v === 'string' && v.length === 10 ? v + 'T00:00:00+08:00' : Number(v))
+                    .toLocaleDateString('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric' }) : null;
+                sent = await sendOrderUpdateEmail(stage.kind, supplier.id, supplier.email, supplier.name, order.po_number, items, order.total_amount, {
+                    promisedDay: day(extra && extra.promised) || day(order.expected_delivery_date ? String(order.expected_delivery_date).slice(0, 10) : null),
+                    shippedDay: day(order.shipped_at),
+                    deliveryRef: extra && extra.delivery_ref,
+                    receivedDay: day(order.received_at),
+                    cancelledDay: day(order.updated_at)
+                });
+            }
+            if (!sent) {
+                return res.status(502).json({ success: false, message: 'The email could not be sent. Please try again.' });
+            }
+            Notification.create({
+                title: `Emailed ${supplier.name}`,
+                message: stage.sent(order.po_number, supplier.name),
+                type: 'info', related_type: 'purchase_order', related_id: order.id
+            }).catch(e => console.error('Notif error:', e.message));
+            logAudit(req.user.id, 'email', 'purchase_orders', order.id, null, {
+                po_number: order.po_number,
+                supplier_name: supplier.name,
+                email: supplier.email,
+                about: stage.about
+            }, req.ip);
+            res.json({ success: true, message: stage.sent(order.po_number, supplier.name) });
+        } finally { SENDING.delete(sendingKey); }
     } catch (error) {
         console.error('Send PO email error:', error);
         res.status(500).json({ success: false, message: 'Error sending purchase order email' });

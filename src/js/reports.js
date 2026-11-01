@@ -767,3 +767,13 @@ function decideVoid(id, approve) {
 }
 
 // showToast comes from auth.js — one toast design everywhere
+
+/* A card with two views and a switch at its top right (What sold, Expected
+   sales): the button shows its own part of the card, data-seg-pane="seg:part". */
+document.addEventListener('click', function (e) {
+    const b = e.target.closest('.rp-seg[data-seg] button[data-show]');
+    if (!b) return;
+    const seg = b.closest('.rp-seg');
+    seg.querySelectorAll('button').forEach(x => { x.classList.toggle('active', x === b); x.setAttribute('aria-selected', x === b ? 'true' : 'false'); });
+    document.querySelectorAll('[data-seg-pane^="' + seg.dataset.seg + ':"]').forEach(p => { p.hidden = p.dataset.segPane !== seg.dataset.seg + ':' + b.dataset.show; });
+});

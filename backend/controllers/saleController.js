@@ -1,6 +1,7 @@
 const Sale = require('../models/Sale');
 const Product = require('../models/Product');
 const logAudit = require('../services/audit');
+const Notification = require('../models/Notification');
 const { notifySaleCreated, notifyLowStock, notifyStockout } = require('../services/notifier');
 const { saleRef } = require('../utils/requestKeys');
 const { lineProblem, mergeLines } = require('../utils/saleLines');
@@ -103,6 +104,10 @@ exports.createSale = async (req, res) => {
         const staff_id = req.user.id;
         const lengthIssue = firstTooLong({ customer_name, customer_phone });
         if (lengthIssue) return res.status(400).json({ success: false, message: lengthIssue });
+        // a customer's name has no numbers (UAT, 1 Nov); left empty it is a walk-in
+        if (customer_name && String(customer_name).trim() && !require('../utils/supplier').isPersonName(String(customer_name).trim())) {
+            return res.status(400).json({ success: false, message: "The customer's name can use letters, spaces and . ' - only, with no numbers." });
+        }
 
         // One cart, one sale (see utils/requestKeys.js).
         const ref = saleRef(req.body.client_ref);
@@ -253,11 +258,21 @@ exports.voidSale = async (req, res) => {
     try {
         const { id } = req.params;
         const reason = (req.body && req.body.reason ? String(req.body.reason) : '').slice(0, 300);
+        const [[before]] = await pool.query(
+            `SELECT s.final_amount, s.void_requested_at, u.full_name AS cashier,
+                    (SELECT full_name FROM users WHERE id = ?) AS by_name
+             FROM sales s LEFT JOIN users u ON u.id = s.created_by WHERE s.id = ?`, [req.user.id, id]);
         const result = await Sale.void(id, reason);
         if (result.error) {
             return res.status(400).json({ success: false, message: result.error });
         }
         logAudit(req.user.id, 'update', 'sales', parseInt(id), null, { voided: true, reason }, req.ip);
+        // a void is told in the bell like the request was (UAT, 1 Nov); the
+        // reason stays out of the alert and shows, escaped, in the sale's details
+        if (before) Notification.create({
+            title: `Sale voided: #${id}`, type: 'info', related_type: 'sale', related_id: Number(id),
+            message: `The ₱${Number(before.final_amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} sale by ${before.cashier || 'a cashier'} was voided by ${before.by_name || 'a manager'}${before.void_requested_at ? ', as the cashier asked' : ''}. Its items went back to stock.`
+        }).catch(e => console.error('Notif error:', e.message));
         res.status(200).json({ success: true, message: 'Sale voided and stock restored', data: result });
     } catch (error) {
         console.error('Void sale error:', error);

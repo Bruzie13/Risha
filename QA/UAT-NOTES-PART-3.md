@@ -30,6 +30,7 @@ From `UAT NOTES PART 3.pdf`. **All done 31 Oct** (not yet committed or deployed)
   - after restoring: a link to where it went back to
 - ✓ **A5** Notifications do something: click one to open its details, formatted neatly (like Facebook or email). Example, a void request: who asked, sale number, which cashier. A void notification links to Reports.
 - ✓ **A6** Sales history: a sale with a void request still shows status "Completed"; the status should say the request.
+- ✓ **A6b** (left out of this copy at first, from the PDF) "Pag nakavoid, may hyperlink yung notifs na mapupunta sa Reports": a void request's notification opens with **Open Void requests**, and a voided sale's (1 Nov) with **Open in Reports** (Reports → Void requests, which lists the voided sales).
 - ✓ **A7** Suppliers: **Send thanks** and **Send cancellation** can be sent again and again with no sign it was already sent.
 - ✓ **A8** Reports: put the graphs together ("pagsamahin yung mga graphs").
 - ✓ **A9** Stock planning → Expiry: label "At risk", and colour the rows (example red) so the ones about to expire stand out.
@@ -68,3 +69,11 @@ From `UAT NOTES PART 3.pdf`. **All done 31 Oct** (not yet committed or deployed)
 - **S4** Phone box: the country list opened behind the window (the library's own layer won over ours); it now opens in front, everywhere a phone box is used.
 - **S5** The colour cards in Appearance show the new look: the tinted button, the main action and Ask FETCH in each theme's colours.
 - **S6** Phone box: no more digits than the chosen country's ordinary mobile/landline numbers (Philippines 11 with the 0, 10 without; US 10; UK 11; Singapore 8); extra digits are not taken, the counter says "Limit reached (11 digits for Philippines)", and changing the flag applies that country's limit.
+- **C7** Cashier searching is automatic only: Enter typed by hand does nothing in Scan barcode or Search products (a scanner's own Enter still works); the search also updates on paste.
+- **C8** Customer Name takes no numbers or symbols (letters, spaces and . ' - only): they are not typed in, with a note why; the server refuses a sale whose customer name has numbers.
+- **A11** "Bakit walang notif ung void?": voiding a sale now adds "Sale voided: #…" to the bell (amount, cashier, who voided it, stock returned) and declining a request adds "Void request declined: #…". The cashier has no bell, so the till itself shows "Sale #… was voided by a manager" / "Your request for sale #… was declined" when the till opens or within a minute, once.
+- **A7b** "Di dapat ma-spam ang Send thanks / Send cancellation": already once-only since 31 Oct; two quick clicks while the first email was still going could still send twice. Now the server refuses a second send while one is on its way ("…is being sent right now") and the button shows "Sending…" until done. Dry run: two quick clicks → one email.
+- **A8b** "Pagsamahin ung ibang graphs": besides When the shop sells (31 Oct), Reports → Sales **What sold** (Best-selling products / By category) and Stock planning → Forecast **Expected sales** (By category / By brand) are each one card with a switch at the top right.
+- **A9b** Expiry: about-to-expire stock comes first (soonest at the top, amber rows, amber "At risk"), then a red "Already expired" heading and the expired stock (most recent first, red rows, red "Expired"); the line above says how many of each.
+
+**1 Nov:** everything above is now in the three test plans (17 changes: 12 Administrator, 2 Cashier, 3 Supplier), PDFs rebuilt.

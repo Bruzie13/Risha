@@ -25,7 +25,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css?v=56">
-    <link rel="stylesheet" href="css/reports.css?v=46">
+    <link rel="stylesheet" href="css/reports.css?v=48">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
         <link rel="stylesheet" href="css/system.css?v=101">
@@ -176,19 +176,20 @@
                 </div>
 
                 <h3 class="rp-group">What sold <small>in this period</small></h3>
-                <div class="rp-grid-2">
-                    <div class="rp-card panel-card" data-jump-title="Best-selling products">
-                        <div class="rp-card-head">
-                            <h2>Best-selling products</h2>
-                            <span class="rp-card-sub">By items sold</span>
+                <!-- products and categories in one card, one at a time (UAT, 1 Nov: "pagsamahin ang graphs") -->
+                <div class="rp-card panel-card" data-jump-title="Best-selling products">
+                    <div class="rp-card-head">
+                        <div>
+                            <h2>What sold</h2>
+                            <span class="rp-card-sub">Items sold, by product or by category (before discounts)</span>
                         </div>
-                        <div class="rp-bars" id="topProductsList"></div>
+                        <div class="rp-seg" data-seg="sold" role="tablist" aria-label="What sold">
+                            <button type="button" class="active" data-show="products" role="tab" aria-selected="true">Best-selling products</button>
+                            <button type="button" data-show="categories" role="tab" aria-selected="false">By category</button>
+                        </div>
                     </div>
-                    <div class="rp-card panel-card" data-jump-title="Sales by category">
-                        <div class="rp-card-head">
-                            <h2>Sales by category</h2>
-                            <span class="rp-card-sub">Items sold, before discounts</span>
-                        </div>
+                    <div class="rp-bars" id="topProductsList" data-seg-pane="sold:products"></div>
+                    <div data-seg-pane="sold:categories" hidden>
                         <div class="rp-bars" id="categoryList"></div>
                         <!-- what lies between the category lines and the revenue figure, so the two add up -->
                         <div class="rp-adds-up" id="categoryTotals" hidden></div>
@@ -342,21 +343,20 @@
                         <span class="rp-figure-value" id="kpiForecastRevenue">—</span>
                     </div>
                 </div>
-                <div class="rp-grid-2">
-                    <div class="rp-card panel-card" data-jump-title="Expected sales by category">
-                        <div class="rp-card-head">
-                            <h2>Expected sales by category</h2>
+                <!-- category and brand in one card, one at a time (UAT, 1 Nov) -->
+                <div class="rp-card panel-card" data-jump-title="Expected sales by category">
+                    <div class="rp-card-head">
+                        <div>
+                            <h2>Expected sales</h2>
                             <span class="rp-card-sub">Items, next 30 days</span>
                         </div>
-                        <div class="rp-bars" id="categoryDemand"></div>
-                    </div>
-                    <div class="rp-card panel-card" data-jump-title="Expected sales by brand">
-                        <div class="rp-card-head">
-                            <h2>Expected sales by brand</h2>
-                            <span class="rp-card-sub">Items, next 30 days</span>
+                        <div class="rp-seg" data-seg="expected" role="tablist" aria-label="Expected sales">
+                            <button type="button" class="active" data-show="category" role="tab" aria-selected="true">By category</button>
+                            <button type="button" data-show="brand" role="tab" aria-selected="false">By brand</button>
                         </div>
-                        <div class="rp-bars" id="brandDemand"></div>
                     </div>
+                    <div class="rp-bars" id="categoryDemand" data-seg-pane="expected:category"></div>
+                    <div class="rp-bars" id="brandDemand" data-seg-pane="expected:brand" hidden></div>
                 </div>
 
                 <h3 class="rp-group">Every product <small>select one to see its sales and forecast</small></h3>
@@ -594,8 +594,8 @@
 <script src="js/jump.js?v=34"></script>
 <script src="js/assistant.js?v=30"></script>
     <script src="js/xlsx.js?v=3"></script>
-    <script src="js/reports.js?v=44"></script>
-    <script src="js/analytics.js?v=48"></script>
+    <script src="js/reports.js?v=45"></script>
+    <script src="js/analytics.js?v=49"></script>
     <script src="js/audit.js?v=27"></script>
 </body>
 </html>

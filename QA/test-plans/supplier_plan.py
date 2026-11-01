@@ -38,6 +38,8 @@ PLAN = {
                  'The **Supplier portal** opens with **Waiting for you**, **To ship**, **On the way** and **Your rating** at the top, and the tabs below them'),
                 ('Look at the **Open orders** tab',
                  'Only the supplier\'s own orders are shown, each with its progress and next step'),
+                ('Click **Receipt** on an order',
+                 'The **Order receipt** opens with the order number, the status, the dates so far, the items and the total, with a **Print** button'),
             ]),
             ('Order offer', [
                 ('Click the **Offer an order** button at the upper-right of **Open orders**',
@@ -85,7 +87,9 @@ PLAN = {
             ]),
             ('Past orders', [
                 ('Click the **Past orders** tab',
-                 'The orders already received or cancelled are listed with the items, status and total'),
+                 'The orders already received or cancelled are listed with the items, status and total, each with a **Receipt** button'),
+                ('Click **Receipt** on a past order',
+                 'Its **Order receipt** opens, showing when it was received or cancelled and, once paid, the payment\'s receipt number'),
             ]),
         ]),
         ('SETTINGS MODULE', [
@@ -94,7 +98,7 @@ PLAN = {
                  'The **Settings** page opens on the **Profile** tab with the supplier\'s name and email'),
                 ('Click **Upload photo**, then choose a picture from the computer',
                  '"Profile photo updated" is shown and the picture appears at the lower-left of the sidebar'),
-                ('Under **Company details** on the same page, change the phone number (example: 0928 123 4567), then click **Save company details**',
+                ('Under **Company details** on the same page, change the phone number (example: 0928 123 4567; 11 digits at most for the Philippines), then click **Save company details**',
                  '"Your details were updated." is shown'),
             ]),
             ('Password', [

@@ -169,6 +169,8 @@ PLAN = {
                  'The list of sales opens with the **Total sales amount**, **Total transactions** and **Today\'s Sales** at the top'),
                 ('Type a customer name or sale number in the **Search sales...** box at the upper-left (example: Joy)',
                  'Only the matching sales are listed in the table'),
+                ('Look at the **Status** of a sale that a cashier asked to void',
+                 'It reads **Void requested** instead of Completed until an administrator decides'),
             ]),
             ('End of day cash count', [
                 ('Click the **End of day** button at the upper-right of the page',
@@ -218,13 +220,17 @@ PLAN = {
                 ('Click the **Add supplier** button at the upper-right of the page',
                  'The **Add supplier** window opens'),
                 ('Fill in the supplier details:\n**Supplier name:** Pawfect Pet Trading\n**Contact person:** Ana Dela Cruz (letters only, no numbers)\n'
-                 '**Email:** pawfect.trading@example.com (a valid email)\n**Phone:** 0917 123 4567 (a real number; the box shows +63 for the Philippines)\n'
+                 '**Email:** pawfect.trading@example.com (a valid email)\n**Phone:** 0917 123 4567 (a real number; the box shows +63 for the Philippines and takes 11 digits at most)\n'
                  '**Address:** 123 Rizal Street (optional)\n**City:** Quezon City (optional)\n**Payment terms:** Net 30\nThen click **Save supplier**',
                  '"Supplier added" is shown and the supplier appears in the list'),
             ]),
             ('Supplier performance', [
                 ('Click the stars in the **Rating** column of a supplier',
                  'The supplier\'s **Performance** window shows the star rating, the conditions met and the order history'),
+                ('In the order history, click **Send thanks** on a received order, then **Send thanks**',
+                 '"Email sent" is shown ("Told <supplier> that <order> arrived, with thanks.") and the button becomes **Thanks sent** with the date, so the thanks cannot be sent again'),
+                ('Click **Receipt** on an order in the order history',
+                 'The **Order receipt** opens with the order number, the supplier, the status, the dates it was ordered, confirmed, shipped and received, the items and the total, with a **Print** button'),
             ]),
             ('Email history', [
                 ('Click **Emails** in the **Email tracking** column of a supplier',
@@ -253,6 +259,8 @@ PLAN = {
             ('Orders on the way', [
                 ('Look at the orders under **Orders on the way**',
                  'Each order shows its progress (Ordered, Confirmed, Shipped, Received), the delivery date the supplier promised and the items'),
+                ('Click **Receipt** on an order',
+                 'The **Order receipt** of that order opens, with a **Print** button'),
                 ('Click **Mark shipped** on a confirmed order',
                  'A question asks to mark the order as shipped'),
                 ('Click **Mark shipped**',
@@ -287,12 +295,14 @@ PLAN = {
                  'The **Reports** page opens on the **Sales** tab with four parts:\n'
                  '**Summary:** Revenue, shown large, with how it compares with the same number of days just before and how many days had no sales; Sales made, Average per sale and Items sold, each with its own comparison\n'
                  '**Over time:** revenue per day, every day of the period; days without sales are marked "No sales recorded"\n'
-                 '**What sold:** best-selling products and sales by category\n'
+                 '**What sold:** the best-selling products, with a switch to **By category**\n'
                  '**Breakdown:** the same figures as a table'),
                 ('Click the **Period** field (it reads "Last 30 days"), then click **Last 7 days**, **Last 30 days**, **This month** and **All time** one at a time (open the field again each time)',
                  'The figures, comparisons and charts change to show each period, and the field reads the period chosen. **All time** shows no comparison'),
                 ('Click the **Period** field, choose a **From** date not later than the **To** date, then click **Apply**',
                  'The report shows only the sales within those dates, and the field reads them (example: "Oct 1 – Oct 9, 2026")'),
+                ('Under **What sold**, click **By category**, then **Best-selling products**',
+                 'The same card shows the sales by category, then the best-selling products again'),
                 ('Click **Week**, then **Month** under **Show by**',
                  'The chart and the table group the sales by week, then by month; the comparisons stay'),
                 ('Click **Export Excel** at the right of **Show by**',
@@ -306,8 +316,10 @@ PLAN = {
                 ('Click **Create and email**',
                  '"Purchase orders created" is shown and each supplier receives its order'),
                 ('Click the **Expiry** tab, then the **Too much stock** tab',
-                 'Expiry lists stock already expired and stock likely to expire before it sells, each row labelled **Expired** or **At risk** and coloured (red for expired or within 30 days); Too much stock lists products with more than three months of stock, with the money tied up'),
-                ('Click the **Forecast** tab, then click a product name under **All products**',
+                 'Expiry lists the stock about to expire first (amber rows labelled **At risk**, soonest first), then under **Already expired** the expired stock (red rows labelled **Expired**, most recent first); Too much stock lists products with more than three months of stock, with the money tied up'),
+                ('Click the **Forecast** tab, then click **By brand** in **Expected sales**',
+                 'The expected sales for the next 30 days are shown by brand in the same card, instead of by category'),
+                ('Under **All products**, click a product name',
                  'The product\'s past sales and its 30-day forecast are shown under the list'),
                 ('At the bottom of the **Forecast** tab, click **About this forecast**',
                  'It opens to show the sales used, the forecast accuracy, how the model was tested, and short explanations of how the numbers are worked out'),
@@ -318,7 +330,7 @@ PLAN = {
                 ('Click **Void sale** on a request',
                  'A question asks to void the sale'),
                 ('Click **Void sale**',
-                 '"Sale voided and its items returned to stock" is shown'),
+                 '"Sale voided and its items returned to stock" is shown, and a **Sale voided** notification appears in the bell'),
             ]),
             ('Activity log', [
                 ('Click the **Activity log** tab',
@@ -377,6 +389,12 @@ PLAN = {
                  '"Backup downloaded" is shown and a backup file of the whole database is downloaded'),
                 ('Under **Appearance**, click **Dark** in **Theme**, then click **Save changes**',
                  '"Appearance saved" is shown and the system changes to the dark theme'),
+                ('Under **Colours**, click **Green & Gold**, then click **Save changes**',
+                 '"Appearance saved" is shown; the sidebar, the buttons and **Ask FETCH** turn green'),
+                ('Click another colour (example: **Purple & Pink**), then click the **Password** tab',
+                 'A question says "Changes not saved" and asks whether to leave without saving'),
+                ('Click **Leave without saving**',
+                 'The **Password** tab opens and the saved colours (Green & Gold) come back'),
             ]),
             ('Email', [
                 ('Click the **Email** tab, type a valid email address in **Recipient** under **Send test email**, then click **Send test email**',
@@ -409,6 +427,8 @@ PLAN = {
                  'Only the low stock alerts are listed'),
                 ('Click a notification (example: a void request)',
                  'Its details open: who asked, which sale, the cashier, the total, the items and the reason, with a button to where it is handled (example: **Open Void requests**). It is marked as read'),
+                ('Click the **Sale voided** notification of the sale voided in Void requests',
+                 'Its details say the sale was voided and its items went back to stock, with an **Open in Reports** button that opens Reports, **Void requests**'),
                 ('Click the check mark at the right of a notification',
                  'The notification is marked as read'),
                 ('Click **Mark all read** at the upper-right of the page',

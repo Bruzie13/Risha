@@ -99,7 +99,11 @@ async function saleDetails(id) {
     if (s.void_requested_at) rows.push(['Void asked', when(s.void_requested_at)], ['Reason given', s.void_request_reason || '—']);
     return {
         rows, items: items.map(i => `${Number(i.quantity)} × ${i.name || 'a deleted product'}`),
-        link: s.void_requested_at ? { label: 'Open Void requests', href: 'reports.html?tab=voids' } : { label: 'Open Sales history', href: 'sales.html?search=' + s.id }
+        // a void, or a request for one, links to Reports, Void requests, where the
+        // voided sales are listed too (UAT part 3: "may hyperlink … sa Reports")
+        link: s.payment_status === 'voided' ? { label: 'Open in Reports', href: 'reports.html?tab=voids' }
+            : s.void_requested_at ? { label: 'Open Void requests', href: 'reports.html?tab=voids' }
+            : { label: 'Open Sales history', href: 'sales.html?search=' + s.id }
     };
 }
 

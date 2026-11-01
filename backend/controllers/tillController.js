@@ -268,6 +268,11 @@ exports.dismissVoidRequest = async (req, res) => {
             'UPDATE sales SET void_requested_at = NULL, void_request_reason = NULL WHERE id = ? AND void_requested_at IS NOT NULL', [id]);
         if (!result.affectedRows) return res.status(404).json({ success: false, message: 'No void request on that sale' });
         logAudit(req.user.id, 'update', 'sales', id, null, { void_request_dismissed: true }, req.ip);
+        const [[who]] = await pool.query('SELECT full_name FROM users WHERE id = ?', [req.user.id]);
+        Notification.create({
+            title: `Void request declined: #${id}`, type: 'info', related_type: 'sale', related_id: id,
+            message: `The request to void sale #${id} was declined by ${(who && who.full_name) || 'a manager'}. The sale stands.`
+        }).catch(e => console.error('Notif error:', e.message));
         res.json({ success: true, message: 'Request dismissed. The sale stands.' });
     } catch (e) { fail(res, 'dismissVoidRequest', e); }
 };

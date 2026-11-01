@@ -53,7 +53,20 @@ window.addEventListener('load', async () => {
     await Promise.all([loadProducts(), renderCategoryFilters()]);
     loadTill();
     setupBarcodeListener();
-    document.getElementById('posSearchInput')?.addEventListener('keyup', filterProducts);
+    checkVoidDecisions();
+    setInterval(checkVoidDecisions, 60000);
+    document.getElementById('posSearchInput')?.addEventListener('input', filterProducts);   // typed, pasted or cleared
+    // the customer's name takes no numbers or symbols (UAT, 1 Nov): they are
+    // simply not typed in, with a word why the first time
+    const customerName = document.getElementById('posCustomerName');
+    customerName?.addEventListener('input', () => {
+        const clean = customerName.value.replace(/[^\p{L}\p{M} .'-]/gu, '').replace(/ {2,}/g, ' ');
+        if (clean === customerName.value) return;
+        const at = customerName.selectionStart - (customerName.value.length - clean.length);
+        customerName.value = clean;
+        customerName.setSelectionRange(Math.max(0, at), Math.max(0, at));
+        showToast("A customer's name has letters only, no numbers.", 'info');
+    });
     // Live stock: another terminal's sale shows here without a refresh
     setInterval(refreshStockLevels, 10000);
     // Coming back to the till: has the count been saved, or reopened, meanwhile?
@@ -480,21 +493,10 @@ function setupBarcodeListener() {
         }
     }, true);
 
-    // Manual entry: type a barcode/SKU and press Enter to add (slow typing that
-    // the burst detector intentionally ignores).
-    function manualEnter(el) {
-        if (!el) return;
-        el.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                scanToCart(el.value).then(ok => {
-                    if (ok) { el.value = ''; if (el.id === 'posSearchInput') filterProducts(); }
-                });
-            }
-        });
-    }
-    manualEnter(scanInput);
-    manualEnter(searchInput);
+    // Enter typed by hand does nothing in either box (Carlo's UAT, 1 Nov:
+    // searching is automatic only). A scanner's own Enter is caught above as
+    // part of its fast burst.
+    [scanInput, searchInput].forEach(el => el && el.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); }));
 
     // Typed by hand, the barcode box is searched as you type (Carlo's UAT, 31
     // Oct: one way only, no Enter needed): once the typing pauses and the
@@ -1078,6 +1080,43 @@ document.addEventListener('click', e => {
     if (unask) cancelVoidRequest(Number(unask.dataset.unvoid));
 });
 
+/* The cashier has no notification bell, so the till itself says when a
+   manager has decided one of their void requests (UAT, 1 Nov): the sales
+   they asked about are kept on this computer and looked up when the till
+   opens and every minute; a decided one is told once, then forgotten. */
+function voidAskedKey() { const u = getUser(); return 'voidAsked:' + (u ? u.id : ''); }
+function voidAsked() {
+    try { return JSON.parse(localStorage.getItem(voidAskedKey()) || '[]').map(Number).filter(Boolean); } catch (e) { return []; }
+}
+function rememberVoidAsked(id, on) {
+    const ids = voidAsked().filter(x => x !== Number(id));
+    if (on) ids.push(Number(id));
+    try { localStorage.setItem(voidAskedKey(), JSON.stringify(ids)); } catch (e) { /* private window: no reminder, nothing else lost */ }
+}
+async function checkVoidDecisions() {
+    const decided = [];
+    for (const id of voidAsked()) {
+        try {
+            const res = await fetch(`${API_BASE}/sales/${id}`, { headers: getAuthHeaders() });
+            if (res.status === 404 || res.status === 403) { rememberVoidAsked(id, false); continue; }
+            const data = await res.json();
+            const sale = data && data.data;
+            if (!sale) continue;
+            if (sale.payment_status === 'voided') decided.push({ id, voided: true, total: sale.final_amount });
+            else if (!Number(sale.void_requested)) decided.push({ id, voided: false });
+        } catch (e) { /* offline: try again next minute */ }
+    }
+    if (!decided.length) return;
+    decided.forEach(d => rememberVoidAsked(d.id, false));
+    const lines = decided.map(d => d.voided
+        ? `Sale #${d.id}${d.total != null ? ' (' + formatCurrency(parseFloat(d.total)) + ')' : ''} was <strong>voided</strong> by a manager. Its items went back to stock.`
+        : `Your request for sale #${d.id} was <strong>declined</strong>. The sale stands.`);
+    const anyVoided = decided.some(d => d.voided);
+    showSuccessDialog(decided.length > 1 ? 'Void requests decided' : anyVoided ? 'Sale voided' : 'Void request declined',
+        lines.join('<br><br>'), { tone: anyVoided ? 'danger' : 'info', icon: anyVoided ? 'block' : 'info' });
+    if (document.getElementById('posMySalesModal')?.classList.contains('active')) loadMySales();
+}
+
 /* A void request the cashier made by mistake, taken back before it is decided. */
 function cancelVoidRequest(id) {
     showConfirmDialog('Cancel the void request?', `Sale #${id} stays as it is, and the manager no longer sees the request.`, async () => {
@@ -1086,6 +1125,7 @@ function cancelVoidRequest(id) {
             const data = await res.json();
             if (!data.success) { showToast(data.message || 'The request was not cancelled', 'error'); return; }
             showToast(data.message, 'success');
+            rememberVoidAsked(id, false);
             loadMySales();
         } catch (e) { showToast(couldNot('cancel the request', e), 'error'); }
     }, 'Cancel request');
@@ -1105,6 +1145,7 @@ function requestVoid(id) {
                 const data = await res.json();
                 if (!data.success) { showToast(data.message || 'The request could not be sent', 'error'); return; }
                 showToast('Sent to a manager', 'success');
+                rememberVoidAsked(id, true);
                 loadMySales();
             } catch (e) {
                 console.error('Void request failed:', e);

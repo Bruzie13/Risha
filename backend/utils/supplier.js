@@ -91,4 +91,7 @@ function supplierProblem(data, adding, previous) {
     return null;
 }
 
-module.exports = { supplierProblem, fieldProblem, nameKey, LIMITS, phoneForStorage };
+/** Is this a person's name: letters, spaces and . ' - only, at least one letter (also the till's customer name). */
+const isPersonName = v => PERSON.test(String(v)) && HAS_LETTER.test(String(v));
+
+module.exports = { supplierProblem, fieldProblem, nameKey, LIMITS, phoneForStorage, isPersonName };

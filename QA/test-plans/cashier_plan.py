@@ -52,7 +52,7 @@ PLAN = {
                  '"(product) added to cart" is shown and the product is listed in the **Current sale**'),
                 ('In the **Current sale**, click the **+** button of the item, then the **−** button',
                  'The quantity goes up by one, then down by one, and the total changes with it'),
-                ('Type the customer\'s name and a valid contact number in **Customer Name (optional)** and **Phone (optional)** (example: Maria Santos, 0917 123 4567)',
+                ('Type the customer\'s name (letters only) and a valid contact number in **Customer Name (optional)** and **Phone (optional)** (example: Maria Santos, 0917 123 4567)',
                  'If the customer\'s name and contact number are entered, they are shown on the receipt'),
                 ('Enter a discount within the administrator\'s limit (example: 5%)',
                  'The discount amount is computed and the total goes down'),
@@ -78,6 +78,8 @@ PLAN = {
                  '"Sent to a manager" is shown, the sale is marked "Void requested" and the administrator sees the request'),
                 ('Click **Cancel request** on the same sale, then **Cancel request**',
                  '"Void request cancelled. The sale stands." is shown, the sale is marked "Completed" again and the request leaves the administrator\'s list'),
+                ('Click **Ask for void** on another sale, type what went wrong, click **Send request**, and have the administrator void it under Reports, **Void requests**',
+                 'Within a minute the till shows **Sale voided** (example: "Sale #2600 (₱2,700.00) was voided by a manager. Its items went back to stock."), and the sale is marked "Voided" in **My sales**. A declined request shows **Void request declined** instead'),
             ]),
             ('Cash in and out', [
                 ('Click **Cash in/out** in the sidebar',

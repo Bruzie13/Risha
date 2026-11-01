@@ -367,7 +367,12 @@ function emailPOFromModal(id, poNumber, supplierId, status) {
         e.label, '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">' + e.icon + '</span>');
 }
 
+// an order whose email is on its way cannot be sent again meanwhile (1 Nov)
+var poEmailSending = {};
 async function sendPOEmailNow(id, poNumber, supplierId) {
+    if (poEmailSending[id]) { showToast('That email is still being sent.', 'info'); return; }
+    poEmailSending[id] = true;
+    document.querySelectorAll('.po-email-btn[onclick^="emailPOFromModal(' + id + ',"]').forEach(function (b) { b.disabled = true; b.textContent = 'Sending…'; });
     try {
         var res = await fetch(API_BASE + '/purchase-orders/' + id + '/send-email', {
             method: 'POST', headers: getAuthHeaders()
@@ -380,6 +385,7 @@ async function sendPOEmailNow(id, poNumber, supplierId) {
             showErrorDialog('Could not send email', data.message || 'the server gave no reason');
         }
     } catch (e) { showToast(couldNot('send email', e), 'error'); }
+    finally { delete poEmailSending[id]; }
 }
 
 async function showPerformance(supplierId) {

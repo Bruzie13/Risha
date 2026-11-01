@@ -337,29 +337,37 @@ function showMoreExcess() { excessShown += PRED_PAGE_SIZE; renderExcess(); }
 function showLessExcess() { excessShown = Math.max(PRED_PAGE_SIZE, excessShown - PRED_PAGE_SIZE); renderExcess(); }
 
 function renderExpiry() {
-    const rows = plan.products.filter(p => p.expired_units > 0 || p.expiry_risk_units > 0)
-        .sort((a, b) => (a.days_to_expiry ?? 0) - (b.days_to_expiry ?? 0));
-    const expired = rows.filter(p => p.expired_units > 0).length;
+    /* About to expire first, soonest at the top, then what has already
+       expired, the most recent first; each kind its own colour so they are
+       not confused (UAT, 1 Nov): amber "At risk", red "Expired". */
+    const all = plan.products.filter(p => p.expired_units > 0 || p.expiry_risk_units > 0);
+    const soonest = (a, b) => (a.days_to_expiry ?? 0) - (b.days_to_expiry ?? 0);
+    const atRisk = all.filter(p => !(p.expired_units > 0)).sort(soonest);
+    const gone = all.filter(p => p.expired_units > 0).sort((a, b) => soonest(b, a));
+    const rows = atRisk.concat(gone);
     document.getElementById('expirySub').textContent = rows.length
-        ? `${expired ? expired + ' already expired with stock on the shelf. ' : ''}${rows.length - expired} more likely to expire before selling out`
-            + (plan.totals.expiry_risk_value > 0 ? `, worth ${formatCurrency(plan.totals.expiry_risk_value)} at cost` : '')
+        ? `${atRisk.length ? atRisk.length + ' likely to expire before selling out' + (plan.totals.expiry_risk_value > 0 ? `, worth ${formatCurrency(plan.totals.expiry_risk_value)} at cost` : '') + '. ' : ''}`
+            + `${gone.length ? gone.length + ' already expired with stock on the shelf.' : ''}`
         : 'Stock expected to still be on the shelf on its expiry date, and stock already expired';
     if (!rows.length) { setRow('expiryBody', 5, 'Nothing is expected to expire unsold.'); document.getElementById('expiryPagination').innerHTML = ''; return; }
+    let lastKind = null;
     document.getElementById('expiryBody').innerHTML = rows.slice(0, expiryShown).map(p => {
-        const gone = p.expired_units > 0;
-        // a label on every row, and the row coloured by how close it is (UAT, 31 Oct):
-        // red for expired or within 30 days, amber for later
-        const soon = !gone && p.days_to_expiry != null && p.days_to_expiry <= 30;
-        const when = gone
+        const expired = p.expired_units > 0;
+        const kind = expired ? 'expired' : 'risk';
+        // a heading line where one kind ends and the other starts
+        const head = kind === lastKind ? '' : `<tr class="rp-risk-group ${kind}"><td colspan="5">${expired
+            ? `Already expired <span>· ${gone.length}</span>` : `About to expire <span>· ${atRisk.length}</span>`}</td></tr>`;
+        lastKind = kind;
+        const when = expired
             ? `<span class="rp-risk-chip expired">Expired</span><span class="rp-sub">${escHtml(planDate(p.expires_on))}</span>`
-            : `<span class="rp-risk-chip ${soon ? 'soon' : 'later'}">At risk</span>${escHtml(planDate(p.expires_on))}<span class="rp-sub">in ${p.days_to_expiry} day${p.days_to_expiry === 1 ? '' : 's'}</span>`;
-        const left = gone ? p.expired_units : p.expiry_risk_units;
-        return `<tr data-id="${p.product_id}" tabindex="0" class="rp-risk-row ${gone ? 'expired' : soon ? 'soon' : 'later'}">
+            : `<span class="rp-risk-chip risk">At risk</span>${escHtml(planDate(p.expires_on))}<span class="rp-sub">in ${p.days_to_expiry} day${p.days_to_expiry === 1 ? '' : 's'}</span>`;
+        const left = expired ? p.expired_units : p.expiry_risk_units;
+        return head + `<tr data-id="${p.product_id}" tabindex="0" class="rp-risk-row ${kind}">
             <td><span class="rp-strong">${escHtml(p.name)}</span>${p.sku ? `<span class="rp-sub">${escHtml(p.sku)}</span>` : ''}</td>
             <td>${when}</td>
             <td class="num">${formatQty(p.stock)}</td>
-            <td class="num">${formatQty(left)}${gone ? '<span class="rp-sub">remove from the shelf</span>' : ''}</td>
-            <td class="num rp-strong">${gone ? '—' : (p.expiry_risk_value > 0 ? formatCurrency(p.expiry_risk_value) : '—')}</td>
+            <td class="num">${formatQty(left)}${expired ? '<span class="rp-sub">remove from the shelf</span>' : ''}</td>
+            <td class="num rp-strong">${expired ? '—' : (p.expiry_risk_value > 0 ? formatCurrency(p.expiry_risk_value) : '—')}</td>
         </tr>`;
     }).join('');
     updatePagination('expiryPagination', rows, expiryShown, 'showMoreExpiry', 'showLessExpiry', PRED_PAGE_SIZE);

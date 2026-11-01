@@ -80,3 +80,9 @@ test('supplier phone: a real number for its country, kept one way', () => {
     assert.equal(phoneForStorage('0000000000'), null);
     assert.equal(supplierProblem({ phone: '0000000000' }, false, { phone: '0000000000' }), null, 'an older number may stay as it is');
 });
+
+test("a customer's name has letters only: no numbers or symbols", () => {
+    const { isPersonName } = require('../utils/supplier');
+    for (const ok of ['Maria Santos', "Jose dela Cruz Jr.", 'Ana-Marie', 'Niño Peña', "O'Neil"]) assert.ok(isPersonName(ok), ok);
+    for (const bad of ['Maria 2', '09171234567', 'Juan@shop', '...', '   ']) assert.ok(!isPersonName(bad), bad);
+});
