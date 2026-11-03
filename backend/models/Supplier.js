@@ -90,7 +90,7 @@ class Supplier {
             const allowedFields = [
                 'name', 'email', 'phone', 'address', 'city',
                 'latitude', 'longitude',
-                'contact_person', 'payment_terms', 'is_active'
+                'contact_person', 'payment_terms', 'status'
             ];
 
             for (const field of allowedFields) {

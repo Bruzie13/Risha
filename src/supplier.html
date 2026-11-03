@@ -28,7 +28,7 @@
     <link rel="stylesheet" href="css/reports.css?v=30">
 <script>/* the supplier has one page, so its sidebar starts as the slim strip (see "The slim strip" in css/system.css); the logo opens it, and that choice is kept (railOpen) */document.documentElement.classList.add('rail-only');document.documentElement.classList.toggle('sidebar-hidden', localStorage.getItem('railOpen') !== 'true');</script>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=101">
+        <link rel="stylesheet" href="css/system.css?v=120">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -73,6 +73,8 @@
                 <h1>Supplier portal</h1>
                 <div class="breadcrumb"><strong id="supplierName">Supplier</strong> · Orders from Risha Pet Supplies and the products you supply</div>
             </div>
+            <!-- Active or On vacation; the supplier can switch (UAT part 4, A6) -->
+            <div class="sp-status" id="spStatus" hidden></div>
         </div>
 
         <div class="content rp">
@@ -114,10 +116,14 @@
                         <h2>Open orders</h2>
                         <span class="rp-card-sub">Confirm an order with your delivery date, then mark it shipped when it leaves</span>
                     </div>
-                    <button class="btn-secondary" onclick="openOffer()"><span class="material-symbols-outlined">add</span> Offer an order</button>
                 </div>
-                <div class="sp-row sp-row-head" aria-hidden="true"><span>Order</span><span>Progress</span><span class="num">Total</span><span class="num">Next step</span></div>
-                <div class="sp-orders" id="openOrders"><p class="rp-loading">Loading orders…</p></div>
+                <!-- what the supplier can start, on its own row under the heading -->
+                <div class="sp-offer-bar">
+                    <button class="btn-secondary" onclick="openOffer()"><span class="material-symbols-outlined">add</span> Offer an order</button>
+                    <button class="btn-secondary" onclick="openNewProduct()"><span class="material-symbols-outlined">add_box</span> Offer a new product</button>
+                    <span class="sp-offer-bar-note">Offer to deliver products the shop is running low on, or a product it does not sell yet.</span>
+                </div>
+                <div class="sp-orders sp-order-grid" id="openOrders"><p class="rp-loading">Loading orders…</p></div>
             </div>
 
             <div class="rp-card panel-card" id="spPayments" data-sp-panel="payments" data-jump-title="Payments">
@@ -134,7 +140,10 @@
                         <tbody id="paymentsBody"><tr><td colspan="4" class="rp-loading">Loading…</td></tr></tbody>
                     </table>
                 </div>
-                <div class="rp-subhead" style="padding-left:0;">Paid</div>
+                <div class="sp-section-head">
+                    <h3>Paid by the shop</h3>
+                    <span>Payments the shop has made to you, newest first. Each one has its receipt.</span>
+                </div>
                 <div class="rp-table-wrap">
                     <table class="rp-table">
                         <thead><tr><th>Order</th><th>Paid on</th><th class="num">Amount</th><th></th></tr></thead>
@@ -167,6 +176,16 @@
                     </table>
                 </div>
                 <div id="productsPagination" class="pagination-bar"></div>
+                <div class="sp-section-head">
+                    <h3>New products you offered</h3>
+                    <span>Products the shop does not sell yet. The shop adds them to its inventory or tells you why not.</span>
+                </div>
+                <div class="rp-table-wrap">
+                    <table class="rp-table">
+                        <thead><tr><th>Product</th><th>Offered</th><th class="num">Your price</th><th>Answer</th><th></th></tr></thead>
+                        <tbody id="newProductsBody"><tr><td colspan="5" class="rp-loading">Loading…</td></tr></tbody>
+                    </table>
+                </div>
             </div>
 
             <div class="rp-card panel-card" id="spRating" data-sp-panel="rating" data-jump-title="How you are doing">
@@ -176,7 +195,7 @@
                         <span class="rp-card-sub">From orders the shop received in the last 12 months</span>
                     </div>
                 </div>
-                <div class="rp-detail-grid" id="scorecard"></div>
+                <div class="sp-score" id="scorecard"></div>
             </div>
 
             <div class="rp-card panel-card" id="spPast" data-sp-panel="past" data-jump-title="Past orders">
@@ -185,6 +204,18 @@
                         <h2>Past orders</h2>
                         <span class="rp-card-sub">Received and cancelled</span>
                     </div>
+                </div>
+                <!-- find a past order (UAT part 4, SP11) -->
+                <div class="sp-filter">
+                    <input type="search" class="form-input" id="pastSearch" placeholder="Search order number or product" maxlength="100" aria-label="Search past orders">
+                    <select class="form-select" id="pastStatus" aria-label="Show">
+                        <option value="">All past orders</option>
+                        <option value="received">Received</option>
+                        <option value="paid">Received and paid</option>
+                        <option value="unpaid">Received, not yet paid</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                    <span class="sp-filter-count" id="pastCount" role="status"></span>
                 </div>
                 <div class="rp-table-wrap">
                     <table class="rp-table">
@@ -232,13 +263,13 @@
     </script>
     <script src="js/format.js"></script>
     <script src="js/utils.js"></script>
-    <script src="js/auth.js?v=79"></script>
+    <script src="js/auth.js?v=81"></script>
     <script src="js/loader.js?v=6"></script>
 <script src="js/clear-input.js?v=3"></script>
     <script src="js/po-progress.js?v=3"></script>
     <link rel="stylesheet" href="vendor/intl-tel-input-18.2.1/css/intlTelInput.css">
     <script src="vendor/intl-tel-input-18.2.1/js/intlTelInput.min.js"></script>
     <script src="js/phone-field.js?v=4"></script>
-    <script src="js/supplier-portal.js?v=21"></script>
+    <script src="js/supplier-portal.js?v=23"></script>
 </body>
 </html>

@@ -673,6 +673,8 @@ p, li, .breadcrumb, .rp-card-sub, .settings-toggle-desc { text-wrap: pretty; }
    screen fires a false hover and would leave the element stuck mid-move) */
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   .sidebar-brand:hover .brand-icon { transform: rotate(-8deg); }
+  /* the logo tilts; its "Show the menu" label is turned back so it reads level (Carlo, 3 Nov) */
+  .sidebar-brand:hover .brand-icon::after { rotate: 8deg; }
   .sidebar-nav .nav-link:not(.active):hover .nav-icon.material-symbols-outlined { transform: translateX(2px); }
 }
 
@@ -1021,6 +1023,9 @@ html.rail-only.sidebar-hidden .sidebar .sidebar-nav .till-nav:first-of-type { ma
 /* the slim strip's logo opens the sidebar: its badge points the other way */
 @media (min-width: 769px) {
   html.sidebar-hidden .sidebar-brand .brand-icon.is-sidebar-toggle::before { content: 'chevron_right'; }
+  /* the arrow is drawn in front of the logo, so the logo never covers it (UAT part 4, SP1) */
+  .sidebar-brand .brand-icon.is-sidebar-toggle::before { z-index: 5; }
+  .sidebar-brand .brand-icon.is-sidebar-toggle img { position: relative; z-index: 1; }
 }
 /* labels in the slim strip stay inside their box: a little wider, and a long
    name ("Orders and products") wraps to a second line */
@@ -1148,6 +1153,9 @@ input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; a
    Clicks pass through the gaps; an alert opens the list of alerts. */
 .corner-stack { position: fixed; right: 16px; top: 16px; z-index: 9999; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
   max-width: calc(100vw - 32px); pointer-events: none; }
+/* On the till the top right is the Current sale, so the messages sit at the
+   top middle, over the product list (UAT part 4, C1). */
+.till-page .corner-stack { right: auto; left: 50%; transform: translateX(-50%); align-items: center; }
 .alert-pop-stack { display: flex; flex-direction: column; gap: 8px; width: 340px; max-width: 100%; pointer-events: none; }
 .alert-pop { position: relative; display: flex; align-items: flex-start; gap: 12px; padding: 12px 36px 12px 14px;
   background: var(--bg-card); border: 1px solid var(--border-glass); border-radius: var(--radius-lg);
@@ -1398,16 +1406,22 @@ body > .iti--container { z-index: 10050; }
    that tells one theme from another: --primary is the same blue in Navy,
    Red and Charcoal, so a tint of it hardly changed. The text mixes the same
    colour with the normal text colour, so it stays readable in dark mode. */
+/* --btn-tint is the theme colour the buttons are tinted with: the sidebar
+   colour, except where that is too dark to read as a colour once tinted
+   (Navy & Sky: navy came out grey, so the sky blue is used; UAT part 4, SP2). */
+:root { --btn-tint: var(--brand-sky); }
+:root[data-theme="navy"] { --btn-tint: var(--primary); }
 .btn-secondary, .show-more-btn, .reset-btn, .btn-action, .po-advance-btn, .po-email-btn,
 .btn-view, .btn-edit {
-  background: color-mix(in srgb, var(--brand-sky) 18%, var(--bg-card));
-  border-color: color-mix(in srgb, var(--brand-sky) 50%, var(--bg-card));
-  color: color-mix(in srgb, var(--brand-sky) 70%, var(--text-primary));
+  background: color-mix(in srgb, var(--btn-tint) 18%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--btn-tint) 50%, var(--bg-card));
+  color: color-mix(in srgb, var(--btn-tint) 75%, var(--text-primary));
+  box-shadow: 0 var(--edge) 0 color-mix(in srgb, var(--btn-tint) 55%, var(--bg-card));
 }
 .btn-secondary:hover, .show-more-btn:hover, .reset-btn:hover, .btn-action:hover, .po-advance-btn:hover, .po-email-btn:hover,
 .btn-view:hover, .btn-edit:hover {
-  background: color-mix(in srgb, var(--brand-sky) 28%, var(--bg-card));
-  border-color: var(--brand-sky);
+  background: color-mix(in srgb, var(--btn-tint) 28%, var(--bg-card));
+  border-color: var(--btn-tint);
 }
 
 /* ----- Ask FETCH and Reorder take the theme too (UAT, 1 Nov) -----
@@ -1423,3 +1437,238 @@ body > .iti--container { z-index: 10050; }
 .btn-warning { background: var(--brand-sky); border-color: var(--brand-sky); color: #fff; box-shadow: 0 var(--edge) 0 var(--brand-sky-3); }
 .btn-warning:hover { background: var(--brand-sky-2); box-shadow: 0 var(--edge) 0 var(--brand-sky-3); }
 .btn-warning .material-symbols-outlined { color: inherit; }
+
+/* ----- Supplier portal, UAT part 4 (3 Nov) ----- */
+.rp-badge-muted { background: var(--gray-100); color: var(--text-secondary); }
+.page-header .sp-status { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.sp-status[hidden] { display: none; }
+.sp-status-chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px; background: var(--bg-card);
+  border: 1.5px solid var(--border-glass); font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.sp-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+.sp-status.is-vacation .sp-status-chip { background: var(--warning-bg); border-color: color-mix(in srgb, var(--warning) 45%, transparent); color: var(--warning); }
+.sp-status.is-vacation .sp-status-dot { background: var(--warning); }
+.sp-status.is-inactive .sp-status-dot { background: var(--text-muted); }
+.sp-status-note { font-size: 12px; color: var(--text-muted); }
+.sp-head-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+/* a heading inside a card, under its first table (Payments → Paid, Products → New products) */
+.sp-section-head { display: flex; flex-direction: column; gap: 2px; padding: 18px 20px 10px; border-top: 1.5px solid var(--border-glass); margin-top: 6px; }
+.sp-section-head h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.sp-section-head span { font-size: 12.5px; color: var(--text-muted); }
+.sp-cell-actions { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.sp-btn-cancel { color: var(--danger) !important; border-color: color-mix(in srgb, var(--danger) 40%, var(--bg-card)) !important;
+  background: color-mix(in srgb, var(--danger) 7%, var(--bg-card)) !important; box-shadow: 0 var(--edge) 0 color-mix(in srgb, var(--danger) 35%, var(--bg-card)) !important; }
+.sp-btn-cancel:hover { background: color-mix(in srgb, var(--danger) 14%, var(--bg-card)) !important; border-color: var(--danger) !important; }
+/* a declined price opens to its details */
+.price-declined-btn { display: inline-flex; align-items: center; gap: 2px; margin: 3px 0 0 auto; padding: 2px 4px 2px 0; border: 0; background: none;
+  font: inherit; font-size: 12px; color: var(--danger); text-align: right; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; max-width: 240px; white-space: normal; }
+.price-declined-btn .material-symbols-outlined { font-size: 16px; text-decoration: none; }
+.rp-table td.num .price-declined-btn { display: flex; }
+.sp-due-badge { margin-left: 6px; }
+.sp-link { border: 0; background: none; padding: 0; font: inherit; color: var(--primary); font-weight: 600; text-decoration: underline; cursor: pointer; }
+.sp-offer-search { margin-bottom: 8px; }
+.sp-form-line[hidden] { display: none; }
+.sp-offer-none { padding: 10px 12px; margin: 0; }
+.sp-form-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 560px) { .sp-form-pair { grid-template-columns: 1fr; } }
+.sp-new-photo { display: block; max-width: 160px; max-height: 160px; margin-top: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-glass); object-fit: contain; background: #fff; }
+.sp-new-photo[hidden] { display: none; }
+/* Past orders: search and filter */
+.sp-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 4px 20px 14px; }
+.sp-filter .form-input { flex: 1 1 240px; max-width: 360px; }
+.sp-filter .form-select { flex: 0 0 auto; width: auto; min-width: 200px; }
+.sp-filter-count { font-size: 12.5px; color: var(--text-muted); }
+/* Rating */
+.sp-score { padding: 4px 20px 20px; }
+.sp-score-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 20px; align-items: start; }
+.sp-score-stars { padding: 16px 18px; border: 1.5px solid var(--border-glass); border-radius: var(--radius-lg); background: var(--bg-raised); }
+.sp-score-big { font-size: 34px; letter-spacing: 3px; line-height: 1; color: var(--border-glass-strong); }
+.sp-score-big .on { color: #E8A317; }
+.sp-score-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 6px; font-size: 15px; color: var(--text-primary); }
+.sp-score-stars p { margin: 0 0 6px; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
+.sp-score-stars .sp-score-rule { font-size: 12px; color: var(--text-muted); margin: 8px 0 0; }
+.sp-score-checks { list-style: none; margin: 0; padding: 0; border: 1.5px solid var(--border-glass); border-radius: var(--radius-lg); overflow: hidden; }
+.sp-score-checks li { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 14px; font-size: 13.5px; border-top: 1px solid var(--border-subtle); }
+.sp-score-checks li:first-child { border-top: 0; }
+.sp-score-checks li:nth-child(even) { background: var(--bg-raised); }
+.sp-check-mark { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: 13px; font-weight: 700; }
+.sp-score-checks li.met .sp-check-mark { background: var(--success-bg); color: var(--success); }
+.sp-score-checks li.missed .sp-check-mark { background: var(--danger-bg); color: var(--danger); }
+.sp-check-label { color: var(--text-primary); }
+.sp-check-value { color: var(--text-secondary); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sp-score-figs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.sp-score-fig { display: flex; flex-direction: column; gap: 3px; padding: 14px 16px; border: 1.5px solid var(--border-glass); border-radius: var(--radius-lg); }
+.sp-score-fig-label { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+.sp-score-fig-value { font-size: 24px; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.sp-score-fig-note { font-size: 12px; line-height: 1.4; color: var(--text-muted); }
+@media (max-width: 900px) { .sp-score-top { grid-template-columns: 1fr; } .sp-score-figs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ----- Suppliers → Orders as boxes in a grid, like the Inventory cards (UAT part 4, A5) ----- */
+.sp-orders.sp-order-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; padding: 6px 20px 20px; }
+.sp-order-grid > .rp-loading { grid-column: 1 / -1; }
+.sp-order-grid .sp-order { display: flex; flex-direction: column; background: var(--bg-card); border: 1.5px solid var(--border-glass); border-radius: var(--radius-lg);
+  box-shadow: 0 var(--edge) 0 var(--border-glass); overflow: hidden; }
+.sp-order-grid .sp-order-head { flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 16px 6px; background: var(--bg-raised); border-bottom: 1px solid var(--border-subtle); }
+.sp-order-grid .sp-order-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 14px; }
+.sp-order-grid .sp-order-title .rp-badge { margin-left: 0; }
+.sp-order-grid .sp-order-total { font-size: 20px; font-weight: 800; }
+.sp-order-grid .po-progress { margin: 10px 16px 2px; max-width: none; }
+.sp-order-grid .sp-order-facts { padding: 6px 16px 0; font-size: 12.5px; }
+.sp-order-grid .sp-lines { margin: 10px 16px 0; }
+.sp-order-grid .sp-order-actions { margin-top: auto; padding: 12px 16px 14px; border-top: 1px solid var(--border-subtle); }
+.sp-order-grid .sp-order-actions .btn-primary, .sp-order-grid .sp-order-actions .btn-secondary { min-height: 36px; padding: 0 12px; font-size: 13.5px; }
+.sp-order-grid .sp-notes { border-top: 1px solid var(--border-subtle); }
+@media (max-width: 560px) { .sp-orders.sp-order-grid { grid-template-columns: 1fr; padding: 6px 12px 14px; } }
+/* a name in a table that opens its details */
+.link-btn { border: 0; background: none; padding: 0; font: inherit; color: var(--primary); cursor: pointer; text-align: left; }
+.link-btn:hover { text-decoration: underline; text-underline-offset: 2px; }
+.link-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+tr.is-clickrow { cursor: pointer; }
+
+/* ----- Tables: every other row tinted with the theme colour, so a long
+   table is easy to follow across (UAT part 4, A1). Low specificity on
+   purpose: a row with its own colour (expired, at risk, hovered) keeps it. ----- */
+:where(.data-table, .rp-table, .audit-table, .items-table) > tbody > tr:nth-child(even) {
+  background-color: color-mix(in srgb, var(--btn-tint) 6%, var(--bg-card));
+}
+:root.dark-mode :where(.data-table, .rp-table, .audit-table, .items-table) > tbody > tr:nth-child(even) {
+  background-color: color-mix(in srgb, var(--btn-tint) 14%, var(--bg-card));
+}
+/* the heading row a shade deeper, so it reads as the heading */
+.data-table thead th, .rp-table thead th { background-color: color-mix(in srgb, var(--btn-tint) 12%, var(--bg-card)); }
+/* Reports → What sold: a line that opens its details (UAT part 4, A12) */
+button.rp-bar-row.is-link { display: block; width: 100%; border: 0; background: none; padding: 6px 8px; margin: 0 -8px; width: calc(100% + 16px); border-radius: var(--radius-md); font: inherit; color: inherit; text-align: left; cursor: pointer; }
+button.rp-bar-row.is-link:hover { background: color-mix(in srgb, var(--btn-tint) 8%, var(--bg-card)); }
+button.rp-bar-row.is-link:hover .rp-bar-label { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
+button.rp-bar-row.is-link:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.rp-bar-more { color: var(--primary); font-weight: 700; }
+
+/* ----- Forecast, UAT part 4 (A13–A15) ----- */
+.rp-sales-used p { margin: 0 0 6px; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
+.rp-sales-used strong { color: var(--text-primary); font-weight: 700; }
+.rp-sales-used mark { background: var(--warning-bg); color: var(--warning); font-weight: 700; padding: 1px 6px; border-radius: 6px; }
+.rp-left-out { margin: 4px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
+.rp-fig-breakdown { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border-glass); }
+.rp-fig-breakdown ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.rp-fig-breakdown li { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(60px, 1fr) auto; gap: 10px; align-items: center; font-size: 12.5px; }
+.rp-fig-bd-label { color: var(--text-primary); font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.rp-fig-bd-label small { display: block; font-weight: 500; color: var(--text-muted); font-size: 11.5px; }
+.rp-fig-bd-bar { height: 7px; border-radius: 999px; background: var(--bg-inset); overflow: hidden; }
+.rp-fig-bd-bar span { display: block; height: 100%; border-radius: inherit; background: var(--btn-tint); }
+.rp-fig-bd-value { font-weight: 700; color: var(--text-primary); white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
+.rp-fig-bd-value small { color: var(--text-muted); font-weight: 600; margin-left: 4px; }
+.rp-fig-bd-how, .rp-fig-bd-none { margin: 8px 0 0; font-size: 11.5px; color: var(--text-muted); }
+.rp-acc-breakdown { margin-top: 10px; }
+.rp-acc-rows { border: 1px solid var(--border-glass); border-radius: var(--radius-md); overflow: hidden; }
+.rp-acc-row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 10px; font-size: 12.5px; border-top: 1px solid var(--border-subtle); }
+.rp-acc-row:first-child { border-top: 0; }
+.rp-acc-row:nth-child(even) { background: color-mix(in srgb, var(--btn-tint) 6%, var(--bg-card)); }
+.rp-acc-row span:first-child { color: var(--text-secondary); }
+.rp-acc-row span:last-child { color: var(--text-primary); font-weight: 600; text-align: right; }
+.rp-acc-row.is-strong span { color: var(--text-primary); font-weight: 700; }
+.rp-acc-sub { margin: 12px 0 6px; font-size: 12px; font-weight: 700; color: var(--text-secondary); }
+.rp-acc-none { margin: 4px 0 0; font-size: 12.5px; color: var(--text-muted); }
+
+/* ----- Inventory cards: photo on top (UAT part 4, A4 — Carlo picked option A).
+   The picture and the name lead; the price is small at the side. ----- */
+.product-grid { grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 14px; }
+.pcard.pcard-photo-top { display: flex; flex-direction: column; padding: 0; border: 1.5px solid var(--border-glass); }
+.pcard-photo { position: relative; height: 190px; display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--btn-tint) 7%, var(--bg-raised)); border-bottom: 1px solid var(--border-subtle); }
+.pcard-photo-img { position: relative; z-index: 1; max-width: 86%; max-height: 172px; object-fit: contain; border-radius: 8px; background: #fff; }
+.pcard-photo-icon { font-size: 54px !important; color: color-mix(in srgb, var(--btn-tint) 45%, var(--bg-card)); }
+.pcard-photo-img + .pcard-photo-icon { display: none; }
+#productsGrid .pcard-photo .pcard-check { position: absolute; top: 12px; left: 12px; z-index: 2; width: 20px; height: 20px; opacity: 1;
+  background: #fff; border-radius: 4px; box-shadow: 0 0 0 2px #fff; }
+.pcard-photo .pcard-status { position: absolute; top: 11px; right: 11px; left: auto; z-index: 2; background: var(--pc-accent); color: var(--pc-color);
+  font-weight: 700; box-shadow: 0 0 0 2px var(--bg-card); }
+.pcard-body { display: flex; flex-direction: column; flex: 1; padding: 12px 14px 12px; }
+.pcard-photo-top .pcard-name { font-size: 17.5px; font-weight: 700; line-height: 1.22; white-space: normal;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pcard-photo-top .pcard-sub { font-size: 12.5px; margin-top: 3px; }
+.pcard-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin: 12px 0 6px; }
+.pcard-stock { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pcard-stock .cs-track { width: 80px; min-width: 80px; height: 15px; }
+.pcard-stock span { font-size: 12.5px; color: var(--text-secondary); white-space: nowrap; }
+.pcard-stock b { font-size: 14px; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.pcard-photo-top .pcard-price { font-size: 13.5px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; letter-spacing: 0; }
+.pcard-photo-top .pcard-price small { font-size: 11.5px; }
+.pcard-photo-top .pcard-cat { margin: 0 0 10px; font-size: 12px; }
+.pcard-photo-top .pcard-expiry { margin-bottom: 10px; font-size: 12px; padding: 6px 9px; }
+.pcard-expiry-date { margin-left: auto; font-weight: 500; opacity: 0.8; white-space: nowrap; }
+.pcard-photo-top .pcard-actions { margin-top: auto; padding-top: 10px; }
+
+/* Buttons in a table row line up: one row, centred, the same height; an
+   icon-only button is square (Sales history: Void and the bin did not sit level) */
+.row-actions { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+.row-actions > button { margin: 0; vertical-align: middle; }
+.row-actions > .row-icon-btn { width: 36px; min-width: 36px; padding: 0; justify-content: center; }
+
+/* ----- Stock planning: "How the forecast works" in plain words (Carlo, 3 Nov) ----- */
+.plan-guide { margin: 0 0 14px; border: 1.5px solid color-mix(in srgb, var(--btn-tint) 35%, var(--border-glass)); border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--btn-tint) 5%, var(--bg-card)); }
+.plan-guide summary { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; list-style: none; }
+.plan-guide summary::-webkit-details-marker { display: none; }
+.plan-guide-icon { color: #E8A317; font-size: 24px; }
+.plan-guide-title { flex: 1; font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.plan-guide-title small { display: block; font-size: 12.5px; font-weight: 500; color: var(--text-muted); }
+.plan-guide-chev { color: var(--text-muted); transition: transform 150ms var(--ease-out); }
+.plan-guide[open] .plan-guide-chev { transform: rotate(180deg); }
+.plan-steps { list-style: none; margin: 0; padding: 0 16px 4px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.plan-steps li { display: flex; gap: 10px; padding: 12px; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-glass);
+  font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
+.plan-steps b { color: var(--text-primary); }
+.plan-step-n { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--btn-tint); color: #fff; font-weight: 800; font-size: 13px; }
+.plan-example { margin: 12px 16px 0; padding: 12px 14px; border-radius: var(--radius-md); background: var(--bg-card); border: 1px dashed color-mix(in srgb, var(--btn-tint) 50%, var(--border-glass)); }
+.plan-example[hidden] { display: none; }
+.plan-example-tag { display: inline-block; margin-bottom: 4px; font-size: 11.5px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.04em; }
+.plan-example p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--text-secondary); }
+.plan-example b { color: var(--text-primary); }
+.plan-trust { margin: 12px 16px 14px; font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
+.plan-trust b { color: var(--text-primary); }
+@media (max-width: 900px) { .plan-steps { grid-template-columns: 1fr; } }
+/* the heading over an order's products (Suppliers → Orders) */
+.sp-line.sp-line-head { padding: 8px 0 6px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+.sp-line.sp-line-head span:last-child { color: var(--text-muted); }
+/* Supplier portal → Open orders: the offer buttons on their own row (Carlo, 3 Nov) */
+.sp-offer-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 20px 4px; }
+.sp-offer-bar-note { font-size: 12.5px; color: var(--text-muted); }
+.sp-order-grid .sp-waiting { flex-basis: 100%; font-size: 12px; color: var(--text-muted); }
+/* in a box the progress line keeps its own height; spare room goes above the buttons */
+.sp-order-grid .po-progress { flex: none; }
+
+/* "Show the menu" under the folded sidebar's logo stays where it was, drawn
+   in front of the buttons under it, so the truck button no longer covers it
+   (Carlo, 3 Nov) */
+/* open or folded, admin, till and supplier alike */
+.sidebar .sidebar-header { position: relative; z-index: 20; }
+.sidebar .sidebar-nav { position: relative; z-index: 1; }
+/* the folded admin sidebar's logo: its "Show the menu" opens below it too,
+   the same as the supplier and till strip (Carlo, 3 Nov) */
+@media (min-width: 769px) {
+  html.sidebar-hidden .sidebar-collapse-btn::after { top: calc(100% + 8px); bottom: auto; left: 0; transform: none; }
+}
+/* the forecast guide, simpler (Carlo, 3 Nov: "hindi masyado techy") */
+.plan-step-icon { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; font-size: 20px !important;
+  background: color-mix(in srgb, var(--btn-tint) 14%, var(--bg-card)); color: var(--btn-tint); }
+.plan-steps li { align-items: center; font-size: 13.5px; }
+.plan-ex-flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin-top: 6px; }
+.plan-ex-step { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: var(--radius-md); background: var(--bg-raised); border: 1px solid var(--border-glass); min-width: 120px; }
+.plan-ex-step span { font-size: 11.5px; color: var(--text-muted); font-weight: 600; }
+.plan-ex-step b { font-size: 16px; color: var(--text-primary); }
+.plan-ex-arrow { align-self: center; font-size: 18px; color: var(--text-muted); }
+.plan-ex-todo.is-green { background: var(--success-bg); border-color: color-mix(in srgb, var(--success) 35%, transparent); }
+.plan-ex-todo.is-green b { color: var(--success); }
+.plan-ex-todo.is-red { background: var(--danger-bg); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+.plan-ex-todo.is-red b { color: var(--danger); }
+.plan-ex-todo.is-amber { background: var(--warning-bg); border-color: color-mix(in srgb, var(--warning) 35%, transparent); }
+.plan-ex-todo.is-amber b { color: var(--warning); }
+.plan-ex-todo.is-grey b { color: var(--text-secondary); }
+/* Ask FETCH: an action it prepared, waiting for Confirm */
+.fa-action { display: flex; flex-direction: column; gap: 8px; }
+.fa-action-rows { border: 1px solid var(--border-glass); border-radius: var(--radius-md); overflow: hidden; font-size: 12.5px; }
+.fa-action-rows div { display: flex; justify-content: space-between; gap: 10px; padding: 5px 9px; border-top: 1px solid var(--border-subtle); }
+.fa-action-rows div:first-child { border-top: 0; }
+.fa-action-rows span:first-child { color: var(--text-muted); }
+.fa-action-btns { display: flex; justify-content: flex-end; gap: 6px; }
+.fa-action-btns button { min-height: 32px; padding: 0 12px; font-size: 13px; }
+.fa-action-note { font-size: 12px; color: var(--text-muted); }

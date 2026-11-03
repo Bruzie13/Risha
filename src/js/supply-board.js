@@ -93,11 +93,19 @@
         if (o.delivery_ref) line += '<br>Delivery receipt: <strong>' + escHtml(o.delivery_ref) + '</strong>';
         if (o.notes && o.proposed_by_supplier) line += '<br>' + escHtml(o.notes);
         if (o.supplier_phone) line += '<br>Supplier phone: ' + escHtml(o.supplier_phone);
+        // the supplier's status, when it is not plain Active (UAT part 4, A6)
+        if (o.supplier_status && o.supplier_status !== 'active') {
+            line += '<br><span class="sp-late">' + escHtml(o.supplier_name || 'The supplier') + ' is '
+                + ({ vacation: 'on vacation', inactive: 'marked inactive', deactivated: 'deactivated' }[o.supplier_status] || o.supplier_status) + '.</span>';
+        }
         return line;
     }
 
     function lines(o) {
-        return (o.items || []).map(function (i) {
+        // a heading says what the list is (Carlo, 3 Nov: "walang label na yan pala products")
+        var items = o.items || [];
+        if (!items.length) return '';
+        return '<div class="sp-line sp-line-head"><span>Products (' + items.length + ')</span><span>Quantity</span></div>' + items.map(function (i) {
             var sending = i.confirmed_quantity == null ? Number(i.quantity) : Number(i.confirmed_quantity);
             var short = i.confirmed_quantity != null && sending < Number(i.quantity);
             return '<div class="sp-line"><span>' + escHtml(i.name) + '</span><span class="' + (short ? 'sp-short' : '') + '">'
@@ -108,11 +116,11 @@
 
     function actions(o) {
         var id = Number(o.id);
-        var notes = '<button class="btn-secondary" data-act="notes" data-id="' + id + '">Notes' + (Number(o.message_count) ? ' (' + Number(o.message_count) + ')' : '') + '</button>'
-            + '<button class="btn-secondary" data-act="receipt" data-id="' + id + '">Receipt</button>';   // every order has one (UAT, 1 Nov)
+        // a receipt is for a payment, so it is in Paid, not on an order still open (UAT part 4, A7)
+        var notes = '<button class="btn-secondary" data-act="notes" data-id="' + id + '">Notes' + (Number(o.message_count) ? ' (' + Number(o.message_count) + ')' : '') + '</button>';
         // reading an order's notes is for administrators and managers (the server refuses anyone else)
         if (!manages()) return '';
-        if (o.status === 'proposed') return '<button class="btn-primary" data-act="accept" data-id="' + id + '">Confirm order</button>'
+        if (o.status === 'proposed') return '<button class="btn-primary" data-act="accept" data-id="' + id + '">Confirm offer</button>'
             + '<button class="btn-secondary" data-act="cancel" data-id="' + id + '">Decline</button>' + notes;
         if (o.status === 'pending') return '<button class="btn-secondary" data-act="confirmed" data-id="' + id + '">Mark confirmed</button>'
             + '<button class="btn-secondary" data-act="cancel" data-id="' + id + '">Cancel order</button>' + notes;
@@ -156,6 +164,13 @@
             badge.title = [offers.length && offers.length + ' offer(s) to answer', late && late + ' delivery date(s) passed'].filter(Boolean).join(', ');
             badge.style.display = needs ? '' : 'none';
         }
+        var newBadge = document.getElementById('newProductsBadge');
+        if (newBadge) {
+            var waiting = Number(board.new_products_waiting) || 0;
+            newBadge.textContent = waiting + ' to decide';
+            newBadge.title = waiting + ' new product(s) offered by suppliers';
+            newBadge.style.display = waiting ? '' : 'none';
+        }
         var priceBadge = document.getElementById('pricesBadge');
         if (priceBadge) {
             priceBadge.textContent = prices.length + ' to decide';
@@ -166,17 +181,29 @@
         document.getElementById('offersCard').hidden = !offers.length;
         document.getElementById('offersList').innerHTML = offers.map(card).join('');
 
+        var cancelled = board.cancelled_offers || [];
+        document.getElementById('cancelledCard').hidden = !cancelled.length;
+        document.getElementById('cancelledBody').innerHTML = cancelled.map(function (c) {
+            return '<tr><td class="rp-strong">' + escHtml(c.po_number) + '<span class="rp-sub">' + formatNumber(c.line_count) + ' product' + (Number(c.line_count) === 1 ? '' : 's') + '</span></td>'
+                + '<td>' + escHtml(c.supplier_name || '—') + '</td>'
+                + '<td>' + escHtml(niceDay(c.cancelled_day)) + '</td>'
+                + '<td>' + (c.cancelled_by_supplier ? '<span class="rp-badge rp-badge-warning">Supplier took it back</span>' : '<span class="rp-badge rp-badge-danger">You declined it</span>')
+                + (c.cancel_note ? '<span class="rp-sub">' + escHtml(c.cancel_note) + '</span>' : '') + '</td>'
+                + '<td class="num rp-strong">' + formatCurrency(c.total_amount) + '</td></tr>';
+        }).join('');
+
         document.getElementById('pricesBody').innerHTML = prices.length ? prices.map(function (p) {
             var now = p.live_price != null ? Number(p.live_price) : null, next = Number(p.proposed_price);
             var change = now ? Math.round((next - now) / now * 1000) / 10 : null;
-            return '<tr><td><span class="rp-strong">' + escHtml(p.product_name) + '</span>'
+            // the product opens to the details behind the change (UAT part 4, A11)
+            return '<tr class="is-clickrow" data-price-details="' + Number(p.id) + '" title="See the details"><td><button type="button" class="link-btn rp-strong" data-price-details="' + Number(p.id) + '">' + escHtml(p.product_name) + ' ›</button>'
                 + '<span class="rp-sub">' + escHtml(p.sku || '') + (p.note ? ' · ' + escHtml(p.note) : '') + '</span></td>'
                 + '<td>' + escHtml(p.supplier_name) + '</td>'
                 + '<td class="num">' + (now != null ? formatCurrency(now) : '—') + '</td>'
                 + '<td class="num rp-strong">' + formatCurrency(next)
                 + (change != null ? '<span class="rp-sub">' + (change > 0 ? '+' : '') + change + '%, you sell it at ' + formatCurrency(p.selling_price) + '</span>' : '') + '</td>'
                 + '<td class="num">' + (manages()
-                    ? '<button class="btn-view" data-price="' + Number(p.id) + '" data-approve="1">Accept</button> <button class="btn-view" data-price="' + Number(p.id) + '" data-approve="0">Decline</button>'
+                    ? '<button class="btn-view" data-price-details="' + Number(p.id) + '">Details</button> <button class="btn-view" data-price="' + Number(p.id) + '" data-approve="1">Accept</button> <button class="btn-view" data-price="' + Number(p.id) + '" data-approve="0">Decline</button>'
                     : '') + '</td></tr>';
         }).join('') : '<tr><td colspan="5" class="rp-loading">No price changes waiting. When a supplier proposes a new price, it shows here to accept or decline.</td></tr>';
 
@@ -273,6 +300,10 @@
     }
 
     function onAction(e) {
+        var details = e.target.closest('[data-price-details]');
+        if (details && !e.target.closest('button[data-price]')) { openPriceDetails(Number(details.dataset.priceDetails)); return; }
+        var np = e.target.closest('button[data-new]');
+        if (np) { newProductAction(Number(np.dataset.new), np.dataset.do); return; }
         var receipt = e.target.closest('button[data-receipt]');
         if (receipt) { openReceipt(Number(receipt.dataset.receipt)); return; }
         var paid = e.target.closest('button[data-paid]');
@@ -308,8 +339,24 @@
         if (act === 'notes') { toggleNotes(id); return; }
         if (act === 'receipt') { openOrderReceipt('/purchase-orders/' + id + '/order-receipt'); return; }
         if (act === 'accept') {
-            showConfirmDialog('Confirm this order', 'This accepts ' + escHtml(o.supplier_name || 'the supplier') + '\'s offer: ' + name + ' becomes a confirmed order for ' + formatCurrency(o.total_amount) + '.',
-                function () { setStatus(id, 'confirmed'); }, 'Confirm order');
+            // Confirm offer names the supplier who made it and what they offered (UAT part 4, A8/A9)
+            var standing = { vacation: 'On vacation', inactive: 'Inactive', deactivated: 'Deactivated' }[o.supplier_status] || 'Active';
+            showDetailsDialog('Confirm offer ' + o.po_number + '?',
+                'Accepting it makes it a confirmed order. ' + (o.supplier_name || 'The supplier') + ' then ships it.', [
+                    ['Offered by', o.supplier_name || 'Unknown supplier'],
+                    ['Contact person', o.supplier_contact || 'Not given'],
+                    ['Phone', o.supplier_phone || 'Not given'],
+                    ['Email', o.supplier_email || 'Not given'],
+                    ['Supplier status', standing, standing === 'Active' ? null : 'warning'],
+                    ['Offered on', niceDay(o.order_date)],
+                    ['Could deliver on', o.promised_date ? niceDay(o.promised_date) : 'Not given'],
+                    ['Their note', o.proposed_by_supplier && o.notes ? o.notes : null],
+                    ['Total', formatCurrency(o.total_amount)]
+                ], {
+                    icon: 'handshake',
+                    items: { title: 'What they offered', list: (o.items || []).map(function (i) { return formatQty(i.quantity) + ' × ' + i.name; }) },
+                    actions: [{ label: 'Confirm offer', onClick: function () { setStatus(id, 'confirmed'); } }]
+                });
         } else if (act === 'cancel') {
             showConfirmDialog(o.status === 'proposed' ? 'Decline this offer' : 'Cancel this order', name + ' will be marked cancelled. This cannot be undone.',
                 function () { setStatus(id, 'cancelled'); }, o.status === 'proposed' ? 'Decline' : 'Cancel order',
@@ -333,6 +380,133 @@
             showConfirmDialog('Update order', 'Mark ' + name + ' as ' + act + '? Use this when the supplier told you by phone or message rather than through their own login.',
                 function () { setStatus(id, act); }, act === 'shipped' ? 'Mark shipped' : 'Mark confirmed');
         }
+    }
+
+    /* ---------- A price change, opened (UAT part 4, A11) ---------- */
+
+    async function openPriceDetails(id) {
+        var d;
+        try {
+            var res = await fetch(API + '/price-proposals/' + id, { headers: getAuthHeaders() });
+            var data = await res.json();
+            if (!data.success) { showToast(data.message || 'The details could not be opened', 'error'); return; }
+            d = data.data;
+        } catch (e) { showToast(couldNot('open the details', e), 'error'); return; }
+        var now = d.live_price != null ? Number(d.live_price) : null, next = Number(d.proposed_price), sell = Number(d.selling_price);
+        var pct = function (a, b) { return b ? Math.round((b - a) / b * 1000) / 10 + '%' : '—'; };
+        var change = now ? Math.round((next - now) / now * 1000) / 10 : null;
+        var when = function (ms) { return ms ? new Date(Number(ms)).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''; };
+        var past = (d.history || []).map(function (h) {
+            return when(h.at).replace(/,\s[^,]*$/, '') + ': ' + formatCurrency(h.proposed_price) + ' ' + ({ approved: 'accepted', rejected: 'declined', cancelled: 'taken back by the supplier' }[h.status] || h.status)
+                + (h.decline_reason ? ' (' + h.decline_reason + ')' : '');
+        });
+        var waiting = d.status === 'pending' && manages();
+        showDetailsDialog(d.product_name, (d.sku ? d.sku + ' · ' : '') + (d.category || '') + (d.brand ? ' · ' + d.brand : ''), [
+            ['Supplier', d.supplier_name],
+            ['Contact', [d.contact_person, d.phone, d.email].filter(Boolean).join(' · ')],
+            ['Proposed by', d.proposed_by],
+            ['Sent', when(d.created_at)],
+            ['Pays now', now != null ? formatCurrency(now) : 'Not set'],
+            ['Proposed', formatCurrency(next) + (change != null ? ' (' + (change > 0 ? '+' : '') + change + '%)' : ''), change > 0 ? 'danger' : change < 0 ? 'success' : null],
+            ['Sells at', formatCurrency(sell)],
+            ['Margin now', now != null ? formatCurrency(sell - now) + ' a unit (' + pct(now, sell) + ')' : '—'],
+            ['Margin after', formatCurrency(sell - next) + ' a unit (' + pct(next, sell) + ')', sell - next <= 0 ? 'danger' : null],
+            ['In stock', formatQty(d.stock_quantity) + ' (reorder level ' + formatQty(d.reorder_level) + ')'],
+            ['Sold, last 30 days', formatQty(d.sold_30d) + ' units'],
+            ['Their reason', d.note || 'None given'],
+            ['Status', { pending: 'Waiting for you', approved: 'Accepted', rejected: 'Declined', cancelled: 'Taken back by the supplier' }[d.status] || d.status]
+        ], {
+            icon: 'sell',
+            items: past.length ? { title: 'Earlier price changes for this product', list: past } : null,
+            actions: waiting ? [
+                { label: 'Decline', className: 'btn-secondary', onClick: function () { var b = document.querySelector('#pricesBody button[data-price="' + id + '"][data-approve="0"]'); if (b) b.click(); } },
+                { label: 'Accept', onClick: function () { var b = document.querySelector('#pricesBody button[data-price="' + id + '"][data-approve="1"]'); if (b) b.click(); } }
+            ] : []
+        });
+    }
+
+    /* ---------- New products offered by suppliers (UAT part 4) ---------- */
+
+    var newProducts = [];
+    var NEW_STATUS = {
+        pending: ['Waiting for you', 'warning'], added: ['Added to Inventory', 'ok'],
+        declined: ['Declined', 'danger'], cancelled: ['Taken back by the supplier', 'muted']
+    };
+
+    async function loadNewProducts() {
+        var body = document.getElementById('newProductsBody');
+        try {
+            var res = await fetch(API + '/new-products', { headers: getAuthHeaders() });
+            var data = await res.json();
+            if (!data.success) throw new Error(data.message || 'failed');
+            newProducts = data.data || [];
+        } catch (e) {
+            body.innerHTML = '<tr><td colspan="6" class="rp-loading">New products could not be loaded. Try again in a moment.</td></tr>';
+            return;
+        }
+        if (!newProducts.length) {
+            body.innerHTML = '<tr><td colspan="6" class="rp-loading">No new products offered. When a supplier offers one the shop does not sell yet, it shows here.</td></tr>';
+            return;
+        }
+        body.innerHTML = newProducts.map(function (o) {
+            var st = NEW_STATUS[o.status] || [o.status, 'ok'];
+            var acts = '<button class="btn-view" data-new="' + Number(o.id) + '" data-do="view">Details</button>';
+            if (o.status === 'pending' && manages()) {
+                acts += ' <button class="btn-view" data-new="' + Number(o.id) + '" data-do="add">Add to Inventory</button>'
+                    + ' <button class="btn-view" data-new="' + Number(o.id) + '" data-do="decline">Decline</button>';
+            }
+            return '<tr><td><span class="rp-strong">' + escHtml(o.name) + '</span><span class="rp-sub">' + escHtml([o.brand, o.category, o.species].filter(Boolean).join(' · ')) + '</span></td>'
+                + '<td>' + escHtml(o.supplier_name) + '</td>'
+                + '<td>' + escHtml(new Date(Number(o.created_at)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })) + '</td>'
+                + '<td class="num rp-strong">' + formatCurrency(o.cost_price) + '</td>'
+                + '<td><span class="rp-badge rp-badge-' + st[1] + '">' + escHtml(st[0]) + '</span>' + (o.decline_reason ? '<span class="rp-sub">' + escHtml(o.decline_reason) + '</span>' : '') + '</td>'
+                + '<td class="num"><div class="sp-cell-actions">' + acts + '</div></td></tr>';
+        }).join('');
+    }
+
+    async function newProductAction(id, what) {
+        var o = newProducts.filter(function (x) { return Number(x.id) === id; })[0];
+        if (!o) return;
+        if (what === 'add') { window.location.href = 'inventory.html?offer=' + id; return; }
+        if (what === 'decline') {
+            showPromptDialog('Decline ' + o.name + '?', 'It is not added to Inventory. Say why, so ' + escHtml(o.supplier_name) + ' knows: they will see this.',
+                async function (reason) {
+                    if (await send('POST', '/new-products/' + id + '/decline', { reason: reason.trim() })) { loadNewProducts(); refresh(false); }
+                }, 'Decline', '<span class="material-symbols-outlined" style="color:var(--danger);">cancel</span>', 'text', '', {
+                    maxLength: 300, placeholder: 'e.g. We already carry two brands of this',
+                    validate: function (v) {
+                        var t = v.trim();
+                        if (!t) return 'Type why you are declining this product. The supplier will see it.';
+                        if (t.length < 3 || !/[A-Za-z]/.test(t)) return 'Write the reason in words, like "We already carry two brands of this".';
+                        return null;
+                    }
+                });
+            return;
+        }
+        // details, with the picture (sent with one offer only)
+        var full = o;
+        try {
+            var res = await fetch(API + '/new-products/' + id, { headers: getAuthHeaders() });
+            var data = await res.json();
+            if (data.success) full = data.data;
+        } catch (e) { /* the list's copy is enough without the picture */ }
+        var when = function (ms) { return ms ? new Date(Number(ms)).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''; };
+        var st = NEW_STATUS[full.status] || [full.status];
+        showDetailsDialog(full.name, 'Offered by ' + full.supplier_name, [
+            ['Status', st[0], full.status === 'declined' ? 'danger' : null],
+            ['Brand', full.brand], ['What it is', full.category], ['For', full.species], ['Sold by', full.unit_type],
+            ['Their price', formatCurrency(full.cost_price)], ['About it', full.description],
+            ['Contact', [full.contact_person, full.supplier_phone, full.supplier_email].filter(Boolean).join(' · ')],
+            ['Offered', when(full.created_at)], ['Offered by', full.proposed_by],
+            ['Answered', when(full.decided_at)], ['Answered by', full.decided_by], ['Reason', full.decline_reason, 'danger']
+        ], {
+            icon: 'add_box',
+            html: full.image_url ? '<img src="' + escHtml(full.image_url) + '" alt="" class="sp-new-photo">' : '',
+            actions: full.status === 'pending' && manages() ? [
+                { label: 'Decline', className: 'btn-secondary', onClick: function () { newProductAction(id, 'decline'); } },
+                { label: 'Add to Inventory', onClick: function () { newProductAction(id, 'add'); } }
+            ] : []
+        });
     }
 
     /* ---------- Notes ---------- */
@@ -383,7 +557,7 @@
 
     /* ---------- View toggle: supplier list, orders, price changes ---------- */
 
-    var PANELS = { deliveries: 'deliveriesPanel', prices: 'pricesPanel' };
+    var PANELS = { deliveries: 'deliveriesPanel', prices: 'pricesPanel', newproducts: 'newProductsPanel' };
 
     function setView(view) {
         var table = document.getElementById('supplierTableWrap');
@@ -405,6 +579,7 @@
         try { localStorage.setItem(VIEW_KEY, view); } catch (e) {}
         visible = isBoard;
         if (isBoard) { refresh(false); startPolling(); } else stopPolling();
+        if (view === 'newproducts') loadNewProducts();
     }
 
     window.refreshDeliveries = refresh;
@@ -425,6 +600,7 @@
         var asked = new URLSearchParams(window.location.search).get('view');
         if (asked === 'orders') saved = 'deliveries';
         if (asked === 'prices') saved = 'prices';
+        if (asked === 'newproducts') saved = 'newproducts';
         setView(saved);
         // one early fetch so the badge is right even from the list view
         setTimeout(function () { refresh(false); }, 700);

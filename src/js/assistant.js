@@ -147,6 +147,34 @@
         return m;
     }
 
+    const chat = [];   // the last turns, sent with each question so follow-ups make sense
+
+    /* An action the assistant prepared (add a product, reorder): shown as a
+       card; nothing is saved until Confirm, which goes through the normal
+       endpoint with this user's own permissions (UAT, 3 Nov). */
+    function addAction(a) {
+        const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const card = addMsg('bot', `<div class="fa-action"><b>${esc(a.title)}</b>`
+            + `<div class="fa-action-rows">${(a.rows || []).map(r => `<div><span>${esc(r[0])}</span><span>${esc(r[1])}</span></div>`).join('')}</div>`
+            + `<div class="fa-action-btns"><button type="button" class="btn-secondary" data-no>Cancel</button><button type="button" class="btn-primary" data-yes>Confirm</button></div>`
+            + `<div class="fa-action-note">Not saved yet.</div></div>`, true);
+        const note = card.querySelector('.fa-action-note');
+        const done = text => { card.querySelectorAll('button').forEach(b => b.disabled = true); note.textContent = text; };
+        card.querySelector('[data-no]').addEventListener('click', () => done('Cancelled. Nothing was saved.'));
+        card.querySelector('[data-yes]').addEventListener('click', async () => {
+            card.querySelectorAll('button').forEach(b => b.disabled = true);
+            note.textContent = 'Saving…';
+            const path = a.type === 'add_product' ? '/products' : '/purchase-orders/auto-generate';
+            try {
+                const r = await fetch(API_BASE + path, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(a.payload) });
+                const d = await r.json();
+                if (!d.success) { note.textContent = 'Not saved: ' + (d.message || 'the server gave no reason') + (a.type === 'add_product' ? ' Use Inventory → Add to fix it.' : ''); card.querySelectorAll('button').forEach(b => b.disabled = false); return; }
+                done(a.type === 'add_product' ? 'Added to Inventory (SKU ' + ((d.data && d.data.sku) || '') + ').'
+                    : (d.message || 'Order created.') + (d.warnings && d.warnings.length ? ' ' + d.warnings.join(' ') : ''));
+            } catch (e) { note.textContent = 'Not saved: the server could not be reached.'; card.querySelectorAll('button').forEach(b => b.disabled = false); }
+        });
+    }
+
     function fitInput(box) {
         box.style.height = 'auto';
         box.style.height = Math.min(box.scrollHeight + 3, 150) + 'px';
@@ -164,11 +192,14 @@
         const typing = addMsg('bot', '<span class="fa-typing"><i></i><i></i><i></i></span>', true);
         try {
             const r = await fetch(`${API_BASE}/assistant`, {
-                method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ question: q })
+                method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ question: q, history: chat.slice(-8) })
             });
             const d = await r.json();
             typing.remove();
-            addMsg('bot', d.success ? d.answer : (d.message || 'The assistant could not answer: the server gave no reason.'));
+            const answer = d.success ? d.answer : (d.message || 'The assistant could not answer: the server gave no reason.');
+            addMsg('bot', answer);
+            chat.push({ role: 'user', text: q }, { role: 'bot', text: answer });
+            (d.actions || []).forEach(addAction);
         } catch {
             typing.remove();
             addMsg('bot', "I couldn't reach the server. Please try again.");

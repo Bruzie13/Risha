@@ -542,7 +542,10 @@ function addToCart(productId) {
     }
     renderCart();
     updateCartTotals();
-    showToast(`${product.name} added to cart`, 'success');
+    // one notice per product, its number counting up (Carlo, 3 Nov)
+    const inSale = cartItems.find(i => i.product_id === productId);
+    const qty = inSale ? inSale.quantity : qtyStep;
+    showToast(`${product.name} added to cart · ${formatQty(qty)} in this sale`, 'success', 'cart:' + productId);
 }
 
 function clearCart() {
@@ -1169,6 +1172,9 @@ async function openPosEod() {
     document.getElementById('posEodStatus').textContent = '';
     document.getElementById('posEodCounted').value = '';
     showFieldProblem(document.getElementById('posEodCounted'), null);
+    posEodExpectedNow = null;
+    hideDrawerAmount('posEodDrawer');
+    checkEodOver(document.getElementById('posEodCounted'));
     document.getElementById('posEodNotes').value = '';
     try {
         const res = await fetch(`${API_BASE}/sales/eod`, { headers: getAuthHeaders() });
@@ -1182,13 +1188,61 @@ async function openPosEod() {
         document.getElementById('posEodMoves').hidden = !moved;
         document.getElementById('posEodCashIn').textContent = formatCurrency(d.cash_in || 0);
         document.getElementById('posEodCashOut').textContent = formatCurrency(d.cash_out || 0);
-        document.getElementById('posEodDrawer').textContent = formatCurrency(d.drawer_now || 0);
+        setDrawerAmount('posEodDrawer', d.drawer_now || 0);
+        posEodExpectedNow = d.counted ? null : Number(d.drawer_now) || 0;
         showPosEodResult(d.counted ? { ...d.result, opening_cash: d.opening_cash } : null);
         if (!d.counted) document.getElementById('posEodCounted').focus();
     } catch (e) {
         console.error('End-of-day load failed:', e);
         document.getElementById('posEodStatus').textContent = 'The count could not be loaded. Try again.';
     }
+}
+
+/* What the drawer should hold, hidden behind •••• until the eye is pressed
+   (UAT part 4, C5), so it is not read off the screen over the cashier's
+   shoulder. Each time a window opens it starts hidden again. */
+function setDrawerAmount(id, amount) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.dataset.amount = formatCurrency(Number(amount) || 0);
+    if (!el.classList.contains('is-hidden')) el.textContent = el.dataset.amount;
+}
+function hideDrawerAmount(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.add('is-hidden');
+    el.textContent = '••••';
+    const eye = el.parentElement.querySelector('.pos-eye');
+    if (eye) setEye(eye, false);
+}
+function setEye(btn, shown) {
+    btn.setAttribute('aria-pressed', shown ? 'true' : 'false');
+    btn.title = shown ? 'Hide the amount' : 'Show the amount';
+    btn.setAttribute('aria-label', btn.title);
+    btn.firstElementChild.textContent = shown ? 'visibility_off' : 'visibility';
+}
+function toggleDrawerAmount(id, btn) {
+    const el = document.getElementById(id);
+    if (!el || !el.dataset.amount) return;
+    const show = el.classList.contains('is-hidden');
+    el.classList.toggle('is-hidden', !show);
+    el.textContent = show ? el.dataset.amount : '••••';
+    setEye(btn, show);
+}
+
+/* End of day: a count above what the drawer should hold turns the box red
+   (UAT part 4, C4). It does not stop the save; the cashier may be right. */
+let posEodExpectedNow = null;
+function checkEodOver(box) {
+    const note = document.getElementById('posEodOver');
+    if (!box || !note) return;
+    const raw = box.value.trim();
+    const counted = Number(raw);
+    const over = posEodExpectedNow != null && raw !== '' && !countedCashProblem(raw) && counted > posEodExpectedNow;
+    box.classList.toggle('is-over', over);
+    note.hidden = !over;
+    note.textContent = over ? 'This is ' + formatCurrency(Math.round((counted - posEodExpectedNow) * 100) / 100)
+        + ' more than the expected cash in the drawer. Count again before you save.' : '';
 }
 
 function showPosEodResult(result) {
@@ -1201,7 +1255,7 @@ function showPosEodResult(result) {
     const diff = Number(result.discrepancy);
     const el = document.getElementById('posEodDiff');
     el.textContent = diff === 0 ? 'Balanced' : diff > 0 ? 'Over by ' + formatCurrency(diff) : 'Short by ' + formatCurrency(Math.abs(diff));
-    el.style.color = diff === 0 ? 'var(--success)' : diff > 0 ? 'var(--warning)' : 'var(--danger)';
+    el.style.color = diff === 0 ? 'var(--success)' : 'var(--danger)';
     document.getElementById('posEodExpected').textContent = formatCurrency(result.expected_cash);
     document.getElementById('posEodCountedOut').textContent = formatCurrency(result.counted_cash);
     document.getElementById('posEodNotesOut').textContent = result.notes ? 'Notes: ' + result.notes : '';
@@ -1233,10 +1287,38 @@ function setPosCashKind(kind) {
     document.getElementById('posCashReasonLabel').textContent = out ? 'Who took it, and what for' : 'Who put it in, and why';
     document.getElementById('posCashReason').placeholder = out ? 'For example: Owner collected the afternoon sales' : 'For example: Owner added coins for change';
     document.getElementById('posCashSave').textContent = out ? 'Record cash taken out' : 'Record cash put in';
+    // switching between Taken out and Put in changes what is allowed
+    if (document.getElementById('posCashAmount')?.value) checkPosCashAmount(false);
+}
+
+/* Cash in or out: what is wrong with the amount, said under the box while
+   typing (Carlo, 3 Nov: "5k lang ung nasa cash in pero take out nya 50k").
+   The same rules as the server's (backend/utils/till.js cashMoveProblem).
+   The expected amount itself stays behind the eye. */
+let posCashDrawerNow = null;
+function posCashAmountProblem(text, onSave) {
+    const t = String(text == null ? '' : text).trim();
+    if (!t) return onSave ? 'Enter the amount.' : null;
+    const n = Number(t);
+    if (!isFinite(n)) return 'Type the amount as a number only, like 500 or 500.50.';
+    if (n <= 0) return 'Enter an amount above zero.';
+    if (!/^\d+(\.\d{1,2})?$/.test(t)) return 'Use at most 2 decimals, like 500.50.';
+    if (n > 1000000) return 'That amount is too large (₱1,000,000 at most).';
+    if (posCashKind === 'out' && posCashDrawerNow != null && n > posCashDrawerNow + 0.004) {
+        return 'This is more than the expected cash in the drawer, so it cannot be taken out. Check the amount (press the eye above to see what the drawer should hold).';
+    }
+    return null;
+}
+function checkPosCashAmount(onSave) {
+    const box = document.getElementById('posCashAmount');
+    if (!box) return true;
+    const problem = posCashAmountProblem(box.value, onSave);
+    showFieldProblem(box, problem);
+    return !problem;
 }
 
 function renderPosCash(d) {
-    if (d.drawer_now != null) document.getElementById('posCashDrawer').textContent = formatCurrency(d.drawer_now);
+    if (d.drawer_now != null) { setDrawerAmount('posCashDrawer', d.drawer_now); posCashDrawerNow = Number(d.drawer_now) || 0; }
     const list = document.getElementById('posCashList');
     const moves = d.moves || [];
     document.getElementById('posCashTotals').textContent = moves.length
@@ -1265,7 +1347,9 @@ async function openPosCash() {
     if (!modal) return;
     modal.classList.add('active');
     setPosCashKind('out');
+    hideDrawerAmount('posCashDrawer');
     document.getElementById('posCashAmount').value = '';
+    showFieldProblem(document.getElementById('posCashAmount'), null);
     document.getElementById('posCashReason').value = '';
     try {
         const res = await fetch(`${API_BASE}/sales/till/cash`, { headers: getAuthHeaders() });
@@ -1287,7 +1371,7 @@ function savePosCash() {
     const amount = parseFloat(document.getElementById('posCashAmount').value);
     const reason = document.getElementById('posCashReason').value.trim();
     const out = posCashKind === 'out';
-    if (isNaN(amount) || amount <= 0) { showToast('Enter the amount', 'warning'); document.getElementById('posCashAmount').focus(); return; }
+    if (!checkPosCashAmount(true)) { document.getElementById('posCashAmount').focus(); return; }
     if (reason.length < 3) { showToast(out ? 'Say who took the cash and what for' : 'Say who put the cash in and why', 'warning'); document.getElementById('posCashReason').focus(); return; }
     showConfirmDialog(out ? 'Record cash taken out?' : 'Record cash put in?',
         formatCurrency(amount) + (out ? ' taken out of the drawer. ' : ' put into the drawer. ') + 'This cannot be removed afterwards, and the administrator is told.',

@@ -88,13 +88,48 @@ async function loadDayBrief() {
         const salesPart = txns > 0
             ? `<strong>${formatNumber(txns)}</strong> sale${txns === 1 ? '' : 's'} rung up${sep}<strong>${formatCurrency(revenue)}</strong> in the till`
             : 'no sales yet — register is warmed up';
+        // the count opens what needs attention and what to do about it (UAT part 4, A2)
         const attentionPart = attention > 0
-            ? `${sep}<strong class="brief-alert">${formatNumber(attention)}</strong> item${attention === 1 ? '' : 's'} need${attention === 1 ? 's' : ''} attention`
+            ? `${sep}<button type="button" class="brief-link" onclick="openAttention()" title="See which items, and what to do"><strong class="brief-alert">${formatNumber(attention)}</strong> item${attention === 1 ? '' : 's'} need${attention === 1 ? 's' : ''} attention ›</button>`
             : `${sep}shelves looking good`;
         el.innerHTML = `${shift}${sep}${salesPart}${attentionPart}`;
     } catch {
         el.textContent = "Here's what's happening in your pet shop today.";
     }
+}
+
+/* What needs attention, opened from the line under your name: the two kinds,
+   each with what to do today and a link to its list (UAT part 4, A2/A3). */
+function openAttention() {
+    const low = briefAttention.low || 0, expiring = briefAttention.expiring || 0;
+    const rows = [];
+    if (low) rows.push(['Restock needed', `${formatNumber(low)} product${low === 1 ? '' : 's'} at or below the reorder level`, 'warning']);
+    if (expiring) rows.push(['Expiring soon', `${formatNumber(expiring)} product${expiring === 1 ? '' : 's'} expire within 30 days`, 'danger']);
+    const todo = [];
+    if (low) todo.push('Reorder what is low: Inventory → Restock needed → Reorder sends each supplier its order.');
+    if (expiring) todo.push('Sell what expires first: put it at the front of the shelf, offer a discount or a bundle, and do not reorder it until it sells.');
+    const actions = [];
+    if (expiring) actions.push({ label: 'Open expiring products', className: low ? 'btn-secondary' : 'btn-primary', onClick: () => { location.href = 'inventory.html?filter=expiring'; } });
+    if (low) actions.push({ label: 'Open restock list', onClick: () => { location.href = 'inventory.html?filter=reorder'; } });
+    showDetailsDialog('Items that need attention', `${formatNumber(low + expiring)} in all. Here is what to do today.`, rows,
+        { icon: 'priority_high', tone: expiring ? 'danger' : 'warning', items: { title: 'Act today', list: todo }, actions });
+}
+
+/* "Act today": a line at the top of a list that has something urgent in it,
+   saying what to do about it and where (UAT part 4, A3). */
+function actTodayHtml(text, button, onclick) {
+    return `<div class="act-today" role="note"><span class="material-symbols-outlined" aria-hidden="true">bolt</span>
+        <div><strong>Act today.</strong> ${text}</div>
+        ${button ? `<button type="button" class="btn-secondary" onclick="${onclick}">${button}</button>` : ''}</div>`;
+}
+
+/* What to do about one product by how soon it expires */
+function expiryAdvice(days) {
+    if (days == null) return '';
+    if (days < 0) return 'Take it off the shelf';
+    if (days <= 7) return 'Sell today: discount it';
+    if (days <= 30) return 'Put it in front, discount or bundle';
+    return 'Keep an eye on it';
 }
 
 async function loadUserInfo() {
@@ -195,15 +230,20 @@ async function loadNotifications() {
    the dashboard Live, a failed poll (server down, no internet) marks it Offline.
    Browser online/offline events flip it immediately without waiting for a poll. */
 let liveState = null;
+let liveSince = Date.now();   // when the current Live or Offline spell began
+let lastPollAt = null;        // last time the server answered
 
 function setLiveStatus(ok) {
+    if (ok) lastPollAt = Date.now();
     if (liveState === ok) return;
     liveState = ok;
+    liveSince = Date.now();
+    renderLivePopover();
     const chip = document.getElementById('liveChip');
     const chipText = document.getElementById('liveChipText');
     if (chip) {
         chip.classList.toggle('offline', !ok);
-        chip.title = ok ? 'Data refreshes every 10 seconds' : 'Connection lost — data may be outdated';
+        chip.title = ok ? 'See how long you\'ve been online' : 'Connection lost — data may be out of date. Click for details';
     }
     if (chipText) chipText.textContent = ok ? 'Live' : 'Offline';
     const status = document.getElementById('recentSalesLiveStatus');
@@ -217,6 +257,97 @@ function setLiveStatus(ok) {
         dot.style.animation = ok ? '' : 'none';
     }
 }
+
+/* The Live chip, opened: how long this screen has been online, when you
+   signed in and when the server last answered. It ticks every second while
+   open. */
+let livePopoverTimer = null;
+
+function formatSpan(ms) {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    if (s < 60) return s === 1 ? '1 second' : `${s} seconds`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return m === 1 ? '1 minute' : `${m} minutes`;
+    const h = Math.floor(m / 60), rest = m % 60;
+    const hours = h === 1 ? '1 hour' : `${h} hours`;
+    return rest ? `${hours} ${rest} min` : hours;
+}
+
+// Saved at sign-in; older sessions fall back to the token's issue time.
+function signedInAt() {
+    const saved = Number(sessionStorage.getItem('signedInAt') || localStorage.getItem('signedInAt'));
+    if (saved) return saved;
+    try {
+        const part = (getToken() || '').split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        const iat = JSON.parse(atob(part)).iat;
+        return iat ? iat * 1000 : null;
+    } catch (e) { return null; }
+}
+
+function renderLivePopover() {
+    const pop = document.getElementById('livePopover');
+    if (!pop) return;
+    const now = Date.now();
+    const ok = liveState !== false;
+    const signed = signedInAt();
+    const clock = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    pop.classList.toggle('offline', !ok);
+    pop.innerHTML = `
+        <div class="live-pop-head">
+            <span class="pulse-dot"></span>
+            <div>
+                <b>${ok ? 'Connected' : 'Offline'}</b>
+                <span>${ok ? 'This page is getting new data from the shop server.' : 'The shop server is not answering. What you see may be out of date.'}</span>
+            </div>
+        </div>
+        <div class="live-pop-rows">
+            <div><span>${ok ? 'Online for' : 'Offline for'}</span><b>${formatSpan(now - liveSince)}</b></div>
+            <div><span>${ok ? 'Online since' : 'Offline since'}</span><b>${clock(liveSince)}</b></div>
+            ${signed ? `<div><span>Signed in</span><b>${clock(signed)} · ${formatSpan(now - signed)} ago</b></div>` : ''}
+            <div><span>Last update</span><b>${lastPollAt ? formatSpan(now - lastPollAt) + ' ago' : 'Waiting…'}</b></div>
+        </div>
+        <p class="live-pop-note">Recent sales update every 10 seconds; the figures every 30 seconds.</p>`;
+}
+
+function toggleLivePopover(anchor) {
+    if (document.getElementById('livePopover')) { closeLivePopover(); return; }
+    const pop = document.createElement('div');
+    pop.id = 'livePopover';
+    pop.className = 'live-popover';
+    pop.setAttribute('role', 'dialog');
+    pop.setAttribute('aria-label', 'Connection');
+    document.body.appendChild(pop);
+    renderLivePopover();
+    const r = anchor.getBoundingClientRect();
+    pop.style.top = Math.round(r.bottom + 8) + 'px';
+    pop.style.left = Math.round(Math.min(Math.max(12, r.left), window.innerWidth - pop.offsetWidth - 12)) + 'px';
+    anchor.setAttribute('aria-expanded', 'true');
+    livePopoverTimer = setInterval(renderLivePopover, 1000);
+    setTimeout(() => {
+        document.addEventListener('click', closeLiveOutside);
+        document.addEventListener('keydown', closeLiveOnEsc);
+    }, 10);
+}
+
+function closeLivePopover() {
+    document.getElementById('livePopover')?.remove();
+    document.getElementById('liveChip')?.setAttribute('aria-expanded', 'false');
+    clearInterval(livePopoverTimer);
+    document.removeEventListener('click', closeLiveOutside);
+    document.removeEventListener('keydown', closeLiveOnEsc);
+}
+
+function closeLiveOutside(e) {
+    const pop = document.getElementById('livePopover');
+    const chip = document.getElementById('liveChip');
+    if (pop && !pop.contains(e.target) && !(chip && chip.contains(e.target))) closeLivePopover();
+}
+
+function closeLiveOnEsc(e) {
+    if (e.key === 'Escape') closeLivePopover();
+}
+
+window.addEventListener('resize', closeLivePopover);
 
 window.addEventListener('offline', () => setLiveStatus(false));
 window.addEventListener('online', () => { setLiveStatus(true); loadRecentSales(); });
@@ -305,7 +436,7 @@ function showLessDashSales() {
 function poNextStep(status) {
     switch (status) {
         // an order the supplier offered waits for the shop to accept it
-        case 'proposed': return { status: 'confirmed', label: 'Confirm order', icon: 'check', title: 'Accept the supplier\'s offer: it becomes a confirmed order', offer: true };
+        case 'proposed': return { status: 'confirmed', label: 'Confirm offer', icon: 'check', title: 'Accept the supplier\'s offer: it becomes a confirmed order', offer: true };
         case 'pending': return { status: 'confirmed', label: 'Confirm', icon: 'check', title: 'Supplier confirmed this order' };
         case 'confirmed': return { status: 'shipped', label: 'Shipped', icon: 'local_shipping', title: 'Supplier has shipped the order' };
         case 'shipped': return { status: 'received', label: 'Receive', icon: 'inventory', title: 'Goods arrived — adds the ordered items to stock' };
@@ -316,9 +447,9 @@ function poNextStep(status) {
 function advancePO(id, nextStatus, poNumber, offer) {
     if (offer) {
         const po = (window.recentPOs || []).find(o => o.id === id) || {};
-        showConfirmDialog('Confirm this order',
-            `This accepts ${escHtml(po.supplier_name || 'the supplier')}'s offer: ${escHtml(poNumber)} becomes a confirmed order for ${formatCurrency(po.total_amount || 0)}.`,
-            () => sendPOAdvance(id, 'confirmed', poNumber, ''), 'Confirm order',
+        showConfirmDialog('Confirm this offer',
+            `Offered by <strong>${escHtml(po.supplier_name || 'the supplier')}</strong>. Accepting it makes ${escHtml(poNumber)} a confirmed order for ${formatCurrency(po.total_amount || 0)}. The supplier then ships it.`,
+            () => sendPOAdvance(id, 'confirmed', poNumber, ''), 'Confirm offer',
             '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">check_circle</span>');
         return;
     }
@@ -414,7 +545,12 @@ async function loadLowStockAlerts() {
             list.innerHTML = '<div class="empty-state">All products are well-stocked</div>';
             return;
         }
-        list.innerHTML = items.slice(0, 5).map(p => {
+        const out = items.filter(p => Number(p.stock_quantity) <= 0).length;
+        const head = actTodayHtml(out
+            ? `${formatNumber(out)} product${out === 1 ? ' is' : 's are'} out of stock and ${formatNumber(items.length - out)} ${items.length - out === 1 ? 'is' : 'are'} low. Reorder them now so the shelves are full again.`
+            : `${formatNumber(items.length)} product${items.length === 1 ? ' is' : 's are'} low. Reorder before they run out.`,
+            'Reorder now', "location.href='inventory.html?filter=reorder'");
+        list.innerHTML = head + items.slice(0, 5).map(p => {
             const stock = p.stock_quantity ?? 0;
             const reorder = p.reorder_level ?? 10;
             const fillPct = Math.min(100, Math.round((stock / Math.max(reorder, 1)) * 100));
@@ -613,6 +749,14 @@ async function loadExpirationRisk() {
                     <span class="click-hint">View list</span>
                 </div>
             `;
+            // something expires within 30 days: say what to do (UAT part 4, A3)
+            const critical = Number(data.data.critical.count) || 0;
+            document.getElementById('expiryActToday')?.remove();
+            if (critical) {
+                grid.insertAdjacentHTML('afterend', `<div id="expiryActToday">${actTodayHtml(
+                    `${formatNumber(critical)} product${critical === 1 ? ' expires' : 's expire'} within 30 days. Put ${critical === 1 ? 'it' : 'them'} at the front of the shelf, offer a discount or bundle, and do not reorder until ${critical === 1 ? 'it sells' : 'they sell'}.`,
+                    'See which', "showExpirationProducts('critical')")}</div>`);
+            }
             const productList = document.getElementById('expiryProductList');
             const allExpiring = [...(data.data.critical.products || []), ...(data.data.warning.products || []), ...(data.data.notice.products || [])].slice(0, 5);
             if (allExpiring.length > 0) {
@@ -625,6 +769,7 @@ async function loadExpirationRisk() {
                         <div class="pei-info">
                             <div class="pei-name">${escHtml(p.name)}</div>
                             <div class="pei-sub">Expires ${exp ? exp.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'} · Stock: ${formatNumber(p.stock_quantity || 0)}</div>
+                            ${days !== null && days <= 30 ? `<div class="pei-advice ${daysClass}">${expiryAdvice(days)}</div>` : ''}
                         </div>
                         <div class="pei-days ${daysClass}">${days !== null ? days + ' days' : '—'}</div>
                         <span class="urg-meter" aria-hidden="true"></span>
@@ -648,11 +793,13 @@ function showExpirationProducts(riskLevel) {
     if (!group.products.length) {
         body.innerHTML = '<div class="empty-state">No products in this range</div>';
     } else {
-        body.innerHTML = group.products.map(p => {
+        body.innerHTML = (riskLevel === 'critical' ? actTodayHtml('Put these at the front of the shelf, offer a discount or bundle, and do not reorder them until they sell. Anything 7 days or less from its date: sell it today.') : '')
+            + group.products.map(p => {
             const exp = parseExpiryDate(p.expiration_date);
+            const days = p.days_until_expiry ?? daysFromToday(exp);
             return `
             <div class="details-row">
-                <span class="details-label">${escHtml(p.name)}</span>
+                <span class="details-label">${escHtml(p.name)}${riskLevel === 'critical' ? `<small class="pei-advice danger" style="display:block;">${expiryAdvice(days)}</small>` : ''}</span>
                 <span class="details-value" style="color:${riskLevel === 'critical' ? 'var(--danger)' : riskLevel === 'warning' ? 'var(--warning)' : 'var(--info)'};font-weight:600;">${exp ? exp.toLocaleDateString() : 'N/A'} · ${formatNumber(p.stock_quantity || 0)} qty</span>
             </div>
         `;

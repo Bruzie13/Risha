@@ -61,7 +61,7 @@ function displaySuppliers(suppliers) {
         'due_on_receipt': 'Due on receipt'
     };
     document.getElementById('totalSuppliers').textContent = suppliers.length;
-    document.getElementById('activeSuppliers').textContent = suppliers.filter(s => s.is_active === 1 || s.is_active === true).length;
+    document.getElementById('activeSuppliers').textContent = suppliers.filter(s => (s.status || 'active') === 'active').length;
     const shown = suppliers.slice(0, displayCount);
     tbody.innerHTML = shown.map(s => {
         const initials = (s.name || '?').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
@@ -83,7 +83,7 @@ function displaySuppliers(suppliers) {
                 : 'N/A'}</td>
             <td>${escHtml(s.phone || 'N/A')}</td>
             <td>${paymentTermsMap[s.payment_terms] || 'Net 30'}</td>
-            <td>${(s.is_active === 1 || s.is_active === true) ? '<span class="status-badge status-active">Active</span>' : '<span class="status-badge status-inactive">Inactive</span>'}</td>
+            <td>${supplierStatusBadge(s.status)}</td>
             <td>${starCellHtml(s.stars, s.id)}</td>
             <td><button class="btn-action" onclick="showEmailLogs(${s.id}, '${escHtml(s.name).replace(/'/g, "\\'")}')" style="font-size:12px"><span class="material-symbols-outlined" style="font-size:13px;">mark_email_read</span> Emails</button></td>
             <td>
@@ -94,6 +94,18 @@ function displaySuppliers(suppliers) {
     `;
     }).join('');
     updatePagination('supplierPagination', suppliers, displayCount, 'showMoreSuppliers', 'showLessSuppliers', PAGE_SIZE);
+}
+
+/* A supplier's status (UAT part 4, A6) */
+const SUPPLIER_STATUS = {
+    active: { text: 'Active', cls: 'status-active' },
+    inactive: { text: 'Inactive', cls: 'status-inactive' },
+    vacation: { text: 'On vacation', cls: 'status-low-stock' },
+    deactivated: { text: 'Deactivated', cls: 'status-out-of-stock' }
+};
+function supplierStatusBadge(status) {
+    const s = SUPPLIER_STATUS[status] || SUPPLIER_STATUS.active;
+    return `<span class="status-badge ${s.cls}">${s.text}</span>`;
 }
 
 // Search
@@ -164,8 +176,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const box = document.getElementById(f);
         if (!box) return;
         box.addEventListener('blur', () => checkSupplierField(f));
-        // once a reason shows, it goes away as soon as the box is right
-        box.addEventListener('input', () => { if (box.classList.contains('input-invalid')) checkSupplierField(f); });
+        // checked while typing, not only on Save (UAT part 4, S1)
+        liveCheck(box, () => checkSupplierField(f));
     });
 });
 
@@ -177,6 +189,7 @@ function openAddSupplierModal() {
     if (typeof setPhoneValue === 'function') setPhoneValue(document.getElementById('phone'), '');
     supplierOriginal = {};
     clearSupplierChecks();
+    document.getElementById('supplierStatusGroup').hidden = true;
     document.getElementById('supplierModal').classList.add('active');
     if (typeof openSupplierPicker === 'function') openSupplierPicker(null, null);
 }
@@ -195,6 +208,8 @@ function openEditSupplierModal(id) {
     document.getElementById('address').value = supplier.address || '';
     document.getElementById('city').value = supplier.city || '';
     document.getElementById('payment_terms').value = supplier.payment_terms || 'net30';
+    document.getElementById('supplier_status').value = supplier.status || 'active';
+    document.getElementById('supplierStatusGroup').hidden = false;
     supplierOriginal = { ...supplier };
     clearSupplierChecks();
     document.getElementById('supplierModal').classList.add('active');
@@ -229,6 +244,7 @@ async function handleSupplierSubmit(event) {
         address: document.getElementById('address').value || null,
         city: document.getElementById('city').value || null,
         payment_terms: document.getElementById('payment_terms').value || 'net30',
+        ...(editingSupplierId ? { status: document.getElementById('supplier_status').value } : {}),
         // empty string clears an existing pin; the server treats '' as NULL
         latitude: document.getElementById('latitude').value || null,
         longitude: document.getElementById('longitude').value || null
@@ -367,6 +383,16 @@ function emailPOFromModal(id, poNumber, supplierId, status) {
         e.label, '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">' + e.icon + '</span>');
 }
 
+// the payment receipt of a paid order, from the supplier's order history
+async function openPaymentReceiptFromModal(id) {
+    try {
+        const res = await fetch(API_BASE + '/purchase-orders/' + id + '/receipt', { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.message || 'The receipt could not be loaded.');
+        showPaymentReceipt(data.data);
+    } catch (e) { showToast(e.message || 'The receipt could not be loaded.', 'error'); }
+}
+
 // an order whose email is on its way cannot be sent again meanwhile (1 Nov)
 var poEmailSending = {};
 async function sendPOEmailNow(id, poNumber, supplierId) {
@@ -497,7 +523,8 @@ async function showPerformance(supplierId) {
                     + '<td>' + lead + '</td>'
                     + '<td>' + ordered + '</td>'
                     + '<td><div class="po-actions">' + advance + email
-                    + (canManage() ? '<button class="po-email-btn" onclick="openOrderReceipt(\'/purchase-orders/' + Number(r.id) + '/order-receipt\')"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;">receipt_long</span> Receipt</button>' : '')
+                    // only a paid order has a receipt: the payment's (UAT part 4, A7)
+                    + (canManage() && Number(r.paid) ? '<button class="po-email-btn" onclick="openPaymentReceiptFromModal(' + Number(r.id) + ')"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;">receipt_long</span> Receipt</button>' : '')
                     + '</div></td>'
                     + '</tr>';
             }).join('');

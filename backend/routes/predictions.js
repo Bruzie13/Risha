@@ -694,6 +694,8 @@ async function computeAllPredictions() {
                 // it is withheld rather than shown.
                 overall_accuracy: holdActual >= MIN_TEST_UNITS ? accuracyOf(holdPred, holdActual) : null,
                 backtested_products: backtested,
+                // what the accuracy figure is worked out from (UAT part 4, A15)
+                accuracy_test: { predicted_units: Math.round(holdPred), actual_units: Math.round(holdActual), min_units: MIN_TEST_UNITS },
                 // days left out of every product's history, and why
                 excluded: { days: noData.days.size, ranges: noData.ranges },
                 model: {
@@ -1005,7 +1007,8 @@ router.get('/overview', authenticateToken, async (req, res) => {
                     excess_value: sum(rows, 'excess_value'),
                     expiry_risk_value: sum(rows, 'expiry_risk_value'),
                     accuracy: all.data.overall_accuracy,
-                    accuracy_products: all.data.backtested_products
+                    accuracy_products: all.data.backtested_products,
+                    accuracy_test: all.data.accuracy_test || null
                 },
                 by_category: demandBy(rows, 'category'),
                 by_brand: demandBy(rows, 'brand').slice(0, 10),

@@ -13,6 +13,7 @@ class SupplierPerformance {
             // last two). The tracked email also says whether they merely viewed it.
             const [rows] = await connection.execute(
                 `SELECT po.id, po.po_number, po.status, po.total_amount,
+                        po.paid_at IS NOT NULL AS paid,
                         po.order_date, po.expected_delivery_date,
                         UNIX_TIMESTAMP(po.created_at) * 1000 as created_at,
                         UNIX_TIMESTAMP(po.updated_at) * 1000 as updated_at,

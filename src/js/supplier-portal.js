@@ -5,7 +5,7 @@
 const PORTAL_API = `${API_BASE}/supplier-portal`;
 const PAST_PAGE = 10;
 
-let portal = { me: null, products: [], orders: [], score: null };
+let portal = { me: null, products: [], orders: [], score: null, newProducts: [] };
 let pastShown = PAST_PAGE;
 const PRODUCTS_PAGE = 10;
 let productsShown = PRODUCTS_PAGE;     // the products list shows 10 at a time
@@ -32,7 +32,20 @@ window.addEventListener('load', () => {
     document.getElementById('productsBody').addEventListener('click', e => {
         const btn = e.target.closest('button[data-price]');
         if (btn) openPrice(Number(btn.dataset.price));
+        const cancel = e.target.closest('button[data-cancel-price]');
+        if (cancel) cancelPrice(Number(cancel.dataset.cancelPrice));
+        const why = e.target.closest('button[data-declined]');
+        if (why) showDeclined(Number(why.dataset.declined));
     });
+    document.getElementById('newProductsBody').addEventListener('click', e => {
+        const view = e.target.closest('button[data-new-view]');
+        if (view) showNewProduct(Number(view.dataset.newView));
+        const cancel = e.target.closest('button[data-new-cancel]');
+        if (cancel) cancelNewProduct(Number(cancel.dataset.newCancel));
+    });
+    document.getElementById('pastSearch').addEventListener('input', () => { pastShown = PAST_PAGE; renderPast(); });
+    document.getElementById('pastStatus').addEventListener('change', () => { pastShown = PAST_PAGE; renderPast(); });
+    document.getElementById('spStatus').addEventListener('click', e => { if (e.target.closest('button[data-vacation]')) toggleVacation(); });
     loadPortal();
 });
 
@@ -108,16 +121,18 @@ const orderOf = id => portal.orders.find(o => Number(o.id) === Number(id));
 async function loadPortal() {
     const notice = document.getElementById('portalNotice');
     try {
-        const [me, products, orders, score] = await Promise.all([
-            portalGet('/me'), portalGet('/products'), portalGet('/orders'), portalGet('/scorecard')
+        const [me, products, orders, score, newProducts] = await Promise.all([
+            portalGet('/me'), portalGet('/products'), portalGet('/orders'), portalGet('/scorecard'),
+            portalGet('/new-products').catch(() => [])
         ]);
-        portal = { me, products, orders, score };
+        portal = { me, products, orders, score, newProducts };
         notice.hidden = true;
         renderDetails();
         renderProducts();
         renderOrders();
         renderPayments();
         renderScorecard();
+        renderNewProducts();
     } catch (error) {
         console.error('Supplier page failed to load:', error);
         notice.textContent = error.message && error.message !== 'Request failed'
@@ -137,6 +152,26 @@ async function loadPortal() {
    Profile (UAT, 31 Oct). */
 function renderDetails() {
     document.getElementById('supplierName').textContent = (portal.me && portal.me.name) || 'Supplier';
+    // Active or On vacation, and the switch between them (UAT part 4, A6).
+    // Inactive is the shop's to change, so it shows without a switch.
+    const status = (portal.me && portal.me.status) || 'active';
+    const box = document.getElementById('spStatus');
+    const label = { active: 'Active', vacation: 'On vacation', inactive: 'Inactive' }[status] || 'Active';
+    box.hidden = false;
+    box.className = 'sp-status is-' + status;
+    box.innerHTML = `<span class="sp-status-chip"><span class="sp-status-dot"></span>${escHtml(label)}</span>`
+        + (status === 'active' ? '<button type="button" class="btn-secondary" data-vacation>Go on vacation</button>'
+            : status === 'vacation' ? '<button type="button" class="btn-primary" data-vacation>I\'m back</button>'
+            : '<span class="sp-status-note">Set by the shop</span>');
+}
+
+function toggleVacation() {
+    const on = !(portal.me && portal.me.status === 'vacation');
+    showConfirmDialog(on ? 'Go on vacation?' : 'Back from vacation?',
+        on ? 'The shop sees that you are on vacation, on your line in Suppliers and before it sends you an order. Your open orders stay as they are.'
+           : 'The shop sees that you are taking orders again.',
+        async () => { if (await portalSend('PUT', '/me/vacation', { on })) loadPortal(); },
+        on ? 'Go on vacation' : 'I\'m back');
 }
 
 /* ---------- Products and prices ---------- */
@@ -165,13 +200,44 @@ function renderProducts() {
             <td class="num">${p.cost_price != null ? formatCurrency(p.cost_price) : '—'}${p.pending_price != null
                 ? `<span class="rp-sub">${formatCurrency(p.pending_price)} proposed, waiting</span>`
                 : p.declined_price != null
-                    ? `<span class="rp-sub price-declined">${formatCurrency(p.declined_price)} declined${p.decline_reason ? ': ' + escHtml(p.decline_reason) : ''}</span>` : ''}</td>
-            <td class="num"><button class="btn-view" data-price="${Number(p.id)}">Change price</button></td>
+                    ? `<button type="button" class="price-declined-btn" data-declined="${Number(p.id)}" title="See why and when">${formatCurrency(p.declined_price)} declined${p.decline_reason ? ': ' + escHtml(p.decline_reason) : ''} <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></button>` : ''}</td>
+            <td class="num"><div class="sp-cell-actions">${p.pending_price != null
+                ? `<button class="btn-secondary sp-btn-cancel" data-cancel-price="${Number(p.id)}">Cancel proposal</button>`
+                : `<button class="btn-view" data-price="${Number(p.id)}">Change price</button>`}</div></td>
         </tr>`).join('');
     updatePagination('productsPagination', ordered, productsShown, 'showMoreProducts', 'showLessProducts', PRODUCTS_PAGE);
 }
 function showMoreProducts() { productsShown += PRODUCTS_PAGE; renderProducts(); }
 function showLessProducts() { productsShown = Math.max(PRODUCTS_PAGE, productsShown - PRODUCTS_PAGE); renderProducts(); }
+
+// Take back a price change the shop has not answered (UAT part 4, SP8).
+function cancelPrice(productId) {
+    const p = portal.products.find(x => Number(x.id) === productId);
+    if (!p || p.pending_price == null) return;
+    showConfirmDialog('Cancel this price change?',
+        `${escHtml(p.name)}: your proposal of <strong>${formatCurrency(p.pending_price)}</strong> is taken back. The shop keeps paying ${p.cost_price != null ? formatCurrency(p.cost_price) : 'the current price'}.`,
+        async () => { if (await portalSend('POST', `/products/${productId}/price/cancel`)) loadPortal(); },
+        'Cancel proposal');
+    const keep = document.getElementById('confirmCancelBtn');
+    if (keep) keep.textContent = 'Keep it';
+}
+
+// A declined price, opened: what was asked, why the shop said no, who and when (SP9).
+function showDeclined(productId) {
+    const p = portal.products.find(x => Number(x.id) === productId);
+    if (!p || p.declined_price == null) return;
+    const when = ms => ms ? new Date(Number(ms)).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+    showDetailsDialog('Price change declined', p.name, [
+        ['You proposed', formatCurrency(p.declined_price)],
+        ['Price then', p.declined_was != null ? formatCurrency(p.declined_was) : 'Not set'],
+        ['Price now', p.cost_price != null ? formatCurrency(p.cost_price) : 'Not set'],
+        ['Your reason', p.declined_note || 'None given'],
+        ['Sent', when(p.declined_proposed_at)],
+        ['Declined', when(p.declined_at)],
+        ['Declined by', p.declined_by || 'Risha Pet Supplies'],
+        ['Shop\'s reason', p.decline_reason || 'None given', 'danger']
+    ], { tone: 'danger', icon: 'block', actions: [{ label: 'Propose another price', onClick: () => openPrice(productId) }] });
+}
 
 function openPrice(productId) {
     const p = portal.products.find(x => Number(x.id) === productId);
@@ -197,6 +263,12 @@ function openPrice(productId) {
             if (problem) { box.focus(); return false; }
             return portalSend('POST', `/products/${productId}/price`, { price: text, note: document.getElementById('spPriceNote').value });
         });
+    // said while typing (UAT part 4, S1)
+    liveCheck(document.getElementById('spPrice'), () => {
+        const box = document.getElementById('spPrice'), problem = box.value.trim() ? spPriceProblem(box.value.trim(), p.cost_price) : null;
+        document.getElementById('spPriceError').textContent = problem || '';
+        box.classList.toggle('input-invalid', !!problem);
+    });
 }
 
 /* What is wrong with the price typed, or null (backend/utils/supply.js has the same rule). */
@@ -228,28 +300,16 @@ function orderFacts(o) {
     return line;
 }
 
-/* The items of an order on one line: the first three, then how many more.
-   A line the supplier is sending short reads "5 of 10". */
-function itemsSummary(o) {
-    const items = o.items || [];
-    const one = i => {
-        const sending = sendingOf(i);
-        const short = i.confirmed_quantity != null && sending < Number(i.quantity);
-        return `${escHtml(i.name)} ${short ? `<span class="sp-short">${formatQty(sending)} of ${formatQty(i.quantity)}</span>` : '× ' + formatQty(i.quantity)}`;
-    };
-    return items.slice(0, 3).map(one).join(' · ') + (items.length > 3 ? ` · +${items.length - 3} more` : '');
-}
-
 function orderActions(o) {
     const id = Number(o.id);
-    const notes = `<button class="btn-secondary" data-act="notes" data-id="${id}">Notes${Number(o.message_count) ? ' (' + Number(o.message_count) + ')' : ''}</button>`
-        + `<button class="btn-secondary" data-act="receipt" data-id="${id}">Receipt</button>`;   // every order has one (UAT, 1 Nov)
+    // only a paid order has a receipt (UAT part 4, A7); an open order is not paid yet
+    const notes = `<button class="btn-secondary" data-act="notes" data-id="${id}">Notes${Number(o.message_count) ? ' (' + Number(o.message_count) + ')' : ''}</button>`;
     if (o.status === 'pending') return `<button class="btn-primary" data-act="confirm" data-id="${id}">Confirm order</button>${notes}`;
     if (o.status === 'confirmed') return `<button class="btn-primary" data-act="ship" data-id="${id}">Mark as shipped</button>
         <button class="btn-secondary" data-act="date" data-id="${id}">Change delivery date</button>${notes}`;
     if (o.status === 'shipped') return `<button class="btn-secondary" data-act="date" data-id="${id}">Change delivery date</button>${notes}
         <span class="sp-waiting">The shop marks it received when it arrives.</span>`;
-    return `${notes}<span class="sp-waiting">Waiting for the shop to accept or decline.</span>`;
+    return `<button class="btn-secondary sp-btn-cancel" data-act="cancel-offer" data-id="${id}">Cancel offer</button>${notes}<span class="sp-waiting">Waiting for the shop to accept or decline.</span>`;
 }
 
 function renderOrders() {
@@ -268,15 +328,23 @@ function renderOrders() {
     else box.innerHTML = open.map(o => {
         const s = ORDER_STATUS[o.status] || { text: o.status, tone: 'ok' };
         const id = Number(o.id);
-        // one row: the order and what is on it, where it is, its total, and what to do next
-        return `<div class="sp-order sp-row" data-order="${id}">
-            <div class="sp-row-main">
+        /* one box per order, the same as the shop's Orders (Carlo, 3 Nov: the
+           columns across a wide screen looked "random"): the order and where it
+           is, the total, the progress, what is on it, then what to do */
+        const items = o.items || [];
+        const lineOf = i => {
+            const sending = sendingOf(i);
+            const short = i.confirmed_quantity != null && sending < Number(i.quantity);
+            return `<div class="sp-line"><span>${escHtml(i.name)}</span><span class="${short ? 'sp-short' : ''}">${short ? formatQty(sending) + ' of ' + formatQty(i.quantity) : formatQty(i.quantity)}</span></div>`;
+        };
+        return `<div class="sp-order" data-order="${id}">
+            <div class="sp-order-head">
                 <span class="sp-order-title">${escHtml(o.po_number)}<span class="rp-badge rp-badge-${s.tone}">${escHtml(s.text)}</span></span>
-                <span class="sp-row-items" title="${escHtml((o.items || []).map(i => i.name + ' × ' + formatQty(i.quantity)).join(', '))}">${itemsSummary(o)}</span>
-                <span class="sp-order-facts">${orderFacts(o)}</span>
+                <span class="sp-order-total">${formatCurrency(o.total_amount)}</span>
             </div>
-            <div class="sp-row-prog">${poProgressHtml(o.status)}</div>
-            <div class="sp-order-total num">${formatCurrency(o.total_amount)}</div>
+            ${poProgressHtml(o.status)}
+            <div class="sp-order-facts">${orderFacts(o)}</div>
+            ${items.length ? `<div class="sp-lines"><div class="sp-line sp-line-head"><span>Products (${items.length})</span><span>Quantity</span></div>${items.map(lineOf).join('')}</div>` : ''}
             <div class="sp-order-actions">${orderActions(o)}</div>
             <div class="sp-notes" id="notes-${id}" ${openNotes.has(id) ? '' : 'hidden'}></div>
         </div>`;
@@ -286,19 +354,36 @@ function renderOrders() {
     renderPast(past);
 }
 
-function renderPast(past) {
-    past = past || portal.orders.filter(o => ['received', 'cancelled'].includes(o.status));
-    if (!past.length) { portalRow('pastOrdersBody', 5, 'No past orders yet.'); document.getElementById('pastPagination').innerHTML = ''; return; }
+function renderPast() {
+    const all = portal.orders.filter(o => ['received', 'cancelled'].includes(o.status));
+    // search and filter (UAT part 4, SP11)
+    const q = (document.getElementById('pastSearch').value || '').trim().toLowerCase();
+    const show = document.getElementById('pastStatus').value;
+    const past = all.filter(o => {
+        if (show === 'received' && o.status !== 'received') return false;
+        if (show === 'paid' && !(o.status === 'received' && o.paid)) return false;
+        if (show === 'unpaid' && !(o.status === 'received' && !o.paid)) return false;
+        if (show === 'cancelled' && o.status !== 'cancelled') return false;
+        if (!q) return true;
+        return String(o.po_number).toLowerCase().includes(q) || (o.items || []).some(i => String(i.name).toLowerCase().includes(q));
+    });
+    const count = document.getElementById('pastCount');
+    count.textContent = q || show ? `${formatNumber(past.length)} of ${formatNumber(all.length)} past orders` : `${formatNumber(all.length)} past order${all.length === 1 ? '' : 's'}`;
+    if (!past.length) {
+        portalRow('pastOrdersBody', 5, all.length ? 'No past order matches. Clear the search or choose All past orders.' : 'No past orders yet.');
+        document.getElementById('pastPagination').innerHTML = '';
+        return;
+    }
     document.getElementById('pastOrdersBody').innerHTML = past.slice(0, pastShown).map(o => {
         const s = ORDER_STATUS[o.status] || { text: o.status, tone: 'ok' };
         const items = (o.items || []).map(i => `${escHtml(formatQty(sendingOf(i)))} × ${escHtml(i.name)}`);
         return `<tr>
             <td><span class="rp-strong">${escHtml(o.po_number)}</span>${o.order_date ? `<span class="rp-sub">Ordered ${escHtml(portalDate(o.order_date))}</span>` : ''}</td>
             <td>${items.slice(0, 3).join('<br>')}${items.length > 3 ? `<span class="rp-sub">and ${items.length - 3} more</span>` : ''}</td>
-            <td><span class="rp-badge rp-badge-${s.tone}">${escHtml(s.text)}</span>${o.payment_tracked || o.paid
-                ? `<span class="rp-sub">${o.paid ? 'Paid' : 'Not yet paid'}</span>` : ''}</td>
+            <td><span class="rp-badge rp-badge-${s.tone}">${escHtml(o.status === 'cancelled' && o.cancelled_by_supplier ? 'Cancelled by you' : s.text)}</span>${o.payment_tracked || o.paid
+                ? `<span class="rp-sub">${o.paid ? 'Paid' + (o.paid_day ? ' ' + escHtml(portalDate(o.paid_day)) : '') : 'Not yet paid'}</span>` : ''}${o.status === 'cancelled' && o.cancel_note ? `<span class="rp-sub">${escHtml(o.cancel_note)}</span>` : ''}</td>
             <td class="num rp-strong">${formatCurrency(o.total_amount)}</td>
-            <td class="num"><button class="btn-view" data-act="receipt" data-id="${Number(o.id)}">Receipt</button></td>
+            <td class="num">${o.paid ? `<button class="btn-view" data-receipt="${Number(o.id)}"><span class="material-symbols-outlined" style="font-size:15px;">receipt_long</span> Receipt</button>` : ''}</td>
         </tr>`;
     }).join('');
     updatePagination('pastPagination', past, pastShown, 'showMorePast', 'showLessPast', PAST_PAGE);
@@ -314,7 +399,20 @@ function onOrderClick(e) {
     else if (btn.dataset.act === 'ship') openShip(id);
     else if (btn.dataset.act === 'date') openDate(id);
     else if (btn.dataset.act === 'notes') toggleNotes(id);
-    else if (btn.dataset.act === 'receipt') openOrderReceipt('/supplier-portal/orders/' + id + '/order-receipt');
+    else if (btn.dataset.act === 'cancel-offer') cancelOffer(id);
+}
+
+// Take back an offer the shop has not answered (UAT part 4, SP5).
+function cancelOffer(id) {
+    const o = orderOf(id);
+    if (!o || o.status !== 'proposed') return;
+    showPromptDialog('Cancel offer ' + o.po_number + '?',
+        'The shop is told it is no longer offered. Say why, so the shop knows (optional).',
+        async reason => { if (await portalSend('POST', `/offers/${id}/cancel`, { reason: (reason || '').trim() })) loadPortal(); },
+        'Cancel offer', '<span class="material-symbols-outlined" style="color:var(--danger);">block</span>', 'text', '',
+        { maxLength: 300, placeholder: 'For example: we ran out of stock' });
+    const keep = document.getElementById('confirmCancelBtn');
+    if (keep) keep.textContent = 'Keep the offer';
 }
 
 function openConfirm(id) {
@@ -389,13 +487,15 @@ function openOffer() {
     const suggest = p => Number(p.stock_quantity) <= Number(p.reorder_level)
         ? Math.max(1, Math.ceil(Number(p.reorder_level) * 2 - Number(p.stock_quantity))) : 0;
     const lines = products.map(p => `
-        <label class="sp-form-line">
+        <label class="sp-form-line" data-find="${escHtml((p.name + ' ' + (p.sku || '') + ' ' + (p.category || '')).toLowerCase())}">
             <span>${escHtml(p.name)}<small>${formatQty(p.stock_quantity)} in stock, reorder level ${formatQty(p.reorder_level)}${p.cost_price != null ? ' · ' + formatCurrency(p.cost_price) + ' each' : ''}</small></span>
             <input type="number" class="form-input" data-product="${Number(p.id)}" min="0" max="10000" step="1" value="${suggest(p)}" inputmode="numeric">
         </label>`).join('');
     openSpModal('Offer an order',
         `<p class="sp-form-hint">Suggest a delivery to the shop. Products running low are filled in for you. It becomes an order only if the shop accepts.</p>
-         <div class="sp-form-lines">${lines}</div>
+         <input type="search" class="form-input sp-offer-search" id="spOfferSearch" placeholder="Search your products" maxlength="100" aria-label="Search your products">
+         <div class="sp-form-lines" id="spOfferLines">${lines}<p class="sp-form-hint sp-offer-none" id="spOfferNone" hidden>No product matches. Not one you supply yet? <button type="button" class="sp-link" onclick="closeSpModal(); openNewProduct();">Offer a new product</button></p></div>
+         <p class="sp-form-hint" style="margin-top:-4px;">Selling something the shop does not carry? <button type="button" class="sp-link" onclick="closeSpModal(); openNewProduct();">Offer a new product</button></p>
          <div class="form-group">
             <label class="form-label" for="spDate">Date you could deliver</label>
             <input type="date" class="form-input" id="spDate" min="${todayYmd()}" required>
@@ -414,6 +514,185 @@ function openOffer() {
             if (!date) { showToast('Choose the date you could deliver', 'warning'); return false; }
             return portalSend('POST', '/offers', { items, promised_date: date, note: document.getElementById('spOfferNote').value });
         });
+    // search the list (UAT part 4, SP3): quantities typed stay, hidden or not
+    document.getElementById('spOfferSearch').addEventListener('input', e => {
+        const q = e.target.value.trim().toLowerCase();
+        let shown = 0;
+        document.querySelectorAll('#spOfferLines .sp-form-line').forEach(l => {
+            const on = !q || l.dataset.find.includes(q);
+            l.hidden = !on;
+            if (on) shown++;
+        });
+        document.getElementById('spOfferNone').hidden = shown > 0;
+    });
+    setTimeout(() => document.getElementById('spOfferSearch')?.focus(), 60);
+}
+
+/* ---------- Offer a new product (UAT part 4, SP4) ----------
+   A product the shop does not sell yet: its name, brand, what it is, the
+   pet, the supplier's price and a picture. The shop adds it to Inventory or
+   declines it with a reason, shown in the Products tab. */
+
+const NEW_STATUS = {
+    pending: { text: 'Waiting for the shop', tone: 'warning' },
+    added: { text: 'Added to the shop', tone: 'ok' },
+    declined: { text: 'Declined', tone: 'danger' },
+    cancelled: { text: 'Cancelled by you', tone: 'muted' }
+};
+
+function renderNewProducts() {
+    const rows = portal.newProducts || [];
+    if (!rows.length) { portalRow('newProductsBody', 5, 'None yet. Use Offer a new product in Open orders.'); return; }
+    const when = ms => ms ? new Date(Number(ms)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    document.getElementById('newProductsBody').innerHTML = rows.map(o => {
+        const st = NEW_STATUS[o.status] || { text: o.status, tone: 'ok' };
+        return `<tr>
+            <td><span class="rp-strong">${escHtml(o.name)}</span><span class="rp-sub">${escHtml([o.brand, o.category, o.species].filter(Boolean).join(' · '))}</span></td>
+            <td>${when(o.created_at)}</td>
+            <td class="num">${formatCurrency(o.cost_price)}</td>
+            <td><span class="rp-badge rp-badge-${st.tone}">${escHtml(st.text)}</span>${o.status === 'declined' && o.decline_reason ? `<span class="rp-sub price-declined" style="margin-left:0;">${escHtml(o.decline_reason)}</span>` : ''}</td>
+            <td class="num"><div class="sp-cell-actions"><button class="btn-view" data-new-view="${Number(o.id)}">Details</button>${o.status === 'pending' ? `<button class="btn-secondary sp-btn-cancel" data-new-cancel="${Number(o.id)}">Cancel</button>` : ''}</div></td>
+        </tr>`;
+    }).join('');
+}
+
+function showNewProduct(id) {
+    const o = (portal.newProducts || []).find(x => Number(x.id) === id);
+    if (!o) return;
+    const when = ms => ms ? new Date(Number(ms)).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+    const st = NEW_STATUS[o.status] || { text: o.status };
+    showDetailsDialog(o.name, 'A new product you offered', [
+        ['Status', st.text, o.status === 'declined' ? 'danger' : o.status === 'added' ? 'success' : null],
+        ['Brand', o.brand], ['What it is', o.category], ['For', o.species], ['Unit', o.unit_type],
+        ['Your price', formatCurrency(o.cost_price)], ['About it', o.description],
+        ['Offered', when(o.created_at)], ['Answered', when(o.decided_at)],
+        ['Shop\'s reason', o.status === 'declined' ? o.decline_reason : null, 'danger']
+    ], { icon: 'add_box', tone: o.status === 'declined' ? 'danger' : 'primary',
+         html: o.image_url ? `<img src="${escHtml(o.image_url)}" alt="" class="sp-new-photo">` : '' });
+}
+
+function cancelNewProduct(id) {
+    const o = (portal.newProducts || []).find(x => Number(x.id) === id);
+    if (!o) return;
+    showConfirmDialog('Cancel this offer?', `${escHtml(o.name)} is taken back. The shop no longer sees it.`,
+        async () => { if (await portalSend('POST', `/new-products/${id}/cancel`)) loadPortal(); }, 'Cancel offer');
+    const keep = document.getElementById('confirmCancelBtn');
+    if (keep) keep.textContent = 'Keep it';
+}
+
+let newProductImage = null;
+function openNewProduct() {
+    newProductImage = null;
+    openSpModal('Offer a new product',
+        `<p class="sp-form-hint">A product the shop does not sell yet. The shop decides whether to add it; you will see the answer in the Products tab.</p>
+         <div class="form-group">
+            <label class="form-label" for="npName">Product name</label>
+            <input type="text" class="form-input" id="npName" maxlength="100" placeholder="For example: AOZI Senior Lamb 1kg" required>
+            <div class="field-error" id="npNameError" role="alert"></div>
+         </div>
+         <div class="sp-form-pair">
+            <div class="form-group">
+                <label class="form-label" for="npBrand">Brand (optional)</label>
+                <input type="text" class="form-input" id="npBrand" maxlength="50" placeholder="For example: Aozi">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="npCategory">What it is (optional)</label>
+                <input type="text" class="form-input" id="npCategory" maxlength="60" placeholder="For example: Dry food">
+            </div>
+         </div>
+         <div class="sp-form-pair">
+            <div class="form-group">
+                <label class="form-label" for="npSpecies">For which pet (optional)</label>
+                <select class="form-select" id="npSpecies"><option value="">Any</option><option>Dog</option><option>Cat</option><option>Bird</option><option>Fish</option></select>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="npUnit">Sold by (optional)</label>
+                <input type="text" class="form-input" id="npUnit" maxlength="20" placeholder="For example: bag, can, piece">
+            </div>
+         </div>
+         <div class="form-group">
+            <label class="form-label" for="npPrice">Your price to the shop (₱)</label>
+            <input type="text" class="form-input" id="npPrice" inputmode="decimal" autocomplete="off" maxlength="11" placeholder="For example: 520.00" required>
+            <div class="field-error" id="npPriceError" role="alert"></div>
+         </div>
+         <div class="form-group">
+            <label class="form-label" for="npAbout">About it (optional)</label>
+            <input type="text" class="form-input" id="npAbout" maxlength="500" placeholder="Size, flavour, why customers would want it">
+         </div>
+         <div class="form-group">
+            <label class="form-label" for="npPhoto">Picture (optional)</label>
+            <input type="file" class="form-input" id="npPhoto" accept="image/png,image/jpeg,image/webp">
+            <img id="npPhotoPreview" class="sp-new-photo" alt="" hidden>
+            <div class="field-error" id="npPhotoError" role="alert"></div>
+         </div>`,
+        'Send to the shop',
+        async () => {
+            const name = document.getElementById('npName'), price = document.getElementById('npPrice');
+            const nameText = name.value.trim(), priceText = price.value.trim();
+            const nameProblem = !nameText ? 'Enter the product name.'
+                : nameText.length < 2 || !/[A-Za-z]/.test(nameText) ? 'The product name needs at least 2 characters, with letters.' : null;
+            const priceProblem = !priceText ? 'Enter your price to the shop.' : spPriceProblem(priceText, null);
+            document.getElementById('npNameError').textContent = nameProblem || '';
+            document.getElementById('npPriceError').textContent = priceProblem || '';
+            name.classList.toggle('input-invalid', !!nameProblem);
+            price.classList.toggle('input-invalid', !!priceProblem);
+            if (nameProblem) { name.focus(); return false; }
+            if (priceProblem) { price.focus(); return false; }
+            return portalSend('POST', '/new-products', {
+                name: nameText, brand: document.getElementById('npBrand').value, category: document.getElementById('npCategory').value,
+                species: document.getElementById('npSpecies').value, unit_type: document.getElementById('npUnit').value,
+                cost_price: priceText, description: document.getElementById('npAbout').value, image_url: newProductImage
+            });
+        });
+    // said while typing (UAT part 4, S1)
+    liveCheck(document.getElementById('npName'), () => {
+        const box = document.getElementById('npName'), v = box.value.trim();
+        const problem = v && (v.length < 2 || !/[A-Za-z]/.test(v)) ? 'The product name needs at least 2 characters, with letters.' : null;
+        document.getElementById('npNameError').textContent = problem || '';
+        box.classList.toggle('input-invalid', !!problem);
+    });
+    liveCheck(document.getElementById('npPrice'), () => {
+        const box = document.getElementById('npPrice'), problem = box.value.trim() ? spPriceProblem(box.value.trim(), null) : null;
+        document.getElementById('npPriceError').textContent = problem || '';
+        box.classList.toggle('input-invalid', !!problem);
+    });
+    document.getElementById('npPhoto').addEventListener('change', e => {
+        const file = e.target.files && e.target.files[0];
+        const err = document.getElementById('npPhotoError'), preview = document.getElementById('npPhotoPreview');
+        err.textContent = ''; newProductImage = null; preview.hidden = true;
+        if (!file) return;
+        if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) { err.textContent = 'Choose a PNG, JPG or WEBP picture.'; e.target.value = ''; return; }
+        if (file.size > 10 * 1024 * 1024) { err.textContent = 'The picture is larger than 10 MB. Choose a smaller one.'; e.target.value = ''; return; }
+        shrinkPicture(file, 800).then(url => { newProductImage = url; preview.src = url; preview.hidden = false; })
+            .catch(() => { err.textContent = 'That picture could not be read. Try another one.'; e.target.value = ''; });
+    });
+}
+
+/* The picture, made smaller in the browser before it is sent (the same as a
+   product's picture in Inventory). */
+function shrinkPicture(file, maxSize) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = reject;
+        reader.onload = () => {
+            const img = new Image();
+            img.onerror = reject;
+            img.onload = () => {
+                let w = img.width, h = img.height;
+                if (w > h && w > maxSize) { h = Math.round(h * maxSize / w); w = maxSize; }
+                else if (h > maxSize) { w = Math.round(w * maxSize / h); h = maxSize; }
+                const canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, w, h);
+                ctx.drawImage(img, 0, 0, w, h);
+                resolve(canvas.toDataURL('image/jpeg', 0.75));
+            };
+            img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+    });
 }
 
 /* ---------- Notes ---------- */
@@ -479,13 +758,13 @@ function renderPayments() {
     renderPaid();
     // due soon or overdue: said at the top of Payments and on the tab (UAT, 31 Oct)
     const today = todayYmd();
-    const soonDay = (() => { const d = new Date(); d.setDate(d.getDate() + 3); return d.toISOString().slice(0, 10); })();
+    const soonDay = (() => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10); })();
     const over = unpaid.filter(o => o.payment_due && o.payment_due < today);
     const soon = unpaid.filter(o => o.payment_due && o.payment_due >= today && o.payment_due <= soonDay);
     const notice = document.getElementById('paymentsNotice');
     notice.innerHTML = over.length || soon.length
         ? `<div class="sp-due-notice ${over.length ? 'over' : ''}"><span class="material-symbols-outlined" aria-hidden="true">${over.length ? 'error' : 'schedule'}</span><span>`
-          + [over.length ? `${over.length} payment${over.length === 1 ? ' is' : 's are'} overdue` : '', soon.length ? `${soon.length} ${soon.length === 1 ? 'is' : 'are'} due within 3 days` : ''].filter(Boolean).join(' and ')
+          + [over.length ? `${over.length} payment${over.length === 1 ? ' is' : 's are'} overdue` : '', soon.length ? `${soon.length} ${soon.length === 1 ? 'is' : 'are'} due within 7 days` : ''].filter(Boolean).join(' and ')
           + '. The shop has been reminded.</span></div>' : '';
     if (over.length) setTabCount('tabCountPay', over.length, 'overdue');
     if (!unpaid.length) { portalRow('paymentsBody', 4, 'Nothing is waiting to be paid.'); return; }
@@ -493,11 +772,19 @@ function renderPayments() {
         <tr>
             <td class="rp-strong">${escHtml(o.po_number)}</td>
             <td>${o.received_day ? escHtml(portalDate(o.received_day)) : '—'}</td>
-            <td>${o.payment_due
-                ? escHtml(portalDate(o.payment_due)) + (o.payment_due < today ? ' <span class="sp-late">overdue</span>' : '')
-                : 'Not set by your terms'}</td>
+            <td>${o.payment_due ? escHtml(portalDate(o.payment_due)) + dueBadge(o.payment_due, today) : 'Not set by your terms'}</td>
             <td class="num rp-strong">${formatCurrency(o.total_amount)}</td>
         </tr>`).join('');
+}
+
+/* How near a payment's due date is, on its own line (UAT part 4, SP7):
+   overdue in red, due within 7 days in amber, with the days counted. */
+function dueBadge(due, today) {
+    const days = Math.round((Date.parse(due + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000);
+    if (days < 0) return ` <span class="rp-badge rp-badge-danger sp-due-badge">${-days} day${days === -1 ? '' : 's'} overdue</span>`;
+    if (days === 0) return ' <span class="rp-badge rp-badge-danger sp-due-badge">Due today</span>';
+    if (days <= 7) return ` <span class="rp-badge rp-badge-warning sp-due-badge">Due in ${days} day${days === 1 ? '' : 's'}</span>`;
+    return '';
 }
 
 /* The payments the shop has made, each with its receipt. */
@@ -514,7 +801,7 @@ function renderPaid() {
 }
 
 document.addEventListener('click', async e => {
-    const b = e.target.closest('#paidBody button[data-receipt]');
+    const b = e.target.closest('#paidBody button[data-receipt], #pastOrdersBody button[data-receipt]');
     if (!b) return;
     try {
         const res = await fetch(`${API_BASE}/supplier-portal/orders/${Number(b.dataset.receipt)}/receipt`, { headers: getAuthHeaders() });
@@ -536,19 +823,44 @@ function renderScorecard() {
         document.getElementById('figRatingNote').textContent = !r || !r.rated ? 'Not rated yet'
             : r.meets_standard ? 'Meets the standard (4 stars or more)' : 'Below the standard (needs 4 stars)';
     }
-    const cell = (label, value, note) => `
-        <div class="rp-detail-item">
-            <span class="rp-detail-label">${label}</span>
-            <span class="rp-figure-value">${value}</span>
-            <span class="rp-figure-note">${note}</span>
+    // How you are doing, laid out (UAT part 4, SP10): the stars and what they
+    // mean on the left, the five checks behind them on the right, the four
+    // figures underneath.
+    const box = document.getElementById('scorecard');
+    if (!r) { box.innerHTML = '<p class="rp-loading">Not rated yet.</p>'; return; }
+    const stars = Array.from({ length: 5 }, (_, i) => `<span class="${i < r.stars ? 'on' : ''}">${i < r.stars ? '★' : '☆'}</span>`).join('');
+    const badge = !r.rated ? '<span class="rp-badge rp-badge-muted">Not rated yet</span>'
+        : r.meets_standard ? '<span class="rp-badge rp-badge-ok">Meets the standard</span>'
+        : '<span class="rp-badge rp-badge-warning">Below the standard</span>';
+    const checks = (r.checks || []).map(c => `
+        <li class="${c.met ? 'met' : 'missed'}">
+            <span class="sp-check-mark" aria-label="${c.met ? 'Met' : 'Not met'}">${c.met ? '✓' : '✗'}</span>
+            <span class="sp-check-label">${escHtml(c.label)}</span>
+            <span class="sp-check-value">${escHtml(c.value)}</span>
+        </li>`).join('');
+    const tile = (label, value, note) => `
+        <div class="sp-score-fig">
+            <span class="sp-score-fig-label">${label}</span>
+            <span class="sp-score-fig-value">${value}</span>
+            <span class="sp-score-fig-note">${note}</span>
         </div>`;
-    // the star rating, with the same rule the shop sees, above the figures
-    document.getElementById('scorecard').innerHTML = '<div style="grid-column:1/-1;">' + starRatingHtml(s.stars) + '</div>' + (!s.delivered ? '' :
-        cell('Delivered on time', s.on_time_percent != null ? s.on_time_percent + '%' : '—',
-            s.on_time_of ? `Arrived by the promised date, out of ${s.on_time_of} order${s.on_time_of === 1 ? '' : 's'} with a date` : 'No orders had a delivery date to judge against')
-        + cell('Delivered in full', s.complete_percent != null ? s.complete_percent + '%' : '—', 'Every item arrived in the quantity ordered')
-        + cell('Average time to deliver', s.average_days != null ? s.average_days + ' days' : '—', 'From the order being placed to being received')
-        + cell('Orders delivered', formatNumber(s.delivered), 'In the last 12 months'));
+    box.innerHTML = `
+        <div class="sp-score-top">
+            <div class="sp-score-stars">
+                <div class="sp-score-big" aria-label="${r.stars} of 5 stars">${stars}</div>
+                <div class="sp-score-line"><strong>${r.stars} of 5 stars</strong>${badge}</div>
+                <p>${escHtml(r.summary)}</p>
+                <p class="sp-score-rule">One star for each check met. The standard is ${r.standard} stars or more. Counted from orders received in the last 12 months.</p>
+            </div>
+            <ul class="sp-score-checks">${checks}</ul>
+        </div>
+        ${!s.delivered ? '' : `<div class="sp-score-figs">
+            ${tile('Delivered on time', s.on_time_percent != null ? s.on_time_percent + '%' : '—',
+                s.on_time_of ? `By the promised date, out of ${s.on_time_of} order${s.on_time_of === 1 ? '' : 's'} with a date` : 'No order had a date to judge against')}
+            ${tile('Delivered in full', s.complete_percent != null ? s.complete_percent + '%' : '—', 'Every item arrived in the quantity ordered')}
+            ${tile('Average time to deliver', s.average_days != null ? s.average_days + ' days' : '—', 'From the order being placed to being received')}
+            ${tile('Orders delivered', formatNumber(s.delivered), 'In the last 12 months')}
+        </div>`}`;
 }
 
 /* ---------- The one dialog ---------- */
@@ -583,22 +895,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-
-/* The supplier's star rating and the conditions behind it (utils/supply.js
-   starRating on the server: the same rule the supplier sees on their page). */
-function starRatingHtml(r) {
-    if (!r) return '';
-    var esc = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
-    var stars = '';
-    for (var i = 1; i <= 5; i++) stars += '<span style="color:' + (i <= r.stars ? '#E8A317' : 'var(--border-color, #c9c9c9)') + ';">' + (i <= r.stars ? '★' : '☆') + '</span>';
-    var badge = !r.rated ? '<span class="status-badge" style="background:var(--bg-raised);color:var(--text-secondary);">Not rated yet</span>'
-        : r.meets_standard ? '<span class="status-badge status-in-stock">Meets the standard</span>'
-        : '<span class="status-badge status-low-stock">Below the standard</span>';
-    var rows = (r.checks || []).map(function (c) {
-        return '<li style="display:flex;justify-content:space-between;gap:10px;padding:3px 0;"><span>' + (c.met ? '<span style="color:var(--success);">✓</span> ' : '<span style="color:var(--danger);">✗</span> ') + esc(c.label) + '</span><span style="color:var(--text-secondary);white-space:nowrap;">' + esc(c.value) + '</span></li>';
-    }).join('');
-    return '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><span style="font-size:26px;letter-spacing:2px;line-height:1;" aria-label="' + r.stars + ' of 5 stars">' + stars + '</span>' + badge + '</div>'
-        + '<p style="margin:6px 0 8px;font-size:13px;">' + esc(r.summary) + '</p>'
-        + (rows ? '<ul style="list-style:none;margin:0;padding:0;font-size:12.5px;">' + rows + '</ul>' : '')
-        + '<p style="margin:8px 0 0;font-size:11.5px;color:var(--text-secondary);">One star for each line ticked. A supplier meets the standard at ' + r.standard + ' stars or more. Counted from orders received in the last 12 months.</p>';
-}

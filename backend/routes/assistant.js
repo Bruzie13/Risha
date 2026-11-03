@@ -24,9 +24,14 @@ router.post('/', authenticateToken, async (req, res) => {
             return res.status(429).json({ success: false, message: 'You are asking very quickly — give it a few seconds.' });
         }
         const question = (req.body && typeof req.body.question === 'string') ? req.body.question.slice(0, 600) : '';
-        const result = await askAssistant(question);
+        // its look-ups go through the system's own endpoints as this user (see utils/assistant.js)
+        const result = await askAssistant(question, {
+            history: req.body && req.body.history,
+            user: req.user,
+            auth: { authorization: req.headers.authorization, cookie: req.headers.cookie }
+        });
         if (result.ok) {
-            res.json({ success: true, answer: result.answer });
+            res.json({ success: true, answer: result.answer, actions: result.actions || [] });
         } else {
             res.status(result.reason === 'no_key' ? 503 : 400).json({ success: false, message: result.message, reason: result.reason });
         }

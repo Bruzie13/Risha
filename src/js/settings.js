@@ -3,6 +3,20 @@ document.addEventListener('DOMContentLoaded', function () {
         window.location.href = 'login.html';
         return;
     }
+    // the boxes say what is wrong while typing (UAT part 4, S1)
+    liveCheck(document.getElementById('settingsFullName'), checkSettingsFullName);
+    var newPwBox = document.getElementById('settingsNewPw'), confirmPwBox = document.getElementById('settingsConfirmPw');
+    var sayPw = function () {
+        var problem = newPwBox.value ? passwordPolicyError(newPwBox.value) : null;
+        document.getElementById('errorNewPw').textContent = '';
+        if (problem) showFieldError('errorNewPw', problem);
+        newPwBox.classList.toggle('input-invalid', !!problem);
+        var mismatch = confirmPwBox.value && confirmPwBox.value !== newPwBox.value;
+        document.getElementById('errorConfirmPw').textContent = '';
+        if (mismatch) showFieldError('errorConfirmPw', 'Passwords do not match');
+        confirmPwBox.classList.toggle('input-invalid', !!mismatch);
+    };
+    if (newPwBox && confirmPwBox) { liveCheck(newPwBox, sayPw); liveCheck(confirmPwBox, sayPw); }
 
     loadSettings();
     setupTabs();

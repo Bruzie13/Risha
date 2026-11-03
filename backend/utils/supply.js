@@ -191,4 +191,34 @@ function starRating(score, rule = STAR_RULE) {
         summary: stars + ' of 5 stars. ' + (meets ? 'Meets the standard (' + rule.standard + ' stars or more).' : 'Below the standard: it needs ' + rule.standard + ' stars or more.') };
 }
 
-module.exports = { PAYMENT_METHODS, paymentProblem, termDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, declineReasonProblem, DECLINE_REASON_MAX, scorecard, starRating, STAR_RULE, reorderSupplierProblem };
+/* A product a supplier offers that the shop does not sell yet (UAT part 4,
+   SP4). What is wrong with it, or null. The same rules the product form uses
+   for the name and brand; the price is the supplier's price to the shop. */
+const OFFER_SPECIES = ['Dog', 'Cat', 'Bird', 'Fish'];   // the product form's list
+function productOfferProblem(o) {
+    o = o || {};
+    const name = typeof o.name === 'string' ? o.name.trim() : '';
+    if (!name) return 'Enter the product name.';
+    if (name.length < 2 || !/[A-Za-z]/.test(name)) return 'The product name needs at least 2 characters, with letters.';
+    if (name.length > 100) return 'Keep the product name to 100 characters or fewer.';
+    const brand = typeof o.brand === 'string' ? o.brand.trim() : '';
+    if (brand.length > 50) return 'Keep the brand to 50 characters or fewer.';
+    const category = typeof o.category === 'string' ? o.category.trim() : '';
+    if (category.length > 60) return 'Keep the category to 60 characters or fewer.';
+    if (o.species && !OFFER_SPECIES.includes(o.species)) return 'Choose the pet it is for from the list.';
+    const unit = typeof o.unit_type === 'string' ? o.unit_type.trim() : '';
+    if (unit.length > 20) return 'Keep the unit to 20 characters or fewer.';
+    if (o.cost_price === null || o.cost_price === undefined || String(o.cost_price).trim() === '') return 'Enter your price to the shop.';
+    const price = priceProblem(o.cost_price);
+    if (price) return price.replace('the price', 'your price');
+    const about = typeof o.description === 'string' ? o.description.trim() : '';
+    if (about.length > 500) return 'Keep the description to 500 characters or fewer.';
+    return null;
+}
+
+/* A supplier's standing with the shop (UAT part 4, A6). Deactivated
+   suppliers cannot use their portal or be sent orders; inactive and on
+   vacation ones can, with a warning to the shop. */
+const SUPPLIER_STATUSES = { active: 'Active', inactive: 'Inactive', vacation: 'On vacation', deactivated: 'Deactivated' };
+
+module.exports = { OFFER_SPECIES, productOfferProblem, SUPPLIER_STATUSES, PAYMENT_METHODS, paymentProblem, termDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, declineReasonProblem, DECLINE_REASON_MAX, scorecard, starRating, STAR_RULE, reorderSupplierProblem };

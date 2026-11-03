@@ -174,15 +174,22 @@ function renderPlan() {
     // one short line up top; what the forecast is based on is in "About this forecast"
     document.getElementById('planLead').textContent = `Forecast for the next ${plan.forecast_days} days`
         + (plan.last_sale_date && !stale ? `, from sales up to ${planDate(plan.last_sale_date)}.` : '.');
-    document.getElementById('planCaption').textContent =
-        `Based on ${plan.history_days ? plan.history_days + ' days of sales on record' + (plan.model && plan.model.fit_days ? ` (the model reads the last ${plan.model.fit_days})` : '') : 'sales on record'}. Forecasts cover the next ${plan.forecast_days} days.`
-        + (plan.last_sale_date && !stale ? ` Last sale recorded ${planDate(plan.last_sale_date)}.` : '')
-        + leftOutText(plan.excluded);
+    // the important parts stand out: the days, the dates, what was left out (UAT part 4, A13)
+    const b = t => `<strong>${escHtml(t)}</strong>`;
+    const left = (plan.excluded && plan.excluded.ranges) || [];
+    const why = { no_items: 'sales were recorded without their items', closed: 'nothing was recorded' };
+    document.getElementById('planCaption').innerHTML =
+        `<p>Based on ${plan.history_days ? b(formatNumber(plan.history_days) + ' days') + ' of sales on record' + (plan.model && plan.model.fit_days ? ` (the model reads the last ${b(plan.model.fit_days + ' days')})` : '') : 'the sales on record'}.</p>`
+        + `<p>Forecasts cover the ${b('next ' + plan.forecast_days + ' days')}.`
+        + (plan.last_sale_date ? ` Last sale recorded ${b(planDate(plan.last_sale_date))}.` : '') + '</p>'
+        + (left.length ? `<p class="rp-left-out-head"><mark>Not counted: ${formatNumber(plan.excluded.days)} day${plan.excluded.days === 1 ? '' : 's'}</mark></p><ul class="rp-left-out">`
+            + left.map(r => `<li>${b(r.from === r.to ? planDate(r.from) : planDate(r.from) + ' to ' + planDate(r.to))} · ${r.days} day${r.days === 1 ? '' : 's'}: ${escHtml(why[r.reason] || 'no usable record')}</li>`).join('') + '</ul>' : '');
     const lead = document.getElementById('howLead');
     if (lead) lead.textContent = plan.lead_time_days;
 
     document.getElementById('kpiForecastUnits').textContent = formatNumber(t.expected_units) + (t.expected_units === 1 ? ' item' : ' items');
     document.getElementById('kpiForecastRevenue').textContent = formatCurrency(t.expected_revenue);
+    renderForecastBreakdown();
     document.getElementById('kpiAccuracy').textContent = t.accuracy != null ? formatDecimal(t.accuracy, 0) + '%' : 'Not available';
     document.getElementById('kpiAccuracyNote').textContent = t.accuracy != null
         ? 'How close the forecast came in a test on the last two weeks'
@@ -193,6 +200,7 @@ function renderPlan() {
     document.getElementById('aboutHistory').textContent = plan.history_days
         ? `Learns from ${formatNumber(plan.history_days)} days of sales` : 'Learns from the sales on record';
 
+    renderGuide();
     renderAttention();
     renderReorder();
     renderExcess();
@@ -375,6 +383,76 @@ function renderExpiry() {
 function showMoreExpiry() { expiryShown += PRED_PAGE_SIZE; renderExpiry(); }
 function showLessExpiry() { expiryShown = Math.max(PRED_PAGE_SIZE, expiryShown - PRED_PAGE_SIZE); renderExpiry(); }
 
+/* "How the forecast works": open until it is closed once (remembered on
+   this browser), with a worked example taken from one of the shop's own
+   products, and how far to trust the numbers in one plain sentence. */
+function renderGuide() {
+    const guide = document.getElementById('planGuide');
+    if (!guide) return;
+    if (!guide.dataset.ready) {
+        guide.dataset.ready = '1';
+        let closed = false;
+        try { closed = localStorage.getItem('planGuideClosed') === '1'; } catch (e) {}
+        guide.open = !closed;
+        guide.addEventListener('toggle', () => { try { localStorage.setItem('planGuideClosed', guide.open ? '0' : '1'); } catch (e) {} });
+    }
+    // a product that sells regularly and has stock makes the clearest example
+    const pick = [...plan.products]
+        .filter(p => p.expected_30d >= 3 && p.sold_30d >= 3 && p.stock > 0 && p.basis !== 'new')
+        .sort((a, b) => b.sold_30d - a.sold_30d)[0];
+    // the example as four short steps, from one of the shop's own products
+    const ex = document.getElementById('planExample');
+    if (pick) {
+        const todo = pick.stock_status !== 'ok' ? ['Order more', 'is-red']
+            : pick.excess_units > 0 ? ['Too much, stop ordering', 'is-grey']
+            : pick.expiry_risk_units > 0 ? ['Sell it first, it may expire', 'is-amber']
+            : ['Enough, nothing to do', 'is-green'];
+        const step = (label, value) => `<div class="plan-ex-step"><span>${label}</span><b>${value}</b></div>`;
+        ex.innerHTML = `<span class="plan-example-tag">Example: ${escHtml(pick.name)}</span>`
+            + '<div class="plan-ex-flow">'
+            + step('Sold last month', formatQty(pick.sold_30d))
+            + '<span class="plan-ex-arrow" aria-hidden="true">→</span>' + step('Expects next month', 'about ' + formatNumber(Math.round(pick.expected_30d)))
+            + '<span class="plan-ex-arrow" aria-hidden="true">→</span>' + step('On your shelf', formatQty(pick.stock))
+            + '<span class="plan-ex-arrow" aria-hidden="true">→</span>' + `<div class="plan-ex-step plan-ex-todo ${todo[1]}"><span>So</span><b>${todo[0]}</b></div>`
+            + '</div>';
+        ex.hidden = false;
+    } else ex.hidden = true;
+}
+
+/* What makes up Expected to sell and Expected revenue (UAT part 4, A14):
+   the categories that bring the most, then the rest, each with its share.
+   Both figures are the sum over products of expected units (× price for
+   revenue), so the lines add up to the figure above them. */
+function renderForecastBreakdown() {
+    const groups = new Map();
+    plan.products.forEach(p => {
+        const key = p.category || 'No category';
+        const g = groups.get(key) || { name: key, units: 0, revenue: 0, products: 0 };
+        g.units += Number(p.expected_30d) || 0;
+        g.revenue += (Number(p.expected_30d) || 0) * (Number(p.unit_price) || 0);
+        if ((Number(p.expected_30d) || 0) >= 0.5) g.products++;
+        groups.set(key, g);
+    });
+    const all = [...groups.values()];
+    const totalUnits = all.reduce((a, g) => a + g.units, 0), totalRev = all.reduce((a, g) => a + g.revenue, 0);
+    const lines = (key, total, fmt, unitWord) => {
+        const sorted = [...all].filter(g => g[key] > 0).sort((a, b) => b[key] - a[key]);
+        if (!sorted.length || !total) return '<p class="rp-fig-bd-none">Nothing is expected to sell yet.</p>';
+        const top = sorted.slice(0, 4), rest = sorted.slice(4);
+        const restSum = rest.reduce((a, g) => a + g[key], 0);
+        const row = (label, v, sub) => `<li><span class="rp-fig-bd-label">${escHtml(label)}${sub ? `<small>${escHtml(sub)}</small>` : ''}</span>`
+            + `<span class="rp-fig-bd-bar" aria-hidden="true"><span style="width:${Math.max(3, Math.round(v / total * 100))}%"></span></span>`
+            + `<span class="rp-fig-bd-value">${fmt(v)} <small>${Math.round(v / total * 100)}%</small></span></li>`;
+        return '<ul>' + top.map(g => row(g.name, g[key], `${formatNumber(g.products)} product${g.products === 1 ? '' : 's'} selling`)).join('')
+            + (rest.length ? row(`${rest.length} other categor${rest.length === 1 ? 'y' : 'ies'}`, restSum) : '') + '</ul>'
+            + `<p class="rp-fig-bd-how">${unitWord}</p>`;
+    };
+    document.getElementById('unitsBreakdown').innerHTML = lines('units', totalUnits, v => formatNumber(Math.round(v)),
+        `Each product's expected sales over the next ${plan.forecast_days} days, added up by category.`);
+    document.getElementById('revenueBreakdown').innerHTML = lines('revenue', totalRev, v => formatCompactCurrency(v),
+        'Each product\'s expected sales × its selling price, added up by category.');
+}
+
 /* ---------- Demand by category and brand; how good the model is ---------- */
 
 function renderDemandGroups() {
@@ -390,43 +468,43 @@ function renderDemandGroups() {
     else document.getElementById('brandDemand').innerHTML = '<p class="rp-empty">No product has a brand set yet. Add a brand to products in Inventory to see which brands are expected to sell.</p>';
 }
 
+/* The Forecast accuracy figure, broken down (UAT part 4, A15): what the
+   test hid, what the forecast said, what actually sold, and how each method
+   scored on the same days. */
 function renderModel() {
     const model = plan.model || {};
     const cmp = model.comparison;
-    const body = document.getElementById('modelCompareBody');
-    const note = document.getElementById('modelCompareNote');
+    const test = plan.totals.accuracy_test;
+    const box = document.getElementById('accuracyBreakdown');
+    if (!box) return;
     const pct = v => v == null ? '—' : formatDecimal(v, 1) + '%';
-    if (!cmp) {
-        body.innerHTML = '<tr><td colspan="2" class="rp-loading">Not available yet. The test compares the forecast with the last two weeks of sales, and too few sales were recorded in that time to judge it fairly.</td></tr>';
-        note.textContent = '';
-    } else {
+    const row = (label, value, strong) => `<div class="rp-acc-row${strong ? ' is-strong' : ''}"><span>${label}</span><span>${value}</span></div>`;
+    let html = '';
+    if (test && test.actual_units) {
+        const off = test.predicted_units - test.actual_units;
+        html += '<div class="rp-acc-rows">'
+            + row('Days tested', 'The last 14 days on record, hidden from the forecast')
+            + row('The forecast said', formatNumber(test.predicted_units) + ' items')
+            + row('What actually sold', formatNumber(test.actual_units) + ' items')
+            + row('Off by', formatNumber(Math.abs(off)) + ' items (' + (off > 0 ? 'too high' : off < 0 ? 'too low' : 'exact') + ')')
+            // the score is worked out before the counts are rounded, so its own parts are shown
+            + (plan.totals.accuracy != null ? row('Accuracy', '100% − ' + formatDecimal(100 - plan.totals.accuracy, 1) + '% off = <strong>' + pct(plan.totals.accuracy) + '</strong>', true) : '')
+            + '</div>';
+    } else if (plan.totals.accuracy == null) {
+        html += '<p class="rp-acc-none">Too few items sold in the last 14 days on record to test the forecast fairly'
+            + (test && test.min_units ? ` (it needs at least ${formatNumber(test.min_units)})` : '') + '.</p>';
+    }
+    if (cmp) {
         const best = Math.max(cmp.random_forest ?? 0, cmp.gradient_boosting ?? 0, cmp.ensemble ?? 0);
-        const row = (label, value, hint, strong) => `<tr><td>${strong ? '<span class="rp-strong">' + label + '</span>' : label}<span class="rp-sub">${hint}</span></td><td class="num ${strong ? 'rp-strong' : ''}">${pct(value)}</td></tr>`;
-        body.innerHTML =
-            row('Random Forest alone', cmp.random_forest, 'Many decision trees, averaged', false)
-            + row('Gradient Boosting alone', cmp.gradient_boosting, 'Trees that each correct the last', false)
-            + row('Both together (the ensemble)', cmp.ensemble, 'The average of the two models', cmp.ensemble === best)
-            + row('Simple trend only', cmp.statistical_baseline, 'No machine learning, for comparison', false)
-            + row('What this page uses', cmp.system_forecast, 'The ensemble, corrected for how far off it was the time before', true);
-        note.textContent = `Tested on ${cmp.products} product${cmp.products === 1 ? '' : 's'} that sold ${formatNumber(cmp.actual_units)} items in the test period.`;
+        html += '<div class="rp-acc-sub">Each method on the same days, ' + formatNumber(cmp.products) + ' products, ' + formatNumber(cmp.actual_units) + ' items sold</div><div class="rp-acc-rows">'
+            + row('Random Forest alone', pct(cmp.random_forest))
+            + row('Gradient Boosting alone', pct(cmp.gradient_boosting))
+            + row('Both together' + (best > 0 && cmp.ensemble === best ? ' (best)' : ''), pct(cmp.ensemble))
+            + row('Simple trend, no machine learning', pct(cmp.statistical_baseline))
+            + row('What this page uses', pct(cmp.system_forecast), true)
+            + '</div>';
     }
-    const limits = document.getElementById('modelLimits');
-    if (limits) {
-        limits.textContent = (plan.history_days && plan.history_days < 365
-            ? `With ${plan.history_days} days of sales on record the forecast has not seen a full year, so it cannot allow for the season yet. `
-            : '')
-            + 'It is not told about promotions, price changes or holidays whose dates move, and learns of them only once they show in the sales.';
-    }
-    document.getElementById('modelSub').textContent = model.runtime && !/python/.test(model.runtime)
-        ? 'The machine-learning model could not be run, so these forecasts use the simple trend only'
-        : 'The model is tested on the most recent two weeks, which it is not shown';
-
-    const weights = (model.feature_weights || []).filter(w => w.weight > 0.005);
-    const box = document.getElementById('featureWeights');
-    if (!weights.length) { box.innerHTML = '<p class="rp-empty">Available once a product has enough sales history to train on.</p>'; return; }
-    renderBars('featureWeights', weights.slice(0, 8).map(w => ({
-        label: w.feature.charAt(0).toUpperCase() + w.feature.slice(1), value: w.weight, text: Math.round(w.weight * 100) + '%'
-    })));
+    box.innerHTML = html;
 }
 
 function renderAllProducts() {
@@ -538,13 +616,6 @@ async function openProductDetail(productId) {
 }
 
 /* The days the forecast does not read, and why, for the line under the title. */
-function leftOutText(excluded) {
-    if (!excluded || !excluded.days || !excluded.ranges || !excluded.ranges.length) return '';
-    const why = { no_items: 'sales were recorded without their items', closed: 'nothing was recorded' };
-    const parts = excluded.ranges.map(r => `${r.from === r.to ? planDate(r.from) : planDate(r.from) + ' to ' + planDate(r.to)} (${r.days} day${r.days === 1 ? '' : 's'}: ${why[r.reason] || 'no usable record'})`);
-    return ` Not counted: ${parts.join('; ')}.`;
-}
-
 function detailSentence(p) {
     const parts = [`${formatQty(p.stock)} in stock.`];
     parts.push(p.expected_30d >= 0.5

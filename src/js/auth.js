@@ -15,6 +15,8 @@ function setToken(token, remember, user) {
     clearToken();
     var store = remember ? localStorage : sessionStorage;
     store.setItem('authToken', token);
+    // When this sign-in happened, for the dashboard's Live panel.
+    store.setItem('signedInAt', String(Date.now()));
     if (user) store.setItem('user', typeof user === 'string' ? user : JSON.stringify(user));
     // Remembering the account also means offering the username next time.
     if (remember && user) {
@@ -30,8 +32,10 @@ function setToken(token, remember, user) {
 function clearToken() {
     sessionStorage.removeItem('authToken');
     sessionStorage.removeItem('user');
+    sessionStorage.removeItem('signedInAt');
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('signedInAt');
 }
 
 function getAuthHeaders() {
@@ -495,6 +499,22 @@ function fullNameProblem(value, before) {
     return null;
 }
 
+/* Checks a box while it is being typed in, not only when the button is
+   pressed (UAT part 4, S1): `run` is the box's own check, called a moment
+   after typing stops. An empty box is left alone until it is left or saved,
+   so "Enter the name" does not show before anything is typed, unless it
+   was already showing a problem. */
+function liveCheck(box, run, wait) {
+    if (!box || box.dataset.liveCheck) return;
+    box.dataset.liveCheck = '1';
+    let t = null;
+    box.addEventListener('input', () => {
+        clearTimeout(t);
+        if (!String(box.value || '').trim() && !box.classList.contains('input-invalid')) return;
+        t = setTimeout(run, wait == null ? 350 : wait);
+    });
+}
+
 /* Shows the problem under a money box (in its .field-error) and marks the box. */
 function showFieldProblem(box, problem) {
     const err = document.getElementById(box.id + 'Error');
@@ -553,8 +573,16 @@ function showPromptDialog(title, message, onConfirm, confirmText, icon, inputTyp
         onConfirm(input.value);
     };
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
-    // a message about what was typed before goes once the box is changed
-    input.addEventListener('input', () => { dialog.querySelector('#promptError').style.display = 'none'; });
+    // the box is checked while typing (UAT part 4, S1); a fixed problem goes at once
+    let liveT = null;
+    input.addEventListener('input', () => {
+        const err = dialog.querySelector('#promptError');
+        clearTimeout(liveT);
+        if (typeof o.validate !== 'function' || !input.value.trim()) { err.style.display = 'none'; return; }
+        const now = o.validate(input.value);
+        if (!now) { err.style.display = 'none'; return; }
+        liveT = setTimeout(() => { err.textContent = now; err.style.display = 'block'; }, 350);
+    });
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
     dialog.querySelector('#confirmCancelBtn').addEventListener('click', close);
     dialog.querySelector('#confirmOkBtn').addEventListener('click', submit);
@@ -763,7 +791,7 @@ const TOAST_TONES = {
     warning: { icon: 'warning', color: 'var(--warning)' },
     info: { icon: 'info', color: 'var(--primary)' }
 };
-function showToast(message, type) {
+function showToast(message, type, key) {
     const tone = TOAST_TONES[type] || TOAST_TONES.info;
     let container = document.getElementById('toastContainer');
     if (!container) {
@@ -774,8 +802,25 @@ function showToast(message, type) {
         container.setAttribute('aria-live', 'polite');
         cornerStack().prepend(container);
     }
+    /* The same notice again (the same product added to the sale, the same
+       message) updates the one already showing and starts its 5 seconds
+       over, instead of stacking another (Carlo, 3 Nov). */
+    const id = String(key || message);
+    const same = [...container.children].find(n => n.dataset.key === id);
+    if (same) {
+        same.className = 'alert-pop center-note center-note-' + (TOAST_TONES[type] ? type : 'info');
+        same.querySelector('.center-note-text').textContent = message;
+        same.querySelector('.center-note-icon .material-symbols-outlined').textContent = tone.icon;
+        clearTimeout(same._timer);
+        same.querySelector('.countdown-ring')?.remove();
+        container.appendChild(same);
+        addCountdownRing(same, TOAST_MS, tone.color);
+        same._timer = setTimeout(() => same.remove(), TOAST_MS);
+        return;
+    }
     const note = document.createElement('div');
     note.className = 'alert-pop center-note center-note-' + (TOAST_TONES[type] ? type : 'info');
+    note.dataset.key = id;
     note.innerHTML = `<div class="center-note-icon"><span class="material-symbols-outlined">${tone.icon}</span></div>
         <div class="alert-pop-body"><div class="center-note-text">${escHtml(message)}</div></div>`;
     const close = document.createElement('button');
@@ -788,7 +833,7 @@ function showToast(message, type) {
     container.appendChild(note);
     while (container.children.length > 3) container.firstElementChild.remove();
     addCountdownRing(note, TOAST_MS, tone.color);
-    setTimeout(() => note.remove(), TOAST_MS);
+    note._timer = setTimeout(() => note.remove(), TOAST_MS);
 }
 const TOAST_MS = 5000;
 
@@ -796,24 +841,39 @@ const TOAST_MS = 5000;
    message or a window that closes by itself has left. `color` is the line's
    colour (white on a coloured message, the tone's colour on a white window). */
 function addCountdownRing(el, ms, color) {
-    const r = el.getBoundingClientRect();
-    if (!r.width || !r.height) return;
+    if (!el.offsetWidth || !el.offsetHeight) return;
     const ns = 'http://www.w3.org/2000/svg';
     const ring = document.createElementNS(ns, 'svg');
     ring.setAttribute('class', 'countdown-ring');
     ring.setAttribute('aria-hidden', 'true');
-    ring.setAttribute('viewBox', `0 0 ${r.width} ${r.height}`);
+    ring.setAttribute('preserveAspectRatio', 'none');
     const edge = document.createElementNS(ns, 'rect');
-    const inset = 1.5;
-    edge.setAttribute('x', inset); edge.setAttribute('y', inset);
-    edge.setAttribute('width', Math.max(0, r.width - inset * 2));
-    edge.setAttribute('height', Math.max(0, r.height - inset * 2));
-    edge.setAttribute('rx', Math.max(0, Math.min(parseFloat(getComputedStyle(el).borderTopLeftRadius) || 8, r.height / 2) - inset));
     edge.setAttribute('pathLength', '100');
     edge.style.animationDuration = ms + 'ms';
     if (color) edge.style.stroke = color;
     ring.appendChild(edge);
     el.appendChild(ring);
+    /* Sized from the ring's own box, in layout pixels: measuring the message
+       (border included, mid slide-in, under the text-size zoom) drew the line
+       smaller than the box or off its corners (UAT part 4, C2). Refitted if
+       the message changes size while it counts down. */
+    const fit = () => {
+        const w = ring.clientWidth, h = ring.clientHeight;
+        if (!w || !h) return;
+        const inset = 1;
+        const radius = Math.max(0, (parseFloat(getComputedStyle(el).borderTopLeftRadius) || 8) - (el.clientLeft || 0));
+        ring.setAttribute('viewBox', `0 0 ${w} ${h}`);
+        edge.setAttribute('x', inset); edge.setAttribute('y', inset);
+        edge.setAttribute('width', Math.max(0, w - inset * 2));
+        edge.setAttribute('height', Math.max(0, h - inset * 2));
+        edge.setAttribute('rx', Math.max(0, Math.min(radius, h / 2) - inset));
+    };
+    fit();
+    if (window.ResizeObserver) {
+        const ro = new ResizeObserver(fit);
+        ro.observe(ring);
+        setTimeout(() => ro.disconnect(), ms + 100);
+    }
 }
 
 /* Kept in step with the copy in utils.js. auth.js loads after it on every
@@ -1044,6 +1104,47 @@ function closeNotifOutside(e) {
     if (dd && !dd.contains(e.target) && btn && !btn.contains(e.target)) {
         dd.remove();
     }
+}
+
+/* A record, opened: a few labelled lines in a window, the same look as an
+   opened notification. Used where a line in a list opens to its details
+   (UAT part 4: a declined price, a price change, a product sold).
+   rows: [[label, text]] or [[label, text, 'tone']] (tone: danger, warning,
+   success) — text is escaped here. opts.items: a titled list under the rows
+   ({ title, list }); opts.link: { href, label }; opts.actions: extra buttons
+   ({ label, className, onClick }) placed before Close. */
+function showDetailsDialog(title, message, rows, opts) {
+    const o = opts || {};
+    const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', o.tone || 'primary', o.icon || 'info', escHtml(title), escHtml(message || ''));
+    dialog.classList.add('notif-detail-dialog');
+    const lines = (rows || []).filter(r => r && r[1] != null && r[1] !== '').map(([k, v, tone]) =>
+        `<div class="notif-detail-row"><span>${escHtml(k)}</span><span${tone ? ` style="color:var(--${tone});font-weight:600;"` : ''}>${escHtml(v)}</span></div>`).join('');
+    const items = o.items && o.items.list && o.items.list.length
+        ? `<div class="notif-detail-items"><b>${escHtml(o.items.title || 'Items')}</b><ul>${o.items.list.map(i => `<li>${escHtml(i)}</li>`).join('')}</ul></div>` : '';
+    dialog.querySelector('.dialog-body').innerHTML = (lines ? `<div class="notif-detail-rows">${lines}</div>` : '') + items + (o.html || '');
+    dialog.querySelector('.dialog-body').insertAdjacentHTML('afterend', dialogActions('', 'Close', 'btn-secondary', 'detailsCloseBtn'));
+    const bar = dialog.querySelector('#detailsCloseBtn').parentElement;
+    const close = () => { document.removeEventListener('keydown', onKey); overlay.remove(); };
+    (o.actions || []).forEach(a => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = a.className || 'btn-primary';
+        b.textContent = a.label;
+        b.addEventListener('click', () => { close(); a.onClick(); });
+        bar.appendChild(b);
+    });
+    if (o.link && o.link.href) {
+        const go = document.createElement('a');
+        go.className = 'btn-primary';
+        go.href = o.link.href;
+        go.textContent = o.link.label || 'Open';
+        bar.appendChild(go);
+    }
+    const onKey = e => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    dialog.querySelector('#detailsCloseBtn').addEventListener('click', close);
+    return { overlay, dialog, close };
 }
 
 /* A notification, opened (UAT, 31 Oct): its details, formatted (who, which

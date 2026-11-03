@@ -55,14 +55,19 @@ const API_ALLOW = {
         ...SELF
     ],
     supplier: [
-        ['GET', /^\/api\/supplier-portal\/(me|products|orders|scorecard)$/],
+        ['GET', /^\/api\/supplier-portal\/(me|products|orders|scorecard|new-products)$/],
         ['PUT', /^\/api\/supplier-portal\/me$/],
+        ['PUT', /^\/api\/supplier-portal\/me\/vacation$/],
         ['POST', /^\/api\/supplier-portal\/products\/\d+\/price$/],
+        ['POST', /^\/api\/supplier-portal\/products\/\d+\/price\/cancel$/],
         ['POST', /^\/api\/supplier-portal\/orders\/\d+\/(confirm|ship)$/],
         ['PUT', /^\/api\/supplier-portal\/orders\/\d+\/promise$/],
         ['GET', /^\/api\/supplier-portal\/orders\/\d+\/(messages|receipt|order-receipt)$/],
         ['POST', /^\/api\/supplier-portal\/orders\/\d+\/messages$/],
         ['POST', /^\/api\/supplier-portal\/offers$/],
+        ['POST', /^\/api\/supplier-portal\/offers\/\d+\/cancel$/],
+        ['POST', /^\/api\/supplier-portal\/new-products$/],
+        ['POST', /^\/api\/supplier-portal\/new-products\/\d+\/cancel$/],
         ...SELF
     ]
 };

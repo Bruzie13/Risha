@@ -81,6 +81,48 @@
         /* Connection status: turns red when polling fails or the browser goes offline */
         .hero-chip.offline { border-color: color-mix(in srgb, var(--danger) 40%, transparent); color: var(--danger); background: var(--danger-bg); }
         .hero-chip.offline .pulse-dot { background: var(--danger); }
+        .hero-chip.offline.is-clickcard { border-color: color-mix(in srgb, var(--danger) 40%, transparent) !important; }
+
+        /* "N items need attention" opens what they are (UAT part 4, A2) */
+        .brief-link { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--warning) 50%, transparent); text-underline-offset: 3px; }
+        .brief-link:hover { color: var(--text-primary); text-decoration-color: var(--warning); }
+        .brief-link:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+        /* Act today: what to do about something urgent (UAT part 4, A3) */
+        .act-today { display: flex; align-items: center; gap: 10px; margin: 10px 18px 6px; padding: 10px 12px; border-radius: var(--radius-md);
+            background: var(--danger-bg); border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent); font-size: 13px; line-height: 1.45; color: var(--text-primary); }
+        .act-today > .material-symbols-outlined { color: var(--danger); font-size: 20px; flex: none; }
+        .act-today strong { color: var(--danger); }
+        .act-today > div { flex: 1; min-width: 0; }
+        .act-today .btn-secondary { flex: none; min-height: 32px; padding: 0 12px; font-size: 12.5px; }
+        #expirationModalBody .act-today { margin: 0 0 12px; }
+        .pei-advice { margin-top: 2px; font-size: 11.5px; font-weight: 700; }
+        .pei-advice.danger { color: var(--danger); }
+        .pei-advice.warning { color: var(--warning); }
+
+        /* The Live chip, opened */
+        .live-popover {
+            position: fixed;
+            z-index: 4000;
+            width: 300px;
+            max-width: calc(100vw - 24px);
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 16px 48px rgba(0,0,0,0.15);
+            padding: 14px 16px;
+            animation: slideUp 0.2s ease;
+        }
+        .live-pop-head { display: flex; gap: 10px; align-items: flex-start; padding-bottom: 12px; border-bottom: 1px solid var(--border-glass); }
+        .live-pop-head .pulse-dot { flex: none; width: 9px; height: 9px; margin-top: 5px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 20%, transparent); }
+        .live-popover.offline .live-pop-head .pulse-dot { background: var(--danger); box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 20%, transparent); }
+        .live-pop-head b { display: block; font-size: 14px; color: var(--text-primary); }
+        .live-popover.offline .live-pop-head b { color: var(--danger); }
+        .live-pop-head span:not(.pulse-dot) { display: block; font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; line-height: 1.4; }
+        .live-pop-rows { display: grid; gap: 8px; padding: 12px 0; }
+        .live-pop-rows div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+        .live-pop-rows span { color: var(--text-secondary); }
+        .live-pop-rows b { color: var(--text-primary); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+        .live-pop-note { margin: 0; padding-top: 10px; border-top: 1px solid var(--border-glass); font-size: 12px; color: var(--text-muted); line-height: 1.4; }
 
         /* ── Charts row ── */
         .dash-charts {
@@ -245,7 +287,7 @@
         }
     </style>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=101">
+        <link rel="stylesheet" href="css/system.css?v=120">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -324,7 +366,7 @@
                     </div>
                 </div>
                 <div class="hero-side">
-                    <span class="hero-chip" id="liveChip" title="Data refreshes every 10 seconds"><span class="pulse-dot"></span> <span id="liveChipText">Live</span></span>
+                    <span class="hero-chip is-clickcard" id="liveChip" role="button" tabindex="0" aria-expanded="false" title="See how long you've been online" onclick="toggleLivePopover(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span class="pulse-dot"></span> <span id="liveChipText">Live</span></span>
                     <span class="hero-chip alerts is-clickcard" id="alertChip" role="button" tabindex="0" title="Show the alerts" onclick="openNotifDropdown(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
                         <span class="material-symbols-outlined" style="font-size:15px;">notifications</span>
                         <span id="alertCount">0</span> alerts ›
@@ -459,14 +501,14 @@
     </script>
         <script src="js/format.js"></script>
 <script src="js/utils.js"></script>
-<script src="js/auth.js?v=79"></script>
+<script src="js/auth.js?v=81"></script>
 <script src="js/loader.js?v=6"></script>
 <script src="js/clear-input.js?v=3"></script>
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=34"></script>
-<script src="js/assistant.js?v=30"></script>
+<script src="js/assistant.js?v=31"></script>
     <script src="js/po-progress.js?v=3"></script>
-    <script src="js/dashboard.js?v=47"></script>
+    <script src="js/dashboard.js?v=49"></script>
 </body>
 </html>
 

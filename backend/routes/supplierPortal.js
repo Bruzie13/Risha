@@ -17,7 +17,9 @@ const PurchaseOrder = require('../models/PurchaseOrder');
 const Notification = require('../models/Notification');
 const logAudit = require('../services/audit');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
-const { dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, scorecard, starRating } = require('../utils/supply');
+const { dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, scorecard, starRating, productOfferProblem } = require('../utils/supply');
+const { storeImage } = require('../services/imageStore');
+const { imageProblem } = require('../utils/image');
 const { supplierProblem, phoneForStorage } = require('../utils/supplier');
 const SupplierPerformance = require('../models/SupplierPerformance');
 
@@ -45,10 +47,12 @@ function tellShop(title, message, poId) {
 async function requireSupplier(req, res, next) {
     try {
         const [rows] = await pool.query(
-            `SELECT s.id, s.name, s.email, s.phone, s.address, s.city, s.contact_person, s.payment_terms
+            `SELECT s.id, s.name, s.email, s.phone, s.address, s.city, s.contact_person, s.payment_terms, s.status
              FROM users u JOIN suppliers s ON s.id = u.supplier_id
              WHERE u.id = ? AND s.is_active = TRUE`, [req.user.id]);
         if (!rows.length) return bad(res, 'This account is not linked to a supplier yet. Ask the shop to link it.', 403);
+        // the shop turned this supplier off (UAT part 4, A6)
+        if (rows[0].status === 'deactivated') return bad(res, 'Your supplier account has been deactivated by the shop. Contact Risha Pet Supplies to turn it back on.', 403);
         req.supplier = rows[0];
         next();
     } catch (e) { fail(res, 'lookup', e); }
@@ -91,6 +95,25 @@ router.put('/me', async (req, res) => {
     } catch (e) { fail(res, 'update details', e); }
 });
 
+// On vacation: the shop sees it on the supplier's line and before ordering
+// (UAT part 4, A6). The supplier can turn it on and off; the other statuses
+// are the shop's.
+router.put('/me/vacation', async (req, res) => {
+    try {
+        const on = req.body?.on === true;
+        if (!['active', 'vacation'].includes(req.supplier.status)) {
+            return bad(res, 'The shop has set your status to ' + (req.supplier.status === 'inactive' ? 'Inactive' : req.supplier.status) + '. Ask the shop to change it.');
+        }
+        const next = on ? 'vacation' : 'active';
+        if (next === req.supplier.status) return res.json({ success: true, message: on ? 'You are already on vacation.' : 'You are already active.' });
+        await pool.query('UPDATE suppliers SET status = ? WHERE id = ?', [next, req.supplier.id]);
+        logAudit(req.user.id, 'update', 'suppliers', req.supplier.id, { status: req.supplier.status }, { status: next }, req.ip);
+        tellShop(on ? 'Supplier on vacation' : 'Supplier back from vacation',
+            on ? `${req.supplier.name} is on vacation. Orders sent to them may wait until they are back.` : `${req.supplier.name} is back and taking orders again.`, null);
+        res.json({ success: true, message: on ? 'You are now on vacation. The shop has been told.' : 'Welcome back. The shop has been told you are taking orders.' });
+    } catch (e) { fail(res, 'vacation', e); }
+});
+
 /* ---------- Products and prices ---------- */
 
 router.get('/products', async (req, res) => {
@@ -98,16 +121,20 @@ router.get('/products', async (req, res) => {
         const [rows] = await pool.query(
             `SELECT p.id, p.name, p.sku, p.brand, c.name AS category,
                     p.stock_quantity, p.reorder_level, p.cost_price,
-                    pp.proposed_price AS pending_price,
-                    dp.proposed_price AS declined_price, dp.decline_reason, dp.decided_at AS declined_at
+                    pp.id AS pending_id, pp.proposed_price AS pending_price, pp.note AS pending_note,
+                    UNIX_TIMESTAMP(pp.created_at) * 1000 AS pending_at,
+                    dp.proposed_price AS declined_price, dp.decline_reason,
+                    UNIX_TIMESTAMP(dp.decided_at) * 1000 AS declined_at, UNIX_TIMESTAMP(dp.created_at) * 1000 AS declined_proposed_at,
+                    dp.current_price AS declined_was, dp.note AS declined_note, du.full_name AS declined_by
              FROM products p
              LEFT JOIN categories c ON c.id = p.category_id
              LEFT JOIN price_proposals pp ON pp.product_id = p.id AND pp.supplier_id = p.supplier_id AND pp.status = 'pending'
              -- the last decision on this product's price, shown when it was a no
              LEFT JOIN price_proposals dp ON dp.id = (
                  SELECT d.id FROM price_proposals d
-                 WHERE d.product_id = p.id AND d.supplier_id = p.supplier_id AND d.status <> 'pending'
+                 WHERE d.product_id = p.id AND d.supplier_id = p.supplier_id AND d.status IN ('approved', 'rejected')
                  ORDER BY d.decided_at DESC, d.id DESC LIMIT 1) AND dp.status = 'rejected'
+             LEFT JOIN users du ON du.id = dp.decided_by
              WHERE p.supplier_id = ? AND p.is_active = TRUE
              ORDER BY p.name`, [req.supplier.id]);
         // The study has the supplier planning deliveries from the shop's
@@ -146,6 +173,24 @@ router.post('/products/:id/price', async (req, res) => {
     } catch (e) { fail(res, 'propose price', e); }
 });
 
+// Take back a price change the shop has not decided yet (UAT part 4, SP8).
+router.post('/products/:id/price/cancel', async (req, res) => {
+    try {
+        const productId = Number(req.params.id);
+        if (!Number.isInteger(productId) || productId <= 0) return bad(res, 'Product not found', 404);
+        const [rows] = await pool.query(
+            `SELECT pp.id, pp.proposed_price, p.name FROM price_proposals pp JOIN products p ON p.id = pp.product_id
+             WHERE pp.product_id = ? AND pp.supplier_id = ? AND pp.status = 'pending'`, [productId, req.supplier.id]);
+        if (!rows.length) return bad(res, 'There is no price change waiting on this product. The shop may have just decided it.');
+        const [moved] = await pool.query(
+            "UPDATE price_proposals SET status = 'cancelled', decided_at = NOW() WHERE id = ? AND status = 'pending'", [rows[0].id]);
+        if (!moved.affectedRows) return bad(res, 'The shop has just decided this price. Reload the page.');
+        logAudit(req.user.id, 'update', 'price_proposals', rows[0].id, { status: 'pending', price: rows[0].proposed_price }, { status: 'cancelled' }, req.ip);
+        tellShop('Price change withdrawn', `${req.supplier.name} withdrew the price change for ${rows[0].name}. Nothing to decide.`, null);
+        res.json({ success: true, message: 'Price change cancelled. Your current price stays.' });
+    } catch (e) { fail(res, 'cancel price', e); }
+});
+
 /* ---------- Orders ---------- */
 
 router.get('/orders', async (req, res) => {
@@ -157,6 +202,7 @@ router.get('/orders', async (req, res) => {
                     DATE_FORMAT(po.promised_date, '%Y-%m-%d') AS promised_date,
                     po.promise_note, po.delivery_ref, po.proposed_by_supplier,
                     ${DAY('po.received_at')} AS received_day,
+                    ${DAY('po.cancelled_at')} AS cancelled_day, po.cancel_note, po.cancelled_by_supplier,
                     po.paid_at IS NOT NULL AS paid,
                     ${DAY('po.paid_at')} AS paid_day,
                     -- payment is only tracked for orders received since it was switched on
@@ -179,6 +225,7 @@ router.get('/orders', async (req, res) => {
         orders.forEach(o => {
             o.paid = !!o.paid;
             o.proposed_by_supplier = !!o.proposed_by_supplier;
+            o.cancelled_by_supplier = !!o.cancelled_by_supplier;
             o.payment_tracked = !!o.payment_tracked;
             o.payment_due = o.payment_tracked && !o.paid ? dueDate(o.received_day, req.supplier.payment_terms) : null;
         });
@@ -345,6 +392,81 @@ router.post('/offers', async (req, res) => {
         tellShop('Order offered by supplier', `${req.supplier.name} offered an order (${order.po_number}). Accept or decline it on the Suppliers page.`, order.id);
         res.status(201).json({ success: true, message: 'Offer sent. It becomes an order if the shop accepts it.' });
     } catch (e) { fail(res, 'offer', e); }
+});
+
+// Take back an offer the shop has not answered, for example when the stock
+// ran out (UAT part 4, SP5). Only offers: an order the shop placed is the
+// shop's to cancel.
+router.post('/offers/:id/cancel', async (req, res) => {
+    try {
+        const order = await ownOrder(req);
+        if (!order) return notFound(res);
+        if (order.status !== 'proposed') return bad(res, 'Only an offer the shop has not answered yet can be cancelled.');
+        const why = text(req.body?.reason, 300);
+        const [moved] = await pool.query(
+            `UPDATE purchase_orders SET status = 'cancelled', cancelled_at = NOW(), cancel_note = ?, cancelled_by_supplier = 1
+             WHERE id = ? AND supplier_id = ? AND status = 'proposed'`, [why || null, order.id, req.supplier.id]);
+        if (!moved.affectedRows) return bad(res, 'The shop has just answered this offer. Reload the page.');
+        logAudit(req.user.id, 'update', 'purchase_orders', order.id,
+            { po_number: order.po_number, status: 'proposed' }, { po_number: order.po_number, status: 'cancelled', by_supplier: true, reason: why || null }, req.ip);
+        tellShop('Offer cancelled by supplier', `${req.supplier.name} cancelled their offer ${order.po_number}` + (why ? `: ${why}` : '.'), order.id);
+        res.json({ success: true, message: 'Offer cancelled. The shop has been told.' });
+    } catch (e) { fail(res, 'cancel offer', e); }
+});
+
+/* ---------- Offer a new product (UAT part 4, SP4) ----------
+   A product the shop does not sell yet. The shop sees it under Suppliers →
+   New products and can add it to Inventory (it then becomes one of this
+   supplier's products) or decline it with a reason. */
+
+router.get('/new-products', async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT o.id, o.name, o.brand, o.category, o.species, o.unit_type, o.cost_price, o.description, o.image_url,
+                    o.status, o.decline_reason, o.product_id,
+                    UNIX_TIMESTAMP(o.created_at) * 1000 AS created_at, UNIX_TIMESTAMP(o.decided_at) * 1000 AS decided_at
+             FROM product_offers o WHERE o.supplier_id = ?
+             ORDER BY o.status = 'pending' DESC, o.created_at DESC LIMIT 100`, [req.supplier.id]);
+        res.json({ success: true, data: rows });
+    } catch (e) { fail(res, 'new products', e); }
+});
+
+router.post('/new-products', async (req, res) => {
+    try {
+        const b = req.body || {};
+        const problem = productOfferProblem(b) || imageProblem(b.image_url);
+        if (problem) return bad(res, problem);
+        const name = String(b.name).trim().replace(/\s+/g, ' ');
+        const [same] = await pool.query(
+            `SELECT (SELECT COUNT(*) FROM products WHERE LOWER(name) = LOWER(?) AND is_active = TRUE) AS sold,
+                    (SELECT COUNT(*) FROM product_offers WHERE LOWER(name) = LOWER(?) AND supplier_id = ? AND status = 'pending') AS offered,
+                    (SELECT COUNT(*) FROM product_offers WHERE supplier_id = ? AND status = 'pending') AS waiting`,
+            [name, name, req.supplier.id, req.supplier.id]);
+        if (Number(same[0].sold)) return bad(res, 'The shop already sells a product with this name. Use Offer an order for it, or ask the shop to assign it to you.');
+        if (Number(same[0].offered)) return bad(res, 'You already offered a product with this name. Wait for the shop to answer.');
+        if (Number(same[0].waiting) >= 10) return bad(res, 'You already have 10 new products waiting for the shop. Wait for an answer before offering more.');
+        const image = b.image_url ? await storeImage(b.image_url, 'risha/offers') : null;
+        const [r] = await pool.query(
+            `INSERT INTO product_offers (supplier_id, name, brand, category, species, unit_type, cost_price, description, image_url, proposed_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [req.supplier.id, name, text(b.brand, 50) || null, text(b.category, 60) || null, b.species || null,
+             text(b.unit_type, 20) || null, Math.round(Number(b.cost_price) * 100) / 100, text(b.description, 500) || null, image, req.user.id]);
+        logAudit(req.user.id, 'create', 'product_offers', r.insertId, null, { name, cost_price: Number(b.cost_price) }, req.ip);
+        tellShop('New product offered', `${req.supplier.name} offered a product the shop does not sell yet: ${name}. See Suppliers → New products.`, null);
+        res.status(201).json({ success: true, message: 'Sent to the shop. You will see here whether they add it.' });
+    } catch (e) { fail(res, 'offer new product', e); }
+});
+
+router.post('/new-products/:id/cancel', async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const [moved] = Number.isInteger(id) ? await pool.query(
+            "UPDATE product_offers SET status = 'cancelled', decided_at = NOW() WHERE id = ? AND supplier_id = ? AND status = 'pending'",
+            [id, req.supplier.id]) : [{ affectedRows: 0 }];
+        if (!moved.affectedRows) return bad(res, 'Only an offer the shop has not answered can be cancelled. Reload the page.');
+        logAudit(req.user.id, 'update', 'product_offers', id, { status: 'pending' }, { status: 'cancelled' }, req.ip);
+        res.json({ success: true, message: 'New product offer cancelled.' });
+    } catch (e) { fail(res, 'cancel new product', e); }
 });
 
 /* ---------- Scorecard ---------- */

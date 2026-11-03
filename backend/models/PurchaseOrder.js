@@ -139,7 +139,7 @@ class PurchaseOrder {
 
             // Stamp the stage the first time it is reached, so "3 days in
             // transit" stays true even if the row is edited again later.
-            const STAGE_COLUMN = { confirmed: 'confirmed_at', shipped: 'shipped_at', received: 'received_at' };
+            const STAGE_COLUMN = { confirmed: 'confirmed_at', shipped: 'shipped_at', received: 'received_at', cancelled: 'cancelled_at' };
             const stampCol = STAGE_COLUMN[status];
             await connection.execute(
                 stampCol

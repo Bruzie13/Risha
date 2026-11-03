@@ -435,7 +435,9 @@ class Sale {
                        GROUP BY DATE_FORMAT(CONVERT_TZ(s.created_at,'+00:00','+08:00'), '%Y-%m-%d')
                        ORDER BY date DESC`;
                 params.push(...dateParams);
-                topSql = `SELECT p.name, SUM(si.quantity) as quantity
+                topSql = `SELECT p.id AS product_id, p.name, p.sku, SUM(si.quantity) as quantity,
+                                 COALESCE(SUM(si.subtotal), 0) AS revenue, COUNT(DISTINCT s.id) AS sales_count,
+                                 p.stock_quantity, p.unit_price
                           FROM sale_items si
                           JOIN products p ON si.product_id = p.id
                           JOIN sales s ON si.sale_id = s.id
@@ -460,7 +462,9 @@ class Sale {
                        GROUP BY YEAR(CONVERT_TZ(s.created_at,'+00:00','+08:00')), WEEK(CONVERT_TZ(s.created_at,'+00:00','+08:00'))
                        ORDER BY year DESC, week_number DESC`;
                 params.push(...dateParams);
-                topSql = `SELECT p.name, SUM(si.quantity) as quantity
+                topSql = `SELECT p.id AS product_id, p.name, p.sku, SUM(si.quantity) as quantity,
+                                 COALESCE(SUM(si.subtotal), 0) AS revenue, COUNT(DISTINCT s.id) AS sales_count,
+                                 p.stock_quantity, p.unit_price
                           FROM sale_items si
                           JOIN products p ON si.product_id = p.id
                           JOIN sales s ON si.sale_id = s.id
@@ -484,7 +488,9 @@ class Sale {
                        GROUP BY YEAR(CONVERT_TZ(s.created_at,'+00:00','+08:00')), MONTH(CONVERT_TZ(s.created_at,'+00:00','+08:00'))
                        ORDER BY year DESC, month_number DESC`;
                 params.push(...dateParams);
-                topSql = `SELECT p.name, SUM(si.quantity) as quantity
+                topSql = `SELECT p.id AS product_id, p.name, p.sku, SUM(si.quantity) as quantity,
+                                 COALESCE(SUM(si.subtotal), 0) AS revenue, COUNT(DISTINCT s.id) AS sales_count,
+                                 p.stock_quantity, p.unit_price
                           FROM sale_items si
                           JOIN products p ON si.product_id = p.id
                           JOIN sales s ON si.sale_id = s.id
@@ -547,9 +553,10 @@ class Sale {
             );
 
             const [categoryRows] = await connection.execute(
-                `SELECT c.name as category_name,
+                `SELECT c.id AS category_id, c.name as category_name,
                         COALESCE(SUM(si.subtotal), 0) as total_revenue,
-                        COALESCE(SUM(si.quantity), 0) as total_quantity
+                        COALESCE(SUM(si.quantity), 0) as total_quantity,
+                        COUNT(DISTINCT p.id) AS product_count, COUNT(DISTINCT s.id) AS sales_count
                  FROM sale_items si
                  JOIN products p ON si.product_id = p.id
                  JOIN categories c ON p.category_id = c.id

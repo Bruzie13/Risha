@@ -1,3 +1,4 @@
+const { SUPPLIER_STATUSES } = require('../utils/supply');
 const Supplier = require('../models/Supplier');
 const { supplierProblem, phoneForStorage } = require('../utils/supplier');
 const SupplierPerformance = require('../models/SupplierPerformance');
@@ -107,6 +108,10 @@ exports.updateSupplier = async (req, res) => {
             return res.status(400).json({ success: false, message: coords.error });
         }
         const updateData = { ...req.body, ...coords.value };
+        // Active, Inactive, On vacation or Deactivated (UAT part 4, A6)
+        if (updateData.status !== undefined && !Object.keys(SUPPLIER_STATUSES).includes(updateData.status)) {
+            return res.status(400).json({ success: false, message: 'Choose the status from the list: Active, Inactive, On vacation or Deactivated.' });
+        }
 
         // a value saved before the rules may stay as it is
         const oldSupplier = await Supplier.findById(id);

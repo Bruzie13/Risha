@@ -719,6 +719,52 @@ app.post('/api/notifications/check-alerts', authenticateToken, async (req, res) 
    deadlocking one of them, and whichever lost simply logged an error and left
    its migration unapplied. Sequential is slower by milliseconds and correct
    every time. */
+/* UAT part 4 (3 Nov): a supplier's status, taking back an offer or a price,
+   and products a supplier offers that the shop does not sell yet. */
+async function ensureSupplierOffers() {
+    try {
+        const conn = await pool.getConnection();
+        const add = async sql => { try { await conn.execute(sql); } catch (e) { /* already there */ } };
+        // Active, Inactive, On vacation or Deactivated. Separate from is_active,
+        // which is FALSE only for a supplier moved to the Trash.
+        await add("ALTER TABLE suppliers ADD COLUMN status ENUM('active','inactive','vacation','deactivated') NOT NULL DEFAULT 'active'");
+        // a price change the supplier took back before the shop decided
+        try {
+            await conn.execute("ALTER TABLE price_proposals MODIFY status ENUM('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending'");
+        } catch (e) { console.error('[DB] price proposal status migration error:', e.message); }
+        // when an order or offer was cancelled, why, and whether the supplier did it
+        await add('ALTER TABLE purchase_orders ADD COLUMN cancelled_at DATETIME NULL');
+        await add('ALTER TABLE purchase_orders ADD COLUMN cancel_note VARCHAR(300) NULL');
+        await add('ALTER TABLE purchase_orders ADD COLUMN cancelled_by_supplier TINYINT(1) NOT NULL DEFAULT 0');
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS product_offers (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                supplier_id INT NOT NULL,
+                name VARCHAR(100) NOT NULL,
+                brand VARCHAR(50) NULL,
+                category VARCHAR(60) NULL,
+                species VARCHAR(20) NULL,
+                unit_type VARCHAR(20) NULL,
+                cost_price DECIMAL(10,2) NOT NULL,
+                description VARCHAR(500) NULL,
+                image_url MEDIUMTEXT NULL,
+                status ENUM('pending','added','declined','cancelled') NOT NULL DEFAULT 'pending',
+                decline_reason VARCHAR(300) NULL,
+                product_id INT NULL,
+                proposed_by INT NULL,
+                decided_by INT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                decided_at DATETIME NULL,
+                INDEX idx_po_offers_supplier (supplier_id, status),
+                INDEX idx_po_offers_status (status)
+            )`);
+        conn.release();
+        console.log('[DB] supplier status, cancelled offers and new-product offers ready');
+    } catch (e) {
+        console.error('[DB] supplier offers migration error:', e.message);
+    }
+}
+
 async function runMigrations() {
     await ensureOpsTables();
     await ensurePasswordResetColumns();
@@ -728,6 +774,7 @@ async function runMigrations() {
     await ensureResetRequestTable();
     await ensureTillTables();
     await ensureSupplyTables();
+    await ensureSupplierOffers();
     await ensureTrashColumns();
     await ensureEmailCodesTable();
     await ensureEmailLogsTable();

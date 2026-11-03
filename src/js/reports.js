@@ -257,11 +257,12 @@ async function loadSales() {
         renderGaps(from, to, daily);
         renderSalesTable();
         renderSalesChart(data.data.rows || [], from, to);
-        renderBars('topProductsList', (data.data.top_products || []).map(p => ({
-            label: p.name, value: Number(p.quantity) || 0, text: formatQty(p.quantity) + ' sold'
+        // every line opens to its details (UAT part 4, A12)
+        renderBars('topProductsList', (data.data.top_products || []).map((p, i) => ({
+            label: p.name, value: Number(p.quantity) || 0, text: formatQty(p.quantity) + ' sold', open: `showSoldProduct(${i})`
         })));
-        renderBars('categoryList', (data.data.summary?.category_breakdown || []).map(c => ({
-            label: c.category_name || 'Uncategorised', value: Number(c.total_revenue) || 0, text: formatCurrency(c.total_revenue)
+        renderBars('categoryList', (data.data.summary?.category_breakdown || []).map((c, i) => ({
+            label: c.category_name || 'Uncategorised', value: Number(c.total_revenue) || 0, text: formatCurrency(c.total_revenue), open: `showSoldCategory(${i})`
         })));
         renderCategoryTotals(data.data.summary || {});
         renderPaymentNote(data.data.summary?.payment_breakdown || []);
@@ -561,11 +562,51 @@ function renderBars(containerId, items) {
     if (!el) return;
     if (!items.length) { el.innerHTML = '<p class="rp-empty">Nothing to show for this period.</p>'; return; }
     const max = Math.max(...items.map(i => i.value), 1);
+    // a line with `open` is a button that opens its details
     el.innerHTML = items.map(i => `
-        <div class="rp-bar-row">
-            <div class="rp-bar-top"><span class="rp-bar-label">${escHtml(i.label)}</span><span class="rp-bar-value">${escHtml(i.text)}</span></div>
+        <${i.open ? `button type="button" class="rp-bar-row is-link" onclick="${i.open}" title="See the details"` : 'div class="rp-bar-row"'}>
+            <div class="rp-bar-top"><span class="rp-bar-label">${escHtml(i.label)}${i.open ? ' <span class="rp-bar-more" aria-hidden="true">›</span>' : ''}</span><span class="rp-bar-value">${escHtml(i.text)}</span></div>
             <div class="rp-bar-track"><div class="rp-bar-fill" style="width:${Math.max(2, Math.round(i.value / max * 100))}%"></div></div>
-        </div>`).join('');
+        </${i.open ? 'button' : 'div'}>`).join('');
+}
+
+/* What sold, one line opened (UAT part 4, A12): how many, in how many sales,
+   what it brought in and its share of the period, and where it stands now. */
+function soldPeriodText() {
+    const cap = document.getElementById('rangeCaption');
+    const text = cap ? cap.textContent.replace(/, compared with.*$/, '').trim() : '';
+    return text ? 'Sold ' + (text === 'All sales on record' ? 'since the first sale on record' : text) : 'In the period shown';
+}
+function showSoldProduct(i) {
+    const p = (currentReportData && currentReportData.top_products || [])[i];
+    if (!p) return;
+    const items = Number(currentReportData.summary?.total_items_sold) || 0;
+    const qty = Number(p.quantity) || 0, revenue = Number(p.revenue) || 0;
+    showDetailsDialog(p.name, soldPeriodText(), [
+        ['Rank', '#' + (i + 1) + ' best-selling product'],
+        ['SKU', p.sku || 'None'],
+        ['Units sold', formatQty(qty)],
+        ['In how many sales', formatNumber(p.sales_count) + ' sale' + (Number(p.sales_count) === 1 ? '' : 's')],
+        ['Sold for', formatCurrency(revenue) + ' before discounts'],
+        ['Average price', qty ? formatCurrency(revenue / qty) + ' a unit' : '—'],
+        ['Share of items sold', items ? Math.round(qty / items * 1000) / 10 + '% of ' + formatQty(items) + ' items' : '—'],
+        ['Price now', p.unit_price != null ? formatCurrency(p.unit_price) : '—'],
+        ['In stock now', p.stock_quantity != null ? formatQty(p.stock_quantity) : '—', Number(p.stock_quantity) <= 0 ? 'danger' : null]
+    ], { icon: 'inventory_2', link: p.product_id ? { href: 'inventory.html?view=' + Number(p.product_id), label: 'Open in Inventory' } : null });
+}
+function showSoldCategory(i) {
+    const c = (currentReportData && currentReportData.summary?.category_breakdown || [])[i];
+    if (!c) return;
+    const all = Number(currentReportData.summary?.category_total) || 0, rev = Number(c.total_revenue) || 0;
+    showDetailsDialog(c.category_name || 'Uncategorised', soldPeriodText(), [
+        ['Rank', '#' + (i + 1) + ' of ' + formatNumber((currentReportData.summary.category_breakdown || []).length) + ' categories'],
+        ['Sold for', formatCurrency(rev) + ' before discounts'],
+        ['Share', all ? Math.round(rev / all * 1000) / 10 + '% of all items sold' : '—'],
+        ['Units sold', formatQty(c.total_quantity)],
+        ['Products sold', formatNumber(c.product_count) + ' different product' + (Number(c.product_count) === 1 ? '' : 's')],
+        ['In how many sales', formatNumber(c.sales_count) + ' sale' + (Number(c.sales_count) === 1 ? '' : 's')],
+        ['Average per sale', Number(c.sales_count) ? formatCurrency(rev / Number(c.sales_count)) : '—']
+    ], { icon: 'category' });
 }
 
 /* Under the category bars: the lines that take the categories to the revenue

@@ -27,7 +27,8 @@ exports.getBoard = async (req, res) => {
                     po.promise_note, po.delivery_ref, po.proposed_by_supplier,
                     ${DAY('po.received_at')} AS received_day,
                     s.id AS supplier_id, s.name AS supplier_name, s.is_active AS supplier_active,
-                    s.phone AS supplier_phone, s.payment_terms,
+                    s.phone AS supplier_phone, s.payment_terms, s.email AS supplier_email,
+                    s.contact_person AS supplier_contact, s.status AS supplier_status,
                     (SELECT COUNT(*) FROM users u WHERE u.supplier_id = s.id AND u.role = 'supplier' AND u.is_active = TRUE) AS supplier_logins,
                     (SELECT COUNT(*) FROM po_messages m WHERE m.po_id = po.id) AS message_count
              FROM purchase_orders po
@@ -62,13 +63,27 @@ exports.getBoard = async (req, res) => {
         const [prices] = await pool.query(
             `SELECT pp.id, pp.current_price, pp.proposed_price, pp.note,
                     UNIX_TIMESTAMP(pp.created_at) * 1000 AS created_at,
-                    p.name AS product_name, p.sku, p.cost_price AS live_price, p.unit_price AS selling_price,
-                    s.name AS supplier_name
+                    p.id AS product_id, p.name AS product_name, p.sku, p.cost_price AS live_price, p.unit_price AS selling_price,
+                    s.id AS supplier_id, s.name AS supplier_name
              FROM price_proposals pp
              JOIN products p ON p.id = pp.product_id
              JOIN suppliers s ON s.id = pp.supplier_id
              WHERE pp.status = 'pending' ORDER BY pp.created_at LIMIT 100`);
-        res.json({ success: true, data: { orders, price_proposals: prices, paid } });
+        // offers that were cancelled in the last 30 days, by the supplier or
+        // declined by the shop (UAT part 4, A10)
+        const [cancelled] = await pool.query(
+            `SELECT po.id, po.po_number, po.total_amount, po.cancel_note, po.cancelled_by_supplier,
+                    DATE_FORMAT(po.order_date, '%Y-%m-%d') AS order_date,
+                    ${DAY('COALESCE(po.cancelled_at, po.updated_at)')} AS cancelled_day,
+                    s.id AS supplier_id, s.name AS supplier_name,
+                    (SELECT COUNT(*) FROM po_items pi WHERE pi.po_id = po.id) AS line_count
+             FROM purchase_orders po LEFT JOIN suppliers s ON s.id = po.supplier_id
+             WHERE po.status = 'cancelled' AND po.proposed_by_supplier = 1
+               AND COALESCE(po.cancelled_at, po.updated_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+             ORDER BY COALESCE(po.cancelled_at, po.updated_at) DESC LIMIT 50`);
+        cancelled.forEach(c => { c.cancelled_by_supplier = !!c.cancelled_by_supplier; });
+        const [[newCount]] = await pool.query("SELECT COUNT(*) AS n FROM product_offers WHERE status = 'pending'");
+        res.json({ success: true, data: { orders, price_proposals: prices, paid, cancelled_offers: cancelled, new_products_waiting: Number(newCount.n) } });
     } catch (e) { fail(res, 'board', e); }
 };
 
@@ -237,4 +252,107 @@ exports.decidePrice = async (req, res) => {
         await conn.rollback();
         fail(res, 'decide price', e);
     } finally { conn.release(); }
+};
+
+/* One price change, opened (UAT part 4, A11): the product, what the shop pays
+   and sells it for now, the margin before and after, the stock and sales
+   behind it, who proposed it and the last decisions on this product. */
+exports.getPriceDetails = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const [rows] = Number.isInteger(id) ? await pool.query(
+            `SELECT pp.id, pp.status, pp.current_price, pp.proposed_price, pp.note, pp.decline_reason,
+                    UNIX_TIMESTAMP(pp.created_at) * 1000 AS created_at, UNIX_TIMESTAMP(pp.decided_at) * 1000 AS decided_at,
+                    p.id AS product_id, p.name AS product_name, p.sku, p.brand, p.cost_price AS live_price,
+                    p.unit_price AS selling_price, p.stock_quantity, p.reorder_level, c.name AS category,
+                    s.id AS supplier_id, s.name AS supplier_name, s.contact_person, s.phone, s.email,
+                    u.full_name AS proposed_by, d.full_name AS decided_by
+             FROM price_proposals pp
+             JOIN products p ON p.id = pp.product_id
+             LEFT JOIN categories c ON c.id = p.category_id
+             JOIN suppliers s ON s.id = pp.supplier_id
+             LEFT JOIN users u ON u.id = pp.proposed_by
+             LEFT JOIN users d ON d.id = pp.decided_by
+             WHERE pp.id = ?`, [id]) : [[]];
+        if (!rows.length) return res.status(404).json({ success: false, message: 'That price change was not found.' });
+        const r = rows[0];
+        const [[sold]] = await pool.query(
+            `SELECT COALESCE(SUM(si.quantity), 0) AS units FROM sale_items si JOIN sales sa ON sa.id = si.sale_id
+             WHERE si.product_id = ? AND sa.payment_status = 'completed' AND sa.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`, [r.product_id]);
+        const [history] = await pool.query(
+            `SELECT pp.status, pp.current_price, pp.proposed_price, pp.decline_reason,
+                    UNIX_TIMESTAMP(COALESCE(pp.decided_at, pp.created_at)) * 1000 AS at
+             FROM price_proposals pp WHERE pp.product_id = ? AND pp.id <> ? AND pp.status <> 'pending'
+             ORDER BY COALESCE(pp.decided_at, pp.created_at) DESC LIMIT 5`, [r.product_id, id]);
+        r.sold_30d = Number(sold.units);
+        r.history = history;
+        res.json({ success: true, data: r });
+    } catch (e) { fail(res, 'price details', e); }
+};
+
+/* ---------- New products offered by suppliers (UAT part 4) ---------- */
+
+const NEW_PRODUCT_COLS = `o.id, o.name, o.brand, o.category, o.species, o.unit_type, o.cost_price, o.description,
+    o.status, o.decline_reason, o.product_id,
+    UNIX_TIMESTAMP(o.created_at) * 1000 AS created_at, UNIX_TIMESTAMP(o.decided_at) * 1000 AS decided_at,
+    s.id AS supplier_id, s.name AS supplier_name, s.contact_person, s.phone AS supplier_phone, s.email AS supplier_email,
+    u.full_name AS proposed_by, d.full_name AS decided_by`;
+const NEW_PRODUCT_FROM = `FROM product_offers o JOIN suppliers s ON s.id = o.supplier_id
+    LEFT JOIN users u ON u.id = o.proposed_by LEFT JOIN users d ON d.id = o.decided_by`;
+
+// Waiting ones first, then the last 30 days of answers. Pictures are left out
+// of the list (they can be large) and sent with one offer.
+exports.getNewProducts = async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT ${NEW_PRODUCT_COLS}, o.image_url IS NOT NULL AS has_image ${NEW_PRODUCT_FROM}
+             WHERE o.status = 'pending' OR COALESCE(o.decided_at, o.created_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+             ORDER BY o.status = 'pending' DESC, o.created_at DESC LIMIT 100`);
+        rows.forEach(r => { r.has_image = !!r.has_image; });
+        res.json({ success: true, data: rows });
+    } catch (e) { fail(res, 'new products', e); }
+};
+
+exports.getNewProduct = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const [rows] = Number.isInteger(id) ? await pool.query(
+            `SELECT ${NEW_PRODUCT_COLS}, o.image_url ${NEW_PRODUCT_FROM} WHERE o.id = ?`, [id]) : [[]];
+        if (!rows.length) return res.status(404).json({ success: false, message: 'That offer was not found.' });
+        res.json({ success: true, data: rows[0] });
+    } catch (e) { fail(res, 'new product', e); }
+};
+
+exports.declineNewProduct = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const problem = declineReasonProblem(req.body?.reason);
+        if (problem) return res.status(400).json({ success: false, message: problem.replace('this price', 'this product') });
+        const reason = String(req.body.reason).trim();
+        const [moved] = Number.isInteger(id) ? await pool.query(
+            "UPDATE product_offers SET status = 'declined', decline_reason = ?, decided_by = ?, decided_at = NOW() WHERE id = ? AND status = 'pending'",
+            [reason, req.user.id, id]) : [{ affectedRows: 0 }];
+        if (!moved.affectedRows) return res.status(404).json({ success: false, message: 'That offer is no longer waiting.' });
+        logAudit(req.user.id, 'update', 'product_offers', id, { status: 'pending' }, { status: 'declined', reason }, req.ip);
+        res.json({ success: true, message: 'Declined. The supplier sees your reason on their page.' });
+    } catch (e) { fail(res, 'decline new product', e); }
+};
+
+// Called by the Inventory page once the product has been saved from the offer.
+exports.newProductAdded = async (req, res) => {
+    try {
+        const id = Number(req.params.id), productId = Number(req.body?.product_id);
+        if (!Number.isInteger(id) || !Number.isInteger(productId) || productId <= 0) {
+            return res.status(400).json({ success: false, message: 'Say which product was added.' });
+        }
+        const [offer] = await pool.query("SELECT supplier_id, name FROM product_offers WHERE id = ? AND status = 'pending'", [id]);
+        if (!offer.length) return res.status(404).json({ success: false, message: 'That offer is no longer waiting.' });
+        const [prod] = await pool.query('SELECT id FROM products WHERE id = ? AND is_active = TRUE', [productId]);
+        if (!prod.length) return res.status(404).json({ success: false, message: 'Product not found' });
+        await pool.query(
+            "UPDATE product_offers SET status = 'added', product_id = ?, decided_by = ?, decided_at = NOW() WHERE id = ? AND status = 'pending'",
+            [productId, req.user.id, id]);
+        logAudit(req.user.id, 'update', 'product_offers', id, { status: 'pending' }, { status: 'added', product_id: productId }, req.ip);
+        res.json({ success: true, message: `${offer[0].name} is now in Inventory. The supplier sees it was added.` });
+    } catch (e) { fail(res, 'new product added', e); }
 };

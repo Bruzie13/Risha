@@ -194,13 +194,27 @@ exports.autoGeneratePO = async (req, res) => {
         const hasSalesData = salesVelocity.length > 0;
 
         // Only suppliers still on the shop's list can be ordered from.
-        const activeSupplierIds = new Set((await Supplier.getAll()).map(s => Number(s.id)));
+        const listed = await Supplier.getAll();
+        const activeSupplierIds = new Set(listed.map(s => Number(s.id)));
+        // a supplier's status (UAT part 4, A6): deactivated ones are not sent
+        // orders; inactive or on-vacation ones are, with a word of warning
+        const statusOf = new Map(listed.map(s => [Number(s.id), { status: s.status || 'active', name: s.name }]));
+        const warnedSupplier = new Set();
         const supplierGroups = {};
         for (const product of lowStockProducts) {
             const noSupplier = reorderSupplierProblem(product, activeSupplierIds);
             if (noSupplier) {
                 warnings.push(`"${product.name}" skipped: ${noSupplier}`);
                 continue;
+            }
+            const standing = statusOf.get(Number(product.supplier_id));
+            if (standing && standing.status === 'deactivated') {
+                warnings.push(`"${product.name}" skipped: its supplier ${standing.name} is deactivated. Change the supplier's status or assign another supplier.`);
+                continue;
+            }
+            if (standing && ['inactive', 'vacation'].includes(standing.status) && !warnedSupplier.has(Number(product.supplier_id))) {
+                warnedSupplier.add(Number(product.supplier_id));
+                warnings.push(`${standing.name} is ${standing.status === 'vacation' ? 'on vacation' : 'marked inactive'}: the order was sent, but it may wait until they are back.`);
             }
             if (expired.has(Number(product.id))) {
                 warnings.push(`"${product.name}" has expired: a fresh batch was ordered. Remove the expired units from the shelf.`);

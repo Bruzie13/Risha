@@ -43,9 +43,52 @@ window.addEventListener('load', async () => {
         const chip = document.querySelector(`#statusChips .chip[data-status="${wanted}"]`);
         if (chip) chip.click(); else setStatusFilter(wanted);
     }
+    // Suppliers → New products → Add to Inventory (UAT part 4)
+    const offer = Number(new URLSearchParams(window.location.search).get('offer'));
+    if (offer) openAddFromOffer(offer);
+    // Reports → What sold → Open in Inventory
+    const viewId = Number(new URLSearchParams(window.location.search).get('view'));
+    if (viewId) viewProductDetails(viewId);
     // Live stock: sales on the POS show here without a refresh
     setInterval(refreshStockLevels, 10000);
 });
+
+/* A product a supplier offered, added to Inventory: the Add product form
+   opens filled in from the offer (name, brand, pet, the supplier and their
+   price, the picture). The shop sets the selling price, category and stock;
+   once it is saved the offer is marked added and the supplier sees it. */
+let addingFromOffer = null;
+async function openAddFromOffer(id) {
+    let o;
+    try {
+        const res = await fetch(`${API_URL}/purchase-orders/new-products/${id}`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) { showToast(data.message || 'That offer could not be opened', 'error'); return; }
+        o = data.data;
+    } catch (e) { showToast(couldNot('open the offer', e), 'error'); return; }
+    if (o.status !== 'pending') {
+        showToast(o.status === 'added' ? `${o.name} was already added to Inventory.` : `That offer is no longer waiting (${o.status}).`, 'warning');
+        return;
+    }
+    openAddProductModal();
+    addingFromOffer = id;
+    document.getElementById('modalTitle').textContent = 'Add product from ' + o.supplier_name + '\'s offer';
+    document.getElementById('name').value = o.name || '';
+    document.getElementById('brand').value = o.brand || '';
+    if (o.species && [...document.getElementById('species').options].some(x => x.value === o.species)) document.getElementById('species').value = o.species;
+    document.getElementById('cost_price').value = o.cost_price != null ? Number(o.cost_price) : '';
+    document.getElementById('supplier_id').value = o.supplier_id || '';
+    const unit = String(o.unit_type || '').toLowerCase();
+    if ([...document.getElementById('unit_type').options].some(x => x.value === unit)) document.getElementById('unit_type').value = unit;
+    // the category the supplier typed, when the shop has one by that name
+    const cat = String(o.category || '').trim().toLowerCase();
+    const match = cat && [...document.getElementById('category_id').options].find(x => x.textContent.trim().toLowerCase() === cat);
+    if (match) document.getElementById('category_id').value = match.value;
+    if (o.image_url) { document.getElementById('image_url').value = o.image_url; updateImagePreview(); }
+    document.getElementById('productMore').open = true;
+    showToast(`Filled in from ${o.supplier_name}'s offer. Set the selling price, category and stock, then save.`, 'info');
+    document.getElementById('unit_price').focus();
+}
 
 // Load categories for the dropdown and filter
 async function loadCategories() {
@@ -282,56 +325,54 @@ function displayProductsGrid(products) {
         return;
     }
 
-    const C = 163.36; // circumference of the r=26 gauge ring
+    /* Photo on top, the name large, the price small at the side (UAT part
+       4, A4: Carlo picked option A of three mock-ups). Stock is counted in
+       paw prints, five for twice the reorder level. */
     grid.innerHTML = products.slice(0, displayCount).map((p, i) => {
         const status = productStatus(p);
         const t = cardTheme(status);
         const stock = Number(p.stock_quantity) || 0;
         const reorder = p.reorder_level ?? 10;
         const pct = Math.min(100, Math.round((stock / Math.max(reorder * 2, 1)) * 100));
-        const offset = C * (1 - pct / 100);
         const days = daysUntilExpiry(p);
+        const unit = getUnitLabel(p.unit_type).trim();
 
         let expiry = '';
         if (p.expiration_date && days !== null) {
             const d = new Date(p.expiration_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
             const cls = days < 0 ? 'expired' : days <= 30 ? 'soon' : '';
-            const label = days < 0 ? `Expired ${Math.abs(days)}d ago` : days === 0 ? 'Expires today' : `Expires in ${days} day${days === 1 ? '' : 's'}`;
-            expiry = `<div class="pcard-expiry ${cls}"><span class="material-symbols-outlined">${days < 0 ? 'error' : 'schedule'}</span> ${d} · ${label}</div>`;
+            const label = days < 0 ? `Expired ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago` : days === 0 ? 'Expires today' : `Expires in ${days} day${days === 1 ? '' : 's'}`;
+            expiry = `<div class="pcard-expiry ${cls}"><span class="material-symbols-outlined">${days < 0 ? 'error' : 'schedule'}</span> ${label}<span class="pcard-expiry-date">${d}</span></div>`;
         } else {
             expiry = `<div class="pcard-expiry"><span class="material-symbols-outlined">event_available</span> No expiration set</div>`;
         }
 
         return `
-        <div class="pcard${selectedIds.has(p.id) ? ' is-selected' : ''}" data-id="${p.id}" style="--pc-color:${t.color};--pc-accent:${t.bg};--pc-line:${t.color};animation-delay:${Math.min(i * 35, 350)}ms;">
-            ${viewer ? '' : `<input type="checkbox" class="product-checkbox pcard-check" value="${p.id}" aria-label="Select ${escAttr(p.name)}"${selectedIds.has(p.id) ? ' checked' : ''}>`}
-            <span class="pcard-status">${t.label}</span>
-            <div class="pcard-top">
-                <div class="pcard-avatar${p.image_url ? ' has-img' : ''}">${p.image_url ? `<img class="pcard-img" src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.parentNode.classList.remove('has-img'); this.remove()">` : ''}<span class="material-symbols-outlined">${productIcon(p)}</span></div>
-                <div class="pcard-id">
-                    <div class="pcard-name" title="${escHtml(p.name)}">${escHtml(p.name)}</div>
-                    <div class="pcard-sub">${escHtml(p.sku)}${p.brand ? ' · ' + escHtml(p.brand) : ''}</div>
-                </div>
+        <div class="pcard pcard-photo-top${selectedIds.has(p.id) ? ' is-selected' : ''}" data-id="${p.id}" style="--pc-color:${t.color};--pc-accent:${t.bg};--pc-line:${t.color};animation-delay:${Math.min(i * 35, 350)}ms;">
+            <div class="pcard-photo">
+                ${p.image_url ? `<img class="pcard-photo-img" src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.parentNode.classList.add('no-img'); this.remove()">` : ''}
+                <span class="material-symbols-outlined pcard-photo-icon" aria-hidden="true">${productIcon(p)}</span>
+                ${viewer ? '' : `<input type="checkbox" class="product-checkbox pcard-check" value="${p.id}" aria-label="Select ${escAttr(p.name)}"${selectedIds.has(p.id) ? ' checked' : ''}>`}
+                <span class="pcard-status">${t.label}</span>
             </div>
-            <div class="pcard-mid">
-                <div class="stock-gauge" title="${stock} in stock (reorder at ${reorder})">
-                    <svg width="64" height="64" viewBox="0 0 64 64">
-                        <circle class="sg-track" cx="32" cy="32" r="26" fill="none" stroke-width="6"/>
-                        <circle class="sg-fill" cx="32" cy="32" r="26" fill="none" stroke-width="6" stroke-dasharray="${C}" stroke-dashoffset="${offset}"/>
-                    </svg>
-                    <div class="sg-num">${formatNumber(stock)}<span class="sg-unit">${getUnitLabel(p.unit_type).trim() || 'in stk'}</span></div>
-                </div>
-                <div class="pcard-figs">
+            <div class="pcard-body">
+                <div class="pcard-name" title="${escHtml(p.name)}">${escHtml(p.name)}</div>
+                <div class="pcard-sub">${escHtml(p.sku)}${p.brand ? ' · ' + escHtml(p.brand) : ''}${p.species ? ' · ' + escHtml(p.species) : ''}</div>
+                <div class="pcard-row">
+                    <div class="pcard-stock" title="${formatNumber(stock)} in stock (reorder at ${formatNumber(reorder)})">
+                        <div class="cs-track"><div class="cs-fill" style="width:${pct}%;background:${t.color};"></div></div>
+                        <span><b>${formatNumber(stock)}</b> ${unit && unit !== 'pcs' ? escHtml(unit) + ' ' : ''}in stock</span>
+                    </div>
                     <div class="pcard-price">${formatCurrency(p.unit_price)} <small>/ unit</small></div>
-                    <div class="pcard-cat"><span class="dot"></span> ${escHtml(p.category_name || 'Uncategorized')}${p.species ? ' · ' + escHtml(p.species) : ''}</div>
                 </div>
-            </div>
-            ${expiry}
-            <!-- no Edit here: it is in the View window (Carlo, 30 Oct) -->
-            <div class="pcard-actions">
-                <button onclick="viewProductDetails(${p.id})"><span class="material-symbols-outlined">visibility</span> <span class="pca-label">View</span></button>
-                ${viewer ? '' : `<button onclick="openReorderDialog(${p.id})" title="Order more of this product from its supplier"><span class="material-symbols-outlined">add_shopping_cart</span> <span class="pca-label">Reorder</span></button>
-                <button class="pca-danger" onclick="deleteProduct(${p.id})" title="Delete"><span class="material-symbols-outlined">delete</span></button>`}
+                <div class="pcard-cat"><span class="dot"></span> ${escHtml(p.category_name || 'Uncategorized')}</div>
+                ${expiry}
+                <!-- no Edit here: it is in the View window (Carlo, 30 Oct) -->
+                <div class="pcard-actions">
+                    <button onclick="viewProductDetails(${p.id})"><span class="material-symbols-outlined">visibility</span> <span class="pca-label">View</span></button>
+                    ${viewer ? '' : `<button onclick="openReorderDialog(${p.id})" title="Order more of this product from its supplier"><span class="material-symbols-outlined">add_shopping_cart</span> <span class="pca-label">Reorder</span></button>
+                    <button class="pca-danger" onclick="deleteProduct(${p.id})" title="Delete"><span class="material-symbols-outlined">delete</span></button>`}
+                </div>
             </div>
         </div>`;
     }).join('');
@@ -780,6 +821,7 @@ async function viewProductDetails(id) {
 function closeProductModal() {
     document.getElementById('productModal').classList.remove('active');
     editingProductId = null;
+    addingFromOffer = null;
 }
 
 // Close product details modal
@@ -1001,9 +1043,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // a date is judged as soon as it is complete, typed or picked, so a
         // date too soon is flagged before the box is even left
         if (input.type === 'date') { input.addEventListener('change', () => checkProductField(id)); return; }
-        input.addEventListener(input.tagName === 'SELECT' ? 'change' : 'input', () => {
-            if (input.classList.contains('input-invalid')) checkProductField(id);
-        });
+        // checked while typing, not only on Save (UAT part 4, S1)
+        if (input.tagName === 'SELECT') input.addEventListener('change', () => checkProductField(id));
+        else liveCheck(input, () => checkProductField(id));
     });
     // the Add stock window's date: the same rule, said as soon as a date is entered
     const stockExpiry = document.getElementById('stockExpiry');
@@ -1081,6 +1123,14 @@ async function saveProduct(productData) {
         const data = await response.json();
 
         if (data.success) {
+            // added from a supplier's offer: the offer is marked added
+            const offerId = !editingProductId && addingFromOffer && data.data && data.data.id ? addingFromOffer : null;
+            if (offerId) {
+                fetch(`${API_URL}/purchase-orders/new-products/${offerId}/added`, {
+                    method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ product_id: data.data.id })
+                }).catch(e => console.error('Offer not marked added:', e));
+                history.replaceState(null, '', 'inventory.html');
+            }
             showSuccessDialog(
                 editingProductId ? 'Product updated' : 'Product added',
                 editingProductId ? `${escHtml(productData.name)} has been saved with the new details.` : `${escHtml(productData.name)} is now in your inventory with the SKU <strong>${escHtml((data.data && data.data.sku) || '')}</strong>.`,

@@ -361,3 +361,14 @@ body, .main-wrapper { background: var(--bg-card); }
 .pos-drawer-now { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 12px; padding: 10px 14px;
   border-radius: var(--radius-md); background: var(--bg-raised); border: 1px solid var(--border-glass); font-size: 13.5px; color: var(--text-secondary); }
 .pos-drawer-now strong { font-size: 18px; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+/* hidden until the eye is pressed (UAT part 4, C5) */
+.pos-drawer-amt { display: inline-flex; align-items: center; gap: 8px; }
+.pos-drawer-now strong.is-hidden { letter-spacing: 2px; color: var(--text-muted); }
+.pos-eye { display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--radius-sm); border: 1px solid var(--border-glass-strong);
+  background: var(--bg-card); color: var(--text-secondary); cursor: pointer; }
+.pos-eye .material-symbols-outlined { font-size: 18px; }
+@media (hover: hover) and (pointer: fine) { .pos-eye:hover { color: var(--text-primary); background: var(--gray-50); } }
+.pos-eye:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* End of day: a count above what the drawer should hold (C4) */
+#posEodCounted.is-over { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+.pos-eod-over { margin-top: 6px; font-size: 12.5px; font-weight: 600; color: var(--danger); }

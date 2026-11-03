@@ -126,9 +126,11 @@ function displaySales(sales) {
             <td>${escHtml(s.payment_method || 'N/A')}</td>
             <td>${saleStatusBadge(s)}</td>
             <td>
+                <div class="row-actions">
                 <button class="btn-view" onclick="viewSaleDetails(${s.id})">View</button>
                 ${viewer || s.payment_status === 'voided' ? '' : `<button class="btn-delete" onclick="voidSale(${s.id})">Void</button>`}
-                ${getUserRole() === 'admin' ? `<button class="btn-delete" onclick="deleteSale(${s.id})" title="Delete sale" aria-label="Delete sale #${escAttr(s.sale_number || s.id)}"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>` : ''}
+                ${getUserRole() === 'admin' ? `<button class="btn-delete row-icon-btn" onclick="deleteSale(${s.id})" title="Delete sale" aria-label="Delete sale #${escAttr(s.sale_number || s.id)}"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>` : ''}
+                </div>
             </td>
         </tr>
     `).join('');

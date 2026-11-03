@@ -6,6 +6,16 @@ let editingFullName = null;   // the name the edit started with: one saved befor
 
 window.addEventListener('load', async () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
+    // the boxes say what is wrong while typing (UAT part 4, S1)
+    liveCheck(document.getElementById('userFullName'), checkUserFullName);
+    liveCheck(document.getElementById('userEmail'), () => {
+        const box = document.getElementById('userEmail'), v = box.value.trim();
+        showFieldProblem(box, v && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v) ? 'Type the whole email address, like name@gmail.com.' : null);
+    });
+    liveCheck(document.getElementById('userPassword'), () => {
+        const box = document.getElementById('userPassword');
+        showFieldProblem(box, box.value ? passwordPolicyError(box.value) : null);
+    });
     const role = getUserRole();
     if (role !== 'admin') {
         const warning = document.getElementById('adminWarning');
@@ -358,6 +368,7 @@ function openAddUserModal() {
     document.getElementById('userPassword').required = true;
     document.getElementById('passwordRequired').style.display = 'inline';
     document.getElementById('userSubmitBtn').textContent = 'Create user';
+    ['userFullName', 'userEmail', 'userPassword'].forEach(id => showFieldProblem(document.getElementById(id), null));
     document.getElementById('userModal').classList.add('active');
 }
 
@@ -393,6 +404,7 @@ function openEditUserModal(id) {
     document.getElementById('userPassword').value = '';
     document.getElementById('passwordRequired').style.display = 'none';
     document.getElementById('userSubmitBtn').textContent = 'Update user';
+    ['userFullName', 'userEmail', 'userPassword'].forEach(id => showFieldProblem(document.getElementById(id), null));
     document.getElementById('userModal').classList.add('active');
 }
 

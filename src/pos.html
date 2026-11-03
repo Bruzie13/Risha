@@ -28,10 +28,10 @@
     <link rel="stylesheet" href="css/pos.css?v=36">
 <script>/* the till has one page, so its sidebar starts as the slim strip (see "The slim strip" in css/system.css); the logo opens it, and that choice is kept (railOpen) */document.documentElement.classList.add('rail-only');document.documentElement.classList.toggle('sidebar-hidden', localStorage.getItem('railOpen') !== 'true');</script>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=101">
-        <link rel="stylesheet" href="css/pos-register.css?v=5">
+        <link rel="stylesheet" href="css/system.css?v=120">
+        <link rel="stylesheet" href="css/pos-register.css?v=6">
 </head>
-<body>
+<body class="till-page">
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-header">
@@ -253,7 +253,7 @@
                         <span class="pos-eod-value" id="posEodTxns">—</span>
                     </div>
                 </div>
-                <div class="pos-drawer-now"><span>Cash in the drawer now</span><strong id="posEodDrawer">—</strong></div>
+                <div class="pos-drawer-now"><span>Expected cash in the drawer now</span><span class="pos-drawer-amt"><strong id="posEodDrawer" class="is-hidden">••••</strong><button type="button" class="pos-eye" aria-label="Show the amount" title="Show the amount" aria-pressed="false" onclick="toggleDrawerAmount('posEodDrawer', this)"><span class="material-symbols-outlined">visibility</span></button></span></div>
                 <div class="pos-eod-figures" id="posEodMoves" hidden>
                     <div>
                         <span class="pos-eod-label">Cash put in today</span>
@@ -268,8 +268,9 @@
                 <div id="posEodEntry">
                     <div class="form-group">
                         <label class="form-label" for="posEodCounted">Cash counted in the drawer (₱)</label>
-                        <input type="text" class="form-input" id="posEodCounted" inputmode="decimal" autocomplete="off" maxlength="13" placeholder="For example: 1500.50" oninput="this.value.trim() ? showFieldProblem(this, countedCashProblem(this.value)) : showFieldProblem(this, null)" onkeydown="if (event.key === 'Enter') { event.preventDefault(); savePosEod(); }">
+                        <input type="text" class="form-input" id="posEodCounted" inputmode="decimal" autocomplete="off" maxlength="13" placeholder="For example: 1500.50" oninput="this.value.trim() ? showFieldProblem(this, countedCashProblem(this.value)) : showFieldProblem(this, null); checkEodOver(this)" onkeydown="if (event.key === 'Enter') { event.preventDefault(); savePosEod(); }">
                         <div class="field-error" id="posEodCountedError" role="alert"></div>
+                        <div class="pos-eod-over" id="posEodOver" role="status" hidden></div>
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="posEodNotes">Notes (optional)</label>
@@ -304,8 +305,8 @@
                 <button class="close-btn" title="Close" onclick="closePosCash()">&times;</button>
             </div>
             <div class="modal-body">
-                <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.5;margin-bottom:14px;">Record any cash that leaves or enters the drawer for a reason other than a sale: the owner collecting the takings, paying a supplier, adding coins for change. It adjusts what the drawer should hold, so the end-of-day count still comes out right. The administrator is told about each one.</p>
-                <div class="pos-drawer-now"><span>Cash in the drawer now</span><strong id="posCashDrawer">—</strong></div>
+                <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.5;margin-bottom:14px;">For cash taken out or put in that is not a sale, like paying a supplier or adding coins for change. The administrator is told.</p>
+                <div class="pos-drawer-now"><span>Expected cash in the drawer now</span><span class="pos-drawer-amt"><strong id="posCashDrawer" class="is-hidden">••••</strong><button type="button" class="pos-eye" aria-label="Show the amount" title="Show the amount" aria-pressed="false" onclick="toggleDrawerAmount('posCashDrawer', this)"><span class="material-symbols-outlined">visibility</span></button></span></div>
                 <div id="posCashEntry">
                     <div class="seg pos-cash-kind" id="posCashKind" role="group" aria-label="Was the cash taken out or put in?">
                         <button type="button" class="seg-btn active" data-kind="out" onclick="setPosCashKind('out')"><span class="material-symbols-outlined">north_east</span> Taken out</button>
@@ -313,7 +314,8 @@
                     </div>
                     <div class="form-group" style="margin-top:14px;">
                         <label class="form-label" for="posCashAmount">Amount (₱)</label>
-                        <input type="number" class="form-input" id="posCashAmount" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+                        <input type="number" class="form-input" id="posCashAmount" min="0" step="0.01" inputmode="decimal" placeholder="0.00" oninput="checkPosCashAmount(false)">
+                        <div class="field-error" id="posCashAmountError" role="alert"></div>
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="posCashReason" id="posCashReasonLabel">Who took it, and what for</label>
@@ -333,14 +335,14 @@
 
         <script src="js/format.js"></script>
 <script src="js/utils.js"></script>
-<script src="js/auth.js?v=79"></script>
+<script src="js/auth.js?v=81"></script>
 <script src="js/loader.js?v=6"></script>
 <script src="js/clear-input.js?v=3"></script>
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=34"></script>
-<script src="js/assistant.js?v=30"></script>
+<script src="js/assistant.js?v=31"></script>
     <script src="js/escpos-print.js?v=4"></script>
-    <script src="js/pos.js?v=55"></script>
+    <script src="js/pos.js?v=58"></script>
 </body>
 </html>
 
