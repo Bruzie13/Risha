@@ -1,3 +1,4 @@
+const { withPictureLink } = require('../utils/image');
 const Product = require('../models/Product');
 const Sale = require('../models/Sale');
 const User = require('../models/User');
@@ -65,9 +66,11 @@ exports.getDashboardStats = async (req, res) => {
 
 exports.getExpirationRisk = async (req, res) => {
     const pool = require('../config/database');
-    const conn = await pool.getConnection();
     try {
-        const [critical] = await conn.execute(
+        // the three windows are asked together, not one after another: each
+        // trip to the database is long (speed fix, 3 Nov)
+        const [[critical], [warning], [notice]] = await Promise.all([
+            pool.execute(
             `SELECT p.*, DATE_FORMAT(p.expiration_date, '%Y-%m-%d') AS expiration_date, c.name as category_name, s.name as supplier_name
              FROM products p
              LEFT JOIN categories c ON p.category_id = c.id
@@ -76,10 +79,8 @@ exports.getExpirationRisk = async (req, res) => {
              AND p.expiration_date <= DATE_ADD(DATE(CONVERT_TZ(NOW(),'+00:00','+08:00')), INTERVAL 30 DAY)
              AND p.expiration_date >= DATE(CONVERT_TZ(NOW(),'+00:00','+08:00'))
              AND p.is_active = TRUE
-             ORDER BY p.expiration_date ASC`
-        );
-
-        const [warning] = await conn.execute(
+             ORDER BY p.expiration_date ASC`),
+            pool.execute(
             `SELECT p.*, DATE_FORMAT(p.expiration_date, '%Y-%m-%d') AS expiration_date, c.name as category_name, s.name as supplier_name
              FROM products p
              LEFT JOIN categories c ON p.category_id = c.id
@@ -88,10 +89,8 @@ exports.getExpirationRisk = async (req, res) => {
              AND p.expiration_date > DATE_ADD(DATE(CONVERT_TZ(NOW(),'+00:00','+08:00')), INTERVAL 30 DAY)
              AND p.expiration_date <= DATE_ADD(DATE(CONVERT_TZ(NOW(),'+00:00','+08:00')), INTERVAL 60 DAY)
              AND p.is_active = TRUE
-             ORDER BY p.expiration_date ASC`
-        );
-
-        const [notice] = await conn.execute(
+             ORDER BY p.expiration_date ASC`),
+            pool.execute(
             `SELECT p.*, DATE_FORMAT(p.expiration_date, '%Y-%m-%d') AS expiration_date, c.name as category_name, s.name as supplier_name
              FROM products p
              LEFT JOIN categories c ON p.category_id = c.id
@@ -100,15 +99,15 @@ exports.getExpirationRisk = async (req, res) => {
              AND p.expiration_date > DATE_ADD(DATE(CONVERT_TZ(NOW(),'+00:00','+08:00')), INTERVAL 60 DAY)
              AND p.expiration_date <= DATE_ADD(DATE(CONVERT_TZ(NOW(),'+00:00','+08:00')), INTERVAL 90 DAY)
              AND p.is_active = TRUE
-             ORDER BY p.expiration_date ASC`
-        );
+             ORDER BY p.expiration_date ASC`)
+        ]);
 
         res.status(200).json({
             success: true,
             data: {
-                critical: { count: critical.length, products: critical },
-                warning: { count: warning.length, products: warning },
-                notice: { count: notice.length, products: notice },
+                critical: { count: critical.length, products: critical.map(withPictureLink) },
+                warning: { count: warning.length, products: warning.map(withPictureLink) },
+                notice: { count: notice.length, products: notice.map(withPictureLink) },
                 total: critical.length + warning.length + notice.length
             }
         });
@@ -118,8 +117,6 @@ exports.getExpirationRisk = async (req, res) => {
             success: false,
             message: 'Error retrieving expiration risk data'
         });
-    } finally {
-        conn.release();
     }
 };
 
@@ -129,28 +126,19 @@ exports.getChartData = async (req, res) => {
     try {
         const { period } = req.query;
 
-        let salesData;
-        switch (period) {
-            case 'weekly':
-                salesData = await Sale.getWeeklySales(12);
-                break;
-            case 'monthly':
-                salesData = await Sale.getMonthlySales(12);
-                break;
-            default:
-                salesData = await Sale.getDailySales(30);
-        }
-
-        conn = await pool.getConnection();
-
-        const [categories] = await conn.execute(
+        const sales = period === 'weekly' ? Sale.getWeeklySales(12)
+            : period === 'monthly' ? Sale.getMonthlySales(12)
+            : Sale.getDailySales(30);
+        // asked together rather than one after another (speed fix, 3 Nov);
+        // the stock counts are the same ones the Inventory page shows
+        const [salesData, [categories], stock] = await Promise.all([
+            sales,
+            pool.execute(
             `SELECT c.name as label, COUNT(p.id) as value
              FROM categories c LEFT JOIN products p ON p.category_id = c.id AND p.is_active = TRUE
-             GROUP BY c.id ORDER BY c.name`
-        );
-
-        // the same counts the Inventory page shows, from the same query
-        const stock = await Product.getStats();
+             GROUP BY c.id ORDER BY c.name`),
+            Product.getStats()
+        ]);
 
         res.status(200).json({
             success: true,

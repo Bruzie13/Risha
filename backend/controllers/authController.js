@@ -211,6 +211,7 @@ async function bumpTokenVersion(userId) {
     const conn = await pool.getConnection();
     try {
         await conn.execute('UPDATE users SET token_version = token_version + 1 WHERE id = ?', [userId]);
+        require('../middleware/auth').forgetSession(userId);   // the remembered check must not outlive it
     } catch (e) {
         console.error('Failed to bump token version for user', userId, e.message);
     } finally {
@@ -1054,6 +1055,7 @@ exports.toggleUserStatus = async (req, res) => {
         }
 
         const updatedUser = await User.update(id, { is_active: !user.is_active });
+        require('../middleware/auth').forgetSession(id);   // restored or deactivated: no remembered answer
 
         // Deactivation must not wait for the token to lapse. (The middleware
         // refuses inactive accounts outright too; this clears the token as well,

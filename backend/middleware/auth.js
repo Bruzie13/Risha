@@ -2,6 +2,30 @@ const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
 const { apiAllowed } = require('../utils/roles');
 
+/* The account check below is one database round trip on every request, and
+   the database is far from the server, so each answer is remembered for 30
+   seconds (speed fix, 3 Nov). Anything that ends an account's access goes
+   through bumpTokenVersion (authController), which calls forgetSession, so
+   deactivating, demoting or a password change still applies at once. */
+const SESSION_TTL_MS = 30 * 1000;
+const sessions = new Map();   // user id → { at, row }
+function forgetSession(userId) { sessions.delete(Number(userId)); }
+async function accountRow(userId) {
+    const hit = sessions.get(Number(userId));
+    if (hit && Date.now() - hit.at < SESSION_TTL_MS) return hit.row;
+    const conn = await pool.getConnection();
+    let rows;
+    try {
+        [rows] = await conn.execute('SELECT is_active, role, token_version FROM users WHERE id = ?', [userId]);
+    } finally {
+        conn.release();
+    }
+    const row = rows[0] || null;
+    if (sessions.size > 1000) sessions.clear();
+    sessions.set(Number(userId), { at: Date.now(), row });
+    return row;
+}
+
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -28,16 +52,8 @@ const authenticateToken = (req, res, next) => {
            before it — otherwise a sacked employee keeps full access for the
            rest of the 24-hour lifetime. */
         try {
-            const conn = await pool.getConnection();
-            let rows;
-            try {
-                [rows] = await conn.execute(
-                    'SELECT is_active, role, token_version FROM users WHERE id = ?',
-                    [user.id]
-                );
-            } finally {
-                conn.release();
-            }
+            const account = await accountRow(user.id);
+            const rows = account ? [account] : [];
 
             if (!rows.length || !rows[0].is_active) {
                 return res.status(403).json({ success: false, message: 'This account is no longer active. Please sign in again.' });
@@ -81,5 +97,6 @@ const authorizeRole = (...allowedRoles) => {
 
 module.exports = {
     authenticateToken,
-    authorizeRole
+    authorizeRole,
+    forgetSession
 };

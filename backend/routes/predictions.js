@@ -970,43 +970,45 @@ router.get('/overview', authenticateToken, async (req, res) => {
         if (!all) all = await rebuildAllPredictions();
         else if (Date.now() - allCache.at >= ALL_TTL_MS) rebuildAllPredictions().catch(() => {});
 
-        const [products] = await pool.query(`
+        // all five asked together rather than one after another: each trip to
+        // the database is long (speed fix, 3 Nov). orderRows is stock a
+        // supplier is already bringing (what they confirmed where they have);
+        // leadRows each supplier's average days from order to delivery over
+        // the last year, at least two deliveries.
+        const [[products], [soldRows], [orderRows], [lastRows], [leadRows]] = await Promise.all([
+            pool.query(`
             SELECT p.id, p.name, p.sku, p.brand, p.unit_price, p.cost_price, p.stock_quantity, p.reorder_level,
                    s.id AS supplier_id, c.name AS category, s.name AS supplier_name,
                    DATE_FORMAT(p.expiration_date, '%Y-%m-%d') AS expires_on
             FROM products p
             LEFT JOIN categories c ON c.id = p.category_id
             LEFT JOIN suppliers s ON s.id = p.supplier_id AND s.is_active = TRUE
-            WHERE p.is_active = TRUE`);
-        const [soldRows] = await pool.query(`
+            WHERE p.is_active = TRUE`),
+            pool.query(`
             SELECT si.product_id, SUM(si.quantity) AS qty
             FROM sale_items si JOIN sales s ON si.sale_id = s.id
             WHERE s.payment_status = 'completed'
               AND s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-            GROUP BY si.product_id`);
-        // Stock a supplier is already bringing: ordering it again would
-        // double the shelf. Uses what the supplier confirmed where they have.
-        const [orderRows] = await pool.query(`
+            GROUP BY si.product_id`),
+            pool.query(`
             SELECT pi.product_id, SUM(COALESCE(pi.confirmed_quantity, pi.quantity)) AS qty
             FROM po_items pi JOIN purchase_orders po ON po.id = pi.po_id
             WHERE po.status IN ('pending', 'confirmed', 'shipped')
-            GROUP BY pi.product_id`);
-        const [lastRows] = await pool.query(`
+            GROUP BY pi.product_id`),
+            pool.query(`
             SELECT COUNT(DISTINCT CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
                                        THEN DATE(CONVERT_TZ(created_at,'+00:00','+08:00')) END) AS recent_days,
                    DATE_FORMAT(CONVERT_TZ(MAX(created_at),'+00:00','+08:00'), '%Y-%m-%d') AS last_sale,
                    DATE_FORMAT(CONVERT_TZ(MIN(created_at),'+00:00','+08:00'), '%Y-%m-%d') AS first_sale,
                    DATEDIFF(DATE(CONVERT_TZ(NOW(),'+00:00','+08:00')),
                             DATE(CONVERT_TZ(MAX(created_at),'+00:00','+08:00'))) AS days_since
-            FROM sales WHERE payment_status = 'completed'`);
-
-        // each supplier's average days from order to delivery over the last
-        // year (at least two deliveries), for when to order and how much
-        const [leadRows] = await pool.query(`
+            FROM sales WHERE payment_status = 'completed'`),
+            pool.query(`
             SELECT supplier_id, AVG(DATEDIFF(received_at, created_at)) AS days, COUNT(*) AS n
             FROM purchase_orders
             WHERE status = 'received' AND received_at IS NOT NULL AND received_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-            GROUP BY supplier_id HAVING n >= 2`);
+            GROUP BY supplier_id HAVING n >= 2`)
+        ]);
         const leadTimes = new Map(leadRows.map(r => [Number(r.supplier_id), Math.min(30, Math.max(1, Math.ceil(Number(r.days) || 0)))]));
 
         const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);

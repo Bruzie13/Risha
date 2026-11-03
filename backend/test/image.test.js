@@ -31,3 +31,16 @@ test('picture: anything that is not an image is refused', () => {
     assert.match(imageProblem('javascript:alert(1)'), /PNG, JPG, WEBP or GIF/);
     assert.match(imageProblem('images/../.env'), /PNG, JPG, WEBP or GIF/);
 });
+
+test('a picture kept in the database is sent as a link the browser can keep', () => {
+    const { withPictureLink, pictureLinkId, imageProblem } = require('../utils/image');
+    const data = 'data:image/png;base64,iVBORw0KGgo=';
+    const row = withPictureLink({ id: 126, name: 'AOZI', image_url: data });
+    assert.match(row.image_url, /^\/api\/products\/126\/image\?v=[0-9a-f]{10}$/);
+    assert.equal(withPictureLink({ id: 1, image_url: 'https://cdn.example/x.png' }).image_url, 'https://cdn.example/x.png', 'hosted links stay');
+    assert.equal(withPictureLink({ id: 1, image_url: null }).image_url, null);
+    assert.notEqual(withPictureLink({ id: 126, image_url: data + 'A' }).image_url, row.image_url, 'a changed picture is a new link');
+    assert.equal(pictureLinkId(row.image_url), 126);
+    assert.equal(pictureLinkId('/api/products/12/other'), null);
+    assert.equal(imageProblem(row.image_url), null, 'its own link is accepted when a product is saved');
+});

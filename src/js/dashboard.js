@@ -186,12 +186,10 @@ async function loadDashboardStats() {
 
 async function loadAdvancedMetrics() {
     try {
-        const prodRes = await fetch(`${API_BASE}/products?fields=light`, { headers: getAuthHeaders() }).then(r => r.json());
-        const products = prodRes.data || [];
-        let totalRetail = 0;
-        products.forEach(p => {
-            totalRetail += parseFloat(p.unit_price || 0) * (p.stock_quantity || 0);
-        });
+        // the server adds up the stock value; fetching every product just to
+        // add it here made the Dashboard the slowest page (speed fix, 3 Nov)
+        const statRes = await fetch(`${API_BASE}/products/stats`, { headers: getAuthHeaders() }).then(r => r.json());
+        const totalRetail = Number(statRes.data && statRes.data.total_value) || 0;
         const valueEl = document.getElementById('inventoryValue');
         if (valueEl) {
             valueEl.textContent = formatCompactCurrency(totalRetail);
@@ -504,7 +502,7 @@ async function sendPOAdvance(id, nextStatus, poNumber, expiration_date) {
 
 async function loadRecentPOs() {
     try {
-        const response = await fetch(`${API_BASE}/purchase-orders`, { headers: getAuthHeaders() });
+        const response = await fetch(`${API_BASE}/purchase-orders?limit=5`, { headers: getAuthHeaders() });   // only the five it shows
         const data = await response.json();
         const list = document.getElementById('recentPOList');
         const items = data.data || [];

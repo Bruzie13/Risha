@@ -11,9 +11,10 @@ const { shopToday, expiryProblem } = require('../utils/expiry');
 
 exports.getAllPOs = async (req, res) => {
     try {
-        const { status } = req.query;
+        const { status, limit } = req.query;
         const filters = {};
         if (status) filters.status = status;
+        if (limit) filters.limit = parseInt(limit, 10);
         const orders = await PurchaseOrder.getAll(filters);
         res.status(200).json({
             success: true,

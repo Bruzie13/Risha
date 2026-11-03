@@ -27,6 +27,9 @@ class PurchaseOrder {
 
             if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
             sql += ' ORDER BY po.created_at DESC';
+            // the Dashboard shows five: no need to send every order
+            const limit = Number(filters.limit);
+            if (Number.isInteger(limit) && limit > 0 && limit <= 500) sql += ' LIMIT ' + limit;
 
             const [rows] = await connection.execute(sql, params);
             return rows;

@@ -9,7 +9,7 @@ async function categoryName(id) {
     const [rows] = await pool.query('SELECT name FROM categories WHERE id = ?', [id]);
     return rows.length ? rows[0].name : null;
 }
-const { imageProblem } = require('../utils/image');
+const { imageProblem, withPictureLink, pictureLinkId } = require('../utils/image');
 const { SKU_TYPES, skuTypeProblem, skuFor } = require('../utils/sku');
 const { productProblem } = require('../utils/product');
 const { stockRequestKey } = require('../utils/requestKeys');
@@ -62,7 +62,7 @@ exports.getAllProducts = async (req, res) => {
             const off = parseInt(offset);
             if (Number.isInteger(off) && off > 0) filters.offset = off;
         }
-        const products = await Product.getAll(filters);
+        const products = (await Product.getAll(filters)).map(withPictureLink);
         const total = paginated ? await Product.countAll(filters) : products.length;
         res.status(200).json({
             success: true,
@@ -114,7 +114,7 @@ exports.getProductById = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            data: product
+            data: withPictureLink(product)
         });
     } catch (error) {
         console.error('Get product error:', error);
@@ -134,7 +134,7 @@ exports.createProduct = async (req, res) => {
             return res.status(400).json({ success: false, message: typeIssue });
         }
         req.body.sku = skuFor(req.body.sku_type, (await Product.highestSkuNumber()) + 1);
-        const { sku, name, description, brand, species, category_id, unit_price, cost_price, stock_quantity, reorder_level, max_stock_level, unit_type, supplier_id, barcode, expiration_date, batch_number, image_url } = req.body;
+        let { sku, name, description, brand, species, category_id, unit_price, cost_price, stock_quantity, reorder_level, max_stock_level, unit_type, supplier_id, barcode, expiration_date, batch_number, image_url } = req.body;
 
         // nothing important may be missing, and the supplier has to be a current one
         const problem = productProblem(req.body, true, await currentSupplierIds());
@@ -150,6 +150,12 @@ exports.createProduct = async (req, res) => {
             return res.status(400).json({ success: false, message: expiryIssue });
         }
 
+        // a picture copied from another product arrives as that product's link
+        const copiedFrom = pictureLinkId(image_url);
+        if (copiedFrom) {
+            const [[src]] = await require('../config/database').query('SELECT image_url FROM products WHERE id = ?', [copiedFrom]);
+            image_url = src ? src.image_url : null;
+        }
         const pictureIssue = imageProblem(image_url);
         if (pictureIssue) {
             return res.status(400).json({ success: false, message: pictureIssue });
@@ -275,6 +281,8 @@ exports.updateProduct = async (req, res) => {
             const missing = missingExpiryProblem(await categoryName(category), expiry);
             if (missing) return res.status(400).json({ success: false, message: missing });
         }
+        // its own picture sent back as the link it was shown with: unchanged
+        if (pictureLinkId(updateData.image_url) === Number(id)) delete updateData.image_url;
         if (updateData.image_url !== undefined) {
             const pictureIssue = imageProblem(updateData.image_url);
             if (pictureIssue) {
@@ -386,7 +394,7 @@ exports.getCategories = async (req, res) => {
 
 exports.getLowStockProducts = async (req, res) => {
     try {
-        let products = await Product.getLowStock();
+        let products = (await Product.getLowStock()).map(withPictureLink);
         // The reorder dialog only needs names/levels — drop the heavy images
         if (req.query.fields === 'light') {
             products = products.map(({ image_url, ...rest }) => rest);
@@ -599,5 +607,30 @@ exports.bulkCreateProducts = async (req, res) => {
             success: false,
             message: 'Error bulk creating products'
         });
+    }
+};
+
+/* A product's picture kept in the database, as an image the browser can keep
+   (speed fix, 3 Nov). The product data links here instead of carrying the
+   picture, so it is downloaded once rather than with every list. The link
+   carries a fingerprint of the picture, so a changed picture is a new link and
+   the old one can be kept for a year. No sign-in: an <img> cannot send one,
+   and a product picture is not private. */
+exports.getProductImage = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        if (!Number.isInteger(id)) return res.status(404).end();
+        const [[row]] = await require('../config/database').query('SELECT image_url FROM products WHERE id = ?', [id]);
+        const url = row && row.image_url;
+        if (!url) return res.status(404).end();
+        if (/^https?:\/\//i.test(url)) return res.redirect(302, url);
+        const m = /^data:(image\/(?:png|jpe?g|webp|gif));base64,(.+)$/i.exec(url);
+        if (!m) return res.status(404).end();
+        res.set('Content-Type', m[1]);
+        res.set('Cache-Control', 'public, max-age=31536000, immutable');
+        res.send(Buffer.from(m[2], 'base64'));
+    } catch (error) {
+        console.error('Product image error:', error);
+        res.status(500).end();
     }
 };
