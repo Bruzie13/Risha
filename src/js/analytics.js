@@ -48,8 +48,8 @@ async function loadStockPlanning(force) {
         const msg = error.name === 'AbortError'
             ? 'The forecast is taking longer than usual. Press Refresh in a minute.'
             : 'Stock planning could not be loaded. Press Refresh to try again.';
-        setRow('reorderTableBody', 6, msg);
-        setRow('predictionsTableBody', 7, msg);
+        orderListMessage(msg);
+        setRow('predictionsTableBody', 6, msg);
     } finally {
         clearTimeout(timeout);
         planLoading = false;
@@ -59,8 +59,8 @@ async function loadStockPlanning(force) {
 function refreshAnalytics() {
     predDisplayCount = PRED_PAGE_SIZE;
     reorderDisplayCount = PRED_PAGE_SIZE;
-    setRow('reorderTableBody', 6, 'Working out what to reorder…');
-    setRow('predictionsTableBody', 7, 'Loading products…');
+    orderListMessage('Working out what to order…');
+    setRow('predictionsTableBody', 6, 'Loading products…');
     loadStockPlanning(true);
 }
 
@@ -91,7 +91,9 @@ function wirePlanControls() {
         row.closest('.rp-card').after(document.getElementById('productDetail'));
         openProductDetail(Number(row.dataset.id));
     });
-    ['reorderTableBody', 'excessBody', 'expiryBody'].forEach(id => {
+    document.getElementById('orderList').addEventListener('click', onOrderListClick);
+    document.getElementById('orderLater').addEventListener('click', onOrderListClick);
+    ['excessBody', 'expiryBody', 'guessBody'].forEach(id => {
         document.getElementById(id).addEventListener('click', e => {
             const row = e.target.closest('tr[data-id]');
             if (!row) return;
@@ -203,6 +205,7 @@ function renderPlan() {
     renderGuide();
     renderAttention();
     renderReorder();
+    renderGuess();
     renderExcess();
     renderExpiry();
     renderAllProducts();
@@ -257,49 +260,104 @@ function showPlanView(view) {
     try { localStorage.setItem('planView', view); } catch (e) {}
 }
 
-function renderReorder() {
-    const tbody = document.getElementById('reorderTableBody');
-    const rows = plan.products.filter(p => p.stock_status !== 'ok');
-    const orderable = rows.filter(p => p.suggested_order > 0 && p.supplier_id);
-    const createBtn = document.getElementById('createOrdersBtn');
-    if (createBtn) createBtn.hidden = !(orderable.length && typeof canManage === 'function' && canManage());
-    if (!rows.length) {
-        setRow('reorderTableBody', 6, 'Nothing needs reordering right now.');
-        document.getElementById('reorderPagination').innerHTML = '';
-        return;
-    }
-    const today = ymd(new Date());
-    tbody.innerHTML = rows.slice(0, reorderDisplayCount).map(p => {
-        const suggestion = p.suggested_order > 0
-            ? formatNumber(p.suggested_order)
-            : (p.on_order > 0 ? '<span class="rp-sub">Already on order</span>' : '—');
-        return `
-        <tr data-id="${p.product_id}" tabindex="0">
-            <td><span class="rp-strong">${escHtml(p.name)}</span><span class="rp-sub">${escHtml(p.supplier_name ? 'From ' + p.supplier_name : 'No supplier set — cannot be ordered from here')}</span></td>
-            <td>${badge(p.stock_status)}<span class="rp-sub">${escHtml(reorderReason(p))}</span></td>
-            <td class="num">${formatQty(p.stock)}</td>
-            <td class="num">${p.on_order > 0 ? formatQty(p.on_order) : '—'}</td>
-            <td>${p.order_by ? (p.order_by <= today ? '<span class="rp-urgent">Today</span>' : escHtml(planDate(p.order_by))) : '—'}</td>
-            <td class="num rp-strong">${suggestion}</td>
-        </tr>`;
-    }).join('');
-    updatePagination('reorderPagination', rows, reorderDisplayCount, 'showMoreReorder', 'showLessReorder', PRED_PAGE_SIZE);
+/* ---------- Order this week (forecast mock-up 1) ----------
+   One line per product: why, how many and what it costs, the last day to
+   order (from its supplier's own delivery time), and a Reorder button. Red is
+   today or tomorrow, amber the rest of the week; later ones sit under it. */
+function orderListMessage(text) {
+    const list = document.getElementById('orderList');
+    if (list) list.innerHTML = `<p class="rp-loading">${escHtml(text)}</p>`;
+    ['orderChips', 'orderLater'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+}
+const weekday = s => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || '')); return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : ''; };
+function addDaysYmd(day, n) { const d = new Date(day + 'T00:00:00'); d.setDate(d.getDate() + n); return ymd(d); }
+const orderCost = p => (Number(p.suggested_order) || 0) * (Number(p.cost_price) || 0);
+
+/** Why a product is on the list, as a shopkeeper would say it. */
+function orderWhy(p) {
+    const wait = p.supplier_name ? `${p.supplier_name} takes about ${p.lead_time_days} day${p.lead_time_days === 1 ? '' : 's'} to deliver` : '';
+    const coming = p.on_order > 0 ? ` ${formatQty(p.on_order)} already on order.` : '';
+    if (p.stock_status === 'out') return `Nothing left on the shelf.${wait ? ' ' + wait + '.' : ''}${coming}`;
+    if (p.days_left != null && p.days_left <= p.lead_time_days) return `Runs out in about ${p.days_left} day${p.days_left === 1 ? '' : 's'}, before a delivery could arrive.${coming}`;
+    if (p.stock <= p.reorder_level) return `At or below its reorder level of ${formatQty(p.reorder_level)}.${coming}`;
+    const lasts = p.days_left != null ? `Runs out in about ${p.days_left} days` : 'Running low';
+    return `${lasts}${wait ? '. ' + wait + ', so order by ' + weekday(p.order_by).split(',')[0] : ''}.${coming}`;
 }
 
-function showMoreReorder() { reorderDisplayCount += PRED_PAGE_SIZE; renderReorder(); }
-function showLessReorder() { reorderDisplayCount = Math.max(PRED_PAGE_SIZE, reorderDisplayCount - PRED_PAGE_SIZE); renderReorder(); }
+function orderRow(p, today) {
+    const urgent = p.stock_status === 'out' || !p.order_by || p.order_by <= addDaysYmd(today, 1);
+    const when = !p.order_by || p.order_by <= today ? 'Today' : weekday(p.order_by);
+    const manage = typeof canManage === 'function' && canManage();
+    const action = p.suggested_order > 0 && p.supplier_id && manage
+        ? `<button type="button" class="btn-secondary order-btn" data-order="${p.product_id}">Reorder ${formatNumber(p.suggested_order)}</button>`
+        : `<span class="rp-sub">${p.suggested_order > 0 && !p.supplier_id ? 'No supplier set' : p.on_order > 0 ? 'Already on order' : ''}</span>`;
+    return `<div class="order-row" data-id="${p.product_id}" tabindex="0">
+        <span class="order-dot ${urgent ? 'red' : 'amber'}" aria-hidden="true"></span>
+        <div class="order-what"><b>${escHtml(p.name)}</b><span>${escHtml(orderWhy(p))}</span></div>
+        <div class="order-fig"><span>Order</span><b>${p.suggested_order > 0 ? formatNumber(p.suggested_order) + ' pcs' + (orderCost(p) ? ' · ' + formatCurrency(orderCost(p)) : '') : '—'}</b></div>
+        <div class="order-fig"><span>Order by</span><b class="${urgent ? 'is-red' : 'is-amber'}">${escHtml(when)}</b></div>
+        <div class="order-act">${action}</div>
+    </div>`;
+}
 
-/* Turn the reorder list into purchase orders — one per supplier, each emailed
-   to its supplier, with the quantities the forecast suggests. */
-function createPlannedOrders() {
-    const lines = plan.products.filter(p => p.stock_status !== 'ok' && p.suggested_order > 0 && p.supplier_id);
+let orderLaterOpen = false;
+function renderReorder() {
+    const today = ymd(new Date());
+    const weekEnd = addDaysYmd(today, 7);
+    const rows = plan.products.filter(p => p.stock_status !== 'ok')
+        .sort((a, b) => (a.order_by || '0') < (b.order_by || '0') ? -1 : (a.order_by || '0') > (b.order_by || '0') ? 1 : a.name.localeCompare(b.name));
+    const thisWeek = rows.filter(p => p.stock_status === 'out' || !p.order_by || p.order_by <= weekEnd);
+    const later = rows.filter(p => !thisWeek.includes(p));
+    const orderable = thisWeek.filter(p => p.suggested_order > 0 && p.supplier_id);
+    const createBtn = document.getElementById('createOrdersBtn');
+    if (createBtn) {
+        createBtn.hidden = !(orderable.length && typeof canManage === 'function' && canManage());
+        const total = orderable.reduce((a, p) => a + orderCost(p), 0);
+        document.getElementById('createOrdersLabel').textContent = `Order all ${orderable.length}` + (total ? ' · ' + formatCurrency(total) : '');
+    }
+    const soon = thisWeek.filter(p => p.stock_status === 'out' || !p.order_by || p.order_by <= addDaysYmd(today, 1)).length;
+    const suppliers = new Set(orderable.map(p => p.supplier_id)).size;
+    document.getElementById('orderChips').innerHTML = thisWeek.length ? [
+        soon ? `<span class="rp-badge rp-badge-danger">${formatNumber(soon)} to order today or tomorrow</span>` : '',
+        thisWeek.length - soon ? `<span class="rp-badge rp-badge-warning">${formatNumber(thisWeek.length - soon)} later this week</span>` : '',
+        suppliers ? `<span class="rp-badge rp-badge-muted">${suppliers} supplier${suppliers === 1 ? '' : 's'} · ${suppliers} email${suppliers === 1 ? '' : 's'}</span>` : ''
+    ].join('') : '';
+    document.getElementById('orderList').innerHTML = thisWeek.length
+        ? thisWeek.map(p => orderRow(p, today)).join('')
+        : `<p class="order-none"><span class="order-dot green" aria-hidden="true"></span> Nothing to order this week.${later.length ? '' : ' Every product has enough stock for the next three weeks.'}</p>`;
+    const names = later.slice(0, 3).map(p => p.name).join(', ') + (later.length > 3 ? `, and ${later.length - 3} more` : '');
+    document.getElementById('orderLater').innerHTML = !later.length ? '' : `
+        <div class="order-later-head"><span class="order-dot green" aria-hidden="true"></span>
+            <span><b>Later:</b> ${formatNumber(later.length)} more product${later.length === 1 ? '' : 's'} to order in the next weeks (${escHtml(names)}). Nothing to do yet.</span>
+            <button type="button" class="btn-secondary" data-later>${orderLaterOpen ? 'Hide them' : 'Show them'}</button></div>
+        ${orderLaterOpen ? later.map(p => orderRow(p, today)).join('') : ''}`;
+}
+
+function onOrderListClick(e) {
+    const btn = e.target.closest('[data-order]');
+    if (btn) { e.stopPropagation(); createPlannedOrders([Number(btn.dataset.order)]); return; }
+    if (e.target.closest('[data-later]')) { orderLaterOpen = !orderLaterOpen; renderReorder(); return; }
+    const row = e.target.closest('.order-row[data-id]');
+    if (!row) return;
+    row.closest('.rp-card').after(document.getElementById('productDetail'));
+    openProductDetail(Number(row.dataset.id));
+}
+
+/* Purchase orders for this week's list (or for the products given), one per
+   supplier, each emailed to its supplier, with the suggested quantities. */
+function createPlannedOrders(ids) {
+    const today = ymd(new Date()), weekEnd = addDaysYmd(today, 7);
+    const pick = Array.isArray(ids) ? p => ids.includes(p.product_id)
+        : p => p.stock_status === 'out' || !p.order_by || p.order_by <= weekEnd;
+    const lines = plan.products.filter(p => p.stock_status !== 'ok' && p.suggested_order > 0 && p.supplier_id && pick(p));
     if (!lines.length) { showToast('Nothing on the list can be ordered right now', 'warning'); return; }
     const suppliers = new Set(lines.map(p => p.supplier_id)).size;
-    const skipped = plan.products.filter(p => p.stock_status !== 'ok' && p.suggested_order > 0 && !p.supplier_id).length;
-    showConfirmDialog('Create purchase orders',
-        `This creates ${suppliers} purchase order${suppliers === 1 ? '' : 's'} covering ${lines.length} product${lines.length === 1 ? '' : 's'}, `
-        + `with the suggested quantities, and <strong>emails each order to its supplier straight away</strong>.`
-        + (skipped ? ` ${skipped} product${skipped === 1 ? ' has' : 's have'} no supplier set and will be left out.` : ''),
+    const total = lines.reduce((a, p) => a + orderCost(p), 0);
+    const what = lines.length === 1
+        ? `This orders <strong>${formatNumber(lines[0].suggested_order)} of ${escHtml(lines[0].name)}</strong>${total ? ` (${formatCurrency(total)})` : ''} from ${escHtml(lines[0].supplier_name || 'its supplier')}`
+        : `This creates ${suppliers} purchase order${suppliers === 1 ? '' : 's'} covering ${lines.length} products${total ? ` (${formatCurrency(total)})` : ''}`;
+    showConfirmDialog(lines.length === 1 ? 'Reorder ' + escHtml(lines[0].name) : 'Order this week',
+        `${what}, and <strong>emails ${suppliers === 1 ? 'the order to the supplier' : 'each order to its supplier'} straight away</strong>.`,
         async () => {
             try {
                 const res = await fetch(`${API_BASE}/purchase-orders/auto-generate`, {
@@ -316,7 +374,54 @@ function createPlannedOrders() {
                 console.error('Creating orders failed:', error);
                 showToast('The orders could not be created', 'error');
             }
-        }, 'Create and email');
+        }, 'Order and email');
+}
+
+/* ---------- Did it guess right? (forecast mock-up 3) ----------
+   The last test, as the shop sees it: what FETCH expected for the hidden two
+   weeks, what really sold, and the same for the best sellers one by one. */
+function renderGuess() {
+    const card = document.getElementById('guessCard');
+    const test = plan.totals && plan.totals.accuracy_test;
+    const tested = plan.products.filter(p => p.test_sold != null && p.test_expected != null);
+    if (!card) return;
+    if (!test || !(test.actual_units > 0) || !tested.length) { card.hidden = true; return; }
+    card.hidden = false;
+    const exp = test.predicted_units, sold = test.actual_units;
+    const ratio = sold > 0 ? exp / sold : 0;
+    const verdict = ratio > 1.2 ? { word: 'Too high', tone: 'amber', note: ratio >= 1.8 ? `about ${formatDecimal(ratio, 1)}× what sold` : `${Math.round((ratio - 1) * 100)}% more than sold` }
+        : ratio < 0.8 ? { word: 'Too low', tone: 'amber', note: `${Math.round((1 - ratio) * 100)}% less than sold` }
+        : { word: 'Close', tone: 'green', note: 'within a fifth of what sold' };
+    const range = test.from && test.to ? `${planDate(test.from).replace(/, \d{4}$/, '')} – ${planDate(test.to)}` : 'the last two weeks on record';
+    // days with no sales recorded inside the test make the guess look worse than it is
+    const gap = test.from && (plan.excluded && plan.excluded.ranges || []).some(r => r.to >= test.from && r.from <= test.to);
+    document.getElementById('guessTiles').innerHTML = `
+        <div class="guess-tile"><span>It expected</span><b>${formatNumber(exp)} items</b><small>${escHtml(range)}</small></div>
+        <div class="guess-tile"><span>You sold</span><b>${formatNumber(sold)} items</b><small>the same days</small></div>
+        <div class="guess-tile is-${verdict.tone}"><span>So it guessed</span><b>${verdict.word}</b><small>${verdict.note}${gap && ratio > 1.2 ? ', partly because some days had no sales recorded' : ''}</small></div>`;
+    const best = tested.slice().sort((a, b) => b.test_sold - a.test_sold || b.test_expected - a.test_expected).slice(0, 8);
+    const close = p => Math.abs(p.test_expected - p.test_sold) <= Math.max(1, p.test_sold * 0.25);
+    const rows = best.map(p => {
+        const e = Math.round(p.test_expected);
+        const how = close(p) ? ['Right on', 'ok', '✓ close'] : p.test_expected > p.test_sold ? ['Sold less than expected', 'warning', '↑ guessed high'] : ['Sold more than expected', 'warning', '↓ guessed low'];
+        return `<tr data-id="${p.product_id}"><td class="rp-strong">${escHtml(p.name)}</td><td class="num">${formatNumber(e)}</td><td class="num rp-strong">${formatNumber(p.test_sold)}</td>
+            <td>${how[0]} <span class="rp-badge rp-badge-${how[1]}">${how[2]}</span></td></tr>`;
+    }).join('');
+    document.getElementById('guessBody').innerHTML = rows;
+    const good = best.filter(close).length;
+    // the usual reason the total and the best sellers disagree: small expected
+    // sales spread over many products that then sold nothing
+    const idle = tested.filter(p => p.test_sold === 0 && p.test_expected >= 0.5);
+    const idleUnits = Math.round(idle.reduce((a, p) => a + p.test_expected, 0));
+    const lowBest = best.filter(p => !close(p) && p.test_expected < p.test_sold).length;
+    const why = ratio > 1.2 && lowBest >= best.length / 2 && idle.length
+        ? `<b>Why:</b> it expected about ${formatNumber(idleUnits)} sales from ${formatNumber(idle.length)} slow products that sold nothing in those days, and too few of your best sellers. `
+        : '';
+    const advice = lowBest >= best.length / 2
+        ? '<b>So:</b> for your best sellers, expect more than it says and check their shelf yourself; for slow products, expect less.'
+        : '<b>So:</b> trust it most for products marked <b>Sure</b> in the list below; treat slow sellers as a rough guess and check the shelf yourself.';
+    document.getElementById('guessMeans').innerHTML = why + advice;
+    document.getElementById('guessFoot').innerHTML = `<span class="rp-badge rp-badge-${good >= best.length / 2 ? 'ok' : 'warning'}">Close for ${good} of your ${best.length} best sellers</span> <span class="rp-sub" style="display:inline">It gets better as more sales are recorded at the till.</span>`;
 }
 
 /* ---------- Too much stock, and stock that will expire ---------- */
@@ -528,21 +633,45 @@ function renderAllProducts() {
 
     const tbody = document.getElementById('predictionsTableBody');
     if (!rows.length) {
-        setRow('predictionsTableBody', 7, planSearch ? 'No products match that search.' : 'No products in this group.');
+        setRow('predictionsTableBody', 6, planSearch ? 'No products match that search.' : 'No products in this group.');
         document.getElementById('predictionsPagination').innerHTML = '';
         return;
     }
-    tbody.innerHTML = rows.slice(0, predDisplayCount).map(p => `
+    tbody.innerHTML = rows.slice(0, predDisplayCount).map(p => {
+        const d = doThis(p), sure = HOW_SURE[p.how_sure] || HOW_SURE.rough;
+        return `
         <tr data-id="${p.product_id}" tabindex="0">
-            <td><span class="rp-strong">${escHtml(p.name)}</span>${p.sku ? `<span class="rp-sub">${escHtml(p.sku)}</span>` : ''}</td>
+            <td><span class="order-dot ${d.dot}" aria-hidden="true"></span><span class="rp-strong">${escHtml(p.name)}</span>${p.sku ? `<span class="rp-sub">${escHtml(p.sku)}</span>` : ''}</td>
             <td class="num">${formatQty(p.stock)}</td>
-            <td class="num">${p.sold_30d > 0 ? formatQty(p.sold_30d) : '—'}</td>
-            <td class="num">${p.expected_30d >= 0.5 ? formatNumber(Math.round(p.expected_30d)) : '—'}</td>
-            <td>${escHtml(lastsText(p))}</td>
-            <td>${p.expected_30d >= 0.5 ? TREND_LABEL[p.trend] || 'Steady' : '—'}</td>
-            <td>${badge(p.stock_status)}</td>
-        </tr>`).join('');
+            <td class="rp-strong">${escHtml(lastsText(p))}</td>
+            <td>${nextMonthText(p)}</td>
+            <td><span class="rp-badge rp-badge-${sure.tone}">${sure.text}</span></td>
+            <td><span class="rp-badge rp-badge-${d.tone}">${escHtml(d.text)}</span></td>
+        </tr>`;
+    }).join('');
     updatePagination('predictionsPagination', rows, predDisplayCount, 'showMorePredictions', 'showLessPredictions', PRED_PAGE_SIZE);
+}
+
+/* Every product in plain words (forecast mock-up 2): how sure, and what to do. */
+const HOW_SURE = {
+    sure: { text: 'Sure', tone: 'ok' },
+    rough: { text: 'Rough guess', tone: 'plain' },
+    new: { text: 'Too new to tell', tone: 'plain' }
+};
+function nextMonthText(p) {
+    if (!(p.expected_high > 0)) return '<span class="rp-sub" style="display:inline">none expected</span>';
+    return p.expected_low === p.expected_high ? `about ${formatNumber(p.expected_low)}` : `about ${formatNumber(p.expected_low)}–${formatNumber(p.expected_high)}`;
+}
+function doThis(p) {
+    const today = ymd(new Date());
+    if (p.stock_status === 'out') return { text: 'Out of stock: order now', tone: 'danger', dot: 'red' };
+    if (p.stock_status === 'reorder_now') return { text: !p.order_by || p.order_by <= today ? 'Order today' : 'Order by ' + planDate(p.order_by).replace(/, \d{4}$/, ''), tone: 'danger', dot: 'red' };
+    if (p.stock_status === 'reorder_soon') return { text: 'Order by ' + planDate(p.order_by).replace(/, \d{4}$/, ''), tone: 'warning', dot: 'amber' };
+    if (p.expired_units > 0) return { text: 'Expired: sell or remove', tone: 'danger', dot: 'red' };
+    if (p.expiry_risk_units > 0) return { text: 'Sell it first: may expire', tone: 'warning', dot: 'amber' };
+    if (p.excess_reason === 'not_selling') return { text: 'Not selling: stop ordering', tone: 'warning', dot: 'grey' };
+    if (p.excess_units > 0) return { text: 'Too much: stop ordering', tone: 'warning', dot: 'amber' };
+    return { text: 'Enough', tone: 'ok', dot: 'green' };
 }
 
 /* The line under "All products": what the chosen group is, with its figures. */
@@ -587,7 +716,8 @@ async function openProductDetail(productId) {
     const card = document.getElementById('productDetail');
     card.hidden = false;
     document.getElementById('detailTitle').textContent = p.name;
-    document.getElementById('detailSub').textContent = p.sku ? `SKU ${p.sku}` : '';
+    const sure = { sure: 'Sure: it sells steadily', rough: 'Rough guess: it sells now and then', new: 'Too new to tell: little on record' }[p.how_sure] || '';
+    document.getElementById('detailSub').textContent = [p.sku ? `SKU ${p.sku}` : '', sure].filter(Boolean).join(' · ');
     document.getElementById('detailSummary').textContent = 'Loading forecast…';
     if (forecastChart) { forecastChart.destroy(); forecastChart = null; }
     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -617,16 +747,23 @@ async function openProductDetail(productId) {
 
 /* The days the forecast does not read, and why, for the line under the title. */
 function detailSentence(p) {
-    const parts = [`${formatQty(p.stock)} in stock.`];
-    parts.push(p.expected_30d >= 0.5
-        ? `Expected to sell about ${formatNumber(Math.round(p.expected_30d))} in the next 30 days (around ${formatDecimal(p.per_week, 1)} a week).`
-        : 'Little or nothing is expected to sell in the next 30 days.');
-    if (p.stock > 0 && p.days_left != null) parts.push(`At that rate the stock lasts ${lastsText(p).toLowerCase()}.`);
+    // in plain words first: how fast it sells, how long the shelf lasts, what to do
+    const week = p.per_week;
+    const perWeek = week >= 1.5 ? `about ${formatNumber(Math.round(week))} a week` : week >= 0.5 ? 'about 1 a week' : week > 0 ? 'less than 1 a week' : null;
+    const trend = p.trend === 'up' ? ', and more lately' : p.trend === 'down' ? ', and fewer lately' : '';
+    // what really sold first, then what FETCH expects: when they differ, both are said
+    const sold = p.sold_30d > 0 ? `Sold ${formatQty(p.sold_30d)} in the last 30 days.` : 'Nothing sold in the last 30 days.';
+    const next = p.expected_high > 0
+        ? ` FETCH expects ${p.expected_low === p.expected_high ? 'about ' + formatNumber(p.expected_low) : 'about ' + formatNumber(p.expected_low) + '–' + formatNumber(p.expected_high)} in the next 30 days (${perWeek || 'less than 1 a week'}${trend}).`
+        : ' FETCH expects little or none next month.';
+    const parts = [sold + next];
+    if (p.stock > 0 && p.days_left != null) parts.push(`At that rate the ${formatQty(p.stock)} on the shelf last ${lastsText(p).toLowerCase()}.`);
+    else parts.push(`${formatQty(p.stock)} on the shelf.`);
     if (p.stock_status !== 'ok') {
         parts.push(p.suggested_order > 0
-            ? `${STOCK_LABEL[p.stock_status].text}: order ${formatNumber(p.suggested_order)}${p.order_by ? ' by ' + planDate(p.order_by) : ''}.`
-            : `${STOCK_LABEL[p.stock_status].text}, and ${formatQty(p.on_order)} already on order.`);
-    }
+            ? `Order about ${formatNumber(p.suggested_order)}${p.order_by ? ' by ' + planDate(p.order_by) : ' today'} so it does not run out.`
+            : `${formatQty(p.on_order)} already on order, which covers it.`);
+    } else parts.push(doThis(p).text === 'Enough' ? 'Nothing to do.' : doThis(p).text + '.');
     if (p.recommended_reorder_point != null) {
         parts.push(`Recommended reorder point: ${formatNumber(p.recommended_reorder_point)}, which includes a safety stock of ${formatNumber(p.safety_stock)}`
             + (p.recommended_reorder_point !== p.reorder_level ? ` (it is currently set to ${formatQty(p.reorder_level)}).` : ' (matches the current setting).'));
@@ -648,42 +785,43 @@ function closeProductDetail() {
     if (forecastChart) { forecastChart.destroy(); forecastChart = null; }
 }
 
+/* Weeks, not days: the last eight weeks sold as solid bars, the next four
+   expected as light bars (forecast mock-up 2). A shopkeeper reads "about 2 a
+   week" off this at a glance, where daily lines were mostly zeros. */
 function renderForecastChart(data) {
     const canvas = document.getElementById('demandForecastChart');
     if (!canvas || typeof Chart === 'undefined') return;
     if (forecastChart) forecastChart.destroy();
 
-    const history = (data.historical_data || []).slice(-60);
-    const predicted = data.predictions || [];
-    const labels = [], actual = [], forecast = [], lower = [], upper = [];
     const short = s => { const d = planDate(s); return d ? d.replace(/, \d{4}$/, '') : ''; };
-
-    history.forEach(h => { labels.push(short(h.date)); actual.push(Number(h.quantity) || 0); forecast.push(null); lower.push(null); upper.push(null); });
-    predicted.forEach(pt => {
-        labels.push(short(pt.date));
-        actual.push(null);
-        forecast.push(Number(pt.predicted_quantity) || 0);
-        lower.push(pt.lower_bound != null ? Number(pt.lower_bound) : null);
-        upper.push(pt.upper_bound != null ? Number(pt.upper_bound) : null);
-    });
-
+    const history = data.historical_data || [];
+    const predicted = data.predictions || [];
+    const weeks = (list, field, count, fromEnd) => {
+        const out = [];
+        const take = fromEnd ? list.slice(-count * 7) : list.slice(0, count * 7);
+        for (let i = 0; i < take.length; i += 7) {
+            const chunk = take.slice(i, i + 7);
+            out.push({ label: short(chunk[0].date), qty: chunk.reduce((a, x) => a + (Number(x[field]) || 0), 0) });
+        }
+        return out;
+    };
+    const past = weeks(history, 'quantity', 8, true);
+    const next = weeks(predicted, 'predicted_quantity', 4, false);
+    const labels = past.map(w => w.label).concat(next.map(w => w.label));
     const t = chartTheme();
     const options = baseChartOptions(t);
-    options.interaction = { mode: 'index', intersect: false };
     options.plugins.tooltip = {
-        filter: item => item.dataset.label !== 'range' && item.raw != null,
+        filter: item => item.raw != null,
         callbacks: { label: item => `${item.dataset.label}: ${formatDecimal(item.raw, 1)}` }
     };
-    options.scales.x.ticks.maxTicksLimit = 10;
+    options.scales.x.stacked = true;
     forecastChart = new Chart(canvas.getContext('2d'), {
-        type: 'line',
+        type: 'bar',
         data: {
             labels,
             datasets: [
-                { label: 'range', data: upper, borderWidth: 0, pointRadius: 0, fill: false, tension: 0.25 },
-                { label: 'range', data: lower, borderWidth: 0, pointRadius: 0, fill: '-1', backgroundColor: t.barSoft + '55', tension: 0.25 },
-                { label: 'Sold', data: actual, borderColor: t.bar, borderWidth: 1.75, pointRadius: 0, tension: 0.2 },
-                { label: 'Forecast', data: forecast, borderColor: t.bar, borderWidth: 1.75, borderDash: [5, 4], pointRadius: 0, tension: 0.25 }
+                { label: 'Sold that week', data: past.map(w => w.qty).concat(next.map(() => null)), backgroundColor: t.bar, borderRadius: 5, maxBarThickness: 46 },
+                { label: 'Expected that week', data: past.map(() => null).concat(next.map(w => Math.round(w.qty * 10) / 10)), backgroundColor: t.barSoft + 'AA', borderColor: t.bar, borderWidth: 1.5, borderRadius: 5, maxBarThickness: 46 }
             ]
         },
         options

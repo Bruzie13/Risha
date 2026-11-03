@@ -674,6 +674,9 @@ async function computeAllPredictions() {
                 trend_momentum: `${fc.momentum}%`,
                 confidence_score: fc.confidence,
                 backtest_accuracy: accuracy,
+                // what it expected and what sold in the hidden fortnight (Did it guess right?)
+                test_expected: bt ? Math.round(bt.predTotal * 10) / 10 : null,
+                test_sold: bt ? bt.actualTotal : null,
                 sigma: Math.round(fc.sigma * 1000) / 1000,
                 days_of_history: fc.historyDays,
                 basis: fc.basis
@@ -681,6 +684,9 @@ async function computeAllPredictions() {
         });
 
         result.sort((a, b) => b.next_month_prediction - a.next_month_prediction);
+        // the fortnight the test hid, as dates (every product's series ends on the same day)
+        const anySplit = Object.values(allSeries).map(backtestSplit).find(Boolean);
+        const testWindow = anySplit ? { from: anySplit.test[0].date, to: anySplit.test[anySplit.test.length - 1].date } : null;
         const payload = {
             success: true,
             data: {
@@ -695,7 +701,7 @@ async function computeAllPredictions() {
                 overall_accuracy: holdActual >= MIN_TEST_UNITS ? accuracyOf(holdPred, holdActual) : null,
                 backtested_products: backtested,
                 // what the accuracy figure is worked out from (UAT part 4, A15)
-                accuracy_test: { predicted_units: Math.round(holdPred), actual_units: Math.round(holdActual), min_units: MIN_TEST_UNITS },
+                accuracy_test: { predicted_units: Math.round(holdPred), actual_units: Math.round(holdActual), min_units: MIN_TEST_UNITS, ...(testWindow || {}) },
                 // days left out of every product's history, and why
                 excluded: { days: noData.days.size, ranges: noData.ranges },
                 model: {
@@ -794,6 +800,8 @@ const daysBetween = (from, to) => Math.round((Date.parse(to + 'T00:00:00Z') - Da
 function planStock(products, forecasts, sold30, extra = {}) {
     const byId = new Map(forecasts.map(f => [Number(f.product_id), f]));
     const onOrder = extra.onOrder || new Map();
+    // each supplier's own average delivery time where the shop has a record of it
+    const leadTimes = extra.leadTimes || new Map();
     const today = extra.today || new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 
     const rows = products.map(p => {
@@ -807,30 +815,37 @@ function planStock(products, forecasts, sold30, extra = {}) {
         const daysLeft = daily > 0 ? Math.floor(stock / daily) : null;
         const sold = Number(sold30.get(id)) || 0;
         const coming = Number(onOrder.get(id)) || 0;
+        const lead = Number(leadTimes.get(Number(p.supplier_id))) || LEAD_TIME_DAYS;
 
         let stockStatus = 'ok';
         if (stock <= 0) stockStatus = 'out';
-        else if (stock <= reorderLevel || (daysLeft !== null && daysLeft <= LEAD_TIME_DAYS)) stockStatus = 'reorder_now';
+        else if (stock <= reorderLevel || (daysLeft !== null && daysLeft <= lead)) stockStatus = 'reorder_now';
         else if (daysLeft !== null && daysLeft <= REORDER_SOON_DAYS) stockStatus = 'reorder_soon';
-
-        // Enough for the coming month plus the wait for delivery, and never
-        // less than what brings the shelf back to twice its reorder level —
-        // minus anything a supplier is already bringing.
-        const need = stockStatus === 'ok' ? 0
-            : Math.max(0, Math.ceil(Math.max(expected + daily * LEAD_TIME_DAYS - stock, reorderLevel * 2 - stock)));
-        const suggested = Math.max(0, need - coming);
 
         // Safety stock at about a 95% service level: z × daily spread × √(lead time).
         const sigma = f ? Number(f.sigma) || 0 : 0;
-        const safety = daily > 0 ? Math.ceil(1.65 * sigma * Math.sqrt(LEAD_TIME_DAYS)) : 0;
-        const reorderPoint = daily > 0 ? Math.ceil(daily * LEAD_TIME_DAYS) + safety : null;
+        const safety = daily > 0 ? Math.ceil(1.65 * sigma * Math.sqrt(lead)) : 0;
+        const reorderPoint = daily > 0 ? Math.ceil(daily * lead) + safety : null;
+
+        // Enough for the coming month plus the wait for this supplier's
+        // delivery plus the safety buffer, and never less than what brings the
+        // shelf back to twice its reorder level — minus anything a supplier is
+        // already bringing.
+        const need = stockStatus === 'ok' ? 0
+            : Math.max(0, Math.ceil(Math.max(expected + daily * lead + safety - stock, reorderLevel * 2 - stock)));
+        const suggested = Math.max(0, need - coming);
+
+        // Next month as a range rather than one exact figure: about one
+        // spread either side (the daily spread grown to 30 days).
+        const spread = sigma * Math.sqrt(FORECAST_DAYS);
+        const low = Math.max(0, Math.floor(expected - spread)), high = Math.max(low, Math.ceil(expected + spread));
 
         const runOut = daysLeft !== null && stock > 0 ? addDays(today, daysLeft) : null;
         // At or below the reorder level the trigger has already been reached,
         // so the answer is today however slowly the product sells. Above it,
         // it is the last day an order still arrives before the shelf empties.
         const orderBy = stock <= reorderLevel ? today
-            : runOut ? addDays(today, Math.max(0, daysLeft - LEAD_TIME_DAYS)) : null;
+            : runOut ? addDays(today, Math.max(0, daysLeft - lead)) : null;
 
         // Overstock: what is left after three months of expected sales. A
         // product with stock and no sales at all is all excess.
@@ -861,11 +876,15 @@ function planStock(products, forecasts, sold30, extra = {}) {
             supplier_id: p.supplier_id ? Number(p.supplier_id) : null,
             supplier_name: p.supplier_name || null,
             unit_price: Number(p.unit_price) || 0,
+            cost_price: cost,
             stock,
             reorder_level: reorderLevel,
             on_order: coming,
             sold_30d: sold,
             expected_30d: Math.round(expected * 10) / 10,
+            expected_low: low,
+            expected_high: high,
+            lead_time_days: lead,
             per_week: Math.round(daily * 7 * 10) / 10,
             days_left: daysLeft,
             runs_out_on: runOut,
@@ -887,7 +906,9 @@ function planStock(products, forecasts, sold30, extra = {}) {
             confidence: f ? confidenceWord(f.confidence_score) : null,
             // 'new' while it has under two weeks on record, 'trend' under six, then 'model'
             basis: f ? f.basis || null : null,
-            days_on_record: f ? Number(f.days_of_history) || 0 : 0
+            days_on_record: f ? Number(f.days_of_history) || 0 : 0,
+            test_expected: f && f.test_expected != null ? Number(f.test_expected) : null,
+            test_sold: f && f.test_sold != null ? Number(f.test_sold) : null
         };
     });
 
@@ -901,6 +922,11 @@ function planStock(products, forecasts, sold30, extra = {}) {
         else if (selling.length >= 4 && r.expected_30d >= fastFrom) r.demand = 'fast';
         else if (selling.length >= 4 && r.expected_30d <= slowUpTo) r.demand = 'slow';
         else r.demand = 'steady';
+        // how far to trust it, in one word: too new with under four weeks on
+        // record; sure when it sells steadily and the forecast is not shaky;
+        // otherwise a rough guess (slow sellers mostly land here)
+        r.how_sure = r.basis === 'new' || r.days_on_record < 28 ? 'new'
+            : (r.confidence !== 'low' && (r.demand === 'fast' || r.demand === 'steady') && r.sold_30d >= 4) ? 'sure' : 'rough';
     });
 
     const urgency = { out: 0, reorder_now: 1, reorder_soon: 2, ok: 3 };
@@ -974,10 +1000,19 @@ router.get('/overview', authenticateToken, async (req, res) => {
                             DATE(CONVERT_TZ(MAX(created_at),'+00:00','+08:00'))) AS days_since
             FROM sales WHERE payment_status = 'completed'`);
 
+        // each supplier's average days from order to delivery over the last
+        // year (at least two deliveries), for when to order and how much
+        const [leadRows] = await pool.query(`
+            SELECT supplier_id, AVG(DATEDIFF(received_at, created_at)) AS days, COUNT(*) AS n
+            FROM purchase_orders
+            WHERE status = 'received' AND received_at IS NOT NULL AND received_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            GROUP BY supplier_id HAVING n >= 2`);
+        const leadTimes = new Map(leadRows.map(r => [Number(r.supplier_id), Math.min(30, Math.max(1, Math.ceil(Number(r.days) || 0)))]));
+
         const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
         const sold30 = new Map(soldRows.map(r => [Number(r.product_id), Number(r.qty)]));
         const onOrder = new Map(orderRows.map(r => [Number(r.product_id), Number(r.qty)]));
-        const rows = planStock(products, all.data.predictions, sold30, { onOrder, today });
+        const rows = planStock(products, all.data.predictions, sold30, { onOrder, today, leadTimes });
         const needOrder = rows.filter(r => r.stock_status !== 'ok');
         const sum = (list, field) => Math.round(list.reduce((a, r) => a + (Number(r[field]) || 0), 0) * 100) / 100;
         // How much history the model actually had, in days, capped at the window.

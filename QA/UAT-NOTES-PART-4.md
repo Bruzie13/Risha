@@ -100,3 +100,9 @@ Until then the Supplier portal, Suppliers → Orders and Suppliers list read a c
 - ✓ **A7b** The supplier's Performance window still had a Receipt on every order: now only on paid orders, and it opens the payment receipt.
 - ✓ **AI1** Ask FETCH (written by the earlier session) tested: sales questions answered from the real figures (last 7 days ₱2,140.00, 2 sales, matches the database); "add a product" gives a card with Confirm / Cancel and saves nothing until Confirm. Fixed: the card made up a brand and pet that were not said, and it could say "check the card" when no card was made.
 - ✓ **Plans** The three test plans have all of part 4 (30 changes + the Ask FETCH steps); PDFs rebuilt.
+
+## Forecast upgrade (3 Nov, from the three mock-ups Carlo approved: "Build all three")
+- ✓ **F1** Order this week (To reorder tab): one line per product with why, how many and the cost, the order-by date and Reorder; red today/tomorrow, amber this week, later weeks under "Later"; Order all orders this week's list. The order-by date and amount use each supplier's own average delivery time (Roger Enteria 4 days; 7 when there is no record) and include the safety buffer.
+- ✓ **F2** Every product in plain words: Lasts / Next month (a range) / How sure (Sure, Rough guess, Too new to tell) / Do this. The product detail starts with what really sold and what FETCH expects, and the chart is weekly bars (8 weeks sold, 4 expected).
+- ✓ **F3** Did it guess right?: the last test (expected 164, sold 85: too high), the best sellers one by one, and why ("it expected about 106 sales from 82 slow products that sold nothing … and too few of your best sellers").
+- Finding: today no product is "Sure" (sales are irregular, so the model's own confidence is low for all), and the best sellers are under-forecast while slow sellers are over-forecast. A next step would be a simpler forecast for slow sellers.

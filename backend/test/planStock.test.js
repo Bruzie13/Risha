@@ -151,3 +151,53 @@ test('expiry: already expired stock is reported as expired, not as a forecast', 
     const far = plan([product(1, 500, 5, { expires_on: '2027-10-01' })], [forecast(1, 30)]);
     assert.equal(far[1].expiry_risk_units, 0, 'a date a year away is not worth a warning yet');
 });
+
+test("planStock: a supplier's own delivery time sets when to order", () => {
+    // 2 a day, 30 in stock: lasts 15 days. A 7-day supplier: order in 8 days; a 3-day one: in 12
+    const products = [product(1, 30, 5, { supplier_id: 9 }), product(2, 30, 5, { supplier_id: 4 })];
+    const r = byId(planStock(products, [forecast(1, 60), forecast(2, 60)], new Map(),
+        { today: '2026-11-03', leadTimes: new Map([[4, 3]]) }));
+    assert.equal(r[1].lead_time_days, 7, 'no record of supplier 9: the usual 7 days');
+    assert.equal(r[1].order_by, '2026-11-11');
+    assert.equal(r[2].lead_time_days, 3);
+    assert.equal(r[2].order_by, '2026-11-15');
+});
+
+test('planStock: the suggested amount includes the safety buffer', () => {
+    // 2 a day with a daily spread of 1: buffer = ceil(1.65 × 1 × √7) = 5
+    const r = byId(planStock([product(1, 12, 5)], [forecast(1, 60, { sigma: 1 })], new Map()));
+    assert.equal(r[1].safety_stock, 5);
+    assert.equal(r[1].suggested_order, 67, '30 days + 7 days of wait + 5 buffer - 12 on hand');
+});
+
+test('planStock: next month is a range around the forecast', () => {
+    // 30 expected, daily spread 1 → about ±5.5 over 30 days
+    const r = byId(planStock([product(1, 100, 5)], [forecast(1, 30, { sigma: 1 })], new Map()));
+    assert.equal(r[1].expected_low, 24);
+    assert.equal(r[1].expected_high, 36);
+    const none = byId(planStock([product(2, 5, 1)], [forecast(2, 0)], new Map()));
+    assert.equal(none[2].expected_low, 0);
+    assert.equal(none[2].expected_high, 0);
+});
+
+test('planStock: how sure — new, sure for steady sellers, rough guess otherwise', () => {
+    const products = [1, 2, 3, 4, 5].map(id => product(id, 50, 5));
+    const fc = [
+        forecast(1, 40, { basis: 'model', days_of_history: 200 }),
+        forecast(2, 30, { basis: 'model', days_of_history: 200 }),
+        forecast(3, 20, { basis: 'model', days_of_history: 200 }),
+        forecast(4, 1, { basis: 'model', days_of_history: 200 }),
+        forecast(5, 20, { basis: 'new', days_of_history: 10 })
+    ];
+    const sold = new Map([[1, 40], [2, 30], [3, 20], [4, 1], [5, 3]]);
+    const r = byId(planStock(products, fc, sold));
+    assert.equal(r[2].how_sure, 'sure', 'sells steadily, enough sales');
+    assert.equal(r[4].how_sure, 'rough', 'sells now and then');
+    assert.equal(r[5].how_sure, 'new', 'too little on record');
+});
+
+test("planStock: each product's own test result is passed on", () => {
+    const r = byId(planStock([product(1, 50, 5)], [forecast(1, 30, { test_expected: 6.4, test_sold: 15 })], new Map()));
+    assert.equal(r[1].test_expected, 6.4);
+    assert.equal(r[1].test_sold, 15);
+});
