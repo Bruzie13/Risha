@@ -60,6 +60,7 @@ const API_ALLOW = {
         ['PUT', /^\/api\/supplier-portal\/me\/status$/],
         ['POST', /^\/api\/supplier-portal\/products\/\d+\/price$/],
         ['POST', /^\/api\/supplier-portal\/products\/\d+\/price\/cancel$/],
+        ['GET', /^\/api\/supplier-portal\/products\/\d+\/history$/],
         ['POST', /^\/api\/supplier-portal\/orders\/\d+\/(confirm|ship)$/],
         ['PUT', /^\/api\/supplier-portal\/orders\/\d+\/promise$/],
         ['GET', /^\/api\/supplier-portal\/orders\/\d+\/(messages|receipt|order-receipt)$/],

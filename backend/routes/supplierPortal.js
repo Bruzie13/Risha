@@ -176,6 +176,34 @@ router.post('/products/:id/price', async (req, res) => {
     } catch (e) { fail(res, 'propose price', e); }
 });
 
+// One product's history with the shop (Carlo, 5 Nov): every price change
+// proposed for it (with the reason given and the shop's answer) and the
+// orders it was on. Only this supplier's own product, and only its own
+// proposals and orders.
+router.get('/products/:id/history', async (req, res) => {
+    try {
+        const productId = Number(req.params.id);
+        if (!Number.isInteger(productId) || productId <= 0) return bad(res, 'Product not found', 404);
+        const [own] = await pool.query('SELECT id, name, cost_price FROM products WHERE id = ? AND supplier_id = ?', [productId, req.supplier.id]);
+        if (!own.length) return bad(res, 'Product not found', 404);
+        const [proposals] = await pool.query(
+            `SELECT pp.status, pp.current_price, pp.proposed_price, pp.note, pp.decline_reason,
+                    UNIX_TIMESTAMP(pp.created_at) * 1000 AS sent_at, UNIX_TIMESTAMP(pp.decided_at) * 1000 AS decided_at,
+                    u.full_name AS decided_by
+             FROM price_proposals pp LEFT JOIN users u ON u.id = pp.decided_by
+             WHERE pp.product_id = ? AND pp.supplier_id = ?
+             ORDER BY pp.created_at DESC, pp.id DESC LIMIT 30`, [productId, req.supplier.id]);
+        const [orders] = await pool.query(
+            `SELECT po.id, po.po_number, po.status, po.proposed_by_supplier, pi.quantity, pi.confirmed_quantity, pi.unit_price,
+                    DATE_FORMAT(po.order_date, '%Y-%m-%d') AS order_date, ${DAY('po.received_at')} AS received_day
+             FROM po_items pi JOIN purchase_orders po ON po.id = pi.po_id
+             WHERE pi.product_id = ? AND po.supplier_id = ?
+             ORDER BY po.created_at DESC, po.id DESC LIMIT 30`, [productId, req.supplier.id]);
+        orders.forEach(o => { o.proposed_by_supplier = !!o.proposed_by_supplier; });
+        res.json({ success: true, data: { product: own[0].name, price_now: own[0].cost_price, proposals, orders } });
+    } catch (e) { fail(res, 'product history', e); }
+});
+
 // Take back a price change the shop has not decided yet (UAT part 4, SP8).
 router.post('/products/:id/price/cancel', async (req, res) => {
     try {

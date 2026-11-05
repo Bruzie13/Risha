@@ -57,6 +57,7 @@ test('supplier: only its own portal and its own profile', () => {
     assert.ok(apiAllowed('supplier', 'POST', '/api/supplier-portal/new-products'), 'offer a new product');
     assert.ok(apiAllowed('supplier', 'POST', '/api/supplier-portal/new-products/3/cancel'), 'cancel a new-product offer');
     assert.ok(apiAllowed('supplier', 'PUT', '/api/supplier-portal/me/status'), 'set its own status');
+    assert.ok(apiAllowed('supplier', 'GET', '/api/supplier-portal/products/7/history'), 'one product\'s price and order history');
     assert.ok(!apiAllowed('supplier', 'GET', '/api/purchase-orders/new-products'), "not the shop's list of offers");
     assert.ok(!apiAllowed('supplier', 'POST', '/api/purchase-orders/new-products/3/added'), 'not marking its own offer added');
     assert.ok(!apiAllowed('supplier', 'GET', '/api/purchase-orders/7/receipt'), "but not through the shop's own route");

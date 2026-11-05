@@ -36,6 +36,8 @@ window.addEventListener('load', () => {
         if (btn) openPrice(Number(btn.dataset.price));
         const cancel = e.target.closest('button[data-cancel-price]');
         if (cancel) cancelPrice(Number(cancel.dataset.cancelPrice));
+        const hist = e.target.closest('button[data-history]');
+        if (hist) showProductHistory(Number(hist.dataset.history));
         const why = e.target.closest('button[data-declined]');
         if (why) showDeclined(Number(why.dataset.declined));
     });
@@ -229,12 +231,12 @@ function renderProducts() {
             <td>${status(p)}</td>
             <td class="num">${p.expected_30d == null ? '<span class="rp-sub">Being calculated</span>' : (p.expected_30d >= 0.5 ? formatNumber(Math.round(p.expected_30d)) : '—')}</td>
             <td class="num">${p.cost_price != null ? formatCurrency(p.cost_price) : '—'}${p.pending_price != null
-                ? `<span class="rp-sub">${formatCurrency(p.pending_price)} proposed, waiting</span>`
+                ? `<button type="button" class="price-pending-btn" data-history="${Number(p.id)}" title="See your reason and this product's history">${formatCurrency(p.pending_price)} proposed, waiting <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></button>`
                 : p.declined_price != null
                     ? `<button type="button" class="price-declined-btn" data-declined="${Number(p.id)}" title="See why and when">${formatCurrency(p.declined_price)} declined${p.decline_reason ? ': ' + escHtml(p.decline_reason) : ''} <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></button>` : ''}</td>
             <td class="num"><div class="sp-cell-actions">${p.pending_price != null
                 ? `<button class="btn-secondary sp-btn-cancel" data-cancel-price="${Number(p.id)}">Cancel proposal</button>`
-                : `<button class="btn-view" data-price="${Number(p.id)}">Change price</button>`}</div></td>
+                : `<button class="btn-view" data-price="${Number(p.id)}">Change price</button>`}<button class="btn-view" data-history="${Number(p.id)}" title="Price changes and orders of this product">History</button></div></td>
         </tr>`).join('');
     updatePagination('productsPagination', ordered, productsShown, 'showMoreProducts', 'showLessProducts', PRODUCTS_PAGE);
 }
@@ -253,21 +255,59 @@ function cancelPrice(productId) {
     if (keep) keep.textContent = 'Keep it';
 }
 
-// A declined price, opened: what was asked, why the shop said no, who and when (SP9).
-function showDeclined(productId) {
+/* One product, opened (SP9; Carlo, 5 Nov): what is waiting or was last
+   declined, with the reasons, then every price change for it and the orders
+   it was on. The red declined line and the "proposed, waiting" line open it,
+   and so does History on every product. */
+function showDeclined(productId) { showProductHistory(productId); }
+
+async function showProductHistory(productId) {
     const p = portal.products.find(x => Number(x.id) === productId);
-    if (!p || p.declined_price == null) return;
+    if (!p) return;
+    let h;
+    try { h = await portalGet(`/products/${productId}/history`); }
+    catch (e) { showToast(couldNot('open the history', e), 'error'); return; }
     const when = ms => ms ? new Date(Number(ms)).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
-    showDetailsDialog('Price change declined', p.name, [
-        ['You proposed', formatCurrency(p.declined_price)],
-        ['Price then', p.declined_was != null ? formatCurrency(p.declined_was) : 'Not set'],
-        ['Price now', p.cost_price != null ? formatCurrency(p.cost_price) : 'Not set'],
-        ['Your reason', p.declined_note || 'None given'],
-        ['Sent', when(p.declined_proposed_at)],
-        ['Declined', when(p.declined_at)],
-        ['Declined by', p.declined_by || 'Risha Pet Supplies'],
-        ['Shop\'s reason', p.decline_reason || 'None given', 'danger']
-    ], { tone: 'danger', icon: 'block', actions: [{ label: 'Propose another price', onClick: () => openPrice(productId) }] });
+    const day = ms => ms ? new Date(Number(ms)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    const money = v => v != null ? formatCurrency(v) : 'Not set';
+    // what is going on now
+    let title = p.name, tone = 'primary', icon = 'history', rows = [['Your price now', money(p.cost_price)]];
+    if (p.pending_price != null) {
+        title = 'Price change waiting';
+        rows = [['You proposed', formatCurrency(p.pending_price)], ['Price now', money(p.cost_price)],
+            ['Your reason', p.pending_note || 'None given'], ['Sent', when(p.pending_at)], ['Status', 'Waiting for the shop', 'warning']];
+    } else if (p.declined_price != null) {
+        title = 'Price change declined'; tone = 'danger'; icon = 'block';
+        rows = [['You proposed', formatCurrency(p.declined_price)], ['Price then', money(p.declined_was)], ['Price now', money(p.cost_price)],
+            ['Your reason', p.declined_note || 'None given'], ['Sent', when(p.declined_proposed_at)], ['Declined', when(p.declined_at)],
+            ['Declined by', p.declined_by || 'Risha Pet Supplies'], ['Shop\'s reason', p.decline_reason || 'None given', 'danger']];
+    }
+    const STATE = { pending: ['Waiting', 'warning'], approved: ['Accepted', 'ok'], rejected: ['Declined', 'danger'], cancelled: ['Cancelled by you', 'muted'] };
+    const prices = (h.proposals || []).map(x => {
+        const st = STATE[x.status] || [x.status, 'muted'];
+        const why = [x.note ? 'You: ' + x.note : '', x.status === 'rejected' && x.decline_reason ? 'Shop: ' + x.decline_reason : ''].filter(Boolean).join(' · ');
+        return `<tr><td>${escHtml(day(x.sent_at))}</td><td class="num">${money(x.current_price)} → <b>${formatCurrency(x.proposed_price)}</b></td>
+            <td><span class="rp-badge rp-badge-${st[1]}">${escHtml(st[0])}</span>${why ? `<span class="rp-sub">${escHtml(why)}</span>` : ''}</td></tr>`;
+    }).join('');
+    const orders = (h.orders || []).map(o => {
+        const st = ORDER_STATUS[o.status] || { text: o.status, tone: 'ok' };
+        const qty = o.confirmed_quantity != null && Number(o.confirmed_quantity) !== Number(o.quantity)
+            ? `${formatQty(o.confirmed_quantity)} of ${formatQty(o.quantity)}` : formatQty(o.quantity);
+        return `<tr><td><b>${escHtml(o.po_number)}</b><span class="rp-sub">${escHtml(o.order_date ? portalDate(o.order_date) : '')}${o.proposed_by_supplier ? ' · your offer' : ''}</span></td>
+            <td class="num">${qty}</td><td class="num">${o.unit_price != null ? formatCurrency(o.unit_price) : '—'}</td>
+            <td><span class="rp-badge rp-badge-${st.tone}">${escHtml(o.status === 'cancelled' && o.proposed_by_supplier ? 'Cancelled' : st.text)}</span></td></tr>`;
+    }).join('');
+    const html = `<div class="sp-hist">
+        <h4>Price changes <small>${formatNumber((h.proposals || []).length)}</small></h4>
+        ${prices ? `<table class="rp-table sp-hist-table"><thead><tr><th>Sent</th><th class="num">Price</th><th>Answer and reasons</th></tr></thead><tbody>${prices}</tbody></table>` : '<p class="sp-hist-none">No price change proposed for this product yet.</p>'}
+        <h4>Orders with this product <small>${formatNumber((h.orders || []).length)}</small></h4>
+        ${orders ? `<table class="rp-table sp-hist-table"><thead><tr><th>Order</th><th class="num">Qty</th><th class="num">Price each</th><th>Status</th></tr></thead><tbody>${orders}</tbody></table>` : '<p class="sp-hist-none">This product has not been on an order yet.</p>'}
+    </div>`;
+    const dlg = showDetailsDialog(title, p.name, rows, { tone, icon, html,
+        actions: p.pending_price != null
+            ? [{ label: 'Cancel proposal', className: 'btn-secondary', onClick: () => cancelPrice(productId) }]
+            : [{ label: p.declined_price != null ? 'Propose another price' : 'Change price', onClick: () => openPrice(productId) }] });
+    dlg.dialog.classList.add('sp-hist-dialog');
 }
 
 function openPrice(productId) {

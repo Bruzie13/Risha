@@ -452,7 +452,7 @@
             var st = NEW_STATUS[o.status] || [o.status, 'ok'];
             var acts = '<button class="btn-view" data-new="' + Number(o.id) + '" data-do="view">Details</button>';
             if (o.status === 'pending' && manages()) {
-                acts += ' <button class="btn-view" data-new="' + Number(o.id) + '" data-do="add">Add to Inventory</button>'
+                acts += ' <button class="btn-view" data-new="' + Number(o.id) + '" data-do="add">Confirm offer</button>'
                     + ' <button class="btn-view" data-new="' + Number(o.id) + '" data-do="decline">Decline</button>';
             }
             return '<tr><td><span class="rp-strong">' + escHtml(o.name) + '</span><span class="rp-sub">' + escHtml([o.brand, o.category, o.species].filter(Boolean).join(' · ')) + '</span></td>'
@@ -467,7 +467,8 @@
     async function newProductAction(id, what) {
         var o = newProducts.filter(function (x) { return Number(x.id) === id; })[0];
         if (!o) return;
-        if (what === 'add') { window.location.href = 'inventory.html?offer=' + id; return; }
+        // Confirm offer asks first (Carlo, 5 Nov: named and asked like accepting an order offer); its own button goes on
+        if (what === 'go') { window.location.href = 'inventory.html?offer=' + id; return; }
         if (what === 'decline') {
             showPromptDialog('Decline ' + o.name + '?', 'It is not added to Inventory. Say why, so ' + escHtml(o.supplier_name) + ' knows: they will see this.',
                 async function (reason) {
@@ -492,7 +493,9 @@
         } catch (e) { /* the list's copy is enough without the picture */ }
         var when = function (ms) { return ms ? new Date(Number(ms)).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''; };
         var st = NEW_STATUS[full.status] || [full.status];
-        showDetailsDialog(full.name, 'Offered by ' + full.supplier_name, [
+        var confirming = what === 'add';
+        showDetailsDialog(confirming ? 'Confirm the offer of ' + full.name + '?' : full.name,
+            confirming ? 'Offered by ' + full.supplier_name + '. Confirming adds it to Inventory: the Add product form opens filled in from this offer; set the selling price, category and stock, then save.' : 'Offered by ' + full.supplier_name, [
             ['Status', st[0], full.status === 'declined' ? 'danger' : null],
             ['Brand', full.brand], ['Product type', full.category], ['Pet type', full.species], ['Sold by', full.unit_type],
             ['Their price', formatCurrency(full.cost_price)], ['About it', full.description],
@@ -502,10 +505,12 @@
         ], {
             icon: 'add_box',
             html: full.image_url ? '<img src="' + escHtml(full.image_url) + '" alt="" class="sp-new-photo">' : '',
-            actions: full.status === 'pending' && manages() ? [
-                { label: 'Decline', className: 'btn-secondary', onClick: function () { newProductAction(id, 'decline'); } },
-                { label: 'Add to Inventory', onClick: function () { newProductAction(id, 'add'); } }
-            ] : []
+            actions: full.status !== 'pending' || !manages() ? []
+                : confirming ? [{ label: 'Confirm offer', onClick: function () { newProductAction(id, 'go'); } }]
+                : [
+                    { label: 'Decline', className: 'btn-secondary', onClick: function () { newProductAction(id, 'decline'); } },
+                    { label: 'Confirm offer', onClick: function () { newProductAction(id, 'go'); } }
+                ]
         });
     }
 

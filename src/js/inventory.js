@@ -43,7 +43,7 @@ window.addEventListener('load', async () => {
         const chip = document.querySelector(`#statusChips .chip[data-status="${wanted}"]`);
         if (chip) chip.click(); else setStatusFilter(wanted);
     }
-    // Suppliers → New products → Add to Inventory (UAT part 4)
+    // Suppliers → New products → Confirm offer (UAT part 4)
     const offer = Number(new URLSearchParams(window.location.search).get('offer'));
     if (offer) openAddFromOffer(offer);
     // Reports → What sold → Open in Inventory
