@@ -74,13 +74,14 @@ function canManage() {
    opens nothing. */
 const FENCED_ROLE_PAGES = {
     cashier: ['pos.html', 'settings.html'],
-    supplier: ['supplier.html', 'settings.html']
+    supplier: ['supplier.html', 'settings.html'],
+    simulation: ['simulation.html', 'settings.html']
 };
 const SELLING_ROLES = ['cashier'];
 
 /* What a role is called on screen. The study describes two access points,
    Administrator and Staff; the till account is the Staff one. */
-const ROLE_LABELS = { admin: 'Administrator', manager: 'Manager', cashier: 'Staff', viewer: 'Viewer', supplier: 'Supplier' };
+const ROLE_LABELS = { admin: 'Administrator', manager: 'Manager', cashier: 'Staff', viewer: 'Viewer', supplier: 'Supplier', simulation: 'Simulation' };
 function roleLabel(role) {
     return ROLE_LABELS[role] || (role ? String(role).charAt(0).toUpperCase() + String(role).slice(1) : '');
 }
@@ -91,7 +92,7 @@ function isFencedRole(role) {
 
 function roleHome(role) {
     role = role || getUserRole();
-    return role === 'cashier' ? 'pos.html' : role === 'supplier' ? 'supplier.html' : 'dashboard.html';
+    return role === 'cashier' ? 'pos.html' : role === 'supplier' ? 'supplier.html' : role === 'simulation' ? 'simulation.html' : 'dashboard.html';
 }
 
 /** May the signed-in account open this link? Non-page links are always fine. */

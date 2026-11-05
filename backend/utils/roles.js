@@ -13,7 +13,11 @@
                offer an order, and propose a price. Nothing of the shop's
                sales, other suppliers, or the rest of the stock.
 
-   For these two the rule is deny-by-default: anything not listed here is
+     simulation  a watch-only screen for recording the sales simulation:
+               it opens the live monitor, starts and stops the live run,
+               and nothing else.
+
+   For these the rule is deny-by-default: anything not listed here is
    refused. A new endpoint added later is therefore closed to them until
    someone opens it on purpose, which is the safe way to be wrong.
 
@@ -25,7 +29,7 @@
    second, so it was retired and its accounts became cashiers. It is absent
    from ROLES on purpose — an account still carrying it is refused everywhere. */
 
-const ROLES = ['admin', 'manager', 'viewer', 'cashier', 'supplier'];
+const ROLES = ['admin', 'manager', 'viewer', 'cashier', 'supplier', 'simulation'];
 const SELLING_ROLES = ['cashier'];
 
 // Every signed-in account may check its session and manage its own profile.
@@ -70,12 +74,18 @@ const API_ALLOW = {
         ['POST', /^\/api\/supplier-portal\/new-products$/],
         ['POST', /^\/api\/supplier-portal\/new-products\/\d+\/cancel$/],
         ...SELF
+    ],
+    simulation: [
+        ['GET', /^\/api\/simulation\/live$/],
+        ['POST', /^\/api\/simulation\/live\/(start|stop)$/],
+        ...SELF
     ]
 };
 
 const PAGE_ALLOW = {
     cashier: ['/pos.html', '/settings.html'],
-    supplier: ['/supplier.html', '/settings.html']
+    supplier: ['/supplier.html', '/settings.html'],
+    simulation: ['/simulation.html', '/settings.html']
 };
 
 const isRestricted = role => Object.prototype.hasOwnProperty.call(API_ALLOW, role);
@@ -99,6 +109,7 @@ function pageAllowed(role, path) {
 function homePage(role) {
     if (role === 'cashier') return '/pos.html';
     if (role === 'supplier') return '/supplier.html';
+    if (role === 'simulation') return '/simulation.html';
     return '/dashboard.html';
 }
 

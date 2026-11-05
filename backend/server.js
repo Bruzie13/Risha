@@ -126,6 +126,7 @@ const emailSettingsRoutes = require('./routes/emailSettings');
 app.use('/api/email-settings', emailSettingsRoutes);
 
 app.use('/api/supplier-portal', require('./routes/supplierPortal'));
+app.use('/api/simulation', require('./routes/simulation'));
 
 app.use('/api/receipt-printer', require('./routes/receiptPrinter'));
 
@@ -256,7 +257,7 @@ async function ensureAccountRoles() {
         // supplier. A supplier login is tied to exactly one supplier record.
         // MODIFY only widens the list, so existing rows are untouched.
         try {
-            await conn.execute("ALTER TABLE users MODIFY role ENUM('admin','manager','staff','viewer','cashier','supplier') DEFAULT 'staff'");
+            await conn.execute("ALTER TABLE users MODIFY role ENUM('admin','manager','staff','viewer','cashier','supplier','simulation') DEFAULT 'staff'");
         } catch (e) { console.error('[DB] role list migration error:', e.message); }
         try { await conn.execute('ALTER TABLE users ADD COLUMN supplier_id INT NULL'); } catch (e) { /* column exists */ }
         // The staff role was retired in favour of cashier. Move anyone still

@@ -8,6 +8,17 @@ Fills the days the shop has no sales for with realistic POS trading for an urban
 - It fills every day after the last day that has sales, up to **yesterday**, plus **today once the shop has closed (17:00)**. A day that already has real sales is never touched. At most 120 days in one run.
 - **Off on Render (the live site)**: it only runs where `NODE_ENV` is not `production`. Since the laptop and Render share one database, the laptop's runs show up on the live site too.
 
+## Live mode, for recording (Simulation screen)
+
+A separate **Simulation** account (Users → Add user → role *Simulation — watch the live sales simulation*) signs in straight to `simulation.html` and can do nothing else: the server refuses every other page and API for it. Administrators can open the same screen at `/simulation.html`.
+
+- Choose **Run for** (30 minutes to 2 hours) and press **Start**. A backup is saved first; if it fails, nothing starts.
+- A simulated customer comes to the counter every **20–60 seconds** (quicker on a busy day), stamped with the real time, so today's Dashboard and Reports fill up while you record. 2 hours makes about 150–250 sales.
+- Items that sell out get a rush delivery at once; every 15 minutes a supplier delivery tops up low items.
+- The screen shows each customer as they buy (regular or walk-in, items, cash/GCash/Maya/card), today's totals for the whole shop, customers per hour and what is selling most.
+- It stops by itself when the time is up, when **Stop** is pressed, or when the server stops. Live sales are numbered `SIM-YYYYMMDD-L…` and are taken out by `--remove` like the rest.
+- Pace (optional): `SIM_LIVE_MIN_SECONDS` (20), `SIM_LIVE_MAX_SECONDS` (60) in `backend/.env`.
+
 ## Backup first
 
 Before it writes anything, it saves a full backup of the database to `backups/auto/risha-before-simulation-<date>-<time>.zip` (the newest 14 are kept). **If the backup fails, nothing is written.** Restore with:

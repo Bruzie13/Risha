@@ -88,7 +88,7 @@ const authorizeRole = (...allowedRoles) => {
             return res.status(403).json({
                 success: false,
                 // say who may, so the person knows whom to ask
-                message: 'Only ' + allowedRoles.map(r => ({ admin: 'an administrator', manager: 'a manager', viewer: 'a view-only account', cashier: 'a cashier', supplier: 'a supplier' }[r] || r)).join(' or ') + ' can do this. You are signed in as ' + ({ admin: 'an administrator', manager: 'a manager', viewer: 'a view-only account', cashier: 'a cashier', supplier: 'a supplier' }[req.user.role] || req.user.role) + '.'
+                message: 'Only ' + allowedRoles.map(r => ({ admin: 'an administrator', manager: 'a manager', viewer: 'a view-only account', cashier: 'a cashier', supplier: 'a supplier', simulation: 'the simulation account' }[r] || r)).join(' or ') + ' can do this. You are signed in as ' + ({ admin: 'an administrator', manager: 'a manager', viewer: 'a view-only account', cashier: 'a cashier', supplier: 'a supplier', simulation: 'the simulation account' }[req.user.role] || req.user.role) + '.'
             });
         }
         next();

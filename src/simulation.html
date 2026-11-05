@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/images/favicon-192.png">
+    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
+    <meta name="description" content="Inventory, point of sale and supplier orders for Risha Pet Supplies.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="FETCH · Risha Pet Supplies">
+    <meta property="og:title" content="FETCH · Simulation">
+    <meta property="og:description" content="Inventory, point of sale and supplier orders for Risha Pet Supplies.">
+    <meta property="og:url" content="https://risha-pets.onrender.com/simulation.html">
+    <meta property="og:image" content="https://risha-pets.onrender.com/images/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Risha Pet Supplies logo">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FETCH · Simulation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/global.css?v=56">
+    <script>/* the simulation account has one page, so its sidebar starts as the slim strip (see "The slim strip" in css/system.css); the logo opens it, and that choice is kept (railOpen) */document.documentElement.classList.add('rail-only');document.documentElement.classList.toggle('sidebar-hidden', localStorage.getItem('railOpen') !== 'true');</script>
+<script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
+        <link rel="stylesheet" href="css/system.css?v=135">
+    <link rel="stylesheet" href="css/simulation.css?v=4">
+</head>
+<body>
+    <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <div class="brand-icon" title="FETCH — Inventory Management for Risha Pet Supplies"><img src="images/logo.jpeg" alt="RISHA" title="FETCH — Inventory Management for Risha Pet Supplies"></div>
+                <div class="brand-text">
+                    <span>FETCH</span>
+                    <small>Risha Pet Supplies</small>
+                </div>
+            </div>
+            <button class="sidebar-collapse-btn" id="sidebarToggleBtn" onclick="toggleSidebarVisibility()" title="Collapse sidebar"><span class="material-symbols-outlined">chevron_left</span></button>
+        </div>
+        <div class="sidebar-nav">
+            <a href="simulation.html" class="nav-link active rail-icon-only" title="Live shop simulation"><span class="nav-icon material-symbols-outlined">storefront</span><span class="nav-label">Live shop simulation</span></a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="sidebar-user" onclick="location.href='settings.html'" title="Your Profile">
+                <div class="avatar">
+                    <span class="avatar-initials">AD</span>
+                    <span class="avatar-status"></span>
+                </div>
+                <div class="user-info">
+                    <span id="userName">Loading...</span>
+                    <small id="sidebarUserRole"></small>
+                </div>
+                <button class="user-settings-btn" onclick="event.stopPropagation();location.href='settings.html'" title="Settings">
+                    <span class="material-symbols-outlined">settings</span>
+                </button>
+            </div>
+            <div class="sidebar-actions">
+                <button class="sidebar-btn" id="themeToggleBtn" title="Toggle theme"><span class="material-symbols-outlined">dark_mode</span></button>
+                <button class="sidebar-btn sidebar-logout" onclick="logout()" title="Logout"><span class="material-symbols-outlined">logout</span></button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-wrapper">
+        <div class="page-header sim-band">
+            <div>
+                <h1>Live shop simulation</h1>
+                <div class="breadcrumb" id="simDate">Simulated customers at the counter, saved as today's sales and marked SIM</div>
+            </div>
+            <div class="sim-state">
+                <span class="sim-live" id="simLive" hidden><i></i><span id="simLiveText">LIVE</span></span>
+                <span class="sim-chip" id="simDay" hidden></span>
+                <span class="sim-next" id="simNext"></span>
+                <div class="sim-controls" id="simStartControls" hidden>
+                    <label class="sim-run-for" for="simMinutes">Run for</label>
+                    <select class="form-select" id="simMinutes">
+                        <option value="30">30 minutes</option>
+                        <option value="60">1 hour</option>
+                        <option value="90">1 hour 30 minutes</option>
+                        <option value="120" selected>2 hours</option>
+                    </select>
+                    <button class="btn-primary" id="simStart" type="button">Start</button>
+                </div>
+                <button class="btn-secondary" id="simStop" type="button" hidden>Stop</button>
+            </div>
+        </div>
+
+        <div class="content sim">
+            <section class="sim-feed" aria-labelledby="simFeedTitle">
+                <h2 id="simFeedTitle">Customers at the counter <span class="sim-muted">newest first</span></h2>
+                <div id="simFeed" aria-live="polite"></div>
+            </section>
+            <aside class="sim-side">
+                <h2>Today so far <span class="sim-muted" id="simTodayNote">real and simulated sales</span></h2>
+                <div class="sim-kpis">
+                    <div class="sim-kpi sim-kpi-big"><div class="sim-lbl">Sales today</div><div class="sim-num" id="kRevenue">₱0.00</div><div class="sim-lbl" id="kRevenueSub">from 0 customers · 0 items sold</div></div>
+                    <div class="sim-kpi"><div class="sim-lbl">Paid in cash</div><div class="sim-num" id="kCash">0 sales</div></div>
+                    <div class="sim-kpi"><div class="sim-lbl">Paid by GCash / Maya</div><div class="sim-num" id="kOnline">0 sales</div></div>
+                    <div class="sim-kpi"><div class="sim-lbl">Items low on stock</div><div class="sim-num" id="kLow">0 low</div><div class="sim-lbl" id="kOut"></div></div>
+                    <div class="sim-kpi"><div class="sim-lbl">Deliveries this run</div><div class="sim-num" id="kDeliveries">0 deliveries</div></div>
+                </div>
+                <h2>Customers per hour <span class="sim-muted">today</span></h2>
+                <div class="sim-bars" id="simBars" role="img" aria-label="Customers per hour today"></div>
+                <div class="sim-hours" id="simHours"></div>
+                <div class="sim-hour-note" id="simHourNote"></div>
+                <h2>Selling most today</h2>
+                <div class="sim-top" id="simTop"></div>
+                <p class="sim-foot" id="simFoot"></p>
+            </aside>
+        </div>
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            if (document.documentElement.classList.contains('sidebar-hidden')) {
+                toggleSidebarVisibility();
+                if (window.innerWidth <= 768) document.getElementById('sidebar').classList.add('open');
+            } else if (window.innerWidth <= 768) {
+                document.getElementById('sidebar').classList.toggle('open');
+            }
+        }
+        document.addEventListener('click', function (e) {
+            var sidebar = document.getElementById('sidebar');
+            var hamburger = document.getElementById('hamburgerBtn');
+            if (window.innerWidth <= 768 && !sidebar.contains(e.target) && !hamburger.contains(e.target)) sidebar.classList.remove('open');
+        });
+    </script>
+    <script src="js/format.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js?v=82"></script>
+        <script src="js/loader.js?v=6"></script>
+    <script src="js/simulation.js?v=3"></script>
+</body>
+</html>

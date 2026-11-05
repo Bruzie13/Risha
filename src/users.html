@@ -27,7 +27,7 @@
     <link rel="stylesheet" href="css/global.css?v=56">
     <link rel="stylesheet" href="css/users.css?v=26">
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=132">
+        <link rel="stylesheet" href="css/system.css?v=135">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -197,6 +197,7 @@
                                 <option value="admin">Administrator — everything except the till</option>
                                 <option value="viewer">Viewer — read only</option>
                                 <option value="supplier">Supplier — their own orders and products</option>
+                                <option value="simulation">Simulation — watch the live sales simulation</option>
                             </select>
                             <small id="roleHint" style="display:block;margin-top:5px;font-size:12.5px;color:var(--text-muted);line-height:1.45;"></small>
                         </div>

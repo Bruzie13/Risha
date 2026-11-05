@@ -316,7 +316,8 @@ const ROLE_HINTS = {
     manager: 'Manages inventory, suppliers and purchase orders. Does not use the point of sale.',
     admin: 'Full control of the back office, including users. Does not use the point of sale.',
     viewer: 'Can look at everything and change nothing.',
-    supplier: 'Signs in to a separate page showing only the purchase orders sent to them and the products they supply. They can confirm an order and mark it shipped.'
+    supplier: 'Signs in to a separate page showing only the purchase orders sent to them and the products they supply. They can confirm an order and mark it shipped.',
+    simulation: 'Watch-only account for recording the sales simulation. Opens straight to the live simulation screen, where it can start and stop simulated sales. It cannot sell, edit or open any other page. Every simulated sale is marked SIM.'
 };
 let supplierOptionsLoaded = false;
 

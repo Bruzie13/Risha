@@ -194,24 +194,108 @@ const utc = (day, h, m, s) => {
     return t.toISOString().slice(0, 19).replace('T', ' ');
 };
 
-/** Plans one day's trading against the current stock (`stock` is changed in
-    place). Returns { sales, movements, restocks, profile }. Writes nothing. */
+const seasonalWeight = (p, month) => {
+    const label = `${p.name} ${p.category || ''}`;
+    if (month === 12 && /toy|accessor|collar|leash|bowl|bed|cloth/i.test(label)) return 2;
+    if (month >= 3 && month <= 5 && /shampoo|groom|tick|flea|soap/i.test(label)) return 1.3;
+    return 1;
+};
+
+/** One customer at the counter: what they buy, how they pay. Takes the
+    stock it sells out of ctx.stock. Returns the sale, or null if nothing
+    they wanted was on the shelf. Writes nothing. */
+function planCustomer(ctx, rand, profile, day, saleNumber, createdAt) {
+    const { products, regulars, staff, maxDiscount } = ctx;
+    const month = Number(day.slice(5, 7));
+    const candidates = products.filter(p => p.added <= day && (!p.expires || p.expires >= day) && ctx.stock.get(p.id) >= 1);
+    if (!candidates.length) return null;
+    const weight = p => (1 + Math.round(p.units_sold / 15)) * seasonalWeight(p, month);
+    // About 4 in 10 customers are regulars buying their usual.
+    const regular = rand() < 0.4 ? pickWeighted(rand, regulars, r => r.weight) : null;
+    const want = rand();
+    const lineCount = want < 0.45 ? 1 : want < 0.75 ? 2 : want < 0.90 ? 3 : 4;
+    const lines = new Map();
+    if (regular) {
+        for (const id of regular.favourites) {
+            const p = candidates.find(c => c.id === id);
+            if (p && rand() < 0.8) lines.set(p.id, p);
+        }
+    }
+    let guard = 0;
+    while (lines.size < lineCount && guard++ < 20) {
+        const p = pickWeighted(rand, candidates, weight);
+        lines.set(p.id, p);
+    }
+    const items = [];
+    for (const p of lines.values()) {
+        const q = rand() * (profile.bigBasket > 1 ? 0.8 : 1);
+        let qty = q < 0.72 ? 1 : q < 0.92 ? 2 : 3;
+        if (profile.bigBasket > 1 && rand() < 0.15) qty += 1; // pay-day stock-up
+        qty = Math.min(qty, Math.floor(ctx.stock.get(p.id)));
+        if (qty < 1) continue;
+        ctx.stock.set(p.id, ctx.stock.get(p.id) - qty);
+        items.push({ product_id: p.id, name: p.name, quantity: qty, unit_price: p.unit_price, subtotal: money(qty * p.unit_price) });
+    }
+    if (!items.length) return null;
+    const total = money(items.reduce((a, it) => a + it.subtotal, 0));
+    // A few customers get the shop's discount (suki, senior), never more
+    // than the POS limit.
+    let discount = 0;
+    if (rand() < 0.07 && maxDiscount >= 5) discount = maxDiscount >= 10 && rand() < 0.4 ? 10 : 5;
+    const final = money(Math.max(0, total - total * discount / 100));
+    // Cash still leads at a neighbourhood shop; GCash/Maya are recorded as
+    // "online" (the POS has no separate e-wallet value). BSP 2025 and
+    // Worldpay 2026 figures, scaled to a small cash-heavy shop (estimate).
+    const pr = rand();
+    const cashShare = final > 1500 ? 0.45 : 0.60;
+    const method = pr < cashShare ? 'cash' : pr < 0.96 ? 'online' : 'card';
+    const wallet = method === 'online' ? (rand() < 0.85 ? 'GCash' : 'Maya') : null;
+    const named = regular || (rand() < 0.15 ? { name: `${FIRST[Math.floor(rand() * FIRST.length)]} ${LAST[Math.floor(rand() * LAST.length)]}`, phone: null } : null);
+    return {
+        sale_number: saleNumber,
+        customer_name: named ? named.name : null,
+        customer_phone: named ? named.phone : null,
+        regular: !!regular,
+        total_amount: total, discount, final_amount: final, payment_method: method, wallet,
+        notes: `POS sale${wallet ? ' (' + wallet + ')' : ''} ${TAG}`,
+        created_by: staff.cashiers[Math.floor(rand() * staff.cashiers.length)],
+        created_at: createdAt,
+        items,
+    };
+}
+
+/** Deliveries: every product at or below `threshold(p)` back up to its
+    usual full level. A batch expiring within 30 days comes with a new expiry
+    date. Changes ctx.stock; writes nothing. */
+function planRestocks(ctx, rand, day, threshold, createdAt) {
+    const out = [];
+    for (const p of ctx.products) {
+        const have = ctx.stock.get(p.id);
+        const reorder = Number(p.reorder_level) || 10;
+        if (p.added > day || have > threshold(p, reorder)) continue;
+        const full = Math.max(Number(p.max_stock_level) || 0, reorder * 3);
+        const qty = Math.ceil(full - have);
+        if (qty <= 0) continue;
+        ctx.stock.set(p.id, have + qty);
+        let newExpiry = null, oldExpiry = null;
+        if (p.expires && p.expires <= cal.addDays(day, 30)) {
+            oldExpiry = p.expires;
+            newExpiry = cal.addDays(day, 270 + Math.floor(rand() * 270));
+            p.expires = newExpiry;
+        }
+        out.push({ product_id: p.id, name: p.name, quantity: qty, created_at: createdAt(), newExpiry, oldExpiry });
+    }
+    return out;
+}
+
+/** Plans one day's trading against the current stock (`ctx.stock` is
+    changed in place). Returns { day, profile, sales, restocks }. Writes nothing. */
 function planDay(day, ctx) {
-    const { products, regulars, staff, maxDiscount, cfg } = ctx;
+    const { cfg } = ctx;
     const rand = rng(hash(day) ^ cfg.seed);
     const profile = cal.dayProfile(day, rand);
     const plan = { day, profile, sales: [], restocks: [] };
     if (!profile.open) return plan;
-
-    const month = Number(day.slice(5, 7));
-    const sellable = p => p.added <= day && (!p.expires || p.expires >= day) && ctx.stock.get(p.id) >= 1;
-    const seasonal = p => {
-        const label = `${p.name} ${p.category || ''}`;
-        if (month === 12 && /toy|accessor|collar|leash|bowl|bed|cloth/i.test(label)) return 2;
-        if (month >= 3 && month <= 5 && /shampoo|groom|tick|flea|soap/i.test(label)) return 1.3;
-        return 1;
-    };
-    const weight = p => (1 + Math.round(p.units_sold / 15)) * seasonal(p);
 
     const count = customerCount(rand, cfg.perDay * profile.factor);
     const hours = cal.hourWeights(day, profile.closeHour);
@@ -223,59 +307,9 @@ function planDay(day, ctx) {
     times.sort((a, b) => (a[0] - b[0]) || (a[1] - b[1]) || (a[2] - b[2]));
 
     for (const [h, m, s] of times) {
-        const candidates = products.filter(sellable);
-        if (!candidates.length) break;
-        // About 4 in 10 customers are regulars buying their usual.
-        const regular = rand() < 0.4 ? pickWeighted(rand, regulars, r => r.weight) : null;
-        const want = rand();
-        const lineCount = want < 0.45 ? 1 : want < 0.75 ? 2 : want < 0.90 ? 3 : 4;
-        const lines = new Map();
-        if (regular) {
-            for (const id of regular.favourites) {
-                const p = candidates.find(c => c.id === id);
-                if (p && rand() < 0.8) lines.set(p.id, p);
-            }
-        }
-        let guard = 0;
-        while (lines.size < lineCount && guard++ < 20) {
-            const p = pickWeighted(rand, candidates, weight);
-            lines.set(p.id, p);
-        }
-        const items = [];
-        for (const p of lines.values()) {
-            const q = rand() * (profile.bigBasket > 1 ? 0.8 : 1);
-            let qty = q < 0.72 ? 1 : q < 0.92 ? 2 : 3;
-            if (profile.bigBasket > 1 && rand() < 0.15) qty += 1; // pay-day stock-up
-            qty = Math.min(qty, Math.floor(ctx.stock.get(p.id)));
-            if (qty < 1) continue;
-            ctx.stock.set(p.id, ctx.stock.get(p.id) - qty);
-            items.push({ product_id: p.id, quantity: qty, unit_price: p.unit_price, subtotal: money(qty * p.unit_price) });
-        }
-        if (!items.length) continue;
-        const total = money(items.reduce((a, it) => a + it.subtotal, 0));
-        // A few customers get the shop's discount (suki, senior), never more
-        // than the POS limit.
-        let discount = 0;
-        if (rand() < 0.07 && maxDiscount >= 5) discount = maxDiscount >= 10 && rand() < 0.4 ? 10 : 5;
-        const final = money(Math.max(0, total - total * discount / 100));
-        // Cash still leads at a neighbourhood shop; GCash/Maya are recorded as
-        // "online" (the POS has no separate e-wallet value). BSP 2025 and
-        // Worldpay 2026 figures, scaled to a small cash-heavy shop (estimate).
-        const pr = rand();
-        const cashShare = final > 1500 ? 0.45 : 0.60;
-        const method = pr < cashShare ? 'cash' : pr < 0.96 ? 'online' : 'card';
-        const wallet = method === 'online' ? (rand() < 0.85 ? 'GCash' : 'Maya') : null;
-        const named = regular || (rand() < 0.15 ? { name: `${FIRST[Math.floor(rand() * FIRST.length)]} ${LAST[Math.floor(rand() * LAST.length)]}`, phone: null } : null);
-        plan.sales.push({
-            sale_number: `${SALE_PREFIX}${day.replace(/-/g, '')}-${String(plan.sales.length + 1).padStart(3, '0')}`,
-            customer_name: named ? named.name : null,
-            customer_phone: named ? named.phone : null,
-            total_amount: total, discount, final_amount: final, payment_method: method,
-            notes: `POS sale${wallet ? ' (' + wallet + ')' : ''} ${TAG}`,
-            created_by: staff.cashiers[Math.floor(rand() * staff.cashiers.length)],
-            created_at: utc(day, h, m, s),
-            items,
-        });
+        const number = `${SALE_PREFIX}${day.replace(/-/g, '')}-${String(plan.sales.length + 1).padStart(3, '0')}`;
+        const sale = planCustomer(ctx, rand, profile, day, number, utc(day, h, m, s));
+        if (sale) plan.sales.push(sale);
     }
 
     // Supplier deliveries on Tuesdays and Fridays: every item at or below its
@@ -284,42 +318,28 @@ function planDay(day, ctx) {
     // end of the day.
     const wd = new Date(day + 'T00:00:00Z').getUTCDay();
     const deliveryDay = wd === 2 || wd === 5;
-    {
-        for (const p of products) {
-            const have = ctx.stock.get(p.id);
-            const reorder = Number(p.reorder_level) || 10;
-            if (p.added > day || have > (deliveryDay ? reorder : 0)) continue;
-            const full = Math.max(Number(p.max_stock_level) || 0, reorder * 3);
-            const qty = Math.ceil(full - have);
-            if (qty <= 0) continue;
-            ctx.stock.set(p.id, have + qty);
-            // A fresh batch gets a fresh expiry when the old one is close.
-            let newExpiry = null, oldExpiry = null;
-            if (p.expires && p.expires <= cal.addDays(day, 30)) {
-                oldExpiry = p.expires;
-                newExpiry = cal.addDays(day, 270 + Math.floor(rand() * 270));
-                p.expires = newExpiry;
-            }
-            plan.restocks.push({ product_id: p.id, quantity: qty, created_at: utc(day, deliveryDay ? 10 : profile.closeHour - 1, Math.floor(rand() * 60), 0), newExpiry, oldExpiry });
-        }
-    }
+    plan.restocks = planRestocks(ctx, rand, day, (p, reorder) => (deliveryDay ? reorder : 0),
+        () => utc(day, deliveryDay ? 10 : profile.closeHour - 1, Math.floor(rand() * 60), 0));
     return plan;
 }
 
-/** Writes one planned day in a single transaction. */
-async function writeDay(conn, plan, adminId) {
+/** Writes planned sales and deliveries in a single transaction. With
+    `lastDay`, also records it as the last simulated day. Returns the new
+    sale ids by sale number. */
+async function writeBatch(conn, { sales = [], restocks = [], adminId, lastDay = null }) {
     await conn.beginTransaction();
     try {
-        if (plan.sales.length) {
+        let idOf = new Map();
+        if (sales.length) {
             await conn.query(
                 `INSERT INTO sales (sale_number, customer_name, customer_phone, total_amount, discount, final_amount,
                                     payment_method, payment_status, notes, created_by, created_at) VALUES ?`,
-                [plan.sales.map(s => [s.sale_number, s.customer_name, s.customer_phone, s.total_amount, s.discount,
+                [sales.map(s => [s.sale_number, s.customer_name, s.customer_phone, s.total_amount, s.discount,
                     s.final_amount, s.payment_method, 'completed', s.notes, s.created_by, s.created_at])]);
-            const [ids] = await conn.query('SELECT id, sale_number FROM sales WHERE sale_number IN (?)', [plan.sales.map(s => s.sale_number)]);
-            const idOf = new Map(ids.map(r => [r.sale_number, r.id]));
+            const [ids] = await conn.query('SELECT id, sale_number FROM sales WHERE sale_number IN (?)', [sales.map(s => s.sale_number)]);
+            idOf = new Map(ids.map(r => [r.sale_number, r.id]));
             const items = [], moves = [];
-            for (const s of plan.sales) {
+            for (const s of sales) {
                 const id = idOf.get(s.sale_number);
                 for (const it of s.items) {
                     items.push([id, it.product_id, it.quantity, it.unit_price, it.subtotal]);
@@ -329,30 +349,44 @@ async function writeDay(conn, plan, adminId) {
             await conn.query('INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal) VALUES ?', [items]);
             await conn.query('INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, reference_id, notes, created_by, created_at) VALUES ?', [moves]);
         }
-        if (plan.restocks.length) {
+        if (restocks.length) {
             await conn.query('INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, reference_id, notes, created_by, created_at) VALUES ?',
-                [plan.restocks.map(r => [r.product_id, 'in', r.quantity, 'manual', null,
+                [restocks.map(r => [r.product_id, 'in', r.quantity, 'manual', null,
                     `${TAG} Supplier delivery (simulated restock)${r.oldExpiry ? `; expiry was ${r.oldExpiry}, now ${r.newExpiry}` : ''}`, adminId, r.created_at])]);
         }
-        // Net stock change per product for the day, applied in one statement.
+        // Net stock change per product, applied in one statement.
         const net = new Map();
-        for (const s of plan.sales) for (const it of s.items) net.set(it.product_id, (net.get(it.product_id) || 0) - it.quantity);
-        for (const r of plan.restocks) net.set(r.product_id, (net.get(r.product_id) || 0) + r.quantity);
+        for (const s of sales) for (const it of s.items) net.set(it.product_id, (net.get(it.product_id) || 0) - it.quantity);
+        for (const r of restocks) net.set(r.product_id, (net.get(r.product_id) || 0) + r.quantity);
         const changes = [...net].filter(([, q]) => q !== 0);
         if (changes.length) {
             await conn.query(
                 `UPDATE products SET stock_quantity = GREATEST(0, stock_quantity + CASE id ${changes.map(() => 'WHEN ? THEN ?').join(' ')} END)
                   WHERE id IN (?)`, [...changes.flat(), changes.map(c => c[0])]);
         }
-        for (const r of plan.restocks) {
+        for (const r of restocks) {
             if (r.newExpiry) await conn.query('UPDATE products SET expiration_date = ? WHERE id = ?', [r.newExpiry, r.product_id]);
         }
-        await setSetting(conn, 'sim_last_day', plan.day);
+        if (lastDay) await setSetting(conn, 'sim_last_day', lastDay);
         await conn.commit();
+        return idOf;
     } catch (e) {
         await conn.rollback();
         throw e;
     }
+}
+
+/** Everything a run needs to know about the shop, read once. */
+async function loadContext(conn) {
+    const cfg = settings();
+    const products = await loadCatalogue(conn);
+    const staff = await staffIds(conn);
+    const maxDiscount = maxDiscountFrom(await getSetting(conn, 'pos_max_discount_percent'));
+    return {
+        products, staff, maxDiscount, cfg,
+        regulars: makeRegulars(cfg.seed, products),
+        stock: new Map(products.map(p => [p.id, Number(p.stock_quantity) || 0])),
+    };
 }
 
 /**
@@ -373,15 +407,9 @@ async function run({ dryRun = false, backup = true, log = console.log } = {}) {
         const days = await daysToFill(conn, cfg.maxDays);
         if (!days.length) return { skipped: 'nothing to fill: every day up to now already has sales' };
 
-        const products = await loadCatalogue(conn);
-        if (!products.length) return { skipped: 'no active products to sell' };
-        const staff = await staffIds(conn);
-        const maxDiscount = maxDiscountFrom(await getSetting(conn, 'pos_max_discount_percent'));
-        const ctx = {
-            products, staff, maxDiscount, cfg,
-            regulars: makeRegulars(cfg.seed, products),
-            stock: new Map(products.map(p => [p.id, Number(p.stock_quantity) || 0])),
-        };
+        const ctx = await loadContext(conn);
+        if (!ctx.products.length) return { skipped: 'no active products to sell' };
+        const staff = ctx.staff;
 
         let backupInfo = null;
         if (!dryRun && backup) {
@@ -393,7 +421,7 @@ async function run({ dryRun = false, backup = true, log = console.log } = {}) {
         const summary = { days: [], sales: 0, revenue: 0, restocks: 0, backup: backupInfo && backupInfo.file, dryRun };
         for (const day of days) {
             const plan = planDay(day, ctx);
-            if (!dryRun) await writeDay(conn, plan, staff.admin);
+            if (!dryRun) await writeBatch(conn, { sales: plan.sales, restocks: plan.restocks, adminId: staff.admin, lastDay: day });
             const revenue = money(plan.sales.reduce((a, s) => a + s.final_amount, 0));
             summary.days.push({ day, sales: plan.sales.length, revenue, restocks: plan.restocks.length, notes: plan.profile.reasons.join(', ') });
             summary.sales += plan.sales.length;
@@ -458,4 +486,9 @@ async function runOnStartup() {
     try { require('../../routes/predictions').warmAllPredictions(); } catch (e) { /* not loaded */ }
 }
 
-module.exports = { run, removeAll, runOnStartup, enabled, planDay, _test: { rng, hash, customerCount } };
+module.exports = {
+    run, removeAll, runOnStartup, enabled, planDay,
+    // used by live.js
+    loadContext, planCustomer, planRestocks, writeBatch, money, shopToday, TAG, SALE_PREFIX,
+    _test: { rng, hash, customerCount },
+};
