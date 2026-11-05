@@ -18,7 +18,7 @@ async function loadSuppliers() {
         const data = await response.json();
         if (data.success) {
             allSuppliers = Array.isArray(data.data) ? data.data : [];
-            displaySuppliers(allSuppliers);
+            displaySuppliers(shownSuppliers());
             if (typeof renderSupplierMap === 'function') renderSupplierMap(allSuppliers);
         }
     } catch (error) {
@@ -27,15 +27,47 @@ async function loadSuppliers() {
     }
 }
 
-function showMoreSuppliers() {
-    displayCount += PAGE_SIZE;
-    const term = document.getElementById('searchInput')?.value?.toLowerCase() || '';
-    const filtered = allSuppliers.filter(s =>
+/* The list as shown: what the search box matches, in the order the Sort menu
+   says (Carlo, 5 Nov). The choice is kept on this browser. */
+const SUPPLIER_SORTS = {
+    'name-asc': (a, b) => byName(a, b),
+    'name-desc': (a, b) => byName(b, a),
+    'rating-desc': (a, b) => rated(b) - rated(a) || byName(a, b),
+    'rating-asc': (a, b) => (rated(a) < 0) - (rated(b) < 0) || rated(a) - rated(b) || byName(a, b),
+    'status': (a, b) => statusRank(a) - statusRank(b) || byName(a, b),
+    'products-desc': (a, b) => (Number(b.product_count) || 0) - (Number(a.product_count) || 0) || byName(a, b),
+    'orders-desc': (a, b) => (Number(b.open_orders) || 0) - (Number(a.open_orders) || 0) || byName(a, b),
+    'newest': (a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')) || byName(a, b)
+};
+function byName(a, b) { return String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }); }
+// stars, or -1 for a supplier not rated yet (so it goes last when sorting by rating)
+function rated(s) { return s.stars && s.stars.rated ? Number(s.stars.stars) || 0 : -1; }
+function statusRank(s) { return { active: 0, vacation: 1, inactive: 2, deactivated: 3 }[s.status || 'active'] ?? 0; }
+
+function supplierSortChoice() {
+    const sel = document.getElementById('supplierSort');
+    return sel && SUPPLIER_SORTS[sel.value] ? sel.value : 'name-asc';
+}
+
+function shownSuppliers() {
+    const term = (document.getElementById('searchInput')?.value || '').toLowerCase();
+    const list = allSuppliers.filter(s =>
         (s.name || '').toLowerCase().includes(term) ||
         (s.contact_person || '').toLowerCase().includes(term) ||
         (s.email || '').toLowerCase().includes(term)
     );
-    displaySuppliers(filtered);
+    return list.sort(SUPPLIER_SORTS[supplierSortChoice()]);
+}
+
+function applySupplierSort(value) {
+    try { localStorage.setItem('supplierSort', value); } catch (e) {}
+    displayCount = PAGE_SIZE;
+    displaySuppliers(shownSuppliers());
+}
+
+function showMoreSuppliers() {
+    displayCount += PAGE_SIZE;
+    displaySuppliers(shownSuppliers());
 }
 
 function showLessSuppliers() {
@@ -109,16 +141,17 @@ function supplierStatusBadge(status) {
 }
 
 // Search
-document.getElementById('searchInput')?.addEventListener('keyup', (e) => {
+document.getElementById('searchInput')?.addEventListener('keyup', () => {
     displayCount = PAGE_SIZE;
-    const term = e.target.value.toLowerCase();
-    const filtered = allSuppliers.filter(s =>
-        (s.name || '').toLowerCase().includes(term) ||
-        (s.contact_person || '').toLowerCase().includes(term) ||
-        (s.email || '').toLowerCase().includes(term)
-    );
-    displaySuppliers(filtered);
+    displaySuppliers(shownSuppliers());
 });
+// the last sort chosen on this browser
+(function () {
+    const sel = document.getElementById('supplierSort');
+    let saved = null;
+    try { saved = localStorage.getItem('supplierSort'); } catch (e) {}
+    if (sel && saved && SUPPLIER_SORTS[saved]) sel.value = saved;
+})();
 
 /* ---- Checks on the supplier form (backend/utils/supplier.js has the same rules) ---- */
 const SUPPLIER_FIELDS = ['name', 'contact_person', 'email', 'phone', 'address', 'city'];

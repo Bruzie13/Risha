@@ -1716,3 +1716,31 @@ button.rp-bar-row.is-link:focus-visible { outline: 2px solid var(--primary); out
 .sp-order-grid .sp-order-actions > button:only-of-type,
 .sp-order-grid .sp-order-actions > .sp-waiting { grid-column: 1 / -1; }
 .sp-order-grid .sp-order-actions > .sp-waiting { text-align: left; margin-top: 2px; }
+
+/* Supplier portal → Payments: waiting to be paid and paid side by side (Carlo, 5 Nov) */
+.sp-pay-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border-top: 1.5px solid var(--border-glass); margin-top: 6px; }
+.sp-pay-col { min-width: 0; }
+.sp-pay-col + .sp-pay-col { border-left: 1.5px solid var(--border-glass); }
+.sp-pay-cols .sp-section-head { border-top: 0; margin-top: 0; }
+@media (max-width: 1000px) {
+  .sp-pay-cols { grid-template-columns: 1fr; }
+  .sp-pay-col + .sp-pay-col { border-left: 0; border-top: 1.5px solid var(--border-glass); }
+}
+/* the two halves keep their tables inside them: no forced first-column width, tighter cells */
+.sp-pay-cols .rp-table th:first-child, .sp-pay-cols .rp-table td:first-child { min-width: 0; }
+.sp-pay-cols .rp-table th, .sp-pay-cols .rp-table td { padding-left: 10px; padding-right: 10px; font-size: 13px; }
+.sp-pay-cols .rp-table th:first-child, .sp-pay-cols .rp-table td:first-child { padding-left: 20px; }
+.sp-pay-cols .rp-table td { white-space: nowrap; }
+.sp-pay-cols .rp-table td .sp-due-badge { display: block; width: max-content; margin: 4px 0 0; }
+.sp-pay-cols .rp-table .btn-view { min-height: 32px; padding: 0 10px; font-size: 12.5px; }
+#spPayments #paymentsNotice .sp-due-notice { margin: 0 20px 12px; }
+.sp-pay-cols .rp-table { min-width: 0; }
+/* the two halves share their rows, so the headings and the table headers sit
+   level however long either side's text is (Carlo, 5 Nov: "pantay pantay
+   yung mga labels kahit may long text") */
+@supports (grid-template-rows: subgrid) {
+  .sp-pay-cols { grid-template-rows: auto auto; }
+  .sp-pay-col { display: grid; grid-template-rows: subgrid; grid-row: span 2; align-content: start; }
+  .sp-pay-cols .rp-table thead th { vertical-align: bottom; }
+}
+@media (max-width: 1000px) { .sp-pay-col { grid-row: auto; display: block; } }

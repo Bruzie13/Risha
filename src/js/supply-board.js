@@ -571,6 +571,9 @@
         var isBoard = view !== 'list';
         table.style.display = isBoard ? 'none' : '';
         if (pager) pager.style.display = isBoard ? 'none' : '';
+        // the Sort menu orders the supplier list only
+        var sort = document.getElementById('supplierSort');
+        if (sort) sort.style.display = isBoard ? 'none' : '';
         document.querySelectorAll('#supplierViewToggle .inv-view-btn').forEach(function (b) {
             var on = b.dataset.view === view;
             b.classList.toggle('active', on);

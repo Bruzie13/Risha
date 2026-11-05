@@ -178,7 +178,8 @@ function renderDetails() {
     const box = document.getElementById('spStatus');
     box.hidden = false;
     box.className = 'sp-status is-' + status;
-    box.innerHTML = `<label class="sp-status-chip" for="spStatusPick"><span class="sp-status-dot"></span>Your status</label>
+    // the chip says what the status is; the menu beside it changes it (Carlo, 5 Nov)
+    box.innerHTML = `<label class="sp-status-chip" for="spStatusPick" title="Your status"><span class="sp-status-dot"></span>${escHtml((SP_STATUS[status] || SP_STATUS.active).short)}</label>
         <select class="form-select sp-status-pick" id="spStatusPick" aria-label="Your status">
             ${Object.entries(SP_STATUS).map(([k, v]) => `<option value="${k}"${k === status ? ' selected' : ''}>${v.label}</option>`).join('')}
         </select>`;
@@ -783,8 +784,8 @@ function renderPayments() {
     setTabCount('tabCountPay', unpaid.length, 'unpaid');
     document.getElementById('tabCountPay').title = 'Delivered orders the shop has not marked as paid yet';
     const terms = portal.me && portal.me.payment_terms;
-    document.getElementById('paymentsSub').textContent = 'Delivered orders the shop has not yet marked as paid'
-        + (terms ? `. Your payment terms: ${terms}` : '');
+    // the columns below say what each list is; the line here gives the terms
+    document.getElementById('paymentsSub').textContent = terms ? `Your payment terms: ${terms}` : 'What the shop owes you and what it has paid';
     renderPaid();
     // due soon or overdue: said at the top of Payments and on the tab (UAT, 31 Oct)
     const today = todayYmd();
