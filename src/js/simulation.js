@@ -20,7 +20,8 @@ const $ = id => document.getElementById(id);
 
 window.addEventListener('load', () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
-    $('simStart').addEventListener('click', start);
+    $('simStart').addEventListener('click', () => start());
+    $('simRun').addEventListener('click', () => start(120));
     $('simStop').addEventListener('click', stop);
     poll();
     setInterval(tickClock, 1000);
@@ -40,20 +41,26 @@ async function poll() {
     pollTimer = setTimeout(poll, document.hidden ? POLL_MS * 3 : POLL_MS);
 }
 
-async function start() {
+async function start(minutes) {
     const btn = $('simStart');
+    const big = $('simRun');
+    const mins = Number(minutes) || Number($('simMinutes').value);
     btn.disabled = true;
     btn.textContent = 'Saving a backup…';
+    big.disabled = true;
+    big.querySelector('.sim-run-label').textContent = 'Saving a backup…';
     try {
         const res = await fetch(`${SIM_API}/start`, {
             method: 'POST', headers: getAuthHeaders(),
-            body: JSON.stringify({ minutes: Number($('simMinutes').value) })
+            body: JSON.stringify({ minutes: mins })
         });
         const body = await res.json().catch(() => ({}));
         if (!res.ok || !body.success) showErrorDialog('Could not start the simulation', body.message || 'Please try again.');
     } finally {
         btn.disabled = false;
         btn.textContent = 'Start';
+        big.disabled = false;
+        big.querySelector('.sim-run-label').textContent = 'Run simulation';
         poll();
     }
 }
@@ -75,6 +82,7 @@ function render(d) {
     $('simLive').hidden = !running;
     $('simStop').hidden = !running;
     $('simStartControls').hidden = running || !d.enabled;
+    $('simRunPanel').hidden = running || !d.enabled;
 
     const day = new Date(d.dayProfile.day + 'T00:00:00+08:00');
     const dateText = day.toLocaleDateString('en-PH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Manila' });
@@ -128,7 +136,7 @@ function emptyFeed(d) {
     box.innerHTML = `<div class="sim-empty">
         <span class="material-symbols-outlined">storefront</span>
         <strong>${d.enabled ? 'The shop is quiet' : 'The simulation is off on this server'}</strong>
-        <p>${d.enabled ? 'Choose how long to run and press <b>Start</b>. A backup of the database is saved first, then a simulated customer comes to the counter every ' + d.pace.min + '–' + d.pace.max + ' seconds. Each sale is saved as today’s sale, marked SIM, and shows on the Dashboard and Reports too.' : 'It only runs on the shop’s own computer, not on the live site.'}</p>
+        <p>${d.enabled ? 'A backup of the database is saved first, then a simulated customer comes to the counter every ' + d.pace.min + '–' + d.pace.max + ' seconds. Each sale is saved as today’s sale, marked SIM, and shows on the Dashboard and Reports too.' : 'It only runs on the shop’s own computer, not on the live site.'}</p>
     </div>`;
 }
 

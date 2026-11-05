@@ -28,7 +28,7 @@
     <script>/* the simulation account has one page, so its sidebar starts as the slim strip (see "The slim strip" in css/system.css); the logo opens it, and that choice is kept (railOpen) */document.documentElement.classList.add('rail-only');document.documentElement.classList.toggle('sidebar-hidden', localStorage.getItem('railOpen') !== 'true');</script>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
         <link rel="stylesheet" href="css/system.css?v=135">
-    <link rel="stylesheet" href="css/simulation.css?v=4">
+    <link rel="stylesheet" href="css/simulation.css?v=6">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -93,6 +93,10 @@
 
         <div class="content sim">
             <section class="sim-feed" aria-labelledby="simFeedTitle">
+                <div class="sim-run-panel" id="simRunPanel" hidden>
+                    <button type="button" class="btn-primary sim-run" id="simRun"><span class="material-symbols-outlined">play_arrow</span><span class="sim-run-label">Run simulation</span></button>
+                    <div class="sim-run-hint">One click: saves a backup, then runs for 2 hours and stops by itself.<br>For another length, use <b>Run for</b> at the top.</div>
+                </div>
                 <h2 id="simFeedTitle">Customers at the counter <span class="sim-muted">newest first</span></h2>
                 <div id="simFeed" aria-live="polite"></div>
             </section>
@@ -135,6 +139,6 @@
     <script src="js/utils.js"></script>
     <script src="js/auth.js?v=82"></script>
         <script src="js/loader.js?v=6"></script>
-    <script src="js/simulation.js?v=3"></script>
+    <script src="js/simulation.js?v=5"></script>
 </body>
 </html>

@@ -105,3 +105,14 @@
 :root.dark-mode .sim-amt-in,
 :root.dark-mode .sim-who .material-symbols-outlined { color: #7CC4F5; }
 :root.dark-mode .sim-pay-online { background: color-mix(in srgb, #7CC4F5 16%, transparent); }
+
+/* the one-click Run button, shown whenever the simulation is not running */
+.sim-run-panel {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  background: var(--bg-card); border: 1.5px solid var(--border-glass); border-radius: 12px;
+  padding: 16px 18px; margin-bottom: 18px;
+}
+.sim-run-panel[hidden] { display: none; }
+.sim-run { display: inline-flex; align-items: center; gap: 8px; font-size: 18px; padding: 14px 28px; border-radius: 12px; }
+.sim-run .material-symbols-outlined { font-size: 26px; color: inherit; }
+.sim-run-hint { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
