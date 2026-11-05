@@ -136,41 +136,10 @@ app.use('/api/assistant', assistantRoutes);
 const pool = require('./config/database');
 const crypto = require('crypto');
 
-const { zipSingleFile } = require('./utils/zip');
-const { shopToday } = require('./utils/expiry');
-
-// Full-database dump as a ZIP holding one JSON file. Used by the admin
-// download button and the daily scheduled backup email. Restore with
-// scripts/restore-backup.js.
-//
-// ZIP rather than gzip for two reasons: Brevo refuses .gz attachments outright
-// ("Unsupported file format: gz"), which meant the daily backup email failed
-// every night; and .zip opens with a double-click on the Windows machines the
-// shop uses, where .gz needs extra software.
-async function buildBackup() {
-    const conn = await pool.getConnection();
-    try {
-        const [tables] = await conn.query('SHOW TABLES');
-        const tableNames = tables.map(t => Object.values(t)[0]);
-        const dump = { created_at: new Date().toISOString(), database: 'risha', tables: {} };
-        for (const t of tableNames) {
-            const [rows] = await conn.query(`SELECT * FROM \`${t}\``);
-            dump.tables[t] = rows;
-        }
-        const json = Buffer.from(JSON.stringify(dump));
-        const day = shopToday(); // the shop's date, not UTC's
-        return {
-            zip: zipSingleFile(`risha-backup-${day}.json`, json),
-            filename: `risha-backup-${day}.zip`,
-            tables: tableNames.length,
-            rows: Object.values(dump.tables).reduce((a, r) => a + r.length, 0),
-        };
-    } finally {
-        conn.release();
-    }
-}
-
+// Full-database dump (ZIP of one JSON file); see utils/backup.js.
+const { buildBackup } = require('./utils/backup');
 const backupAuth = require('./middleware/auth');
+
 app.get('/api/backup', backupAuth.authenticateToken, backupAuth.authorizeRole('admin'), async (req, res) => {
     try {
         const b = await buildBackup();
@@ -781,7 +750,14 @@ async function runMigrations() {
     await ensureIndexes();
     console.log('[DB] migrations complete');
 }
-runMigrations();
+// Once the tables are ready, fill any days the daily sales simulation has not
+// covered yet (backup first). Off in production; see services/simulation.
+// It looks again every 3 hours, so a server left running overnight fills the
+// new day too (a look with nothing to fill reads two small queries).
+const runSimulation = () => require('./services/simulation').runOnStartup()
+    .catch(e => console.error('[Simulation] skipped:', e.message));
+runMigrations().then(runSimulation);
+setInterval(runSimulation, 3 * 60 * 60 * 1000).unref();
 
 // An API address that does not exist says so, in the same shape as every
 // other answer. Without this it fell through to the page fallback below and
