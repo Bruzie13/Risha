@@ -1757,3 +1757,30 @@ button.rp-bar-row.is-link:focus-visible { outline: 2px solid var(--primary); out
 .sp-hist .sp-hist-table th, .sp-hist .sp-hist-table td { padding: 7px 10px; font-size: 12.5px; }
 .sp-hist .sp-hist-table th:first-child, .sp-hist .sp-hist-table td:first-child { min-width: 0; }
 .sp-hist-none { margin: 0 0 6px; font-size: 12.5px; color: var(--text-muted); }
+
+/* Suppliers tabs: the count sits inside the tab after its name, not pinned
+   over the corner (Carlo, 5 Nov: "ang pangit neto") */
+#supplierViewToggle .view-btn-badge { position: static; display: inline-flex; align-items: center; height: 18px; line-height: 18px;
+  margin-left: 6px; padding: 0 7px; font-size: 11.5px; font-weight: 700; background: var(--brand-red, var(--danger)); color: #fff; }
+#supplierViewToggle .inv-view-btn.active .view-btn-badge { background: #fff; color: var(--primary-dark, var(--primary)); }
+
+/* Inventory cards line up across a row whatever the name's length (Carlo,
+   5 Nov: "pantayin lahat kahit may mahahabang names"): the name always takes
+   two lines' room (a longer one ends in "…", the full name is on hover), the
+   SKU and the category one line each, and the buttons sit at the foot. */
+.product-grid { align-items: stretch; }
+.pcard.pcard-photo-top .pcard-name { min-height: calc(1.22em * 2); }
+.pcard.pcard-photo-top .pcard-sub,
+.pcard.pcard-photo-top .pcard-cat { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcard.pcard-photo-top .pcard-cat { display: block; }
+.pcard.pcard-photo-top .pcard-cat .dot { display: inline-block; vertical-align: middle; margin-right: 4px; }
+.pcard.pcard-photo-top .pcard-expiry { white-space: nowrap; overflow: hidden; }
+.pcard.pcard-photo-top .pcard-actions { margin-top: auto; }
+/* the price under the name: smaller than the name, still easy to find */
+.pcard.pcard-photo-top .pcard-price { margin-top: 4px; font-size: 14.5px; font-weight: 700; color: var(--text-primary); }
+.pcard.pcard-photo-top .pcard-price small { font-weight: 500; color: var(--text-muted); }
+.pcard.pcard-photo-top .pcard-sub { margin-top: 2px; }
+.pcard.pcard-photo-top .pcard-row { margin: 10px 0 6px; }
+/* the expiry date on its own small line under "Expires in N days", so it is never cut */
+.pcard.pcard-photo-top .pcard-expiry { flex-wrap: wrap; white-space: normal; row-gap: 0; }
+.pcard.pcard-photo-top .pcard-expiry-date { flex-basis: 100%; margin-left: 21px; font-size: 11.5px; }

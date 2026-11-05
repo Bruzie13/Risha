@@ -357,13 +357,14 @@ function displayProductsGrid(products) {
             </div>
             <div class="pcard-body">
                 <div class="pcard-name" title="${escHtml(p.name)}">${escHtml(p.name)}</div>
+                <!-- the price right under the name (Carlo, 5 Nov) -->
+                <div class="pcard-price">${formatCurrency(p.unit_price)} <small>/ unit</small></div>
                 <div class="pcard-sub">${escHtml(p.sku)}${p.brand ? ' · ' + escHtml(p.brand) : ''}${p.species ? ' · ' + escHtml(p.species) : ''}</div>
                 <div class="pcard-row">
                     <div class="pcard-stock" title="${formatNumber(stock)} in stock (reorder at ${formatNumber(reorder)})">
                         <div class="cs-track"><div class="cs-fill" style="width:${pct}%;background:${t.color};"></div></div>
                         <span><b>${formatNumber(stock)}</b> ${unit && unit !== 'pcs' ? escHtml(unit) + ' ' : ''}in stock</span>
                     </div>
-                    <div class="pcard-price">${formatCurrency(p.unit_price)} <small>/ unit</small></div>
                 </div>
                 <div class="pcard-cat"><span class="dot"></span> ${escHtml(p.category_name || 'Uncategorized')}</div>
                 ${expiry}
