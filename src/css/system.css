@@ -1630,8 +1630,6 @@ button.rp-bar-row.is-link:focus-visible { outline: 2px solid var(--primary); out
 .sp-line.sp-line-head { padding: 8px 0 6px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
 .sp-line.sp-line-head span:last-child { color: var(--text-muted); }
 /* Supplier portal → Open orders: the offer buttons on their own row (Carlo, 3 Nov) */
-.sp-offer-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 20px 4px; }
-.sp-offer-bar-note { font-size: 12.5px; color: var(--text-muted); }
 .sp-order-grid .sp-waiting { flex-basis: 100%; font-size: 12px; color: var(--text-muted); }
 /* in a box the progress line keeps its own height; spare room goes above the buttons */
 .sp-order-grid .po-progress { flex: none; }
@@ -1672,3 +1670,49 @@ button.rp-bar-row.is-link:focus-visible { outline: 2px solid var(--primary); out
 .fa-action-btns { display: flex; justify-content: flex-end; gap: 6px; }
 .fa-action-btns button { min-height: 32px; padding: 0 12px; font-size: 13px; }
 .fa-action-note { font-size: 12px; color: var(--text-muted); }
+
+/* ----- Supplier portal: Offer to the shop, its own section (3 Nov) ----- */
+.sp-offer-card { background: var(--bg-card); border: 1.5px solid var(--border-color); border-radius: 16px; padding: 16px 18px; margin: 0 0 14px; }
+.sp-offer-head h2 { margin: 0; font-size: 17px; font-weight: 700; color: var(--text-primary); }
+.sp-offer-head span { display: block; margin-top: 2px; font-size: 13px; color: var(--text-secondary); }
+.sp-offer-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.sp-offer-tile { display: flex; align-items: center; gap: 12px; text-align: left; padding: 14px 16px; border-radius: 12px; cursor: pointer;
+  background: color-mix(in srgb, var(--brand-sky) 10%, var(--bg-card)); border: 1.5px solid color-mix(in srgb, var(--brand-sky) 40%, var(--bg-card));
+  box-shadow: 0 var(--edge, 2px) 0 color-mix(in srgb, var(--brand-sky) 40%, var(--bg-card)); color: var(--text-primary); font: inherit;
+  transition: background 120ms ease, transform 120ms ease; }
+.sp-offer-tile:hover { background: color-mix(in srgb, var(--brand-sky) 18%, var(--bg-card)); }
+.sp-offer-tile:active { transform: translateY(var(--edge, 2px)); box-shadow: none; }
+.sp-offer-tile > .material-symbols-outlined { font-size: 26px; color: var(--brand-sky); width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+  display: grid; place-items: center; background: var(--bg-card); }
+.sp-offer-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sp-offer-text b { font-size: 15.5px; }
+.sp-offer-text small { font-size: 12.5px; color: var(--text-secondary); line-height: 1.35; }
+.sp-offer-low { margin-left: auto; flex-shrink: 0; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700;
+  background: color-mix(in srgb, #E8A317 20%, var(--bg-card)); color: #8A5A00; }
+.sp-offer-low[hidden] { display: none; }
+@media (max-width: 700px) { .sp-offer-tiles { grid-template-columns: 1fr; } }
+/* Supplier portal: the supplier's own status menu (Carlo, 3 Nov) */
+.sp-status .sp-status-pick { width: auto; min-width: 230px; min-height: 36px; font-weight: 600; }
+.sp-status.is-inactive .sp-status-chip { color: var(--text-secondary); }
+
+/* Order boxes in one row line up part by part (Carlo, 3 Nov: "dapat lahat
+   pantay pantay"): every box shares the row's six rows (heading, progress,
+   dates, products, buttons, notes), so the dates, the product list and the
+   buttons start at the same height in each box. */
+@supports (grid-template-rows: subgrid) {
+  .sp-order-grid > .sp-order { display: grid; grid-template-rows: subgrid; grid-row: span 6; row-gap: 0; align-content: start; }
+  .sp-order-grid > .sp-order > .sp-order-actions { margin-top: 0; align-self: start; }
+  .sp-order-grid > .sp-order > .sp-notes[hidden] { display: block; height: 0; padding: 0; border: 0; overflow: hidden; }
+}
+
+/* The buttons at the foot of an order box, in order (Carlo, 3 Nov: "mas
+   organize and align"): the main action across the full width, the others
+   side by side in equal halves, a lone one across the full width, and the
+   waiting note under them. */
+.sp-order-grid .sp-order-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: start; }
+.sp-order-grid .sp-order-actions > button { width: 100%; justify-content: center; text-align: center; min-height: 38px; margin: 0; }
+.sp-order-grid .sp-order-actions > .btn-primary,
+.sp-order-grid .sp-order-actions > .btn-primary + button:last-of-type,
+.sp-order-grid .sp-order-actions > button:only-of-type,
+.sp-order-grid .sp-order-actions > .sp-waiting { grid-column: 1 / -1; }
+.sp-order-grid .sp-order-actions > .sp-waiting { text-align: left; margin-top: 2px; }

@@ -104,8 +104,8 @@ PLAN = {
             ('End of day', [
                 ('Click **End of day** in the sidebar',
                  'The **End of day cash count** window opens with the starting cash, today\'s cash sales, the cash put in and taken out, and **Expected cash in the drawer now** (hidden until the eye icon is clicked)'),
-                ('Enter the cash counted in **Cash counted in the drawer (₱)** (a count above the expected cash turns the box red with "This is ₱… more than the expected cash in the drawer. Count again before you save.", but it can still be saved), then click **Save count and close drawer**',
-                 'A question asks to close the drawer for the day'),
+                ('Enter the cash counted in **Cash counted in the drawer (₱)** (example: 1,500.50), then click **Save count and close drawer**',
+                 'A question asks to close the drawer for the day. If the count is above the expected cash, the box turns red first with "This is ₱… more than the expected cash in the drawer. Count again before you save." (it can still be saved)'),
                 ('Click **Close the drawer**',
                  'The count is saved with the expected amount and "Balanced", "Over by" or "Short by", and no more sales can be made today'),
             ]),

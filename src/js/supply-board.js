@@ -494,7 +494,7 @@
         var st = NEW_STATUS[full.status] || [full.status];
         showDetailsDialog(full.name, 'Offered by ' + full.supplier_name, [
             ['Status', st[0], full.status === 'declined' ? 'danger' : null],
-            ['Brand', full.brand], ['What it is', full.category], ['For', full.species], ['Sold by', full.unit_type],
+            ['Brand', full.brand], ['Product type', full.category], ['Pet type', full.species], ['Sold by', full.unit_type],
             ['Their price', formatCurrency(full.cost_price)], ['About it', full.description],
             ['Contact', [full.contact_person, full.supplier_phone, full.supplier_email].filter(Boolean).join(' · ')],
             ['Offered', when(full.created_at)], ['Offered by', full.proposed_by],

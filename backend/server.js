@@ -790,16 +790,26 @@ app.use('/api', (req, res) => {
     res.status(404).json({ success: false, message: 'Not found' });
 });
 
+/* What the browser may keep (speed fix, 3 Nov). Every page asked for all its
+   scripts and styles in full on every visit, ~15 files a page, because they
+   were marked never-store. Now:
+     pages (.html)                    never stored, so a new version is seen at once
+     scripts and styles with ?v=N     kept a year: a change gets a new N in
+                                      every page, so the old copy is never used
+     the same without ?v=             kept, but checked each time (a quick 304)
+     pictures and the rest            kept a day */
 app.use(express.static(path.join(__dirname, '..', 'src'), {
-    etag: false,
-    lastModified: false,
+    etag: true,
+    lastModified: true,
     maxAge: 0,
     setHeaders: (res, filePath) => {
-        if (filePath.match(/\.(js|css|html)$/)) {
-            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, proxy-revalidate');
-            res.setHeader('Pragma', 'no-cache');
-            res.setHeader('Expires', '0');
-            res.setHeader('Surrogate-Control', 'no-store');
+        const versioned = !!(res.req && res.req.query && res.req.query.v);
+        if (/\.html?$/.test(filePath)) {
+            res.setHeader('Cache-Control', 'no-store');
+        } else if (/\.(js|css)$/.test(filePath)) {
+            res.setHeader('Cache-Control', versioned ? 'public, max-age=31536000, immutable' : 'no-cache');
+        } else {
+            res.setHeader('Cache-Control', 'public, max-age=86400');
         }
     }
 }));

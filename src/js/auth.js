@@ -196,7 +196,7 @@ function applyRoleInterface() {
     if (role !== 'admin') document.querySelectorAll('[data-needs="admin"]').forEach(el => el.classList.add('role-hidden'));
     if (!isFencedRole(role)) return;
     const nav = document.querySelector('.sidebar-nav');
-    if (nav && role === 'supplier' && !nav.querySelector('a[href="supplier.html"]')) {
+    if (nav && role === 'supplier' && !nav.querySelector('a[href^="supplier.html"]')) {
         const link = document.createElement('a');
         link.href = 'supplier.html';
         link.className = 'nav-link rail-icon-only';

@@ -95,23 +95,26 @@ router.put('/me', async (req, res) => {
     } catch (e) { fail(res, 'update details', e); }
 });
 
-// On vacation: the shop sees it on the supplier's line and before ordering
-// (UAT part 4, A6). The supplier can turn it on and off; the other statuses
-// are the shop's.
-router.put('/me/vacation', async (req, res) => {
+// The supplier's own status (UAT part 4, A6; Carlo, 3 Nov: not only
+// vacation): Active, On vacation or Inactive (not taking orders). The shop
+// sees it on the supplier's line and before ordering. Deactivated is the
+// shop's alone: it turns the login off, so this page is not reachable then.
+const OWN_STATUS = { active: 'Active', vacation: 'On vacation', inactive: 'Inactive' };
+router.put('/me/status', async (req, res) => {
     try {
-        const on = req.body?.on === true;
-        if (!['active', 'vacation'].includes(req.supplier.status)) {
-            return bad(res, 'The shop has set your status to ' + (req.supplier.status === 'inactive' ? 'Inactive' : req.supplier.status) + '. Ask the shop to change it.');
-        }
-        const next = on ? 'vacation' : 'active';
-        if (next === req.supplier.status) return res.json({ success: true, message: on ? 'You are already on vacation.' : 'You are already active.' });
+        const next = String(req.body?.status || '');
+        if (!OWN_STATUS[next]) return bad(res, 'Choose Active, On vacation or Inactive.');
+        if (next === req.supplier.status) return res.json({ success: true, message: `You are already ${OWN_STATUS[next]}.` });
         await pool.query('UPDATE suppliers SET status = ? WHERE id = ?', [next, req.supplier.id]);
         logAudit(req.user.id, 'update', 'suppliers', req.supplier.id, { status: req.supplier.status }, { status: next }, req.ip);
-        tellShop(on ? 'Supplier on vacation' : 'Supplier back from vacation',
-            on ? `${req.supplier.name} is on vacation. Orders sent to them may wait until they are back.` : `${req.supplier.name} is back and taking orders again.`, null);
-        res.json({ success: true, message: on ? 'You are now on vacation. The shop has been told.' : 'Welcome back. The shop has been told you are taking orders.' });
-    } catch (e) { fail(res, 'vacation', e); }
+        const told = {
+            active: [`Supplier active`, `${req.supplier.name} is active and taking orders again.`],
+            vacation: ['Supplier on vacation', `${req.supplier.name} is on vacation. Orders sent to them may wait until they are back.`],
+            inactive: ['Supplier inactive', `${req.supplier.name} set themselves as inactive: they are not taking orders for now.`]
+        }[next];
+        tellShop(told[0], told[1], null);
+        res.json({ success: true, message: `Your status is now ${OWN_STATUS[next]}. The shop has been told.` });
+    } catch (e) { fail(res, 'status', e); }
 });
 
 /* ---------- Products and prices ---------- */

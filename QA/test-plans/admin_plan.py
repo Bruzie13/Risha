@@ -81,10 +81,13 @@ PLAN = {
                 ('Fill in the product details, in the order of the form:\n**Product name:** Pedigree Adult Beef 3kg\n**Category:** Food\n**Product type:** Dry food\n'
                  '**Unit price (₱):** 650 (greater than 0)\n**Cost price (₱):** 520 (greater than 0 and not greater than the unit price)\n**Stock on hand:** 20 (not lower than 0)\n'
                  '**Reorder level:** 10\n**Supplier:** PetCo\n**Expiration date:** one year from today (it must be at least one week away)\n'
-                 '**Barcode:** 4809876543210 (letters and numbers only)\n**Species:** Dog',
-                 'The SKU is filled in by itself based on the product type (example: DRY-121). The **Expiration date** label shows "*" because Food needs one, and it can only be one week or more from today'),
+                 '**Barcode:** 4809876543210 (letters and numbers only)',
+                 'Each box takes its value with no warning under it. The SKU is filled in by itself from the product type (example: DRY-121), and the **Expiration date** label shows "*" because Food needs one'),
+                ('Click **More details (optional)** below the form, then fill in:\n**Brand:** Pedigree\n**Species:** Dog\n**Sold by:** Piece (pcs)\n'
+                 '**Max stock level:** 100 (greater than the reorder level)\n**Image:** click the upload button beside the box and choose a picture of the product',
+                 'The optional details open, each box takes its value, and the picture is shown beside the **Image** box'),
                 ('Click **Save product** at the lower-right of the window',
-                 '"Product added" is shown and the new product appears in the list'),
+                 '"Product added" is shown with its SKU, and the new product appears in the list with its picture'),
             ]),
             ('Product import', [
                 ('Click **Import** at the right of the **Add** button',
@@ -300,7 +303,7 @@ PLAN = {
                 ('Click the **New products** tab at the right of **Price changes** (it shows how many are waiting)',
                  'The new products that suppliers offered are listed with the supplier, the price and the status'),
                 ('Click **Details** on a new product',
-                 'Its details open (name, brand, what it is, pet, unit, price, about and picture) with **Add to Inventory** and **Decline**'),
+                 'Its details open (name, brand, product type, pet type, sold by, price, about and picture) with **Add to Inventory** and **Decline**'),
                 ('Click **Add to Inventory**',
                  'The **Add new product** window opens filled in with the offered product; saving it adds the product to Inventory and marks the offer added'),
             ]),
@@ -377,9 +380,9 @@ PLAN = {
             ('User addition', [
                 ('Click the **Add user** button at the upper-right of the page',
                  'The **Add new user** window opens'),
-                ('Enter the full name, a valid username and a valid email that is not used by another account (example: Ana Reyes, ana.reyes, ana.reyes@example.com), then click **Send code**',
+                ('Fill in:\n**Full name:** Joy Jugan\n**Username:** jjoy\n**Email:** joylindajugan@gmail.com (not used by another account)\nThen click **Send code**',
                  'A 6-digit code is sent to that email address (if it is not in the inbox, check the Spam folder)'),
-                ('Enter a valid password and the 6-digit code, choose the role (example: Staff), then click **Create user**',
+                ('Fill in:\n**Password:** Risha@2026 (at least 6 characters with an uppercase letter, a number and a special character)\n**Email code:** the 6-digit code from the email\n**Role:** Staff\nThen click **Create user**',
                  '"User created" is shown and the new user appears in the list'),
                 ('Open the confirmation link sent to the new user\'s email (if it is not in the inbox, check the Spam folder)',
                  'The page says the email is confirmed and the account can now sign in'),

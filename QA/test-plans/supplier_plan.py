@@ -39,31 +39,37 @@ PLAN = {
                 ('Look at the **Open orders** tab',
                  'Only the supplier\'s own orders are shown, each as a box with its progress, dates, **Products (N)** and **Quantity**, and its next step'),
             ]),
-            ('Vacation', [
-                ('Click **Go on vacation** beside the status at the top, then **Go on vacation**',
-                 'The status reads **On vacation**, and the shop sees it in Suppliers and before it sends an order'),
-                ('Click **I\'m back**, then **I\'m back**',
-                 'The status reads **Active** again'),
+            ('Your status', [
+                ('In **Your status** at the upper-right, choose **On vacation: away for a while**, then click **Change status**',
+                 '"Your status is now On vacation. The shop has been told." is shown, and the shop sees it in Suppliers and before it sends an order'),
+                ('Choose **Inactive: not taking orders**, then click **Change status**',
+                 '"Your status is now Inactive. The shop has been told." is shown'),
+                ('Choose **Active: taking orders**, then click **Change status**',
+                 'The status reads **Active: taking orders** again'),
             ]),
             ('Order offer', [
-                ('Click **Offer an order** under the **Open orders** heading',
-                 'The **Offer an order** window opens with the supplier\'s products. The ones running low at the shop are filled in'),
+                ('Click the **Offer to the shop** tab, then click **Offer an order**',
+                 'The **Offer an order** window opens with the supplier\'s products. The ones running low at the shop are filled in, and the button shows how many are running low'),
                 ('Type a product name in **Search your products**',
                  'Only the matching products are listed; quantities already typed stay'),
                 ('Enter a quantity not greater than 10,000, choose a date not greater than a year in **Date you could deliver**, then click **Send offer**',
                  '"Offer sent. It becomes an order if the shop accepts it." is shown, and the offer is listed as waiting for the shop'),
-                ('Click **Cancel offer** on that offer, type a reason (example: Out of stock), then click **Cancel offer**',
+                ('Under **Offers waiting for the shop**, click **Cancel offer** on that offer, type a reason (example: Out of stock), then click **Cancel offer**',
                  '"Offer cancelled. The shop has been told." is shown, and **Past orders** lists it as "Cancelled by you" with the reason'),
             ]),
             ('New product offer', [
-                ('Click **Offer a new product** under the **Open orders** heading, fill in the name, brand, what it is, pet, unit, price, about and a picture (example: AOZI Senior Lamb 1kg, ₱1,250.50), then click **Send to the shop**',
-                 '"Sent to the shop. You will see here whether they add it." is shown, and **Products** → **New products you offered** lists it as waiting'),
+                ('In the **Offer to the shop** tab, click **Offer a new product**',
+                 'The **Offer a new product** window opens'),
+                ('Fill in the product details:\n**Product name:** AOZI Senior Lamb 1kg\n**Brand (optional):** Aozi\n**Product type (optional):** Dry food\n'
+                 '**Pet type (optional):** Dog\n**Sold by (optional):** bag\n**Your price to the shop (₱):** 1,250.50 (a number above 0, at most 2 decimals)\n'
+                 '**About it (optional):** Lamb flavour for senior dogs\n**Picture (optional):** a PNG, JPG or WEBP picture of the pack\nThen click **Send to the shop**',
+                 '"Sent to the shop. You will see here whether they add it." is shown, and **New products you offered** in the same tab lists it as **Waiting for the shop**'),
             ]),
             ('Order confirmation', [
                 ('Click the **Confirm order** button on an order waiting for confirmation',
                  'A window asks for the **Date you will deliver** and **How many of each you can send**'),
                 ('Choose the delivery date (today or later, and not more than a year away), check the quantities (each not more than ordered, at least one above 0), then click **Confirm order**',
-                 '"Order confirmed." is shown and the order is marked confirmed'),
+                 '"Order confirmed." is shown and the order is marked **Confirmed**'),
             ]),
             ('Shipping', [
                 ('Click the **Mark as shipped** button on a confirmed order',

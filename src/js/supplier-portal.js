@@ -23,11 +23,13 @@ const ORDER_STATUS = {
 window.addEventListener('load', () => {
     if (!isAuthenticated()) { window.location.href = 'login.html'; return; }
     document.getElementById('openOrders').addEventListener('click', onOrderClick);
+    document.getElementById('waitingOffersBody').addEventListener('click', onOrderClick);
     document.getElementById('pastOrdersBody').addEventListener('click', onOrderClick);
     document.getElementById('openOrders').addEventListener('submit', onNoteSubmit);
     document.querySelectorAll('.sp-tab').forEach(t => t.addEventListener('click', () => setSpTab(t.dataset.spTab)));
     let first = 'open';
     try { first = localStorage.getItem('spTab') || 'open'; } catch (e) {}
+    if (location.hash === '#offer') first = 'offer';
     setSpTab(first);
     document.getElementById('productsBody').addEventListener('click', e => {
         const btn = e.target.closest('button[data-price]');
@@ -45,9 +47,25 @@ window.addEventListener('load', () => {
     });
     document.getElementById('pastSearch').addEventListener('input', () => { pastShown = PAST_PAGE; renderPast(); });
     document.getElementById('pastStatus').addEventListener('change', () => { pastShown = PAST_PAGE; renderPast(); });
-    document.getElementById('spStatus').addEventListener('click', e => { if (e.target.closest('button[data-vacation]')) toggleVacation(); });
+    document.getElementById('spStatus').addEventListener('change', e => { if (e.target.id === 'spStatusPick') changeStatus(e.target.value); });
     loadPortal();
 });
+
+/* The offers the shop has not answered yet, in the Offer to the shop tab, each with Cancel offer. */
+function renderWaitingOffers() {
+    const waiting = portal.orders.filter(o => o.status === 'proposed');
+    if (!waiting.length) { portalRow('waitingOffersBody', 5, 'No offers waiting. Use Offer an order above.'); return; }
+    document.getElementById('waitingOffersBody').innerHTML = waiting.map(o => {
+        const items = (o.items || []).map(i => `${escHtml(formatQty(i.quantity))} × ${escHtml(i.name)}`);
+        return `<tr>
+            <td><span class="rp-strong">${escHtml(o.po_number)}</span>${o.order_date ? `<span class="rp-sub">Offered ${escHtml(portalDate(o.order_date))}</span>` : ''}</td>
+            <td>${items.slice(0, 3).join('<br>')}${items.length > 3 ? `<span class="rp-sub">and ${items.length - 3} more</span>` : ''}</td>
+            <td>${o.promised_date ? escHtml(portalDate(o.promised_date)) : '—'}</td>
+            <td class="num rp-strong">${formatCurrency(o.total_amount)}</td>
+            <td class="num"><button class="btn-secondary sp-btn-cancel" data-act="cancel-offer" data-id="${Number(o.id)}">Cancel offer</button></td>
+        </tr>`;
+    }).join('');
+}
 
 /* ---------- One part of the portal at a time ---------- */
 
@@ -133,6 +151,7 @@ async function loadPortal() {
         renderPayments();
         renderScorecard();
         renderNewProducts();
+        renderWaitingOffers();
     } catch (error) {
         console.error('Supplier page failed to load:', error);
         notice.textContent = error.message && error.message !== 'Request failed'
@@ -143,6 +162,8 @@ async function loadPortal() {
         portalRow('productsBody', 7, 'Nothing to show.');
         portalRow('pastOrdersBody', 5, 'Nothing to show.');
         portalRow('paymentsBody', 4, 'Nothing to show.');
+        portalRow('waitingOffersBody', 5, 'Nothing to show.');
+        portalRow('newProductsBody', 5, 'Nothing to show.');
     }
 }
 
@@ -152,26 +173,32 @@ async function loadPortal() {
    Profile (UAT, 31 Oct). */
 function renderDetails() {
     document.getElementById('supplierName').textContent = (portal.me && portal.me.name) || 'Supplier';
-    // Active or On vacation, and the switch between them (UAT part 4, A6).
-    // Inactive is the shop's to change, so it shows without a switch.
+    // the supplier's own status: Active, On vacation or Inactive (Carlo, 3 Nov)
     const status = (portal.me && portal.me.status) || 'active';
     const box = document.getElementById('spStatus');
-    const label = { active: 'Active', vacation: 'On vacation', inactive: 'Inactive' }[status] || 'Active';
     box.hidden = false;
     box.className = 'sp-status is-' + status;
-    box.innerHTML = `<span class="sp-status-chip"><span class="sp-status-dot"></span>${escHtml(label)}</span>`
-        + (status === 'active' ? '<button type="button" class="btn-secondary" data-vacation>Go on vacation</button>'
-            : status === 'vacation' ? '<button type="button" class="btn-primary" data-vacation>I\'m back</button>'
-            : '<span class="sp-status-note">Set by the shop</span>');
+    box.innerHTML = `<label class="sp-status-chip" for="spStatusPick"><span class="sp-status-dot"></span>Your status</label>
+        <select class="form-select sp-status-pick" id="spStatusPick" aria-label="Your status">
+            ${Object.entries(SP_STATUS).map(([k, v]) => `<option value="${k}"${k === status ? ' selected' : ''}>${v.label}</option>`).join('')}
+        </select>`;
 }
 
-function toggleVacation() {
-    const on = !(portal.me && portal.me.status === 'vacation');
-    showConfirmDialog(on ? 'Go on vacation?' : 'Back from vacation?',
-        on ? 'The shop sees that you are on vacation, on your line in Suppliers and before it sends you an order. Your open orders stay as they are.'
-           : 'The shop sees that you are taking orders again.',
-        async () => { if (await portalSend('PUT', '/me/vacation', { on })) loadPortal(); },
-        on ? 'Go on vacation' : 'I\'m back');
+const SP_STATUS = {
+    active: { label: 'Active: taking orders', short: 'Active', say: 'The shop sees that you are taking orders.' },
+    vacation: { label: 'On vacation: away for a while', short: 'On vacation', say: 'The shop sees that you are on vacation, on your line in Suppliers and before it sends you an order. Your open orders stay as they are.' },
+    inactive: { label: 'Inactive: not taking orders', short: 'Inactive', say: 'The shop sees that you are not taking orders for now. Your open orders stay as they are.' }
+};
+
+function changeStatus(next) {
+    const now = (portal.me && portal.me.status) || 'active';
+    if (!SP_STATUS[next] || next === now) return;
+    showConfirmDialog('Change your status to ' + SP_STATUS[next].short + '?', SP_STATUS[next].say,
+        async () => { if (await portalSend('PUT', '/me/status', { status: next })) loadPortal(); else renderDetails(); },
+        'Change status');
+    // closing the question without changing puts the menu back
+    const keep = document.getElementById('confirmCancelBtn');
+    if (keep) keep.addEventListener('click', renderDetails);
 }
 
 /* ---------- Products and prices ---------- */
@@ -180,6 +207,9 @@ function renderProducts() {
     const products = portal.products;
     const low = products.filter(p => Number(p.stock_quantity) <= Number(p.reorder_level));
     setTabCount('tabCountLow', low.length, 'low');
+    // the offer section says how many are running low, so an offer is worth making
+    const lowChip = document.getElementById('spOfferLow');
+    if (lowChip) { lowChip.hidden = !low.length; lowChip.textContent = low.length + ' running low'; }
     if (!products.length) { portalRow('productsBody', 7, 'No products are assigned to you yet.'); document.getElementById('productsPagination').innerHTML = ''; return; }
     const status = p => {
         const stock = Number(p.stock_quantity), level = Number(p.reorder_level);
@@ -344,7 +374,7 @@ function renderOrders() {
             </div>
             ${poProgressHtml(o.status)}
             <div class="sp-order-facts">${orderFacts(o)}</div>
-            ${items.length ? `<div class="sp-lines"><div class="sp-line sp-line-head"><span>Products (${items.length})</span><span>Quantity</span></div>${items.map(lineOf).join('')}</div>` : ''}
+            <div class="sp-lines">${items.length ? `<div class="sp-line sp-line-head"><span>Products (${items.length})</span><span>Quantity</span></div>${items.map(lineOf).join('')}` : ''}</div>
             <div class="sp-order-actions">${orderActions(o)}</div>
             <div class="sp-notes" id="notes-${id}" ${openNotes.has(id) ? '' : 'hidden'}></div>
         </div>`;
@@ -542,7 +572,7 @@ const NEW_STATUS = {
 
 function renderNewProducts() {
     const rows = portal.newProducts || [];
-    if (!rows.length) { portalRow('newProductsBody', 5, 'None yet. Use Offer a new product in Open orders.'); return; }
+    if (!rows.length) { portalRow('newProductsBody', 5, 'None yet. Use Offer a new product above.'); return; }
     const when = ms => ms ? new Date(Number(ms)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
     document.getElementById('newProductsBody').innerHTML = rows.map(o => {
         const st = NEW_STATUS[o.status] || { text: o.status, tone: 'ok' };
@@ -563,7 +593,7 @@ function showNewProduct(id) {
     const st = NEW_STATUS[o.status] || { text: o.status };
     showDetailsDialog(o.name, 'A new product you offered', [
         ['Status', st.text, o.status === 'declined' ? 'danger' : o.status === 'added' ? 'success' : null],
-        ['Brand', o.brand], ['What it is', o.category], ['For', o.species], ['Unit', o.unit_type],
+        ['Brand', o.brand], ['Product type', o.category], ['Pet type', o.species], ['Sold by', o.unit_type],
         ['Your price', formatCurrency(o.cost_price)], ['About it', o.description],
         ['Offered', when(o.created_at)], ['Answered', when(o.decided_at)],
         ['Shop\'s reason', o.status === 'declined' ? o.decline_reason : null, 'danger']
@@ -596,13 +626,13 @@ function openNewProduct() {
                 <input type="text" class="form-input" id="npBrand" maxlength="50" placeholder="For example: Aozi">
             </div>
             <div class="form-group">
-                <label class="form-label" for="npCategory">What it is (optional)</label>
+                <label class="form-label" for="npCategory">Product type (optional)</label>
                 <input type="text" class="form-input" id="npCategory" maxlength="60" placeholder="For example: Dry food">
             </div>
          </div>
          <div class="sp-form-pair">
             <div class="form-group">
-                <label class="form-label" for="npSpecies">For which pet (optional)</label>
+                <label class="form-label" for="npSpecies">Pet type (optional)</label>
                 <select class="form-select" id="npSpecies"><option value="">Any</option><option>Dog</option><option>Cat</option><option>Bird</option><option>Fish</option></select>
             </div>
             <div class="form-group">

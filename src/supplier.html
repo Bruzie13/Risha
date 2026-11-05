@@ -28,7 +28,7 @@
     <link rel="stylesheet" href="css/reports.css?v=30">
 <script>/* the supplier has one page, so its sidebar starts as the slim strip (see "The slim strip" in css/system.css); the logo opens it, and that choice is kept (railOpen) */document.documentElement.classList.add('rail-only');document.documentElement.classList.toggle('sidebar-hidden', localStorage.getItem('railOpen') !== 'true');</script>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
-        <link rel="stylesheet" href="css/system.css?v=120">
+        <link rel="stylesheet" href="css/system.css?v=123">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -102,6 +102,7 @@
                     <span class="rp-figure-note" id="figRatingNote">From the last 12 months</span>
                 </div>
             </div>
+
             <!-- one part of the portal at a time -->
             <div class="sp-tabs" role="tablist" aria-label="Parts of the portal">
                 <button type="button" class="sp-tab" role="tab" data-sp-tab="open">Open orders<span class="sp-tab-count" id="tabCountOpen" hidden></span></button>
@@ -109,6 +110,7 @@
                 <button type="button" class="sp-tab" role="tab" data-sp-tab="products">Products<span class="sp-tab-count is-warn" id="tabCountLow" hidden title="Products you supply that are running low at the shop (at or below their reorder level)"></span></button>
                 <button type="button" class="sp-tab" role="tab" data-sp-tab="rating">Rating</button>
                 <button type="button" class="sp-tab" role="tab" data-sp-tab="past">Past orders</button>
+                <button type="button" class="sp-tab" role="tab" data-sp-tab="offer"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:17px;">storefront</span> Offer to the shop</button>
             </div>
             <div class="rp-card panel-card" id="spOpen" data-sp-panel="open" data-jump-title="Open orders">
                 <div class="rp-card-head">
@@ -116,12 +118,6 @@
                         <h2>Open orders</h2>
                         <span class="rp-card-sub">Confirm an order with your delivery date, then mark it shipped when it leaves</span>
                     </div>
-                </div>
-                <!-- what the supplier can start, on its own row under the heading -->
-                <div class="sp-offer-bar">
-                    <button class="btn-secondary" onclick="openOffer()"><span class="material-symbols-outlined">add</span> Offer an order</button>
-                    <button class="btn-secondary" onclick="openNewProduct()"><span class="material-symbols-outlined">add_box</span> Offer a new product</button>
-                    <span class="sp-offer-bar-note">Offer to deliver products the shop is running low on, or a product it does not sell yet.</span>
                 </div>
                 <div class="sp-orders sp-order-grid" id="openOrders"><p class="rp-loading">Loading orders…</p></div>
             </div>
@@ -176,16 +172,6 @@
                     </table>
                 </div>
                 <div id="productsPagination" class="pagination-bar"></div>
-                <div class="sp-section-head">
-                    <h3>New products you offered</h3>
-                    <span>Products the shop does not sell yet. The shop adds them to its inventory or tells you why not.</span>
-                </div>
-                <div class="rp-table-wrap">
-                    <table class="rp-table">
-                        <thead><tr><th>Product</th><th>Offered</th><th class="num">Your price</th><th>Answer</th><th></th></tr></thead>
-                        <tbody id="newProductsBody"><tr><td colspan="5" class="rp-loading">Loading…</td></tr></tbody>
-                    </table>
-                </div>
             </div>
 
             <div class="rp-card panel-card" id="spRating" data-sp-panel="rating" data-jump-title="How you are doing">
@@ -226,6 +212,57 @@
                 <div id="pastPagination" class="pagination-bar"></div>
             </div>
 
+            <!-- Offer to the shop: a tab of its own (Carlo, 3 Nov) -->
+            <div id="spOffer" data-sp-panel="offer" data-jump-title="Offer to the shop" hidden>
+            <!-- what the supplier can start -->
+            <section class="sp-offer-card" aria-labelledby="spOfferTitle">
+                <div class="sp-offer-head">
+                    <h2 id="spOfferTitle">What would you like to offer?</h2>
+                    <span>Have stock the shop needs, or something new? Offer it here; it becomes an order once the shop accepts.</span>
+                </div>
+                <div class="sp-offer-tiles">
+                    <button type="button" class="sp-offer-tile" onclick="openOffer()">
+                        <span class="material-symbols-outlined" aria-hidden="true">add_shopping_cart</span>
+                        <span class="sp-offer-text"><b>Offer an order</b><small>Products the shop already buys from you. The ones running low are filled in.</small></span>
+                        <span class="sp-offer-low" id="spOfferLow" hidden></span>
+                    </button>
+                    <button type="button" class="sp-offer-tile" onclick="openNewProduct()">
+                        <span class="material-symbols-outlined" aria-hidden="true">add_box</span>
+                        <span class="sp-offer-text"><b>Offer a new product</b><small>Something the shop does not sell yet: its name, price and a picture.</small></span>
+                    </button>
+                </div>
+            </section>
+
+                <div class="rp-card panel-card">
+                    <div class="rp-card-head">
+                        <div>
+                            <h2>Offers waiting for the shop</h2>
+                            <span class="rp-card-sub">Orders you offered that the shop has not answered yet. Cancel one if you can no longer send it.</span>
+                        </div>
+                    </div>
+                    <div class="rp-table-wrap">
+                        <table class="rp-table">
+                            <thead><tr><th>Offer</th><th>Products</th><th>You could deliver</th><th class="num">Total</th><th></th></tr></thead>
+                            <tbody id="waitingOffersBody"><tr><td colspan="5" class="rp-loading">Loading…</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="rp-card panel-card">
+                    <div class="rp-card-head">
+                        <div>
+                            <h2>New products you offered</h2>
+                            <span class="rp-card-sub">Products the shop does not sell yet. The shop adds them to its inventory or tells you why not.</span>
+                        </div>
+                    </div>
+                    <div class="rp-table-wrap">
+                        <table class="rp-table">
+                            <thead><tr><th>Product</th><th>Offered</th><th class="num">Your price</th><th>Answer</th><th></th></tr></thead>
+                            <tbody id="newProductsBody"><tr><td colspan="5" class="rp-loading">Loading…</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -263,13 +300,13 @@
     </script>
     <script src="js/format.js"></script>
     <script src="js/utils.js"></script>
-    <script src="js/auth.js?v=81"></script>
+    <script src="js/auth.js?v=82"></script>
     <script src="js/loader.js?v=6"></script>
 <script src="js/clear-input.js?v=3"></script>
     <script src="js/po-progress.js?v=3"></script>
     <link rel="stylesheet" href="vendor/intl-tel-input-18.2.1/css/intlTelInput.css">
     <script src="vendor/intl-tel-input-18.2.1/js/intlTelInput.min.js"></script>
     <script src="js/phone-field.js?v=4"></script>
-    <script src="js/supplier-portal.js?v=23"></script>
+    <script src="js/supplier-portal.js?v=29"></script>
 </body>
 </html>
