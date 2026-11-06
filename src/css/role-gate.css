@@ -1,0 +1,42 @@
+/* Role gate: hides what an account cannot use from the very first paint.
+
+   Each page's <head> puts the signed-in account's role on <html> as
+   data-role before anything is drawn. auth.js later removes the same things
+   for good (applyRoleInterface); without this file they were on screen
+   until then, so a manager saw POS and Users flash in the menu, and the
+   simulation account saw the whole back-office menu when it opened Settings.
+   The server refuses all of it either way: this is only about what shows.
+
+   Keep in step with canOpenPage / applyRoleInterface in js/auth.js. */
+
+/* Pages only one kind of account may open */
+html[data-role]:not([data-role="cashier"]) a[href^="pos.html"],
+html[data-role]:not([data-role="admin"]) a[href^="users.html"],
+html[data-role]:not([data-role="supplier"]) a[href^="supplier.html"],
+html[data-role]:not([data-role="admin"]):not([data-role="simulation"]) a[href^="simulation.html"] { display: none !important; }
+
+/* Fenced accounts: nothing in the menu but their own screen */
+html[data-role="cashier"] .sidebar-nav > a:not([href^="pos.html"]),
+html[data-role="supplier"] .sidebar-nav > a:not([href^="supplier.html"]),
+html[data-role="simulation"] .sidebar-nav > a:not([href^="simulation.html"]) { display: none !important; }
+
+/* Fenced accounts get no alerts, Jump palette or alert chip */
+html[data-role="cashier"] :is(#notifBellBtn, #jumpCta, .jump-cta, #alertChip),
+html[data-role="supplier"] :is(#notifBellBtn, #jumpCta, .jump-cta, #alertChip),
+html[data-role="simulation"] :is(#notifBellBtn, #jumpCta, .jump-cta, #alertChip) { display: none !important; }
+
+/* Controls marked for managers and administrators only */
+html[data-role]:not([data-role="admin"]):not([data-role="manager"]) [data-needs="manage"],
+html[data-role]:not([data-role="admin"]) [data-needs="admin"] { display: none !important; }
+
+/* The button under the profile opens the Trash, for managers and administrators only */
+html[data-role]:not([data-role="admin"]):not([data-role="manager"]) #themeToggleBtn { display: none !important; }
+
+/* Reports: Void requests is for managers and administrators, Activity log for administrators
+   (reports.js still removes them, so ?tab= cannot open them either) */
+html[data-role]:not([data-role="admin"]):not([data-role="manager"]) .report-tab[data-tab="voids"],
+html[data-role]:not([data-role="admin"]) .report-tab[data-tab="audit"] { display: none !important; }
+
+/* Suppliers list: a view-only account has no actions, so the column header stays blank
+   (the column itself stays, the rows show a dash there) */
+html[data-role="viewer"] #supplierTableWrap .supplier-table thead th:last-child { color: transparent; }
