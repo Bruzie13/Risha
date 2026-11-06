@@ -70,7 +70,7 @@ const authenticateToken = (req, res, next) => {
             // every protected route passes through, rather than route by
             // route where a new endpoint could be left open by omission.
             if (!apiAllowed(user.role, req.method, req.originalUrl.split('?')[0])) {
-                return res.status(403).json({ success: false, message: ({ admin: 'An administrator', manager: 'A manager', viewer: 'A view-only account', cashier: 'A cashier account', supplier: 'A supplier account' }[user.role] || 'This account') + ' cannot do this (' + req.method + ' ' + req.originalUrl.split('?')[0] + ').' });
+                return res.status(403).json({ success: false, message: ({ admin: 'An administrator', manager: 'A manager', viewer: 'A view-only account', cashier: 'A cashier account', supplier: 'A supplier account', simulation: 'The simulation account' }[user.role] || 'This account') + ' cannot do this (' + req.method + ' ' + req.originalUrl.split('?')[0] + ').' });
             }
 
             req.user = user;

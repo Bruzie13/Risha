@@ -132,3 +132,27 @@ test('the Users page belongs to the administrator alone', () => {
     assert.equal(pageAllowed('supplier', '/users.html'), false);
     assert.equal(homePage('manager'), '/dashboard.html', 'and is sent to the dashboard instead');
 });
+
+test('simulation: only the live simulation screen and its own profile', () => {
+    assert.ok(apiAllowed('simulation', 'GET', '/api/simulation/live'));
+    assert.ok(apiAllowed('simulation', 'POST', '/api/simulation/live/start'));
+    assert.ok(apiAllowed('simulation', 'POST', '/api/simulation/live/stop'));
+    assert.ok(apiAllowed('simulation', 'GET', '/api/auth/verify'));
+    assert.ok(apiAllowed('simulation', 'PUT', '/api/auth/profile'));
+    assert.ok(apiAllowed('simulation', 'PUT', '/api/auth/change-password'));
+    for (const [m, p] of [['GET', '/api/products'], ['GET', '/api/sales'], ['POST', '/api/sales'], ['GET', '/api/notifications/count'],
+        ['GET', '/api/assistant/status'], ['GET', '/api/suppliers'], ['GET', '/api/dashboard/stats'], ['GET', '/api/backup'], ['GET', '/api/auth/users']]) {
+        assert.equal(apiAllowed('simulation', m, p), false, `${m} ${p}`);
+    }
+    assert.equal(homePage('simulation'), '/simulation.html');
+    assert.ok(pageAllowed('simulation', '/simulation.html'));
+    assert.ok(pageAllowed('simulation', '/settings.html'));
+    for (const page of ['/dashboard.html', '/inventory.html', '/pos.html', '/sales.html', '/reports.html', '/users.html', '/supplier.html']) {
+        assert.equal(pageAllowed('simulation', page), false, page);
+    }
+    // the screen itself: only the simulation account and administrators
+    assert.ok(pageAllowed('admin', '/simulation.html'));
+    assert.equal(pageAllowed('manager', '/simulation.html'), false);
+    assert.equal(pageAllowed('viewer', '/simulation.html'), false);
+    assert.equal(pageAllowed('cashier', '/simulation.html'), false);
+});

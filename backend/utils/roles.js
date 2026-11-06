@@ -102,6 +102,7 @@ function pageAllowed(role, path) {
     if (isRestricted(role)) return PAGE_ALLOW[role].includes(path);
     if (path === '/pos.html') return SELLING_ROLES.includes(role);
     if (path === '/supplier.html') return false;
+    if (path === '/simulation.html') return role === 'admin';   // its API answers only admin and simulation
     if (path === '/users.html') return role === 'admin';   // every action on it is admin-only
     return true;
 }

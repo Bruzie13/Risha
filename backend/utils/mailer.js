@@ -705,7 +705,7 @@ async function sendEmailCode(toEmail, code) {
     await sendMessage(config, { from: fromLine(config), to: toEmail, ...templates.emailCode({ code }) });
 }
 
-const ROLE_LABELS = { admin: 'Administrator', manager: 'Manager', viewer: 'Viewer', cashier: 'Staff (point of sale)', supplier: 'Supplier' };
+const ROLE_LABELS = { admin: 'Administrator', manager: 'Manager', viewer: 'Viewer', cashier: 'Staff (point of sale)', supplier: 'Supplier', simulation: 'Simulation (live simulation screen only)' };
 
 templates.welcome = function ({ toEmail, fullName, username, role }) {
     const roleLabel = ROLE_LABELS[role] || ROLE_LABELS.cashier;

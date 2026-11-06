@@ -104,6 +104,7 @@ function canOpenPage(href) {
     if (isFencedRole(role)) return FENCED_ROLE_PAGES[role].includes(page);
     if (page === 'pos.html') return SELLING_ROLES.includes(role);
     if (page === 'supplier.html') return false;
+    if (page === 'simulation.html') return role === 'admin';
     if (page === 'users.html') return role === 'admin';   // every action on it is the administrator's
     return true;
 }
@@ -203,6 +204,14 @@ function applyRoleInterface() {
         link.className = 'nav-link rail-icon-only';
         link.title = 'Orders and products';
         link.innerHTML = '<span class="nav-icon material-symbols-outlined">local_shipping</span><span class="nav-label">Orders and products</span>';
+        nav.prepend(link);
+    }
+    if (nav && role === 'simulation' && !nav.querySelector('a[href^="simulation.html"]')) {
+        const link = document.createElement('a');
+        link.href = 'simulation.html';
+        link.className = 'nav-link rail-icon-only';
+        link.title = 'Live shop simulation';
+        link.innerHTML = '<span class="nav-icon material-symbols-outlined">storefront</span><span class="nav-label">Live shop simulation</span>';
         nav.prepend(link);
     }
     document.querySelectorAll('#notifBellBtn, #jumpCta, .jump-cta, #alertChip').forEach(el => el.remove());
@@ -667,6 +676,7 @@ function togglePassword(event) {
 }
 
 function openGlobalSearch() {
+    if (isFencedRole()) return;   // its products and suppliers are refused to these accounts
     let overlay = document.getElementById('globalSearchOverlay');
     if (overlay) { overlay.classList.add('active'); document.getElementById('globalSearchInput').focus(); return; }
 
@@ -1276,6 +1286,7 @@ window.addEventListener('load', async () => {
 
 // Keyboard shortcuts help overlay
 function showShortcuts() {
+    if (isFencedRole()) return;   // the list is for the back office
     let overlay = document.getElementById('shortcutsOverlay');
     if (overlay) { overlay.classList.add('active'); return; }
     overlay = document.createElement('div');
@@ -1401,7 +1412,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    if (!window.location.pathname.includes('login.html')) {
+    // Fenced accounts get no alerts, so they are never asked to allow them
+    // (the prompt would also land in the middle of a simulation recording).
+    if (!window.location.pathname.includes('login.html') && !isFencedRole()) {
         startNotifPolling();
         requestNotifPermission();
     }

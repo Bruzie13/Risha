@@ -32,11 +32,11 @@
             if (localStorage.getItem('sidebarHidden') === 'true') {
                 document.documentElement.classList.add('sidebar-hidden');
             }
-            // A cashier or a supplier has one page besides this one, so they
-            // keep the slim strip here too instead of a full sidebar.
+            // A cashier, a supplier or the simulation account has one page
+            // besides this one, so they keep the slim strip here too.
             try {
                 var su = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
-                if (su.role === 'cashier' || su.role === 'supplier') { document.documentElement.classList.add('rail-only'); document.documentElement.classList.toggle('sidebar-hidden', localStorage.getItem('railOpen') !== 'true'); }
+                if (su.role === 'cashier' || su.role === 'supplier' || su.role === 'simulation') { document.documentElement.classList.add('rail-only'); document.documentElement.classList.toggle('sidebar-hidden', localStorage.getItem('railOpen') !== 'true'); }
             } catch (e) {}
             var ct = localStorage.getItem('colorTheme');
             if (ct) document.documentElement.setAttribute('data-theme', ct);
