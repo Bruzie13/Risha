@@ -77,7 +77,7 @@ const API_ALLOW = {
     ],
     simulation: [
         ['GET', /^\/api\/simulation\/live$/],
-        ['POST', /^\/api\/simulation\/live\/(start|stop)$/],
+        ['POST', /^\/api\/simulation\/live\/(start|stop|pause|resume|end-day)$/],
         ...SELF
     ]
 };

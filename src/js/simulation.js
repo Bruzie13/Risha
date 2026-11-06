@@ -23,6 +23,9 @@ window.addEventListener('load', () => {
     $('simStart').addEventListener('click', () => start());
     $('simRun').addEventListener('click', () => start(120));
     $('simStop').addEventListener('click', stop);
+    $('simPause').addEventListener('click', () => post('pause', 'Could not pause'));
+    $('simResume').addEventListener('click', () => post('resume', 'Could not resume'));
+    $('simEndDay').addEventListener('click', endDay);
     poll();
     setInterval(tickClock, 1000);
 });
@@ -76,13 +79,38 @@ function stop() {
         }, 'Stop', 'stop_circle');
 }
 
+async function post(action, failTitle) {
+    const res = await fetch(`${SIM_API}/${action}`, { method: 'POST', headers: getAuthHeaders() });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.success) showErrorDialog(failTitle, body.message || 'Please try again.');
+    poll();
+    return body;
+}
+
+function endDay() {
+    const names = (latest && latest.today.drawers || []).filter(x => x.opened && !x.closed).map(x => x.cashier);
+    showConfirmDialog('End of day: count and close the drawer?',
+        `The simulation stops, the cash in the drawer is counted and the drawer is closed${names.length ? ' for ' + names.join(', ') : ''}. ` +
+        'After this the cashier cannot sell again today, on the real POS too, until tomorrow.',
+        () => post('end-day', 'Could not count the drawer'), 'Count and close', 'point_of_sale');
+}
+
 function render(d) {
     latest = d;
     const running = d.phase === 'running' || d.phase === 'backing-up';
-    $('simLive').hidden = !running;
-    $('simStop').hidden = !running;
-    $('simStartControls').hidden = running || !d.enabled;
-    $('simRunPanel').hidden = running || !d.enabled;
+    const paused = d.phase === 'paused';
+    const drawers = d.today.drawers || [];
+    const openDrawer = drawers.some(x => x.opened && !x.closed);
+    const allClosed = drawers.length > 0 && drawers.every(x => x.closed);
+    $('simLive').hidden = !running && !paused;
+    $('simLive').classList.toggle('is-paused', paused);
+    $('simStop').hidden = !running && !paused;
+    $('simPause').hidden = d.phase !== 'running';
+    $('simResume').hidden = !paused;
+    $('simEndDay').hidden = !openDrawer || d.phase === 'backing-up';
+    $('simStartControls').hidden = running || paused || !d.enabled || allClosed;
+    $('simRunPanel').hidden = running || paused || !d.enabled || allClosed;
+    renderDrawer(drawers);
 
     const day = new Date(d.dayProfile.day + 'T00:00:00+08:00');
     const dateText = day.toLocaleDateString('en-PH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Manila' });
@@ -120,8 +148,15 @@ function tickClock() {
         $('simNext').textContent = 'The first customer comes in after the backup';
         return;
     }
+    if (latest.phase === 'paused') {
+        const mins = Math.ceil((latest.remainingMs || 0) / 60000);
+        $('simLiveText').textContent = `PAUSED · ${mins} min left`;
+        $('simNext').textContent = 'No customers until you press Resume';
+        return;
+    }
     if (!running) {
-        $('simNext').textContent = latest.phase === 'stopped' ? `Stopped · ${plural(latest.run.sales, 'sale', 'sales')} this run` : '';
+        $('simNext').textContent = latest.phase === 'stopped' ? `Stopped · ${plural(latest.run.sales, 'sale', 'sales')} this run`
+            : latest.phase === 'closed' ? 'Drawer counted and closed for today' : '';
         return;
     }
     const left = Math.max(0, Date.parse(latest.endsAt) - Date.now());
@@ -155,6 +190,17 @@ function addEvent(e) {
         const disc = e.discount ? `<span class="sim-disc">${e.discount}% discount</span>` : '';
         el.innerHTML = `${time}<div><div class="sim-who">${who} ${tag}</div><div class="sim-items">${items}</div>
             <span class="sim-pay sim-pay-${e.method}">${pay}</span>${disc}</div><div class="sim-amt" title="Amount paid">${peso(e.total)}</div>`;
+    } else if (e.type === 'drawer') {
+        el.classList.add('sim-card-drawer');
+        el.innerHTML = `${time}<div><div class="sim-who"><span class="material-symbols-outlined">point_of_sale</span> Drawer opened</div>
+            <div class="sim-items">${escHtml(e.message || '')}</div></div><div class="sim-amt sim-amt-in" title="Starting cash">${peso(e.opening)} starting cash</div>`;
+    } else if (e.type === 'eod') {
+        el.classList.add('sim-card-eod');
+        const diff = Number(e.discrepancy) || 0;
+        const verdict = diff === 0 ? 'Balanced' : diff < 0 ? `Short ${peso(-diff)}` : `Over ${peso(diff)}`;
+        el.innerHTML = `${time}<div><div class="sim-who"><span class="material-symbols-outlined">lock</span> End of day: ${escHtml(e.cashier)} counted and closed the drawer</div>
+            <div class="sim-items">Starting cash ${peso(e.opening)} + cash sales ${peso(e.cash_sales)}${e.cash_in ? ' + cash put in ' + peso(e.cash_in) : ''}${e.cash_out ? ' − cash taken out ' + peso(e.cash_out) : ''} = should hold ${peso(e.expected)} · counted ${peso(e.counted)}</div>
+            <span class="sim-pay ${diff === 0 ? 'sim-pay-cash' : 'sim-pay-card'}">${verdict}</span></div><div class="sim-amt" title="Cash counted">${peso(e.counted)} counted</div>`;
     } else if (e.type === 'delivery') {
         el.classList.add('sim-card-delivery');
         const list = e.items.map(i => `${escHtml(i.name)} +${i.quantity}`).join(' · ');
@@ -188,6 +234,21 @@ function renderBars(byHour) {
     $('simHourNote').textContent = busiest
         ? `Busiest hour: ${hourName(busiest.hour)}, ${plural(busiest.sales, 'customer', 'customers')} · this hour (red): ${plural(thisHour, 'customer', 'customers')}`
         : 'No customers yet today';
+}
+
+/** The drawer card: starting cash, cash sales, what it should hold, and the count once closed. */
+function renderDrawer(drawers) {
+    const box = $('kDrawer');
+    if (!drawers.length) { box.hidden = true; return; }
+    box.hidden = false;
+    box.innerHTML = drawers.map(x => {
+        const status = x.closed ? 'Counted and closed' : x.opened ? 'Open' : 'Not opened yet';
+        const diff = Number(x.discrepancy) || 0;
+        const count = x.closed ? ` · counted ${peso(x.counted)}${diff === 0 ? ', balanced' : diff < 0 ? ', short ' + peso(-diff) : ', over ' + peso(diff)}` : '';
+        return `<div class="sim-drawer-row"><div class="sim-lbl">Cash drawer · ${escHtml(x.cashier)} · <b>${status}</b></div>
+            <div class="sim-num">${peso(x.expected)} <span class="sim-drawer-sub">should be in the drawer</span></div>
+            <div class="sim-lbl">${peso(x.opening)} starting cash + ${peso(x.cash_sales)} cash sales${count}</div></div>`;
+    }).join('');
 }
 
 const hourName = h => (h === 0 ? '12 MN' : h === 12 ? '12 NN' : h < 12 ? `${h} AM` : `${h - 12} PM`);

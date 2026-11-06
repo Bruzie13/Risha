@@ -116,3 +116,15 @@
 .sim-run { display: inline-flex; align-items: center; gap: 8px; font-size: 18px; padding: 14px 28px; border-radius: 12px; }
 .sim-run .material-symbols-outlined { font-size: 26px; color: inherit; }
 .sim-run-hint { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+/* Pause / Resume / End of day */
+.sim-state .material-symbols-outlined { font-size: 18px; vertical-align: -4px; margin-right: 4px; color: inherit; }
+.sim-live.is-paused { background: var(--brand-sun-ink); }
+.sim-live.is-paused i { animation: none; }
+.sim-kpi-drawer { grid-column: span 2; }
+.sim-kpi-drawer[hidden] { display: none; }
+.sim-drawer-row + .sim-drawer-row { border-top: 1px solid var(--border-glass); margin-top: 10px; padding-top: 10px; }
+.sim-drawer-sub { font-size: 13px; font-weight: 500; color: var(--text-muted); }
+.sim-card-drawer, .sim-card-eod { border-style: dashed; border-color: var(--brand-sun-ink); background: color-mix(in srgb, var(--brand-sun) 10%, var(--bg-card)); }
+.sim-card-drawer .sim-who .material-symbols-outlined, .sim-card-eod .sim-who .material-symbols-outlined { color: var(--brand-sun-ink); }
+:root.dark-mode .sim-card-drawer .sim-who .material-symbols-outlined, :root.dark-mode .sim-card-eod .sim-who .material-symbols-outlined { color: var(--brand-sun); }

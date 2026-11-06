@@ -137,6 +137,10 @@ test('simulation: only the live simulation screen and its own profile', () => {
     assert.ok(apiAllowed('simulation', 'GET', '/api/simulation/live'));
     assert.ok(apiAllowed('simulation', 'POST', '/api/simulation/live/start'));
     assert.ok(apiAllowed('simulation', 'POST', '/api/simulation/live/stop'));
+    assert.ok(apiAllowed('simulation', 'POST', '/api/simulation/live/pause'));
+    assert.ok(apiAllowed('simulation', 'POST', '/api/simulation/live/resume'));
+    assert.ok(apiAllowed('simulation', 'POST', '/api/simulation/live/end-day'));
+    assert.equal(apiAllowed('simulation', 'POST', '/api/sales/eod'), false, 'it counts through the simulation only');
     assert.ok(apiAllowed('simulation', 'GET', '/api/auth/verify'));
     assert.ok(apiAllowed('simulation', 'PUT', '/api/auth/profile'));
     assert.ok(apiAllowed('simulation', 'PUT', '/api/auth/change-password'));

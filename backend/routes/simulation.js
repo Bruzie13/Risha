@@ -30,4 +30,25 @@ router.post('/live/stop', authenticateToken, watchers, (req, res) => {
     res.status(r.ok ? 200 : 400).json({ success: r.ok, message: r.message || 'Stopped.' });
 });
 
+router.post('/live/pause', authenticateToken, watchers, (req, res) => {
+    const r = live.pause();
+    res.status(r.ok ? 200 : 400).json({ success: r.ok, message: r.message || 'Paused.' });
+});
+
+router.post('/live/resume', authenticateToken, watchers, (req, res) => {
+    const r = live.resume();
+    res.status(r.ok ? 200 : 400).json({ success: r.ok, message: r.message || 'Resumed.' });
+});
+
+// Counts the cash and closes the drawer: the cashier cannot sell again today.
+router.post('/live/end-day', authenticateToken, watchers, async (req, res) => {
+    try {
+        const r = await live.endDay();
+        res.status(r.ok ? 200 : 400).json({ success: r.ok, message: r.message || 'Counted and closed.', data: r.results });
+    } catch (e) {
+        console.error('[Simulation] end of day error:', e.message);
+        res.status(500).json({ success: false, message: 'The end-of-day count could not be saved. Check the database connection and try again.' });
+    }
+});
+
 module.exports = router;

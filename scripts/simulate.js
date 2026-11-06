@@ -30,8 +30,8 @@ const has = f => args.includes(f);
     if (has('--remove')) {
         const r = await sim.removeAll({ dryRun: !has('--confirm') });
         console.log(has('--confirm')
-            ? `Removed ${r.sales} simulated sales and ${r.movements} simulated stock movements; stock put back.`
-            : `${r.sales} simulated sales and ${r.movements} simulated stock movements. Add --confirm to remove them.`);
+            ? `Removed ${r.sales} simulated sales, ${r.movements} simulated stock movements and ${r.counts} simulated drawer counts; stock put back.`
+            : `${r.sales} simulated sales, ${r.movements} simulated stock movements and ${r.counts} simulated drawer counts. Add --confirm to remove them.`);
         return;
     }
     const r = await sim.run({ dryRun: !has('--apply') });

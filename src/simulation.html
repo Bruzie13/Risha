@@ -30,7 +30,7 @@
         <script>/* the account's role on <html> before anything is drawn (see role-gate.css) */try{var _ru=JSON.parse(sessionStorage.getItem('user')||localStorage.getItem('user')||'null');if(_ru&&_ru.role)document.documentElement.setAttribute('data-role',_ru.role);}catch(e){}</script>
         <link rel="stylesheet" href="css/role-gate.css?v=1">
         <link rel="stylesheet" href="css/system.css?v=135">
-    <link rel="stylesheet" href="css/simulation.css?v=6">
+    <link rel="stylesheet" href="css/simulation.css?v=7">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -89,7 +89,10 @@
                     </select>
                     <button class="btn-primary" id="simStart" type="button">Start</button>
                 </div>
+                <button class="btn-secondary" id="simPause" type="button" hidden><span class="material-symbols-outlined">pause</span>Pause</button>
+                <button class="btn-primary" id="simResume" type="button" hidden><span class="material-symbols-outlined">play_arrow</span>Resume</button>
                 <button class="btn-secondary" id="simStop" type="button" hidden>Stop</button>
+                <button class="btn-secondary" id="simEndDay" type="button" hidden title="Count the cash and close the drawer for today"><span class="material-symbols-outlined">point_of_sale</span>End of day</button>
             </div>
         </div>
 
@@ -97,7 +100,7 @@
             <section class="sim-feed" aria-labelledby="simFeedTitle">
                 <div class="sim-run-panel" id="simRunPanel" hidden>
                     <button type="button" class="btn-primary sim-run" id="simRun"><span class="material-symbols-outlined">play_arrow</span><span class="sim-run-label">Run simulation</span></button>
-                    <div class="sim-run-hint">One click: saves a backup, then runs for 2 hours and stops by itself.<br>For another length, use <b>Run for</b> at the top.</div>
+                    <div class="sim-run-hint">One click: saves a backup, opens the drawer with starting cash, then runs for 2 hours and stops by itself.<br>For another length, use <b>Run for</b> at the top. <b>End of day</b> counts the cash and closes the drawer.</div>
                 </div>
                 <h2 id="simFeedTitle">Customers at the counter <span class="sim-muted">newest first</span></h2>
                 <div id="simFeed" aria-live="polite"></div>
@@ -105,6 +108,7 @@
             <aside class="sim-side">
                 <h2>Today so far <span class="sim-muted" id="simTodayNote">real and simulated sales</span></h2>
                 <div class="sim-kpis">
+                    <div class="sim-kpi sim-kpi-drawer" id="kDrawer" hidden></div>
                     <div class="sim-kpi sim-kpi-big"><div class="sim-lbl">Sales today</div><div class="sim-num" id="kRevenue">₱0.00</div><div class="sim-lbl" id="kRevenueSub">from 0 customers · 0 items sold</div></div>
                     <div class="sim-kpi"><div class="sim-lbl">Paid in cash</div><div class="sim-num" id="kCash">0 sales</div></div>
                     <div class="sim-kpi"><div class="sim-lbl">Paid by GCash / Maya</div><div class="sim-num" id="kOnline">0 sales</div></div>
@@ -141,6 +145,6 @@
     <script src="js/utils.js"></script>
     <script src="js/auth.js?v=83"></script>
         <script src="js/loader.js?v=6"></script>
-    <script src="js/simulation.js?v=6"></script>
+    <script src="js/simulation.js?v=7"></script>
 </body>
 </html>

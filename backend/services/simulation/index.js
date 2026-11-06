@@ -1,7 +1,7 @@
 /* Daily sales simulation.
 
-   Fills every day the shop has no sales for, up to yesterday (or today once
-   the shop has closed), with the POS activity an urban Metro Manila
+   Fills every day the shop has no sales for, up to yesterday, with the POS
+   activity an urban Metro Manila
    neighbourhood pet-supply shop would have: walk-ins through the day, more
    after pay day and in the "ber" months, quieter on rainy and holiday days,
    regulars who come back for the same food, stock going down with each sale
@@ -32,7 +32,7 @@
 const pool = require('../../config/database');
 const { saveBackupToDisk } = require('../../utils/backup');
 const cal = require('./calendar');
-const { maxDiscountFrom } = require('../../utils/till');
+const { maxDiscountFrom, drawerExpected, discrepancy } = require('../../utils/till');
 
 const TAG = '[SIM]';
 const SALE_PREFIX = 'SIM-';
@@ -153,8 +153,7 @@ async function setSetting(conn, key, value) {
 }
 
 /** The days to fill: after the last day that has any sale (or the last
-    simulated day), up to yesterday, plus today once the shop has closed.
-    Days with real sales are left out. */
+    simulated day), up to yesterday. Days with real sales are left out. */
 async function daysToFill(conn, maxDays) {
     const [[row]] = await conn.query(
         "SELECT DATE_FORMAT(MAX(CONVERT_TZ(created_at,'+00:00','+08:00')),'%Y-%m-%d') AS last_day FROM sales");
@@ -162,7 +161,9 @@ async function daysToFill(conn, maxDays) {
     let from = [row.last_day, lastSim].filter(Boolean).sort().pop();
     if (!from) from = cal.addDays(shopToday(), -31);
     const today = shopToday();
-    const end = shopNow().getUTCHours() >= 17 ? today : cal.addDays(today, -1);
+    // Up to yesterday only. Today belongs to the live run and the real till:
+    // a filled-in today would count and close the cashier's drawer.
+    const end = cal.addDays(today, -1);
     const days = [];
     for (let d = cal.addDays(from, 1); d <= end; d = cal.addDays(d, 1)) days.push(d);
     const recent = days.slice(-maxDays);
@@ -273,6 +274,37 @@ function planCustomer(ctx, rand, profile, day, saleNumber, createdAt) {
     };
 }
 
+/** The cash a cashier starts the day with (panukli): ₱1,000, ₱1,500 or ₱2,000. */
+const openingCash = rand => [1000, 1500, 2000][Math.floor(rand() * 3)];
+
+/** What the cashier counts at closing: usually exactly what the drawer
+    should hold, sometimes a little short (wrong change), rarely a little
+    over (estimate). */
+function countedCash(rand, expected) {
+    const r = rand();
+    if (r < 0.75) return expected;
+    const amounts = [1, 2, 5, 10, 20, 25, 50];
+    if (r < 0.93) return Math.max(0, expected - amounts[Math.floor(rand() * amounts.length)]);
+    return expected + amounts[Math.floor(rand() * 4)];
+}
+
+/** Opening and end-of-day count for every cashier who sold on `day`, from
+    the planned sales (only cash sales go in the drawer). */
+function planCounts(sales, rand, closeHour, day) {
+    const byCashier = new Map();
+    for (const s of sales) {
+        if (!byCashier.has(s.created_by)) byCashier.set(s.created_by, 0);
+        if (s.payment_method === 'cash') byCashier.set(s.created_by, byCashier.get(s.created_by) + s.final_amount);
+    }
+    return [...byCashier].map(([cashier, cashSales]) => {
+        const opening = openingCash(rand);
+        const expected = drawerExpected(opening, cashSales, 0, 0);
+        const counted = countedCash(rand, expected);
+        return { cashier, opening, cash_sales: money(cashSales), expected, counted, discrepancy: discrepancy(counted, expected),
+            opened_at: utc(day, 6, Math.floor(rand() * 10), 0), counted_at: utc(day, closeHour, Math.floor(rand() * 15), 0) };
+    });
+}
+
 /** Deliveries: every product at or below `threshold(p)` back up to its
     usual full level. A batch expiring within 30 days comes with a new expiry
     date. Changes ctx.stock; writes nothing. */
@@ -329,13 +361,15 @@ function planDay(day, ctx) {
     const deliveryDay = wd === 2 || wd === 5;
     plan.restocks = planRestocks(ctx, rand, day, (p, reorder) => (deliveryDay ? reorder : 0),
         () => utc(day, deliveryDay ? 10 : profile.closeHour - 1, Math.floor(rand() * 60), 0));
+    // Each cashier opened the drawer in the morning and counted it at closing.
+    plan.counts = planCounts(plan.sales, rand, profile.closeHour, day);
     return plan;
 }
 
 /** Writes planned sales and deliveries in a single transaction. With
     `lastDay`, also records it as the last simulated day. Returns the new
     sale ids by sale number. */
-async function writeBatch(conn, { sales = [], restocks = [], adminId, lastDay = null }) {
+async function writeBatch(conn, { sales = [], restocks = [], counts = [], adminId, lastDay = null }) {
     await conn.beginTransaction();
     try {
         let idOf = new Map();
@@ -376,6 +410,16 @@ async function writeBatch(conn, { sales = [], restocks = [], adminId, lastDay = 
         for (const r of restocks) {
             if (r.newExpiry) await conn.query('UPDATE products SET expiration_date = ? WHERE id = ?', [r.newExpiry, r.product_id]);
         }
+        // The drawer: opened in the morning, counted at closing. A day that
+        // already has a real opening or count keeps it (INSERT IGNORE).
+        for (const c of counts) {
+            await conn.query('INSERT IGNORE INTO till_openings (business_date, cashier_id, opening_cash, created_at) VALUES (?, ?, ?, ?)',
+                [lastDay, c.cashier, c.opening, c.opened_at]);
+            await conn.query(
+                `INSERT IGNORE INTO cash_reconciliations (business_date, expected_cash, counted_cash, discrepancy, notes, counted_by, opening_cash, cash_in, cash_out, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?)`,
+                [lastDay, c.expected, c.counted, c.discrepancy, countNote(c.discrepancy), c.cashier, c.opening, c.counted_at]);
+        }
         if (lastDay) await setSetting(conn, 'sim_last_day', lastDay);
         await conn.commit();
         return idOf;
@@ -384,6 +428,10 @@ async function writeBatch(conn, { sales = [], restocks = [], adminId, lastDay = 
         throw e;
     }
 }
+
+/** The note on a simulated count, as a cashier would write it. */
+const countNote = diff => `${TAG} End-of-day count (simulated)` +
+    (diff < 0 ? `: short ₱${Math.abs(diff).toFixed(2)}, wrong change given` : diff > 0 ? `: over ₱${diff.toFixed(2)}` : '');
 
 /** Everything a run needs to know about the shop, read once. */
 async function loadContext(conn) {
@@ -430,7 +478,7 @@ async function run({ dryRun = false, backup = true, log = console.log } = {}) {
         const summary = { days: [], sales: 0, revenue: 0, restocks: 0, backup: backupInfo && backupInfo.file, dryRun };
         for (const day of days) {
             const plan = planDay(day, ctx);
-            if (!dryRun) await writeBatch(conn, { sales: plan.sales, restocks: plan.restocks, adminId: staff.admin, lastDay: day });
+            if (!dryRun) await writeBatch(conn, { sales: plan.sales, restocks: plan.restocks, counts: plan.counts, adminId: staff.admin, lastDay: day });
             const revenue = money(plan.sales.reduce((a, s) => a + s.final_amount, 0));
             summary.days.push({ day, sales: plan.sales.length, revenue, restocks: plan.restocks.length, notes: plan.profile.reasons.join(', ') });
             summary.sales += plan.sales.length;
@@ -454,8 +502,9 @@ async function removeAll({ dryRun = false } = {}) {
     try {
         const [[c]] = await conn.query(
             `SELECT (SELECT COUNT(*) FROM sales WHERE sale_number LIKE 'SIM-%') AS sales,
-                    (SELECT COUNT(*) FROM stock_movements WHERE notes LIKE '[SIM]%') AS movements`);
-        if (dryRun) return { sales: Number(c.sales), movements: Number(c.movements), dryRun };
+                    (SELECT COUNT(*) FROM stock_movements WHERE notes LIKE '[SIM]%') AS movements,
+                    (SELECT COUNT(*) FROM cash_reconciliations WHERE notes LIKE '[SIM]%') AS counts`);
+        if (dryRun) return { sales: Number(c.sales), movements: Number(c.movements), counts: Number(c.counts), dryRun };
         await conn.beginTransaction();
         try {
             const [net] = await conn.query(
@@ -474,12 +523,33 @@ async function removeAll({ dryRun = false } = {}) {
                 await conn.query('UPDATE products SET expiration_date = ? WHERE id = ?', [m[1], r.product_id]);
             }
             await conn.query("DELETE FROM stock_movements WHERE notes LIKE '[SIM]%'");
+            // A simulated count, and the opening of that drawer unless the
+            // cashier also made real (non-SIM) sales that day.
+            await conn.query(
+                `DELETE t FROM till_openings t
+                   JOIN cash_reconciliations r ON r.business_date = t.business_date AND r.counted_by = t.cashier_id AND r.notes LIKE '[SIM]%'
+                  WHERE NOT EXISTS (SELECT 1 FROM sales s WHERE s.created_by = t.cashier_id AND s.sale_number NOT LIKE 'SIM-%'
+                                       AND DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00')) = t.business_date)`);
+            await conn.query("DELETE FROM cash_reconciliations WHERE notes LIKE '[SIM]%'");
+            // Drawers the live run opened (listed, since till_openings has no
+            // notes), unless that cashier also sold for real or counted for real that day.
+            const listed = await getSetting(conn, 'sim_live_openings');
+            let opened = [];
+            try { opened = JSON.parse(listed || '[]') || []; } catch (e) { opened = []; }
+            for (const o of opened) {
+                await conn.query(
+                    `DELETE FROM till_openings WHERE business_date = ? AND cashier_id = ?
+                       AND NOT EXISTS (SELECT 1 FROM sales s WHERE s.created_by = ? AND s.sale_number NOT LIKE 'SIM-%'
+                                         AND DATE(CONVERT_TZ(s.created_at,'+00:00','+08:00')) = ?)
+                       AND NOT EXISTS (SELECT 1 FROM cash_reconciliations r WHERE r.business_date = ? AND r.counted_by = ?)`,
+                    [o.day, o.cashier, o.cashier, o.day, o.day, o.cashier]);
+            }
             await conn.query("DELETE si FROM sale_items si JOIN sales s ON s.id = si.sale_id WHERE s.sale_number LIKE 'SIM-%'");
             await conn.query("DELETE FROM sales WHERE sale_number LIKE 'SIM-%'");
-            await conn.query("DELETE FROM app_settings WHERE setting_key IN ('sim_last_day','sim_last_run_at','sim_last_result')");
+            await conn.query("DELETE FROM app_settings WHERE setting_key IN ('sim_last_day','sim_last_run_at','sim_last_result','sim_live_openings')");
             await conn.commit();
         } catch (e) { await conn.rollback(); throw e; }
-        return { sales: Number(c.sales), movements: Number(c.movements) };
+        return { sales: Number(c.sales), movements: Number(c.movements), counts: Number(c.counts) };
     } finally {
         conn.release();
     }
@@ -499,5 +569,6 @@ module.exports = {
     run, removeAll, runOnStartup, enabled, liveEnabled, planDay,
     // used by live.js
     loadContext, planCustomer, planRestocks, writeBatch, money, shopToday, TAG, SALE_PREFIX,
+    openingCash, countedCash, countNote,
     _test: { rng, hash, customerCount },
 };

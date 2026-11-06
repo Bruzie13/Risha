@@ -5,14 +5,16 @@ Fills the days the shop has no sales for with realistic POS trading for an urban
 ## When it runs
 
 - **Every time the system starts** (`Start FETCH.command`, `npm start`), right after the start-up migrations, and again every 3 hours while it stays running.
-- It fills every day after the last day that has sales, up to **yesterday**, plus **today once the shop has closed (17:00)**. A day that already has real sales is never touched. At most 120 days in one run.
+- It fills every day after the last day that has sales, up to **yesterday** (today is left to the live run and the real till, since a filled-in day also counts and closes the drawer). A day that already has real sales is never touched. At most 120 days in one run.
 - **The automatic fill-in is off on Render (the live site)**: it only runs where `NODE_ENV` is not `production`. Since the laptop and Render share one database, the laptop's runs show up on the live site too. The **Run simulation** button (live mode) works on both.
 
 ## Live mode, for recording (Simulation screen)
 
 A separate **Simulation** account (Users → Add user → role *Simulation — watch the live sales simulation*) signs in straight to `simulation.html` and can do nothing else: the server refuses every other page and API for it. Administrators can open the same screen at `/simulation.html`.
 
-- Choose **Run for** (30 minutes to 2 hours) and press **Start**. A backup is saved first; if it fails, nothing starts.
+- Press **Run simulation** (2 hours), or choose **Run for** (30 minutes to 2 hours) and press **Start**. A backup is saved first; if it fails, nothing starts.
+- **The drawer works like the real till.** Run opens each cashier's drawer with starting cash (₱1,000, ₱1,500 or ₱2,000). **Pause** stops the customers and the clock; **Resume** carries on with the time that was left. **End of day** stops the run, counts the cash (starting cash + cash sales; usually balanced, now and then a little short or over) and closes the drawer. After that the cashier cannot sell again today, on the real POS too, until tomorrow, and Run is refused.
+- The automatically filled past days get the same: drawer opened in the morning, counted and closed at closing.
 - A simulated customer comes to the counter every **20–60 seconds** (quicker on a busy day), stamped with the real time, so today's Dashboard and Reports fill up while you record. 2 hours makes about 150–250 sales.
 - Items that sell out get a rush delivery at once; every 15 minutes a supplier delivery tops up low items.
 - The screen shows each customer as they buy (regular or walk-in, items, cash/GCash/Maya/card), today's totals for the whole shop, customers per hour and what is selling most.
