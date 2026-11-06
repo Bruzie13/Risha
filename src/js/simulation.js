@@ -136,7 +136,7 @@ function emptyFeed(d) {
     box.innerHTML = `<div class="sim-empty">
         <span class="material-symbols-outlined">storefront</span>
         <strong>${d.enabled ? 'The shop is quiet' : 'The simulation is off on this server'}</strong>
-        <p>${d.enabled ? 'A backup of the database is saved first, then a simulated customer comes to the counter every ' + d.pace.min + '–' + d.pace.max + ' seconds. Each sale is saved as today’s sale, marked SIM, and shows on the Dashboard and Reports too.' : 'It only runs on the shop’s own computer, not on the live site.'}</p>
+        <p>${d.enabled ? 'A backup of the database is saved first, then a simulated customer comes to the counter every ' + d.pace.min + '–' + d.pace.max + ' seconds. Each sale is saved as today’s sale, marked SIM, and shows on the Dashboard and Reports too.' : 'It was switched off with SIMULATION=off on this server.'}</p>
     </div>`;
 }
 

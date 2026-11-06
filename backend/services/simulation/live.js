@@ -125,7 +125,7 @@ async function tick() {
 /** Starts a live run of `minutes` (default 120). Saves a backup first. */
 async function start({ minutes = 120, user = null } = {}) {
     if (state.phase === 'running' || state.phase === 'backing-up') return { ok: false, message: 'The simulation is already running.' };
-    if (!sim.enabled()) return { ok: false, message: 'The simulation is switched off on this server (SIMULATION=off, or the live site).' };
+    if (!sim.liveEnabled()) return { ok: false, message: 'The simulation is switched off on this server (SIMULATION=off).' };
     const mins = Math.max(5, Math.min(240, Math.round(Number(minutes) || 120)));
     Object.assign(state, {
         phase: 'backing-up', startedAt: null, endsAt: null, nextAt: null, startedBy: user,
@@ -135,7 +135,10 @@ async function start({ minutes = 120, user = null } = {}) {
     try {
         const b = await saveBackupToDisk({ label: 'before-live-simulation' });
         state.backup = { file: b.file.split(/[\\/]/).pop(), rows: b.rows };
-        push('status', { message: `Backup saved (${b.rows.toLocaleString('en-PH')} rows). The shop is open.` });
+        const where = process.env.NODE_ENV === 'production'
+            ? ' on the live server (kept until the site restarts; the daily backup email keeps a copy too)'
+            : ' to the backups folder';
+        push('status', { message: `Backup saved${where} (${b.rows.toLocaleString('en-PH')} rows). The shop is open.` });
     } catch (e) {
         state.phase = 'failed';
         state.error = 'The backup failed, so no sales were made: ' + e.message;
@@ -211,7 +214,7 @@ async function snapshot(after = 0) {
         phase: state.phase, startedAt: state.startedAt, endsAt: state.endsAt, nextAt: state.nextAt,
         now: new Date().toISOString(),
         run: { sales: state.sales, revenue: state.revenue, items: state.items, deliveries: state.deliveries },
-        backup: state.backup, error: state.error, enabled: sim.enabled(), pace: pace(),
+        backup: state.backup, error: state.error, enabled: sim.liveEnabled(), pace: pace(),
         dayProfile: { day: p.day, open: p.open, factor: Math.round(p.factor * 100) / 100, reasons: p.reasons },
         events: state.events.filter(e => e.id > after),
         lastEventId: state.seq,

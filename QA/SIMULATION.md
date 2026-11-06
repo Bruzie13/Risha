@@ -6,7 +6,7 @@ Fills the days the shop has no sales for with realistic POS trading for an urban
 
 - **Every time the system starts** (`Start FETCH.command`, `npm start`), right after the start-up migrations, and again every 3 hours while it stays running.
 - It fills every day after the last day that has sales, up to **yesterday**, plus **today once the shop has closed (17:00)**. A day that already has real sales is never touched. At most 120 days in one run.
-- **Off on Render (the live site)**: it only runs where `NODE_ENV` is not `production`. Since the laptop and Render share one database, the laptop's runs show up on the live site too.
+- **The automatic fill-in is off on Render (the live site)**: it only runs where `NODE_ENV` is not `production`. Since the laptop and Render share one database, the laptop's runs show up on the live site too. The **Run simulation** button (live mode) works on both.
 
 ## Live mode, for recording (Simulation screen)
 

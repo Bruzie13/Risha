@@ -26,8 +26,9 @@
      - Each day is one transaction, and the last finished day is recorded in
        app_settings, so a crash or a second copy of the server cannot write a
        day twice. A database lock stops two copies running at once.
-     - Off in production (NODE_ENV=production, i.e. Render) unless
-       SIMULATION=on. SIMULATION=off turns it off everywhere. */
+     - The automatic fill-in is off in production (NODE_ENV=production,
+       i.e. Render) unless SIMULATION=on. The live run (live.js) works
+       there too. SIMULATION=off turns both off everywhere. */
 const pool = require('../../config/database');
 const { saveBackupToDisk } = require('../../utils/backup');
 const cal = require('./calendar');
@@ -43,6 +44,14 @@ const settings = () => ({
     seed: Number(process.env.SIM_SEED) || 20261105,
 });
 
+/** The live run (Run simulation button) works everywhere, the live site
+    included, because it only starts when someone presses the button.
+    SIMULATION=off turns it off too. */
+function liveEnabled() {
+    return !['off', 'false', '0', 'no'].includes(String(process.env.SIMULATION || '').toLowerCase());
+}
+
+/** The automatic fill-in at start-up: off on the live site (Render). */
 function enabled() {
     const v = String(process.env.SIMULATION || '').toLowerCase();
     if (['off', 'false', '0', 'no'].includes(v)) return false;
@@ -478,7 +487,7 @@ async function removeAll({ dryRun = false } = {}) {
 
 /** Called from server.js after the start-up migrations. */
 async function runOnStartup() {
-    if (!enabled()) { console.log('[Simulation] off (set SIMULATION=on to turn it on)'); return; }
+    if (!enabled()) { console.log('[Simulation] automatic fill-in is off on this server (the Run simulation button still works)'); return; }
     const r = await run();
     if (r.skipped) { console.log(`[Simulation] ${r.skipped}`); return; }
     console.log(`[Simulation] filled ${r.days.length} day(s): ${r.sales} sales, PHP ${r.revenue.toFixed(2)}, ${r.restocks} restock(s)`);
@@ -487,7 +496,7 @@ async function runOnStartup() {
 }
 
 module.exports = {
-    run, removeAll, runOnStartup, enabled, planDay,
+    run, removeAll, runOnStartup, enabled, liveEnabled, planDay,
     // used by live.js
     loadContext, planCustomer, planRestocks, writeBatch, money, shopToday, TAG, SALE_PREFIX,
     _test: { rng, hash, customerCount },
