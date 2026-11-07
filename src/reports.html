@@ -25,7 +25,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css?v=56">
-    <link rel="stylesheet" href="css/reports.css?v=50">
+    <link rel="stylesheet" href="css/reports.css?v=56">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
         <script>/* the account's role on <html> before anything is drawn (see role-gate.css) */try{var _ru=JSON.parse(sessionStorage.getItem('user')||localStorage.getItem('user')||'null');if(_ru&&_ru.role)document.documentElement.setAttribute('data-role',_ru.role);}catch(e){}</script>
@@ -234,8 +234,20 @@
                 </div>
                 <div class="rp-notice" id="planNotice" hidden></div>
 
+                <!-- The board: the four areas on one screen, each a short preview
+                     of its full list; "See all" opens the list (Carlo picked
+                     mock-up A, "board of four", 8 Nov). -->
+                <div class="pb" id="planBoard">
+                <div class="pb-head">
+                    <div>
+                        <h2 id="pbTitle">Stock planning</h2>
+                        <p id="pbLine">Working out what needs you today…</p>
+                    </div>
+                    <button type="button" class="btn-secondary pb-guide-btn" id="pbGuideBtn" aria-expanded="false" aria-controls="planGuide"><span class="material-symbols-outlined">lightbulb</span> How does the forecast work?</button>
+                </div>
+
                 <!-- the forecast in plain words, for someone who has not used one (Carlo, 3 Nov) -->
-                <details class="plan-guide" id="planGuide">
+                <details class="plan-guide" id="planGuide" hidden>
                     <summary>
                         <span class="material-symbols-outlined plan-guide-icon" aria-hidden="true">lightbulb</span>
                         <span class="plan-guide-title">How does the forecast work?<small>It learns from your sales, then tells you what to do</small></span>
@@ -250,6 +262,49 @@
                     <p class="plan-trust">It is a guess, not a promise. The more you sell, the better it gets.</p>
                 </details>
 
+                <div class="pb-grid">
+                    <section class="pb-area pb-reorder" aria-labelledby="pbReorderTitle">
+                        <div class="pb-ah">
+                            <span class="pb-icon is-red" aria-hidden="true"><span class="material-symbols-outlined">add_shopping_cart</span></span>
+                            <div class="pb-at"><h3 id="pbReorderTitle">To reorder</h3><span id="pbReorderSub">…</span></div>
+                            <button type="button" class="btn-secondary pb-open" data-open="reorder" id="pbReorderOpen">See all <span class="material-symbols-outlined">chevron_right</span></button>
+                        </div>
+                        <div class="pb-ab" id="pbReorderBody"><p class="rp-loading">Working out what to order…</p></div>
+                        <div class="pb-af" id="pbReorderFoot"></div>
+                    </section>
+                    <section class="pb-area pb-expiry" aria-labelledby="pbExpiryTitle">
+                        <div class="pb-ah">
+                            <span class="pb-icon is-amber" aria-hidden="true"><span class="material-symbols-outlined">schedule</span></span>
+                            <div class="pb-at"><h3 id="pbExpiryTitle">Expiry</h3><span id="pbExpirySub">…</span></div>
+                            <button type="button" class="btn-secondary pb-open" data-open="expiry" id="pbExpiryOpen">See all <span class="material-symbols-outlined">chevron_right</span></button>
+                        </div>
+                        <div class="pb-ab" id="pbExpiryBody"></div>
+                        <div class="pb-af" id="pbExpiryFoot"></div>
+                    </section>
+                    <section class="pb-area pb-forecast" aria-labelledby="pbForecastTitle">
+                        <div class="pb-ah">
+                            <span class="pb-icon is-blue" aria-hidden="true"><span class="material-symbols-outlined">trending_up</span></span>
+                            <div class="pb-at"><h3 id="pbForecastTitle">Forecast</h3><span>what the shop will likely sell in the next 30 days</span></div>
+                            <button type="button" class="btn-secondary pb-open" data-open="forecast">Every product <span class="material-symbols-outlined">chevron_right</span></button>
+                        </div>
+                        <div class="pb-ab" id="pbForecastBody"></div>
+                    </section>
+                    <section class="pb-area pb-excess" aria-labelledby="pbExcessTitle">
+                        <div class="pb-ah">
+                            <span class="pb-icon is-slate" aria-hidden="true"><span class="material-symbols-outlined">inventory_2</span></span>
+                            <div class="pb-at"><h3 id="pbExcessTitle">Too much stock</h3><span id="pbExcessSub">…</span></div>
+                            <button type="button" class="btn-secondary pb-open" data-open="excess" id="pbExcessOpen">See all <span class="material-symbols-outlined">chevron_right</span></button>
+                        </div>
+                        <div class="pb-ab" id="pbExcessBody"></div>
+                    </section>
+                </div>
+                </div>
+
+                <!-- the full lists, one at a time, opened from the board -->
+                <div class="pb-detail" id="planDetail" hidden>
+                <div class="pb-back">
+                    <button type="button" class="btn-secondary" id="planBackBtn"><span class="material-symbols-outlined">arrow_back</span> Back to the overview</button>
+                </div>
                 <div class="plan-views" role="tablist" aria-label="Stock planning">
                     <button type="button" class="plan-view" role="tab" data-view="reorder" id="viewReorder"><span class="plan-view-label">To reorder</span><span class="plan-view-note">…</span></button>
                     <button type="button" class="plan-view" role="tab" data-view="expiry" id="viewExpiry"><span class="plan-view-label">Expiry</span><span class="plan-view-note">…</span></button>
@@ -291,20 +346,8 @@
                             <span class="rp-card-sub" id="expirySub">Stock expected to still be on the shelf on its expiry date, and stock already expired</span>
                         </div>
                     </div>
-                    <div class="rp-table-wrap">
-                        <table class="rp-table">
-                            <thead>
-                                <tr>
-                                    <th>Product</th>
-                                    <th>Expires</th>
-                                    <th class="num">In stock</th>
-                                    <th class="num">Likely left over</th>
-                                    <th class="num">Value at cost</th>
-                                </tr>
-                            </thead>
-                            <tbody id="expiryBody"><tr><td colspan="5" class="rp-loading">Loading…</td></tr></tbody>
-                        </table>
-                    </div>
+                    <!-- one card per product, like the reorder list (Carlo picked option 1, 8 Nov) -->
+                    <div class="pc-groups" id="expiryBody"><p class="rp-loading">Loading…</p></div>
                     <div id="expiryPagination" class="pagination-bar"></div>
                 </div>
 
@@ -319,20 +362,7 @@
                             <span class="rp-card-sub" id="excessSub">More than three months of stock at the expected rate of sale, or stock that is not selling</span>
                         </div>
                     </div>
-                    <div class="rp-table-wrap">
-                        <table class="rp-table">
-                            <thead>
-                                <tr>
-                                    <th>Product</th>
-                                    <th>Why</th>
-                                    <th class="num">In stock</th>
-                                    <th class="num">More than needed</th>
-                                    <th class="num">Money tied up</th>
-                                </tr>
-                            </thead>
-                            <tbody id="excessBody"><tr><td colspan="5" class="rp-loading">Loading…</td></tr></tbody>
-                        </table>
-                    </div>
+                    <div class="pc-groups" id="excessBody"><p class="rp-loading">Loading…</p></div>
                     <div id="excessPagination" class="pagination-bar"></div>
                 </div>
 
@@ -340,103 +370,62 @@
 
                 <div class="plan-pane" data-pane="forecast" role="tabpanel" hidden>
                 <p class="plan-pane-lead"><strong>What the shop expects to sell in the next 30 days.</strong> The reorder, expiry and too-much-stock lists are all worked out from this forecast.</p>
-                <h3 class="rp-group">Next 30 days <small>what the shop expects to sell</small></h3>
-                <div class="rp-figures rp-figures-2">
-                    <div class="rp-figure">
-                        <span class="rp-figure-label">Expected to sell, next 30 days</span>
-                        <span class="rp-figure-value" id="kpiForecastUnits">—</span>
-                        <!-- what makes up the figure (UAT part 4, A14) -->
-                        <div class="rp-fig-breakdown" id="unitsBreakdown"></div>
-                    </div>
-                    <div class="rp-figure">
-                        <span class="rp-figure-label">Expected revenue, next 30 days</span>
-                        <span class="rp-figure-value" id="kpiForecastRevenue">—</span>
-                        <div class="rp-fig-breakdown" id="revenueBreakdown"></div>
-                    </div>
-                </div>
-                <!-- category and brand in one card, one at a time (UAT, 1 Nov) -->
-                <div class="rp-card panel-card" data-jump-title="Expected sales by category">
-                    <div class="rp-card-head">
-                        <div>
-                            <h2>Expected sales</h2>
-                            <span class="rp-card-sub">Items, next 30 days</span>
+                <!-- The forecast as cards (Forecast tab option 1, Carlo 8 Nov): the
+                     figure with its chart, the categories once, the last check as
+                     a scoreboard of best sellers, every product as a card. -->
+                <div class="fc-top">
+                    <section class="rp-card panel-card fc-hero" aria-label="Expected to sell, next 30 days" data-jump-title="Next 30 days">
+                        <div class="fc-fig">
+                            <span class="fc-lbl" id="fcUnitsLabel">Next 30 days, about</span>
+                            <span class="fc-big" id="kpiForecastUnits">—</span>
+                            <p id="fcSold"></p>
                         </div>
-                        <div class="rp-seg" data-seg="expected" role="tablist" aria-label="Expected sales">
-                            <button type="button" class="active" data-show="category" role="tab" aria-selected="true">By category</button>
-                            <button type="button" data-show="brand" role="tab" aria-selected="false">By brand</button>
-                        </div>
-                    </div>
-                    <div class="rp-bars" id="categoryDemand" data-seg-pane="expected:category"></div>
-                    <div class="rp-bars" id="brandDemand" data-seg-pane="expected:brand" hidden></div>
+                        <div class="pb-chart fc-chart" id="fcChart"></div>
+                    </section>
+                    <section class="rp-card panel-card fc-rev" aria-label="Expected sales in pesos, next 30 days">
+                        <span class="fc-lbl">Worth about, in sales</span>
+                        <span class="fc-big" id="kpiForecastRevenue">—</span>
+                        <div class="fc-split" id="revenueBreakdown" aria-hidden="true"></div>
+                        <div class="fc-keys" id="revenueKeys"></div>
+                    </section>
                 </div>
 
-                <!-- what it expected against what sold, product by product (forecast mock-up 3) -->
-                <div class="rp-card panel-card" id="guessCard" data-jump-title="Did it guess right?" hidden>
-                    <div class="rp-card-head">
-                        <div>
-                            <h2>Did it guess right?</h2>
-                            <span class="rp-card-sub">Each time it refreshes, FETCH hides its last two weeks of sales, forecasts them, and checks the guess against what really sold</span>
-                        </div>
+                <div class="fc-gh">
+                    <h3>What will sell</h3><span class="fc-gsub">items expected in the next 30 days</span>
+                    <!-- category and brand, one at a time (UAT, 1 Nov) -->
+                    <div class="rp-seg" data-seg="expected" role="tablist" aria-label="What will sell">
+                        <button type="button" class="active" data-show="category" role="tab" aria-selected="true">By category</button>
+                        <button type="button" data-show="brand" role="tab" aria-selected="false">By brand</button>
                     </div>
-                    <div class="guess-tiles" id="guessTiles"></div>
+                </div>
+                <div class="fc-cats" id="categoryDemand" data-seg-pane="expected:category"></div>
+                <div class="fc-cats" id="brandDemand" data-seg-pane="expected:brand" hidden></div>
+
+                <!-- what it expected against what sold, best seller by best seller -->
+                <section class="rp-card panel-card fc-guess" id="guessCard" data-jump-title="Did it guess right?" hidden>
+                    <div class="fc-guess-head">
+                        <h3>Did it guess right?</h3>
+                        <span id="guessVerdict"></span>
+                        <p id="guessLine"></p>
+                    </div>
+                    <div class="fc-score" id="guessBody"></div>
                     <p class="guess-means" id="guessMeans"></p>
-                    <div class="rp-table-wrap">
-                        <table class="rp-table">
-                            <thead><tr><th>Product</th><th class="num">Expected</th><th class="num">Sold</th><th>What happened</th></tr></thead>
-                            <tbody id="guessBody"></tbody>
-                        </table>
-                    </div>
-                    <p class="guess-foot" id="guessFoot"></p>
-                </div>
+                </section>
 
-                <h3 class="rp-group">Every product <small>select one to see its sales and forecast</small></h3>
-                <div class="rp-card panel-card" data-jump-title="All products">
-                    <div class="rp-card-head">
-                        <div>
-                            <h2>All products</h2>
-                            <span class="rp-card-sub" id="planListSub">Select a product to see its sales history and forecast</span>
-                        </div>
-                        <input maxlength="100" type="search" class="rp-search" id="planSearch" placeholder="Search products" aria-label="Search products">
-                    </div>
-                    <div class="rp-filters" id="demandFilters">
+                <div class="fc-gh fc-products-head" data-jump-title="All products">
+                    <h3>Every product</h3>
+                    <div class="rp-filters fc-filters" id="demandFilters">
                         <button type="button" class="active" data-demand="all">All <span id="countAll"></span></button>
                         <button type="button" data-demand="fast">Selling fast <span id="countFast"></span></button>
                         <button type="button" data-demand="steady">Selling steadily <span id="countSteady"></span></button>
                         <button type="button" data-demand="slow">Selling slowly <span id="countSlow"></span></button>
                         <button type="button" data-demand="none">Not selling <span id="countNone"></span></button>
                     </div>
-                    <div class="rp-table-wrap">
-                        <table class="rp-table rp-table-click">
-                            <thead>
-                                <tr>
-                                    <th>Product</th>
-                                    <th class="num">On the shelf</th>
-                                    <th>Lasts</th>
-                                    <th>Next month</th>
-                                    <th>How sure</th>
-                                    <th>Do this</th>
-                                </tr>
-                            </thead>
-                            <tbody id="predictionsTableBody">
-                                <tr><td colspan="7" class="rp-loading">Loading products…</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div id="predictionsPagination" class="pagination-bar"></div>
+                    <input maxlength="100" type="search" class="rp-search" id="planSearch" placeholder="Search products" aria-label="Search products">
                 </div>
-
-                <div class="rp-card panel-card" id="productDetail" data-jump-title="Product forecast" hidden>
-                    <div class="rp-card-head">
-                        <div>
-                            <h2 id="detailTitle">Product</h2>
-                            <span class="rp-card-sub" id="detailSub"></span>
-                        </div>
-                        <button class="btn-secondary rp-export" onclick="closeProductDetail()"><span class="material-symbols-outlined">close</span> Close</button>
-                    </div>
-                    <p class="rp-detail-summary" id="detailSummary"></p>
-                    <div class="rp-chart rp-chart-tall"><canvas id="demandForecastChart"></canvas></div>
-                    <p class="rp-footnote">Dark bars: what sold each week. Light bars: what FETCH expects each of the next four weeks.</p>
-                </div>
+                <p class="fc-gsub fc-list-sub" id="planListSub">Select a product to see its sales and forecast</p>
+                <div class="pc-grid" id="predictionsTableBody"><p class="rp-loading">Loading products…</p></div>
+                <div id="predictionsPagination" class="pagination-bar"></div>
 
                 <h3 class="rp-group">Sales patterns</h3>
                 <!-- the two pattern charts in one card, one at a time (UAT, 31 Oct) -->
@@ -469,6 +458,24 @@
                         <div class="rp-about-tile"><span class="rp-about-tile-label">Forecast accuracy</span><span class="rp-about-tile-value" id="kpiAccuracy">—</span><p id="kpiAccuracyNote"></p><div class="rp-acc-breakdown" id="accuracyBreakdown"></div></div>
                     </div>
                 </details>
+                </div>
+                <!-- one product, at the side of the list it was picked from:
+                     four numbers, its weeks, how sure (Carlo picked option 1, 8 Nov) -->
+                <aside class="rp-card panel-card pd" id="productDetail" data-jump-title="Product forecast" aria-labelledby="detailTitle" hidden>
+                    <div class="pd-head">
+                        <span id="detailPhoto"></span>
+                        <div class="pd-title"><h2 id="detailTitle">Product</h2><span class="rp-card-sub" id="detailSub"></span></div>
+                        <button type="button" class="pd-x" onclick="closeProductDetail()" aria-label="Close the product"><span class="material-symbols-outlined">close</span></button>
+                    </div>
+                    <div class="pd-boxes" id="detailBoxes"></div>
+                    <div class="pd-notes" id="detailNotes"></div>
+                    <h3 class="pd-h">Items each week</h3>
+                    <p class="pd-status" id="detailSummary"></p>
+                    <div class="rp-chart pd-chart"><canvas id="demandForecastChart"></canvas></div>
+                    <div class="pd-legend"><span><i class="is-sold"></i>Sold</span><span><i class="is-next"></i>Expected</span></div>
+                    <div class="pd-sure" id="detailSure"></div>
+                    <div class="pd-foot" id="detailFoot"></div>
+                </aside>
                 </div>
             </section>
 
@@ -591,7 +598,7 @@
 <script src="js/assistant.js?v=31"></script>
     <script src="js/xlsx.js?v=3"></script>
     <script src="js/reports.js?v=46"></script>
-    <script src="js/analytics.js?v=57"></script>
+    <script src="js/analytics.js?v=63"></script>
     <script src="js/audit.js?v=27"></script>
 </body>
 </html>
@@ -643,7 +650,7 @@
                 <h3><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">assessment</span> Reports</h3>
                 <ul>
                     <li><strong>Sales</strong> — pick a period (last 7 days, last 30 days, this month, all time, or your own dates) and view it by day, week or month. Shows revenue, number of sales, average per sale, items sold, best-selling products and sales by category. <strong>Export Excel</strong> saves the table as an Excel file.</li>
-                    <li><strong>Stock planning</strong> — forecasts what each product will sell over the next 30 days, using Random Forest and Gradient Boosting, which learn from the last four months of sales. <strong>What to reorder</strong> lists what to order, how much and by which date; <strong>Create purchase orders</strong> turns the list into orders and emails each supplier. Further down: products with too much stock, stock likely to expire before it sells, expected sales by category and brand, and how accurate the forecast has been.</li>
+                    <li><strong>Stock planning</strong> — forecasts what each product will sell over the next 30 days, using Random Forest and Gradient Boosting, which learn from the last four months of sales. It opens on one screen with four areas: <strong>To reorder</strong> (what to order, how much and by which date), <strong>Expiry</strong> (stock to take off the shelf or sell first), <strong>Forecast</strong> (the next 30 days next to the last 30) and <strong>Too much stock</strong>. The heading says what needs doing today. <strong>See all</strong> opens an area's full list, and <strong>Back to the overview</strong> returns. <strong>Create purchase orders</strong> turns this week's reorder list into orders and emails each supplier.</li>
                     <li>Under <strong>All products</strong>, filter by how each product is selling and select any product to see its sales history and forecast. <strong>How these numbers are worked out</strong> at the bottom explains every figure.</li>
                     <li><strong>Void requests</strong> (admins and managers) lists sales a cashier has asked to have voided, with the reason. Choose <strong>Void sale</strong> to cancel it and return the items to stock, or <strong>Keep sale</strong> to dismiss the request. Recently voided sales are listed below.</li>
                     <li><strong>Activity log</strong> (admins) shows who did what, and when.</li>

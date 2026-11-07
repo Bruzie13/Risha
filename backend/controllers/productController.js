@@ -624,6 +624,8 @@ exports.getProductImage = async (req, res) => {
         const url = row && row.image_url;
         if (!url) return res.status(404).end();
         if (/^https?:\/\//i.test(url)) return res.redirect(302, url);
+        // a photo shipped with the site, stored as its path (images/products/…)
+        if (/^images\/[\w-]+(\/[\w-]+)*\.(png|jpe?g|webp|gif)$/i.test(url)) return res.redirect(302, '/' + url);
         const m = /^data:(image\/(?:png|jpe?g|webp|gif));base64,(.+)$/i.exec(url);
         if (!m) return res.status(404).end();
         res.set('Content-Type', m[1]);
