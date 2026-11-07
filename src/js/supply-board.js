@@ -147,6 +147,21 @@
             + '</div>';
     }
 
+    /* Ten at a time in each list, then "Show N more" (Carlo, 8 Nov: show a
+       set number first so the page does not draw everything at once). */
+    var BOARD_PAGE = 10;
+    var boardShown = {};
+    function firstPage(key, list) { return list.slice(0, boardShown[key] || BOARD_PAGE); }
+    function moreButton(key, list, inTable, cols) {
+        var shown = Math.min(list.length, boardShown[key] || BOARD_PAGE), left = list.length - shown;
+        if (left <= 0 && shown <= BOARD_PAGE) return '';
+        var btn = left > 0
+            ? '<button type="button" class="btn-secondary" data-board-more="' + key + '">Show ' + Math.min(left, BOARD_PAGE) + ' more (' + left + ' not shown)</button>'
+            : '<button type="button" class="btn-secondary" data-board-less="' + key + '">Show fewer</button>';
+        return inTable ? '<tr class="sp-more-row"><td colspan="' + cols + '" style="text-align:center">' + btn + '</td></tr>'
+            : '<div class="sp-more" style="grid-column:1/-1;text-align:center;margin-top:4px">' + btn + '</div>';
+    }
+
     function render() {
         var orders = board.orders || [];
         var offers = orders.filter(function (o) { return o.status === 'proposed'; });
@@ -183,14 +198,14 @@
 
         var cancelled = board.cancelled_offers || [];
         document.getElementById('cancelledCard').hidden = !cancelled.length;
-        document.getElementById('cancelledBody').innerHTML = cancelled.map(function (c) {
+        document.getElementById('cancelledBody').innerHTML = firstPage('cancelled', cancelled).map(function (c) {
             return '<tr><td class="rp-strong">' + escHtml(c.po_number) + '<span class="rp-sub">' + formatNumber(c.line_count) + ' product' + (Number(c.line_count) === 1 ? '' : 's') + '</span></td>'
                 + '<td>' + escHtml(c.supplier_name || '—') + '</td>'
                 + '<td>' + escHtml(niceDay(c.cancelled_day)) + '</td>'
                 + '<td>' + (c.cancelled_by_supplier ? '<span class="rp-badge rp-badge-warning">Supplier took it back</span>' : '<span class="rp-badge rp-badge-danger">You declined it</span>')
                 + (c.cancel_note ? '<span class="rp-sub">' + escHtml(c.cancel_note) + '</span>' : '') + '</td>'
                 + '<td class="num rp-strong">' + formatCurrency(c.total_amount) + '</td></tr>';
-        }).join('');
+        }).join('') + moreButton('cancelled', cancelled, true, 5);
 
         document.getElementById('pricesBody').innerHTML = prices.length ? prices.map(function (p) {
             var now = p.live_price != null ? Number(p.live_price) : null, next = Number(p.proposed_price);
@@ -208,11 +223,11 @@
         }).join('') : '<tr><td colspan="5" class="rp-loading">No price changes waiting. When a supplier proposes a new price, it shows here to accept or decline.</td></tr>';
 
         document.getElementById('deliveriesList').innerHTML = moving.length
-            ? moving.map(card).join('')
+            ? firstPage('moving', moving).map(card).join('') + moreButton('moving', moving, false)
             : '<p class="rp-loading">Nothing is on order right now.</p>';
 
         var today = todayYmd();
-        document.getElementById('unpaidBody').innerHTML = unpaid.length ? unpaid.map(function (o) {
+        document.getElementById('unpaidBody').innerHTML = unpaid.length ? firstPage('unpaid', unpaid).map(function (o) {
             return '<tr><td class="rp-strong">' + escHtml(o.po_number) + (o.delivery_ref ? '<span class="rp-sub">Receipt ' + escHtml(o.delivery_ref) + '</span>' : '') + '</td>'
                 + '<td>' + escHtml(o.supplier_name || '—') + '</td>'
                 + '<td>' + (o.received_day ? escHtml(niceDay(o.received_day)) : '—') + '</td>'
@@ -220,17 +235,17 @@
                     : escHtml(o.payment_terms || 'No terms set')) + '</td>'
                 + '<td class="num rp-strong">' + formatCurrency(o.total_amount) + '</td>'
                 + '<td class="num">' + (manages() ? '<button class="btn-view" data-paid="' + Number(o.id) + '">Mark paid</button>' : '') + '</td></tr>';
-        }).join('') : '<tr><td colspan="6" class="rp-loading">Every delivered order has been paid.</td></tr>';
+        }).join('') + moreButton('unpaid', unpaid, true, 6) : '<tr><td colspan="6" class="rp-loading">Every delivered order has been paid.</td></tr>';
 
         var paidList = board.paid || [];
-        document.getElementById('paidBody').innerHTML = paidList.length ? paidList.map(function (p) {
+        document.getElementById('paidBody').innerHTML = paidList.length ? firstPage('paid', paidList).map(function (p) {
             return '<tr><td class="rp-strong">' + escHtml(p.po_number) + '</td>'
                 + '<td>' + escHtml(p.supplier_name || '—') + '</td>'
                 + '<td>' + escHtml(new Date(Number(p.paid_at)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })) + '</td>'
                 + '<td>' + escHtml(p.method) + '</td>'
                 + '<td class="num rp-strong">' + formatCurrency(p.total_amount) + '</td>'
                 + '<td class="num"><button class="btn-view" data-receipt="' + Number(p.id) + '"><span class="material-symbols-outlined" style="font-size:15px;">receipt_long</span> Receipt</button></td></tr>';
-        }).join('') : '<tr><td colspan="6" class="rp-loading">No payments recorded yet.</td></tr>';
+        }).join('') + moreButton('paid', paidList, true, 6) : '<tr><td colspan="6" class="rp-loading">No payments recorded yet.</td></tr>';
 
         Object.keys(openNotes).forEach(function (id) { if (openNotes[id] && document.getElementById('board-notes-' + id)) loadNotes(Number(id)); });
     }
@@ -300,6 +315,13 @@
     }
 
     function onAction(e) {
+        var more = e.target.closest('[data-board-more], [data-board-less]');
+        if (more) {
+            var key = more.dataset.boardMore || more.dataset.boardLess;
+            boardShown[key] = more.dataset.boardMore ? (boardShown[key] || BOARD_PAGE) + BOARD_PAGE : BOARD_PAGE;
+            render();
+            return;
+        }
         var details = e.target.closest('[data-price-details]');
         if (details && !e.target.closest('button[data-price]')) { openPriceDetails(Number(details.dataset.priceDetails)); return; }
         var np = e.target.closest('button[data-new]');

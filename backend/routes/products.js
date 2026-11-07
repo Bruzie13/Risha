@@ -5,6 +5,7 @@ const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 router.get('/', authenticateToken, productController.getAllProducts);
 router.get('/stock-levels', authenticateToken, productController.getStockLevels);
+router.get('/image-ids', authenticateToken, productController.getImageIds);   // which products have a photo, ids only
 router.get('/stats', authenticateToken, productController.getProductStats);
 router.get('/low-stock', authenticateToken, productController.getLowStockProducts);
 router.get('/categories', authenticateToken, productController.getCategories);

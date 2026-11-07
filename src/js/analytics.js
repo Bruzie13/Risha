@@ -16,7 +16,7 @@ let planPhotos = new Set();      // ids of products that have a photo
 let planFilter = 'all';
 let planSearch = '';
 let planLoading = false;
-const PRED_PAGE_SIZE = 12;      // product cards, four to a row
+const PRED_PAGE_SIZE = 10;      // product cards: ten at a time (Carlo, 8 Nov)
 let predDisplayCount = PRED_PAGE_SIZE;
 let reorderDisplayCount = PRED_PAGE_SIZE;
 
@@ -38,23 +38,30 @@ async function loadStockPlanning(force) {
     // The first forecast after the server starts can take a while to compute.
     const timeout = setTimeout(() => controller.abort(), 90000);
     try {
-        // the board also reads what sold each of the last 30 days (for its
-        // chart) and which products have a photo; both are only nice to have
+        // The page shows as soon as the forecast arrives. What sold each of
+        // the last 30 days (for the chart, ~1 s to add up) and which products
+        // have a photo follow, and fill in when they come (Carlo, 8 Nov:
+        // faster loading on the deployed system).
         const today = ymd(new Date());
-        const [overview, trends, daily, photos] = await Promise.all([
+        const extras = Promise.all([
+            fetch(`${API_BASE}/sales/report?period=daily&date_from=${addDaysYmd(today, -30)}&date_to=${addDaysYmd(today, -1)}`, { headers: getAuthHeaders(), signal: controller.signal }).then(r => r.json()).catch(() => null),
+            fetch(`${API_BASE}/products/image-ids`, { headers: getAuthHeaders(), signal: controller.signal }).then(r => r.json()).catch(() => null)
+        ]);
+        const [overview, trends] = await Promise.all([
             fetch(`${PRED_API}/overview`, { headers: getAuthHeaders(), signal: controller.signal }).then(r => r.json()),
-            fetch(`${PRED_API}/trends`, { headers: getAuthHeaders(), signal: controller.signal }).then(r => r.json()).catch(() => null),
-            fetch(`${API_BASE}/sales/report?period=daily&date_from=${addDaysYmd(today, -29)}&date_to=${today}`, { headers: getAuthHeaders(), signal: controller.signal }).then(r => r.json()).catch(() => null),
-            fetch(`${API_BASE}/products?fields=light`, { headers: getAuthHeaders(), signal: controller.signal }).then(r => r.json()).catch(() => null)
+            fetch(`${PRED_API}/trends`, { headers: getAuthHeaders(), signal: controller.signal }).then(r => r.json()).catch(() => null)
         ]);
         if (!overview.success) throw new Error(overview.error || 'Stock planning failed');
         plan = overview.data;
-        planDaily = daily && daily.success && daily.data && Array.isArray(daily.data.rows) ? daily.data.rows : null;
         planDow = trends && trends.success && trends.data.seasonality ? trends.data.seasonality.day_of_week_patterns || null : null;
-        planPhotos = new Set(photos && photos.success && Array.isArray(photos.data)
-            ? photos.data.filter(p => p.has_image || p.image_url).map(p => Number(p.id)) : []);
         renderPlan();
         if (trends && trends.success) renderPatterns(trends.data.seasonality || {});
+        extras.then(([daily, photos]) => {
+            if (!plan) return;
+            planDaily = daily && daily.success && daily.data && Array.isArray(daily.data.rows) ? daily.data.rows : null;
+            planPhotos = new Set(photos && photos.success && Array.isArray(photos.data) ? photos.data.map(Number) : []);
+            if (planDaily || planPhotos.size) renderPlan();
+        });
     } catch (error) {
         console.error('Error loading stock planning:', error);
         const msg = error.name === 'AbortError'
@@ -664,7 +671,7 @@ function reorderCard(p, today) {
     });
 }
 
-const CARD_PAGE = 12;
+const CARD_PAGE = 10;           // ten cards at a time, then Show all
 const cardGroupOpen = {};
 /** A heading, its cards (the first twelve until "Show all"), for one group. */
 function cardGroup(key, title, chips, items, card, action) {

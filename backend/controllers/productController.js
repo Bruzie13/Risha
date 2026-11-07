@@ -100,6 +100,19 @@ exports.getStockLevels = async (req, res) => {
     }
 };
 
+/* Which products have a photo: ids only, so a page that shows pictures need
+   not download every product to find out (Stock planning used the whole
+   catalogue, 85 KB, for this). */
+exports.getImageIds = async (req, res) => {
+    try {
+        const [rows] = await require('../config/database').query("SELECT id FROM products WHERE image_url IS NOT NULL AND image_url <> ''");
+        res.status(200).json({ success: true, data: rows.map(r => Number(r.id)) });
+    } catch (error) {
+        console.error('Get image ids error:', error);
+        res.status(500).json({ success: false, message: 'Error retrieving product photos' });
+    }
+};
+
 exports.getProductById = async (req, res) => {
     try {
         const { id } = req.params;

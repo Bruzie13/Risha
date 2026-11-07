@@ -1,5 +1,5 @@
 let currentPage = 1;
-const perPage = 20;
+const perPage = 10;            // ten entries at a time (Carlo, 8 Nov)
 let totalLogs = 0;
 
 // Loaded by reports.js when the Activity log tab is opened. It is admin-only,
