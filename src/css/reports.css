@@ -893,7 +893,8 @@
 #tab-analytics { container: plan / inline-size; }
 .pb-detail.has-panel { display: grid; grid-template-columns: minmax(0, 1fr) 380px; column-gap: 18px; align-items: start; }
 .pb-detail.has-panel > :not(#productDetail) { grid-column: 1; min-width: 0; }
-.pb-detail.has-panel > #productDetail { grid-column: 2; grid-row: 1 / span 6; position: sticky; top: 16px; margin: 0; }
+.pb-detail.has-panel > #productDetail { grid-column: 2; grid-row: 1 / span 6; align-self: start; margin: 0; }
+/* the page scrolls on the body, so the panel is placed level with the card that was clicked (placePanel) */
 
 #orderList.order-list, #expiryBody, #excessBody { padding: 4px 20px 6px; }
 .pc-group + .pc-group { margin-top: 18px; }
@@ -1063,3 +1064,31 @@
 /* while a product is open at the side, the forecast's top row stacks */
 .pb-detail.has-panel .fc-top { grid-template-columns: minmax(0, 1fr); }
 .pb-detail.has-panel .fc-cats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* The forecast chart reads as a graph (Carlo, 8 Nov): a scale at the side,
+   a date under every week, and the day under the pointer in a small label. */
+.pb-axis { min-height: 15px; }
+.pb-plot { position: relative; margin-left: 46px; touch-action: pan-y; }
+.pb-plot svg { cursor: crosshair; }
+.pb-scale { position: absolute; inset: 0 auto 0 -46px; width: 46px; pointer-events: none; }
+.pb-scale span { position: absolute; right: 6px; transform: translateY(50%); font-size: 11px; line-height: 1; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pb-plot::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed var(--border-subtle); pointer-events: none; }
+.pb-plot::after { content: ''; position: absolute; left: 0; right: 0; top: 0; border-top: 1px dashed var(--border-subtle); pointer-events: none; }
+.pb-axis { margin-left: 46px; }
+.pb-ticks { position: relative; height: 18px; margin: 4px 0 0 46px; font-size: 11.5px; color: var(--text-muted); }
+.pb-ticks span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.pb-ticks span::before { content: ''; position: absolute; left: 50%; top: -5px; width: 1px; height: 4px; background: var(--border-glass-strong); }
+.pb-ticks .is-today { color: var(--text-primary); font-weight: 600; }
+.pb-chart rect.is-hover { fill: var(--brand-ink); }
+:root.dark-mode .pb-chart rect.is-hover { fill: #fff; }
+.pb-tip { position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 2; padding: 5px 9px; border-radius: 8px;
+  background: var(--brand-ink); color: #fff; font-size: 12px; font-weight: 600; line-height: 1.3; white-space: nowrap; pointer-events: none;
+  box-shadow: 0 4px 12px rgba(16, 40, 63, 0.18); }
+.pb-tip[hidden] { display: none; }
+:root.dark-mode .pb-tip { background: #fff; color: var(--brand-ink); }
+.pb-hint { margin-left: auto; font-style: normal; }
+@media not (hover: hover) { .pb-hint { display: none; } }
+.fc-note { display: block; margin-top: 8px; font-size: 12px; color: var(--text-muted); }
+/* on a narrow chart only every other week is dated */
+.pb-chart { container-type: inline-size; }
+@container (max-width: 430px) { .pb-ticks .is-minor:not(.is-today) { visibility: hidden; } .pb-hint { display: none; } }

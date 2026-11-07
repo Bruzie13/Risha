@@ -113,7 +113,7 @@ function wirePlanControls() {
             if (more) { cardGroupOpen[more.dataset.more] = !cardGroupOpen[more.dataset.more]; if (id === 'expiryBody') renderExpiry(); return; }
             if (e.target.closest('button, a')) return;
             const row = e.target.closest('[data-id]');
-            if (row) openProductDetail(Number(row.dataset.id));
+            if (row) openProductDetail(Number(row.dataset.id), row);
         });
     });
     ['predictionsTableBody', 'excessBody', 'expiryBody', 'guessBody', 'orderList', 'orderLater'].forEach(id => {
@@ -122,11 +122,12 @@ function wirePlanControls() {
             const row = e.target.closest('[data-id]');
             if (!row || e.target !== row) return;
             e.preventDefault();
-            openProductDetail(Number(row.dataset.id));
+            openProductDetail(Number(row.dataset.id), row);
         });
     });
     document.querySelectorAll('.plan-view').forEach(b => b.addEventListener('click', () => showPlanView(b.dataset.view)));
     wireBoard();
+    wireChartTips();
     // Sales patterns: days of the week or months, in one card
     document.querySelectorAll('#patternSeg button').forEach(b => b.addEventListener('click', () => {
         const which = b.dataset.pattern;
@@ -348,6 +349,10 @@ function openFromBoard(pane, productId) {
 
 const plural = (n, one, many) => `${formatNumber(n)} ${n === 1 ? one : (many || one + 's')}`;
 const shortDate = s => planDate(s).replace(/, \d{4}$/, '');
+/** The 30 forecast days as dates, e.g. "Nov 8 to Dec 7" (today is the first). */
+const forecastSpan = days => { const t = ymd(new Date()); return `${shortDate(t)} to ${shortDate(addDaysYmd(t, (days || 30) - 1))}`; };
+/** The 30 days just before, e.g. "Oct 9 to Nov 7". */
+const pastSpan = () => { const t = ymd(new Date()); return `${shortDate(addDaysYmd(t, -30))} to ${shortDate(addDaysYmd(t, -1))}`; };
 const pesos = v => '₱' + formatNumber(Math.round(Number(v) || 0));   // whole pesos on the board
 
 /** The product's photo, or its category's icon on a tint when it has none. */
@@ -481,9 +486,9 @@ function renderBoardForecast() {
     document.getElementById('pbForecastBody').innerHTML = `
         <div class="pb-fc">
             <div class="pb-fc-fig">
-                <span class="pb-fc-lbl">Next ${days} days, about</span>
+                <span class="pb-fc-lbl">Items expected to sell, ${escHtml(forecastSpan(days))}</span>
                 <span class="pb-big">${formatNumber(t.expected_units)}<small>${t.expected_units === 1 ? 'item' : 'items'}</small></span>
-                <p>worth about <b>${pesos(t.expected_revenue)}</b> in sales.<br>You sold <b>${plural(sold30, 'item')}</b> in the last 30 days.</p>
+                <p>Expected sales: about <b>${pesos(t.expected_revenue)}</b>.<br>Sold in the last 30 days: <b>${plural(sold30, 'item')}</b>.</p>
             </div>
             <div class="pb-chart">${boardChart(t.expected_units, days)}</div>
         </div>
@@ -495,36 +500,92 @@ function boardChart(expectedTotal, days) {
     const today = ymd(new Date());
     const sold = new Map((planDaily || []).map(r => [String(r.date).slice(0, 10), Number(r.item_count) || 0]));
     const past = [];
-    for (let i = 29; i >= 0; i--) { const d = addDaysYmd(today, -i); past.push({ d, v: sold.get(d) || 0 }); }
+    // the history ends yesterday (today is not over), and the 30 forecast days start today
+    for (let i = 30; i >= 1; i--) { const d = addDaysYmd(today, -i); past.push({ d, v: sold.get(d) || 0 }); }
     // weekday weights from the shop's own pattern; even when there is none
     const order = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const avg = order.map(name => { const r = (planDow || []).find(x => x.day === name); return r ? Number(r.avg_daily_sales) || 0 : 1; });
     const next = [];
-    for (let i = 1; i <= days; i++) next.push({ d: addDaysYmd(today, i) });
+    for (let i = 0; i < days; i++) next.push({ d: addDaysYmd(today, i) });
     let weight = x => avg[new Date(x.d + 'T00:00:00').getDay()] || 0;
     let weightSum = next.reduce((a, x) => a + weight(x), 0);
     if (!(weightSum > 0)) { weight = () => 1; weightSum = next.length; }
     next.forEach(x => { x.v = expectedTotal * weight(x) / weightSum; });
     const all = planDaily ? past.concat(next) : next;
-    const max = Math.max(1, ...all.map(x => x.v));
+    // the scale: a round number at the top, so the side labels read cleanly
+    const top = niceCeil(Math.max(1, ...all.map(x => x.v)));
     const W = 600, H = 120, n = all.length, gap = 2, bw = W / n - gap;
+    const pastCount = planDaily ? past.length : 0;
     const bars = all.map((x, i) => {
-        const h = Math.max(x.v > 0 ? 2 : 0, x.v / max * (H - 4));
-        const pastBar = planDaily && i < past.length;
-        const tip = `${shortDate(x.d)}: ${pastBar ? plural(x.v, 'item') + ' sold' : 'about ' + plural(Math.round(x.v), 'item') + ' expected'}`;
-        return `<rect class="${pastBar ? 'is-sold' : 'is-next'}" x="${(i * (bw + gap)).toFixed(1)}" y="${(H - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5" style="--i:${i}"><title>${escHtml(tip)}</title></rect>`;
+        const h = Math.max(x.v > 0 ? 2 : 0, x.v / top * H);
+        return `<rect class="${i < pastCount ? 'is-sold' : 'is-next'}" x="${(i * (bw + gap)).toFixed(1)}" y="${(H - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5" style="--i:${i}"/>`;
     }).join('');
-    const split = planDaily ? past.length / n * 100 : 0;
-    const line = planDaily ? `<line class="pb-today" x1="${(split / 100 * W - gap / 2).toFixed(1)}" y1="0" x2="${(split / 100 * W - gap / 2).toFixed(1)}" y2="${H}" vector-effect="non-scaling-stroke"/>` : '';
-    const axis = planDaily
-        ? `<span>${escHtml(shortDate(past[0].d))}</span><span class="is-today" style="left:${split.toFixed(1)}%">Today</span><span>${escHtml(shortDate(next[next.length - 1].d))}</span>`
-        : `<span class="is-strong">Tomorrow</span><span>${escHtml(shortDate(next[next.length - 1].d))}</span>`;
-    const label = planDaily
+    const split = pastCount / n * 100;
+    const line = pastCount ? `<line class="pb-today" x1="${(split / 100 * W - gap / 2).toFixed(1)}" y1="0" x2="${(split / 100 * W - gap / 2).toFixed(1)}" y2="${H}" vector-effect="non-scaling-stroke"/>` : '';
+    // what each bar is, for the label that shows on hover or tap
+    const day = d => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const tips = all.map((x, i) => i < pastCount
+        ? `${day(x.d)}: ${plural(x.v, 'item')} sold`
+        : `${day(x.d)}${x.d === today ? ' (today)' : ''}: about ${plural(Math.round(x.v), 'item')} expected`);
+    // a date under every week, counted from today both ways (Carlo, 8 Nov:
+    // "dapat may pinapakita padin na info kase graph yan")
+    const anchor = pastCount;            // today, the first forecast day
+    const ticks = all.map((x, i) => ({ x, i })).filter(t => (t.i - anchor) % 7 === 0)
+        .map((t, k) => `<span class="${k % 2 ? 'is-minor' : ''}${t.i === anchor ? ' is-today' : ''}" style="left:${((t.i * (bw + gap) + bw / 2) / W * 100).toFixed(2)}%">${escHtml(shortDate(t.x.d))}</span>`).join('');
+    const head = pastCount
+        ? `<span>Last 30 days, sold</span><span class="is-today" style="left:${split.toFixed(1)}%">Today</span><span>Next ${days} days, expected</span>`
+        : `<span class="is-strong">From today</span><span>Next ${days} days, expected</span>`;
+    const label = pastCount
         ? `Items sold each day for the last 30 days, then about ${formatNumber(expectedTotal)} items expected over the next ${days} days`
         : `About ${formatNumber(expectedTotal)} items expected over the next ${days} days`;
-    return `<div class="pb-axis">${axis}</div>
-        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${escHtml(label)}">${bars}${line}</svg>
-        <div class="pb-legend">${planDaily ? '<span><i class="is-sold"></i>Sold each day</span>' : ''}<span><i class="is-next"></i>Expected each day</span></div>`;
+    return `<div class="pb-axis">${head}</div>
+        <div class="pb-plot" data-tips="${encodeURIComponent(JSON.stringify(tips))}">
+            <div class="pb-scale" aria-hidden="true"><span style="bottom:100%">${formatNumber(top)} items</span><span style="bottom:50%">${formatNumber(top / 2)}</span><span style="bottom:0">0</span></div>
+            <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${escHtml(label)}">${bars}${line}</svg>
+            <div class="pb-tip" role="status" hidden></div>
+        </div>
+        <div class="pb-ticks" aria-hidden="true">${ticks}</div>
+        <div class="pb-legend">${pastCount ? '<span><i class="is-sold"></i>Sold each day</span>' : ''}<span><i class="is-next"></i>Expected each day</span><span class="pb-hint">Point at a bar to see its day</span></div>`;
+}
+
+/** The smallest round number (1, 2 or 5 × a power of ten) at or above v. */
+function niceCeil(v) {
+    const p = Math.pow(10, Math.floor(Math.log10(v)));
+    return [1, 2, 5, 10].map(m => m * p).find(x => x >= v);
+}
+
+/* One label for every chart of this kind: the day under the pointer (or the
+   finger), and what sold or is expected that day. */
+let chartTipWired = false;
+function wireChartTips() {
+    if (chartTipWired) return;
+    chartTipWired = true;
+    const show = e => {
+        const plot = e.target.closest && e.target.closest('.pb-plot');
+        if (!plot) return;
+        const svg = plot.querySelector('svg'), tip = plot.querySelector('.pb-tip');
+        let tips = [];
+        try { tips = JSON.parse(decodeURIComponent(plot.dataset.tips || '%5B%5D')); } catch (err) { return; }
+        const r = svg.getBoundingClientRect();
+        const i = Math.max(0, Math.min(tips.length - 1, Math.floor((e.clientX - r.left) / r.width * tips.length)));
+        const rects = svg.querySelectorAll('rect');
+        rects.forEach((b, k) => b.classList.toggle('is-hover', k === i));
+        tip.textContent = tips[i];
+        tip.hidden = false;
+        // over its bar, but always inside the chart
+        const w = tip.offsetWidth, pw = plot.clientWidth;
+        const centre = (i + 0.5) / tips.length * svg.clientWidth + (svg.offsetLeft || 0);
+        tip.style.left = Math.round(Math.max(0, Math.min(pw - w, centre - w / 2))) + 'px';
+    };
+    const hide = e => {
+        const plot = e.target.closest && e.target.closest('.pb-plot');
+        if (!plot) return;
+        plot.querySelector('.pb-tip').hidden = true;
+        plot.querySelectorAll('rect.is-hover').forEach(b => b.classList.remove('is-hover'));
+    };
+    document.addEventListener('pointermove', show);
+    document.addEventListener('pointerdown', show);
+    document.addEventListener('pointerout', e => { if (!e.relatedTarget || !e.target.closest('.pb-plot') || !e.relatedTarget.closest || e.relatedTarget.closest('.pb-plot') !== e.target.closest('.pb-plot')) hide(e); });
 }
 
 function renderBoardExcess(rows) {
@@ -662,7 +723,7 @@ function onOrderListClick(e) {
     if (more) { cardGroupOpen[more.dataset.more] = !cardGroupOpen[more.dataset.more]; renderReorder(); return; }
     if (e.target.closest('[data-later]')) { orderLaterOpen = !orderLaterOpen; renderReorder(); return; }
     const card = e.target.closest('[data-id]');
-    if (card) openProductDetail(Number(card.dataset.id));
+    if (card) openProductDetail(Number(card.dataset.id), card);
 }
 
 /* Purchase orders for this week's list (or for the products given), one per
@@ -867,9 +928,11 @@ function forecastGroups(key) {
 function renderForecastTop() {
     const t = plan.totals, days = plan.forecast_days || 30;
     const sold30 = plan.products.reduce((a, p) => a + (Number(p.sold_30d) || 0), 0);
-    document.getElementById('fcUnitsLabel').textContent = `Next ${days} days, about`;
+    document.getElementById('fcUnitsLabel').textContent = `Items expected to sell, next ${days} days (${forecastSpan(days)})`;
+    document.getElementById('fcRevLabel').textContent = `Expected sales in pesos, next ${days} days (${forecastSpan(days)})`;
+    document.getElementById('fcWhatSub').textContent = `items expected to sell, ${forecastSpan(days)}`;
     document.getElementById('kpiForecastUnits').innerHTML = `${formatNumber(t.expected_units)}<small>${t.expected_units === 1 ? 'item' : 'items'}</small>`;
-    document.getElementById('fcSold').innerHTML = `You sold <b>${plural(sold30, 'item')}</b> in the last 30 days.`;
+    document.getElementById('fcSold').innerHTML = `An estimate, not a promise. Sold in the last 30 days (${escHtml(pastSpan())}): <b>${plural(sold30, 'item')}</b>.`;
     document.getElementById('fcChart').innerHTML = boardChart(t.expected_units, days);
     document.getElementById('kpiForecastRevenue').textContent = pesos(t.expected_revenue);
     // the pesos split by category: the top three, then the rest together
@@ -1044,7 +1107,7 @@ function showLessPredictions() { predDisplayCount = Math.max(PRED_PAGE_SIZE, pre
    8 Nov): four numbers in place of the old paragraph, its weeks as a chart,
    and how sure the forecast is, in one line. */
 let detailProductId = null;
-async function openProductDetail(productId) {
+async function openProductDetail(productId, fromEl) {
     const p = plan && plan.products.find(x => x.product_id === productId);
     if (!p) return;
     const card = document.getElementById('productDetail'), detail = document.getElementById('planDetail');
@@ -1071,9 +1134,7 @@ async function openProductDetail(productId) {
     status.hidden = false;
     status.textContent = 'Loading its weeks…';
     if (forecastChart) { forecastChart.destroy(); forecastChart = null; }
-    // beside the list it stays in view; stacked on a narrow screen, bring it up
-    const r = card.getBoundingClientRect();
-    if (r.top < 0 || r.top > window.innerHeight - 80) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    placePanel(card, detail, fromEl);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000);
@@ -1142,6 +1203,28 @@ function detailSure(p) {
     return { tone, html: `<span class="material-symbols-outlined" aria-hidden="true">${tone === 'ok' ? 'check_circle' : 'info'}</span><span>${text}</span>` };
 }
 
+/* Beside the list, the panel opens level with the card that was clicked, so
+   nobody has to scroll back up to read it (Carlo, 8 Nov). It is kept inside
+   the screen and inside the list. Stacked on a narrow screen, the panel sits
+   above the list, so the page goes up to it instead. */
+function placePanel(card, detail, fromEl) {
+    card.style.marginTop = '0px';
+    const beside = detail && getComputedStyle(detail).display === 'grid';
+    if (!beside) {
+        const r = card.getBoundingClientRect();
+        if (r.top < 0 || r.top > window.innerHeight - 80) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+    }
+    const d = detail.getBoundingClientRect(), h = card.getBoundingClientRect().height;
+    const want = fromEl && fromEl.isConnected ? fromEl.getBoundingClientRect().top : 16;
+    // keep the whole panel on screen where it fits, and never above the screen's top
+    const onScreen = Math.max(16, Math.min(want, window.innerHeight - h - 16));
+    const offset = Math.max(0, Math.min(onScreen - d.top, d.height - h));
+    card.style.marginTop = Math.round(offset) + 'px';
+    const r = card.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > window.innerHeight) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
 /** The card of the product in the panel stays outlined in its list. */
 function markSelected() {
     document.querySelectorAll('#planDetail [data-id].is-sel').forEach(e => e.classList.remove('is-sel'));
@@ -1152,7 +1235,7 @@ function markSelected() {
 
 function closeProductDetail() {
     const card = document.getElementById('productDetail');
-    if (card) card.hidden = true;
+    if (card) { card.hidden = true; card.style.marginTop = ''; }
     const detail = document.getElementById('planDetail');
     if (detail) detail.classList.remove('has-panel');
     detailProductId = null;
