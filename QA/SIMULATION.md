@@ -17,7 +17,7 @@ A separate **Simulation** account (Users → Add user → role *Simulation — w
 - The automatically filled past days get the same: drawer opened in the morning, counted and closed at closing.
 - A simulated customer comes to the counter every **20–60 seconds** (quicker on a busy day), stamped with the real time, so today's Dashboard and Reports fill up while you record. 2 hours makes about 150–250 sales.
 - Items that sell out get a rush delivery at once; every 15 minutes a supplier delivery tops up low items.
-- The screen shows each customer as they buy (regular or walk-in, items, cash/GCash/Maya/card), today's totals for the whole shop, customers per hour and what is selling most.
+- The screen shows each customer as they buy (regular or walk-in, items, amount paid in cash), today's totals for the whole shop, customers per hour and what is selling most.
 - It stops by itself when the time is up, when **Stop** is pressed, or when the server stops. Live sales are numbered `SIM-YYYYMMDD-L…` and are taken out by `--remove` like the rest.
 - Pace (optional): `SIM_LIVE_MIN_SECONDS` (20), `SIM_LIVE_MAX_SECONDS` (60) in `backend/.env`.
 
@@ -83,7 +83,7 @@ Turn it off with `SIMULATION=off` in `backend/.env`. Settings (optional): `SIM_S
 | Basket | 1 line 45%, 2 lines 30%, 3 lines 15%, 4 lines 10%; quantity 1 (72%), 2 (20%), 3 (8%) | estimate |
 | Products | weighted by what has actually been selling; Dec toys/accessories ×2; Mar–May shampoo/tick & flea ×1.3 | shop history + estimate |
 | Regulars | 80 named regulars (Filipino names, PH mobile numbers) make about 40% of visits and keep buying their usual food | estimate |
-| Payment | cash 60% (45% above ₱1,500), online 36% (GCash 85% / Maya 15%, noted on the sale), card 4% | BSP 2025, Worldpay 2026, scaled to a small cash-heavy shop |
+| Payment | cash only, like the shop's POS (no GCash, Maya or card; decided 7 Nov 2026) | the shop's own POS |
 | Discount | 7% of sales get 5% or 10%, never above the POS limit | estimate |
 | Deliveries | Tue and Fri at 10:00: every item at or below its reorder level back to its full level; other days, a rush order for items that sold out | estimate |
 | Expired stock | never sold; a delivery of an item expiring within 30 days brings a new expiry 9–18 months out | POS rule |

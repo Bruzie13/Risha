@@ -253,13 +253,10 @@ function planCustomer(ctx, rand, profile, day, saleNumber, createdAt) {
     let discount = 0;
     if (rand() < 0.07 && maxDiscount >= 5) discount = maxDiscount >= 10 && rand() < 0.4 ? 10 : 5;
     const final = money(Math.max(0, total - total * discount / 100));
-    // Cash still leads at a neighbourhood shop; GCash/Maya are recorded as
-    // "online" (the POS has no separate e-wallet value). BSP 2025 and
-    // Worldpay 2026 figures, scaled to a small cash-heavy shop (estimate).
-    const pr = rand();
-    const cashShare = final > 1500 ? 0.45 : 0.60;
-    const method = pr < cashShare ? 'cash' : pr < 0.96 ? 'online' : 'card';
-    const wallet = method === 'online' ? (rand() < 0.85 ? 'GCash' : 'Maya') : null;
+    // Every sale is paid in cash: the shop's POS takes cash only (Carlo,
+    // 7 Nov 2026: no GCash, Maya or card).
+    const method = 'cash';
+    const wallet = null;
     const named = regular || (rand() < 0.15 ? { name: `${FIRST[Math.floor(rand() * FIRST.length)]} ${LAST[Math.floor(rand() * LAST.length)]}`, phone: null } : null);
     return {
         sale_number: saleNumber,

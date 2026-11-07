@@ -129,7 +129,8 @@ function render(d) {
     $('kRevenue').textContent = peso(t.revenue);
     $('kRevenueSub').textContent = `from ${plural(t.sales, 'customer', 'customers')} · ${plural(t.units, 'item', 'items')} sold`;
     $('kCash').textContent = plural(t.payment.cash, 'sale', 'sales');
-    $('kOnline').textContent = plural(t.payment.online, 'sale', 'sales');
+    // every sale is cash, so the second box shows the average sale instead
+    $('kOnline').textContent = t.sales ? `${peso(t.revenue / t.sales)} each` : peso(0);
     $('kLow').textContent = `${t.stock.low} low`;
     $('kOut').textContent = t.stock.out ? `${t.stock.out} out of stock` : 'none out of stock';
     $('kDeliveries').textContent = plural(d.run.deliveries, 'delivery', 'deliveries');
