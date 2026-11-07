@@ -68,6 +68,16 @@ async function ownOrder(req) {
 
 router.use(authenticateToken, authorizeRole('supplier'), requireSupplier);
 
+// On vacation or Inactive, the portal is read-only (Carlo, 7 Nov 2026): a
+// supplier who said they are away confirms, ships, re-dates, notes, prices
+// and offers nothing until they are Active again. Only the status itself and
+// the contact details in Settings can still be changed.
+const LOCKED = { vacation: 'On vacation', inactive: 'Inactive' };
+router.use((req, res, next) => {
+    if (req.method === 'GET' || !LOCKED[req.supplier.status] || req.path === '/me/status' || req.path === '/me') return next();
+    bad(res, `Your status is ${LOCKED[req.supplier.status]}, so the portal is locked. Change Your status to Active: taking orders to use it again.`, 403);
+});
+
 /* ---------- Details ---------- */
 
 router.get('/me', (req, res) => res.json({ success: true, data: req.supplier }));

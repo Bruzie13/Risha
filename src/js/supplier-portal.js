@@ -185,13 +185,63 @@ function renderDetails() {
         <select class="form-select sp-status-pick" id="spStatusPick" aria-label="Your status">
             ${Object.entries(SP_STATUS).map(([k, v]) => `<option value="${k}"${k === status ? ' selected' : ''}>${v.label}</option>`).join('')}
         </select>`;
+    applyLock();
 }
 
 const SP_STATUS = {
-    active: { label: 'Active: taking orders', short: 'Active', say: 'The shop sees that you are taking orders.' },
-    vacation: { label: 'On vacation: away for a while', short: 'On vacation', say: 'The shop sees that you are on vacation, on your line in Suppliers and before it sends you an order. Your open orders stay as they are.' },
-    inactive: { label: 'Inactive: not taking orders', short: 'Inactive', say: 'The shop sees that you are not taking orders for now. Your open orders stay as they are.' }
+    active: { label: 'Active: taking orders', short: 'Active', say: 'The shop sees that you are taking orders, and you can use the whole portal again.' },
+    vacation: { label: 'On vacation: away for a while', short: 'On vacation', say: 'The shop sees that you are on vacation, on your line in Suppliers and before it sends you an order. Your open orders stay as they are. While you are on vacation the portal is locked: you can look, but not confirm, ship, change dates or prices, send notes or make offers until you are Active again.' },
+    inactive: { label: 'Inactive: not taking orders', short: 'Inactive', say: 'The shop sees that you are not taking orders for now. Your open orders stay as they are. While you are inactive the portal is locked: you can look, but not confirm, ship, change dates or prices, send notes or make offers until you are Active again.' }
 };
+
+/* On vacation or Inactive, the portal is read-only (Carlo, 7 Nov 2026): every
+   button that changes something is greyed out and cannot be clicked, a note
+   says why, and the server refuses the same. Looking around, receipts,
+   history and the status menu stay open, so the supplier can switch back. */
+const LOCKABLE = 'button[data-act="confirm"], button[data-act="ship"], button[data-act="date"], button[data-act="cancel-offer"], '
+    + 'button[data-price], button[data-cancel-price], button[data-new-cancel], .sp-offer-tile, .sp-note-form button, .sp-note-form input';
+function portalLock() {
+    const s = portal.me && portal.me.status;
+    return s === 'vacation' || s === 'inactive' ? SP_STATUS[s].short : null;
+}
+function lockedSay() {
+    const s = portalLock();
+    if (s) showToast(`Your status is ${s}, so the portal is locked. Change Your status to Active: taking orders to use it again.`, 'warning');
+    return !!s;
+}
+function lockControls() {
+    const s = portalLock();
+    document.querySelectorAll(LOCKABLE).forEach(b => {
+        if (s && !b.dataset.locked) {
+            b.dataset.locked = b.title || ' ';
+            b.disabled = true;
+            b.title = `Locked while you are ${s}`;
+            b.style.opacity = '.45'; b.style.cursor = 'not-allowed';
+        } else if (!s && b.dataset.locked) {
+            const was = b.dataset.locked.trim();
+            delete b.dataset.locked;
+            b.disabled = false;
+            if (was) b.title = was; else b.removeAttribute('title');
+            b.style.opacity = ''; b.style.cursor = '';
+        }
+    });
+}
+let lockWatch = null;
+function applyLock() {
+    const s = portalLock();
+    const note = document.getElementById('spLockNote');
+    if (note) {
+        note.hidden = !s;
+        // one span: the notice lays its children out side by side
+        if (s) note.innerHTML = `<span><strong>Your status is ${escHtml(s)}, so the portal is locked.</strong> You can look at your orders, payments and products, but you cannot confirm, ship, change dates or prices, send notes or make offers. Change <strong>Your status</strong> to <strong>Active: taking orders</strong> to use it again.</span>`;
+    }
+    lockControls();
+    // lists are drawn again (show more, notes opened, tabs): keep their buttons locked
+    if (!lockWatch && window.MutationObserver) {
+        lockWatch = new MutationObserver(() => { if (portalLock()) lockControls(); });
+        lockWatch.observe(document.querySelector('.main-wrapper') || document.body, { childList: true, subtree: true });
+    }
+}
 
 function changeStatus(next) {
     const now = (portal.me && portal.me.status) || 'active';
@@ -245,6 +295,7 @@ function showLessProducts() { productsShown = Math.max(PRODUCTS_PAGE, productsSh
 
 // Take back a price change the shop has not answered (UAT part 4, SP8).
 function cancelPrice(productId) {
+    if (lockedSay()) return;
     const p = portal.products.find(x => Number(x.id) === productId);
     if (!p || p.pending_price == null) return;
     showConfirmDialog('Cancel this price change?',
@@ -304,13 +355,16 @@ async function showProductHistory(productId) {
         ${orders ? `<table class="rp-table sp-hist-table"><thead><tr><th>Order</th><th class="num">Qty</th><th class="num">Price each</th><th>Status</th></tr></thead><tbody>${orders}</tbody></table>` : '<p class="sp-hist-none">This product has not been on an order yet.</p>'}
     </div>`;
     const dlg = showDetailsDialog(title, p.name, rows, { tone, icon, html,
-        actions: p.pending_price != null
+        // locked (On vacation or Inactive): the window only shows, it changes nothing
+        actions: portalLock() ? []
+            : p.pending_price != null
             ? [{ label: 'Cancel proposal', className: 'btn-secondary', onClick: () => cancelPrice(productId) }]
             : [{ label: p.declined_price != null ? 'Propose another price' : 'Change price', onClick: () => openPrice(productId) }] });
     dlg.dialog.classList.add('sp-hist-dialog');
 }
 
 function openPrice(productId) {
+    if (lockedSay()) return;
     const p = portal.products.find(x => Number(x.id) === productId);
     if (!p) return;
     openSpModal('Propose a new price',
@@ -475,6 +529,7 @@ function onOrderClick(e) {
 
 // Take back an offer the shop has not answered (UAT part 4, SP5).
 function cancelOffer(id) {
+    if (lockedSay()) return;
     const o = orderOf(id);
     if (!o || o.status !== 'proposed') return;
     showPromptDialog('Cancel offer ' + o.po_number + '?',
@@ -487,6 +542,7 @@ function cancelOffer(id) {
 }
 
 function openConfirm(id) {
+    if (lockedSay()) return;
     const o = orderOf(id);
     if (!o) return;
     const lines = (o.items || []).map(i => `
@@ -514,6 +570,7 @@ function openConfirm(id) {
 }
 
 function openShip(id) {
+    if (lockedSay()) return;
     const o = orderOf(id);
     if (!o) return;
     openSpModal('Mark ' + o.po_number + ' as shipped',
@@ -527,6 +584,7 @@ function openShip(id) {
 }
 
 function openDate(id) {
+    if (lockedSay()) return;
     const o = orderOf(id);
     if (!o) return;
     openSpModal('Change the delivery date',
@@ -551,6 +609,7 @@ function openDate(id) {
 /* ---------- Offer an order ---------- */
 
 function openOffer() {
+    if (lockedSay()) return;
     const products = [...portal.products].sort((a, b) =>
         (Number(a.stock_quantity) - Number(a.reorder_level)) - (Number(b.stock_quantity) - Number(b.reorder_level)));
     if (!products.length) { showToast('No products are assigned to you yet', 'warning'); return; }
@@ -643,6 +702,7 @@ function showNewProduct(id) {
 }
 
 function cancelNewProduct(id) {
+    if (lockedSay()) return;
     const o = (portal.newProducts || []).find(x => Number(x.id) === id);
     if (!o) return;
     showConfirmDialog('Cancel this offer?', `${escHtml(o.name)} is taken back. The shop no longer sees it.`,
@@ -653,6 +713,7 @@ function cancelNewProduct(id) {
 
 let newProductImage = null;
 function openNewProduct() {
+    if (lockedSay()) return;
     newProductImage = null;
     openSpModal('Offer a new product',
         `<p class="sp-form-hint">A product the shop does not sell yet. The shop decides whether to add it; you will see the answer in the Products tab.</p>
@@ -800,6 +861,7 @@ async function onNoteSubmit(e) {
     const form = e.target.closest('form[data-note-for]');
     if (!form) return;
     e.preventDefault();
+    if (lockedSay()) return;
     const id = Number(form.dataset.noteFor);
     const input = form.querySelector('input');
     const btn = form.querySelector('button');
