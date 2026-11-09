@@ -119,7 +119,7 @@ function displaySales(sales) {
         <tr>
             <td>#${s.id}</td>
             <td>${new Date(s.created_at).toLocaleDateString()}</td>
-            <td>${escHtml(s.customer_name || 'Walk-in')}</td>
+            <td>${escHtml(s.customer_name || '—')}</td>
             <td>${escHtml(s.staff_name || 'N/A')}</td>
             <td>${s.item_count || 0}</td>
             <td>${formatCurrency(parseFloat(s.final_amount ?? s.total_amount ?? 0))}</td>
@@ -468,7 +468,7 @@ async function printReceipt(saleId) {
                 <div>Receipt #: <strong>${String(sale.sale_number || sale.id).padStart(6, '0')}</strong></div>
                 <div>Date: ${date}</div>
                 <div>Cashier: ${escHtml(sale.staff_name || 'N/A')}</div>
-                <div>Customer: ${escHtml(sale.customer_name || 'Walk-in')}${sale.customer_phone ? ' (' + escHtml(sale.customer_phone) + ')' : ''}</div>
+                ${sale.customer_name || sale.customer_phone ? `<div>Customer: ${escHtml(sale.customer_name || '')}${sale.customer_phone ? ' (' + escHtml(sale.customer_phone) + ')' : ''}</div>` : ''}
                 <div>Payment: ${(sale.payment_method || 'cash').toUpperCase()}</div>
             </div>
             <hr>
@@ -528,7 +528,7 @@ async function exportSalesExcel() {
     const rows = sales.map(s => [
         s.id,
         new Date(Number(s.created_at)),
-        s.customer_name || 'Walk-in',
+        s.customer_name || '',
         s.staff_name || '',
         Number(s.item_count) || 0,
         parseFloat(s.total_amount || 0),

@@ -56,6 +56,7 @@ async function loadStockPlanning(force) {
         planDow = trends && trends.success && trends.data.seasonality ? trends.data.seasonality.day_of_week_patterns || null : null;
         renderPlan();
         if (trends && trends.success) renderPatterns(trends.data.seasonality || {});
+        loadGoal();
         extras.then(([daily, photos]) => {
             if (!plan) return;
             planDaily = daily && daily.success && daily.data && Array.isArray(daily.data.rows) ? daily.data.rows : null;
@@ -910,6 +911,108 @@ function renderGuide() {
             + '</div>';
         ex.hidden = false;
     } else ex.hidden = true;
+}
+
+/* ---------- The monthly sales goal (Carlo, 9 Nov: "dapat may goal siya") ----------
+   The Admin sets one amount in pesos for every month. The card sets it against
+   what has sold this month so far and what the forecast expects for the days
+   left, and says whether the shop is on track or what a day it needs. */
+let goalData = null, goalEditing = false;
+async function loadGoal() {
+    try {
+        const res = await fetch(`${API_BASE}/sales/goal`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'failed');
+        goalData = data.data;
+    } catch (e) {
+        goalData = { error: true };
+    }
+    renderGoal();
+}
+
+function renderGoal() {
+    const box = document.getElementById('fcGoal');
+    if (!box || !goalData) return;
+    if (goalData.error) { box.innerHTML = '<p class="rp-loading">The sales goal could not be loaded. Press Refresh to try again.</p>'; return; }
+    const g = goalData, isAdmin = (getUser() || {}).role === 'admin';
+    const monthName = new Date(g.month_start + 'T00:00:00').toLocaleDateString('en-US', { month: 'long' });
+    const head = (title, extra) => `<div class="fc-goal-head"><span class="fc-goal-ic" aria-hidden="true"><span class="material-symbols-outlined">flag</span></span>
+        <div><h3 id="fcGoalTitle">${title}</h3>${extra || ''}</div>
+        ${g.goal && isAdmin && !goalEditing ? '<button type="button" class="btn-secondary fc-goal-change" data-goal="edit"><span class="material-symbols-outlined">edit</span> Change goal</button>' : ''}</div>`;
+    const form = `<form class="fc-goal-form" data-goal="form" novalidate>
+        <label for="fcGoalInput">Sales goal for each month, in pesos</label>
+        <div class="fc-goal-row"><span class="fc-goal-peso">₱</span><input id="fcGoalInput" class="form-input" inputmode="decimal" maxlength="14" placeholder="500000" value="${g.goal ? Math.round(g.goal) : ''}" aria-describedby="fcGoalMsg">
+        <button type="submit" class="btn-primary">Save goal</button>${g.goal ? '<button type="button" class="btn-secondary" data-goal="cancel">Cancel</button>' : ''}</div>
+        <p class="fc-goal-msg" id="fcGoalMsg" role="alert"></p></form>`;
+    if (!g.goal || goalEditing) {
+        box.innerHTML = head(g.goal ? `Change the sales goal` : `Set a sales goal for ${monthName}`,
+            '<p>See whether the shop is on track this month, from what has sold so far and what the forecast expects for the days left.</p>')
+            + (isAdmin ? form : '<p class="fc-goal-none">The Admin has not set a sales goal yet.</p>');
+        wireGoal(box);
+        return;
+    }
+    // what the forecast expects for the days after today, from its 30-day total
+    const daysLeft = Math.max(0, g.days_in_month - g.day);
+    const perDay = plan ? (Number(plan.totals.expected_revenue) || 0) / (plan.forecast_days || 30) : 0;
+    const rest = perDay * daysLeft;
+    const byEnd = g.sold_so_far + rest;
+    const diff = byEnd - g.goal;
+    const onTrack = diff >= 0;
+    const lastDay = `${monthName.slice(0, 3)} ${g.days_in_month}`;
+    const scale = Math.max(g.goal, byEnd) * 1.08 || 1;
+    const pct = v => Math.max(0, Math.min(100, v / scale * 100)).toFixed(2);
+    const needPerDay = daysLeft > 0 ? Math.max(0, (g.goal - g.sold_so_far) / daysLeft) : 0;
+    box.innerHTML = head(`${monthName} sales goal: ${pesos(g.goal)}`,
+            `<p>${onTrack ? 'The shop is on track to reach it.' : 'At the rate the forecast expects, the shop will fall short.'}</p>`)
+        + `<div class="fc-goal-figs">
+            <div><span>Sold so far, ${monthName.slice(0, 3)} 1 to ${g.day}</span><b>${pesos(g.sold_so_far)}</b><small>${plural(g.sales_so_far, 'sale')}</small></div>
+            <div><span>Expected for the rest of ${monthName}</span><b>${pesos(rest)}</b><small>${daysLeft ? `${plural(daysLeft, 'day')} left, about ${pesos(perDay)} a day` : 'today is the last day'}</small></div>
+            <div class="is-total"><span>Expected by ${lastDay}</span><b>${pesos(byEnd)}</b><small>${Math.round(byEnd / g.goal * 100)}% of the goal</small></div>
+        </div>
+        <div class="fc-goal-bar" role="img" aria-label="Sold ${pesos(g.sold_so_far)} and expected ${pesos(rest)} more, against a goal of ${pesos(g.goal)}">
+            <i class="is-sold" style="width:${pct(g.sold_so_far)}%"></i><i class="is-next" style="width:${pct(rest)}%"></i>
+            <span class="fc-goal-mark" style="left:${pct(g.goal)}%"><em>Goal ${pesos(g.goal)}</em></span>
+        </div>
+        <div class="fc-goal-key"><span><i class="is-sold"></i>Sold so far</span><span><i class="is-next"></i>Expected for the days left</span></div>
+        <div class="pb-trust fc-goal-verdict${onTrack ? ' is-ok' : ''}"><span class="material-symbols-outlined" aria-hidden="true">${onTrack ? 'check_circle' : 'info'}</span>
+            <span>${onTrack
+                ? `<b>On track.</b> About ${pesos(diff)} more than the goal by ${lastDay}, if sales go as the forecast expects.`
+                : `<b>About ${pesos(-diff)} short.</b> ${daysLeft ? `To reach the goal the rest of ${monthName} needs about ${pesos(needPerDay)} a day, against about ${pesos(perDay)} a day expected.` : 'Today is the last day of the month.'}`}</span></div>`;
+    wireGoal(box);
+}
+
+function wireGoal(box) {
+    if (box.dataset.wired) return;
+    box.dataset.wired = '1';
+    box.addEventListener('click', e => {
+        const b = e.target.closest('[data-goal]');
+        if (!b || b.tagName === 'FORM') return;
+        goalEditing = b.dataset.goal === 'edit';
+        renderGoal();
+        if (goalEditing) document.getElementById('fcGoalInput')?.focus();
+    });
+    box.addEventListener('submit', async e => {
+        e.preventDefault();
+        const input = document.getElementById('fcGoalInput'), msg = document.getElementById('fcGoalMsg');
+        const text = input.value.replace(/[₱,\s]/g, '');
+        const amount = Number(text);
+        const problem = text === '' ? 'Enter the goal in pesos, for example 500000.'
+            : !isFinite(amount) ? 'The goal must be a number of pesos, for example 500000.'
+            : amount <= 0 ? 'The goal must be more than ₱0.'
+            : amount > 1e9 ? 'The goal cannot be more than ₱1,000,000,000.' : '';
+        if (problem) { msg.textContent = problem; input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+        try {
+            const res = await fetch(`${API_BASE}/sales/goal`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify({ goal: amount }) });
+            const data = await res.json();
+            if (!data.success) { msg.textContent = data.message || 'The goal could not be saved.'; input.setAttribute('aria-invalid', 'true'); return; }
+            showToast('Sales goal saved', 'success');
+            goalEditing = false;
+            goalData.goal = data.data.goal;
+            renderGoal();
+        } catch (err) {
+            msg.textContent = 'The goal could not be saved. Check the connection and try again.';
+        }
+    });
 }
 
 /* ---------- The top of the Forecast tab (option 1, Carlo 8 Nov) ----------

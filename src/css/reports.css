@@ -1092,3 +1092,38 @@
 /* on a narrow chart only every other week is dated */
 .pb-chart { container-type: inline-size; }
 @container (max-width: 430px) { .pb-ticks .is-minor:not(.is-today) { visibility: hidden; } .pb-hint { display: none; } }
+
+/* ===== The monthly sales goal on the Forecast tab (Carlo, 9 Nov) ===== */
+.fc-goal { padding: 16px 20px 18px; margin-bottom: 14px; }
+.fc-goal-head { display: flex; align-items: flex-start; gap: 12px; }
+.fc-goal-head > div { flex: 1; min-width: 0; }
+.fc-goal-head h3 { margin: 0; font-size: 18px; font-weight: 800; color: var(--text-primary); }
+.fc-goal-head p { margin: 3px 0 0; font-size: 14px; color: var(--text-secondary); }
+.fc-goal-ic { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--warning-bg); color: var(--warning); }
+.fc-goal-change { flex: none; padding: 6px 12px; font-size: 13.5px; }
+.fc-goal-change .material-symbols-outlined { font-size: 17px; }
+.fc-goal-figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 14px 0 12px; }
+.fc-goal-figs > div { padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--brand-sun) 8%, var(--bg-card)); border: 1px solid var(--border-subtle); min-width: 0; }
+.fc-goal-figs span { display: block; font-size: 12.5px; color: var(--text-muted); }
+.fc-goal-figs b { display: block; font-size: 22px; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1.25; }
+.fc-goal-figs small { font-size: 12px; color: var(--text-secondary); }
+.fc-goal-figs .is-total { background: color-mix(in srgb, var(--primary) 9%, var(--bg-card)); border-color: color-mix(in srgb, var(--primary) 22%, transparent); }
+.fc-goal-bar { position: relative; display: flex; height: 16px; margin: 26px 0 6px; border-radius: 8px; background: var(--bg-inset); overflow: visible; }
+.fc-goal-bar i { display: block; height: 100%; }
+.fc-goal-bar i.is-sold { background: var(--primary); border-radius: 8px 0 0 8px; }
+.fc-goal-bar i.is-next { background: color-mix(in srgb, var(--primary) 38%, var(--bg-card)); }
+.fc-goal-mark { position: absolute; top: -6px; bottom: -6px; width: 0; border-left: 2.5px solid var(--text-primary); }
+.fc-goal-mark em { position: absolute; bottom: calc(100% + 2px); left: 0; transform: translateX(-50%); white-space: nowrap; font-style: normal; font-size: 12px; font-weight: 700; color: var(--text-primary); }
+.fc-goal-key { display: flex; gap: 14px; font-size: 12.5px; color: var(--text-muted); }
+.fc-goal-key i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border-radius: 3px; vertical-align: -1px; }
+.fc-goal-key i.is-sold { background: var(--primary); }
+.fc-goal-key i.is-next { background: color-mix(in srgb, var(--primary) 38%, var(--bg-card)); }
+.fc-goal-verdict { margin-bottom: 0; }
+.fc-goal-form { margin-top: 12px; }
+.fc-goal-form label { display: block; font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
+.fc-goal-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fc-goal-row .form-input { width: 200px; max-width: 100%; }
+.fc-goal-peso { font-weight: 700; color: var(--text-secondary); }
+.fc-goal-msg { margin: 6px 0 0; min-height: 1em; font-size: 13px; color: var(--danger); }
+.fc-goal-none { margin: 10px 0 0; font-size: 14px; color: var(--text-muted); }
+@container plan (max-width: 760px) { .fc-goal-figs { grid-template-columns: minmax(0, 1fr); } }

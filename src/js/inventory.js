@@ -646,7 +646,8 @@ async function updateStats() {
         };
         for (const id in chipCounts) {
             const el = document.getElementById(id);
-            if (el) el.textContent = n(chipCounts[id]);
+            // Low stock is a badge on Restock needed, not a button of its own (Carlo, 9 Nov)
+            if (el) el.textContent = id === 'chipCountLow' ? `${n(chipCounts[id])} low stock` : n(chipCounts[id]);
         }
     } catch (e) { /* stats are cosmetic; next refresh retries */ }
 }

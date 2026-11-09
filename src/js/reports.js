@@ -736,7 +736,7 @@ function renderVoidRequests() {
         <tr>
             <td><span class="rp-strong">#${Number(v.id)}</span>
                 <span class="rp-sub">${escHtml(v.cashier || 'Unknown cashier')} · sold ${escHtml(voidWhen(v.sold_at))}</span>
-                <span class="rp-sub">Customer: ${escHtml(v.customer_name || 'Walk-in')}</span></td>
+                ${v.customer_name ? `<span class="rp-sub">Customer: ${escHtml(v.customer_name)}</span>` : ''}</td>
             <td class="rp-pre">${escHtml(v.items || '—')}</td>
             <td>${escHtml(v.reason || '—')}<span class="rp-sub">Asked ${escHtml(voidWhen(v.requested_at))}</span></td>
             <td class="num rp-strong">${formatCurrency(v.final_amount)}</td>

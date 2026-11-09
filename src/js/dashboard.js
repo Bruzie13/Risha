@@ -390,7 +390,7 @@ async function loadRecentSales() {
             return `<div class="timeline-item${state === 'voided' ? ' is-voided' : ''}" data-sale-id="${s.id}"${isNew ? ' style="animation:feed-slide-in 0.35s ease;"' : ''}>
                 <div class="timeline-avatar ${avatarClass}"><span class="material-symbols-outlined" style="font-size:17px;">receipt_long</span></div>
                 <div class="timeline-content">
-                    <div class="timeline-title">#${s.id} — ${escHtml(s.customer_name || 'Walk-in')}</div>
+                    <div class="timeline-title">#${s.id}${s.customer_name ? ' — ' + escHtml(s.customer_name) : ''}</div>
                     <div class="timeline-sub">${s.created_at ? formatTime(s.created_at) : ''}</div>
                 </div>
                 <div class="timeline-right">

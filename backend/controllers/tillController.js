@@ -209,7 +209,7 @@ exports.requestVoid = async (req, res) => {
             type: 'info', related_id: id, related_type: 'sale'
         }).catch(e => console.error('Notif error:', e.message));
         emailVoidRequest(rows[0], req.user, reason);
-        res.json({ success: true, message: 'Sent to a manager for voiding.' });
+        res.json({ success: true, message: 'Void request sent to the Admin.' });
     } catch (e) { fail(res, 'requestVoid', e); }
 };
 
@@ -271,7 +271,7 @@ exports.dismissVoidRequest = async (req, res) => {
         const [[who]] = await pool.query('SELECT full_name FROM users WHERE id = ?', [req.user.id]);
         Notification.create({
             title: `Void request declined: #${id}`, type: 'info', related_type: 'sale', related_id: id,
-            message: `The request to void sale #${id} was declined by ${(who && who.full_name) || 'a manager'}. The sale stands.`
+            message: `The request to void sale #${id} was declined by ${(who && who.full_name) || 'the Admin'}. The sale stands.`
         }).catch(e => console.error('Notif error:', e.message));
         res.json({ success: true, message: 'Request dismissed. The sale stands.' });
     } catch (e) { fail(res, 'dismissVoidRequest', e); }

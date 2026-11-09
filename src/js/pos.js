@@ -713,7 +713,7 @@ async function completeSale() {
     const discAmt = subtotal * (discount / 100);
     const total = subtotal - discAmt;
     const itemSummary = cartItems.map(i => `${escHtml(i.product_name)} × ${i.quantity}`).join('<br>');
-    const customer = document.getElementById('posCustomerName')?.value || 'Walk-in';
+    const customer = document.getElementById('posCustomerName')?.value || '';
     const tendered = parseFloat(document.getElementById('posTendered')?.value) || 0;
     if (tendered <= 0) { showToast('Enter the cash amount received', 'error'); document.getElementById('posTendered')?.focus(); return; }
     if (tendered < total) { showToast('Insufficient cash — customer gave less than the total', 'error'); return; }
@@ -726,7 +726,7 @@ async function completeSale() {
         <div style="margin-top:6px;"><strong>Payment:</strong> CASH</div>
         <div><strong>Cash received:</strong> ${formatCurrency(tendered)}</div>
         <div><strong>Change:</strong> <span style="font-weight:800;color:var(--success);">${formatCurrency(change)}</span></div>
-        <div><strong>Customer:</strong> ${escHtml(customer)}</div>
+        ${customer ? `<div><strong>Customer:</strong> ${escHtml(customer)}</div>` : ''}
     </div>`;
     showConfirmDialog('Confirm cash sale', msg, async () => {
         if (saleSaving) return;
@@ -822,9 +822,12 @@ async function printReceipt(saleId, tendered, change) {
             const ul = getUnitLabel(item.unit_type);
             return `<tr><td style="padding:3px 4px;border-bottom:1px dashed #ccc;">${escHtml(item.product_name)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:center;">${parseFloat(item.quantity)}${ul}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">${formatCurrency(parseFloat(item.unit_price))}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">${formatCurrency(parseFloat(item.subtotal || item.quantity * item.unit_price))}</td></tr>`;
         }).join('');
-        const total = parseFloat(sale.total_amount || 0).toFixed(2);
-        const disc = parseFloat(sale.discount_percent || 0).toFixed(2);
+        // total_amount is before the discount, final_amount what the customer paid;
+        // the discount percent is stored as `discount` (Carlo, 9 Nov: it was missing)
         const subtotal = parseFloat(sale.total_amount || 0).toFixed(2);
+        const total = parseFloat(sale.final_amount ?? sale.total_amount ?? 0).toFixed(2);
+        const disc = parseFloat(sale.discount_percent ?? sale.discount ?? 0).toFixed(2);
+        const discAmount = sale.final_amount != null ? parseFloat(subtotal) - parseFloat(total) : parseFloat(subtotal) * disc / 100;
         const date = new Date(sale.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
         const receiptHTML = `
             <html><head><title>Receipt #${sale.id}</title>
@@ -852,7 +855,7 @@ async function printReceipt(saleId, tendered, change) {
                     <div>Receipt #: <strong>${String(sale.sale_number || sale.id).padStart(6, '0')}</strong></div>
                     <div>Date: ${date}</div>
                     <div>Cashier: ${escHtml(sale.staff_name || 'N/A')}</div>
-                    <div>Customer: ${escHtml(sale.customer_name || 'Walk-in')}${sale.customer_phone ? ' (' + escHtml(sale.customer_phone) + ')' : ''}</div>
+                    ${sale.customer_name || sale.customer_phone ? `<div>Customer: ${escHtml(sale.customer_name || '')}${sale.customer_phone ? ' (' + escHtml(sale.customer_phone) + ')' : ''}</div>` : ''}
                     <div>Payment: ${escHtml((sale.payment_method || 'cash').toUpperCase())}</div>
                 </div>
                 <hr>
@@ -862,7 +865,7 @@ async function printReceipt(saleId, tendered, change) {
                 </table>
                 <hr>
                 <div class="total-row"><span>Subtotal:</span><span>₱${subtotal}</span></div>
-                ${disc > 0 ? `<div class="total-row"><span>Discount (${disc}%):</span><span>-${formatCurrency((parseFloat(subtotal) * disc / 100))}</span></div>` : ''}
+                ${disc > 0 ? `<div class="total-row"><span>Discount (${parseFloat(disc)}%):</span><span>-${formatCurrency(discAmount)}</span></div>` : ''}
                 <div class="grand-total">TOTAL: ₱${total}</div>
                 <div class="footer">
                     <div>Payment: ${escHtml((sale.payment_method || 'cash').toUpperCase())}</div>
@@ -986,7 +989,7 @@ function applyDrawerState() {
     const pay = document.getElementById('posPayBtn');
     if (pay) {
         pay.disabled = closed || saleSaving;
-        pay.title = closed ? "Today's count is saved. An administrator or a manager can reopen it." : '';
+        pay.title = closed ? "Today's count is saved. The Admin can reopen it." : '';
     }
     if (closed && cartItems.length) { cartItems = []; cartRef = null; renderCart(); updateCartTotals(); }
 }
@@ -1062,7 +1065,7 @@ async function loadMySales() {
             return `<tr class="${voided ? 'pos-mysales-voided' : ''}">
                 <td>${new Date(Number(s.created_at)).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</td>
                 <td>#${id}<span style="color:var(--text-muted);"> · ${formatQty(s.item_count)} item${Number(s.item_count) === 1 ? '' : 's'}</span></td>
-                <td>${escHtml(s.customer_name || 'Walk-in')}</td>
+                <td>${s.customer_name ? escHtml(s.customer_name) : '<span class="rp-sub" style="display:inline">no name given</span>'}</td>
                 <td class="num">${formatCurrency(s.final_amount)}</td>
                 <td>${status}</td>
                 <td>${actions}</td>
@@ -1112,7 +1115,7 @@ async function checkVoidDecisions() {
     if (!decided.length) return;
     decided.forEach(d => rememberVoidAsked(d.id, false));
     const lines = decided.map(d => d.voided
-        ? `Sale #${d.id}${d.total != null ? ' (' + formatCurrency(parseFloat(d.total)) + ')' : ''} was <strong>voided</strong> by a manager. Its items went back to stock.`
+        ? `Sale #${d.id}${d.total != null ? ' (' + formatCurrency(parseFloat(d.total)) + ')' : ''} was <strong>voided</strong> by the Admin. Its items went back to stock.`
         : `Your request for sale #${d.id} was <strong>declined</strong>. The sale stands.`);
     const anyVoided = decided.some(d => d.voided);
     showSuccessDialog(decided.length > 1 ? 'Void requests decided' : anyVoided ? 'Sale voided' : 'Void request declined',
@@ -1122,7 +1125,7 @@ async function checkVoidDecisions() {
 
 /* A void request the cashier made by mistake, taken back before it is decided. */
 function cancelVoidRequest(id) {
-    showConfirmDialog('Cancel the void request?', `Sale #${id} stays as it is, and the manager no longer sees the request.`, async () => {
+    showConfirmDialog('Cancel the void request?', `Sale #${id} stays as it is, and the Admin no longer sees the request.`, async () => {
         try {
             const res = await fetch(`${API_BASE}/sales/${id}/void-request/cancel`, { method: 'POST', headers: getAuthHeaders() });
             const data = await res.json();
@@ -1137,7 +1140,7 @@ function cancelVoidRequest(id) {
 function requestVoid(id) {
     showPromptDialog(
         'Ask for sale #' + id + ' to be voided',
-        'A manager will review it. Until then the sale stays as it is. What went wrong?',
+        'The Admin will review it. Until then the sale stays as it is. What went wrong?',
         async reason => {
             reason = (reason || '').trim();
             if (reason.length < 3) { showToast('Say briefly what went wrong', 'warning'); return; }
@@ -1147,7 +1150,7 @@ function requestVoid(id) {
                 });
                 const data = await res.json();
                 if (!data.success) { showToast(data.message || 'The request could not be sent', 'error'); return; }
-                showToast('Sent to a manager', 'success');
+                showToast('Void request sent to the Admin', 'success');
                 rememberVoidAsked(id, true);
                 loadMySales();
             } catch (e) {
@@ -1417,7 +1420,7 @@ function savePosEod() {
         + '<span class="pos-close-list"><span>You cannot make any more sales today.</span>'
         + '<span>You cannot record cash in or out.</span>'
         + '<span>The count cannot be changed.</span></span>'
-        + 'Only an administrator or a manager can reopen it.',
+        + 'Only the Admin can reopen it.',
         async () => {
             const btn = document.getElementById('posEodSave');
             btn.disabled = true;

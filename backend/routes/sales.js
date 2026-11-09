@@ -17,6 +17,9 @@ router.post('/till/cash', authenticateToken, authorizeRole('cashier'), tillContr
 router.get('/mine', authenticateToken, authorizeRole('cashier'), tillController.getMySales);
 router.get('/void-requests', authenticateToken, authorizeRole('admin', 'manager'), tillController.getVoidRequests);
 router.get('/pos-settings', authenticateToken, authorizeRole('admin', 'manager'), tillController.getPosSettings);
+// the monthly sales goal on the Forecast tab: everyone with Reports reads it, the Admin sets it
+router.get('/goal', authenticateToken, authorizeRole('admin', 'manager', 'viewer'), require('../controllers/goalController').getGoal);
+router.put('/goal', authenticateToken, authorizeRole('admin'), require('../controllers/goalController').saveGoal);
 router.put('/pos-settings', authenticateToken, authorizeRole('admin'), tillController.savePosSettings);
 router.delete('/eod/:id', authenticateToken, authorizeRole('admin', 'manager'), tillController.reopenCount);
 router.get('/eod', authenticateToken, saleController.getEod);

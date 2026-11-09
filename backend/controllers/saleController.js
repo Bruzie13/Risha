@@ -145,7 +145,7 @@ exports.createSale = async (req, res) => {
                 return res.status(400).json({
                     success: false,
                     code: 'DRAWER_CLOSED',
-                    message: "Your drawer is closed for today: the end-of-day count is already saved. Ask an administrator or a manager to reopen the count if you need to sell again."
+                    message: "Your drawer is closed for today: the end-of-day count is already saved. Ask the Admin to reopen the count if you need to sell again."
                 });
             }
         }
@@ -271,7 +271,7 @@ exports.voidSale = async (req, res) => {
         // reason stays out of the alert and shows, escaped, in the sale's details
         if (before) Notification.create({
             title: `Sale voided: #${id}`, type: 'info', related_type: 'sale', related_id: Number(id),
-            message: `The ₱${Number(before.final_amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} sale by ${before.cashier || 'a cashier'} was voided by ${before.by_name || 'a manager'}${before.void_requested_at ? ', as the cashier asked' : ''}. Its items went back to stock.`
+            message: `The ₱${Number(before.final_amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} sale by ${before.cashier || 'a cashier'} was voided by ${before.by_name || 'the Admin'}${before.void_requested_at ? ', as the cashier asked' : ''}. Its items went back to stock.`
         }).catch(e => console.error('Notif error:', e.message));
         res.status(200).json({ success: true, message: 'Sale voided and stock restored', data: result });
     } catch (error) {
@@ -450,7 +450,7 @@ exports.saveEod = async (req, res) => {
                 const [mine] = await conn.execute(
                     'SELECT id FROM cash_reconciliations WHERE business_date = ? AND counted_by = ?', [bizDate, req.user.id]);
                 if (mine.length) {
-                    return res.status(400).json({ success: false, message: "Today's count is already recorded. Ask a manager if it needs to be done again." });
+                    return res.status(400).json({ success: false, message: "Today's count is already recorded. Ask the Admin if it needs to be done again." });
                 }
                 const drawer = await cashierDrawer(conn, req.user.id, bizDate);
                 const diff = discrepancy(counted, drawer.expected);

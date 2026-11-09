@@ -175,7 +175,7 @@
         r.line('Receipt #: ' + String(sale.sale_number || sale.id || '').padStart(6, '0'));
         r.para('Date: ' + new Date(sale.created_at || Date.now()).toLocaleString());
         r.para('Cashier: ' + (sale.staff_name || 'N/A'));
-        r.para('Customer: ' + (sale.customer_name || 'Walk-in'));
+        if (sale.customer_name) r.para('Customer: ' + sale.customer_name);   // no name given: no line (Carlo, 9 Nov)
         r.line('Payment: ' + String(sale.payment_method || 'cash').toUpperCase());
         r.rule();
         (sale.items || []).forEach(it => {

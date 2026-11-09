@@ -1784,3 +1784,18 @@ button.rp-bar-row.is-link:focus-visible { outline: 2px solid var(--primary); out
 /* the expiry date on its own small line under "Expires in N days", so it is never cut */
 .pcard.pcard-photo-top .pcard-expiry { flex-wrap: wrap; white-space: normal; row-gap: 0; }
 .pcard.pcard-photo-top .pcard-expiry-date { flex-basis: 100%; margin-left: 21px; font-size: 11.5px; }
+
+/* The supplier's status in clear colours (Carlo, 9 Nov: "papalit me sana color
+   para maganda tignan"): green Active, amber On vacation, red Inactive; the
+   menu beside it takes the same colour. */
+.sp-status.is-active .sp-status-chip { background: var(--success-bg); border-color: color-mix(in srgb, var(--success) 45%, transparent); color: var(--success); }
+.sp-status.is-inactive .sp-status-chip { background: var(--danger-bg); border-color: color-mix(in srgb, var(--danger) 45%, transparent); color: var(--danger); }
+.sp-status.is-inactive .sp-status-dot { background: var(--danger); }
+.sp-status-chip { font-weight: 700; }
+.sp-status.is-active .sp-status-pick { border-color: color-mix(in srgb, var(--success) 55%, var(--border-glass)); }
+.sp-status.is-vacation .sp-status-pick { border-color: color-mix(in srgb, var(--warning) 55%, var(--border-glass)); }
+.sp-status.is-inactive .sp-status-pick { border-color: color-mix(in srgb, var(--danger) 55%, var(--border-glass)); }
+/* Inventory: low stock as a badge on Restock needed (Carlo, 9 Nov) */
+.chip .chip-badge { margin-left: 2px; padding: 0 7px; border-radius: var(--radius-full); font-size: 11.5px; font-weight: 700;
+  background: var(--warning-bg); color: var(--warning); border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent); }
+.chip.active .chip-badge { background: rgba(255, 255, 255, 0.9); color: #6B4700; border-color: transparent; }

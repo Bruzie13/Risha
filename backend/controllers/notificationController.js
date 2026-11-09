@@ -93,8 +93,8 @@ async function saleDetails(id) {
     const [items] = await pool.query(
         `SELECT si.quantity, p.name FROM sale_items si LEFT JOIN products p ON p.id = si.product_id WHERE si.sale_id = ? ORDER BY si.id`, [id]);
     const status = s.payment_status === 'voided' ? 'Voided: its items went back to stock'
-        : s.void_requested_at ? 'Waiting for a manager to decide' : 'Completed';
-    const rows = [['Sale', `#${s.id}`], ['Cashier', s.cashier || '—'], ['Customer', s.customer_name || 'Walk-in'],
+        : s.void_requested_at ? 'Waiting for the Admin to decide' : 'Completed';
+    const rows = [['Sale', `#${s.id}`], ['Cashier', s.cashier || '—'], ['Customer', s.customer_name || '—'],
         ['Total', peso(s.final_amount)], ['Sold', when(s.created_at)], ['Status', status]];
     if (s.void_requested_at) rows.push(['Void asked', when(s.void_requested_at)], ['Reason given', s.void_request_reason || '—']);
     return {
