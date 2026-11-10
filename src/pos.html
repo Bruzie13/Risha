@@ -30,7 +30,7 @@
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
         <script>/* the account's role on <html> before anything is drawn (see role-gate.css) */try{var _ru=JSON.parse(sessionStorage.getItem('user')||localStorage.getItem('user')||'null');if(_ru&&_ru.role)document.documentElement.setAttribute('data-role',_ru.role);}catch(e){}</script>
         <link rel="stylesheet" href="css/role-gate.css?v=1">
-        <link rel="stylesheet" href="css/system.css?v=136">
+        <link rel="stylesheet" href="css/system.css?v=137">
         <link rel="stylesheet" href="css/pos-register.css?v=6">
 </head>
 <body class="till-page">
@@ -192,7 +192,7 @@
                 <h2>Starting cash</h2>
             </div>
             <div class="modal-body">
-                <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.5;margin-bottom:14px;">Count the cash in the drawer before your first sale. It is added to your sales at the end of the day so the count comes out right. Enter 0 if the drawer is empty.</p>
+                <div class="note-banner"><span class="material-symbols-outlined" aria-hidden="true">payments</span><div>Count the cash in the drawer before your first sale. It is added to your sales at the end of the day so the count comes out right. Enter 0 if the drawer is empty.</div></div>
                 <div class="form-group">
                     <label class="form-label" for="posOpenAmount">Cash in the drawer now (₱)</label>
                     <input type="number" class="form-input" id="posOpenAmount" min="0" step="0.01" inputmode="decimal">
@@ -278,7 +278,7 @@
                         <label class="form-label" for="posEodNotes">Notes (optional)</label>
                         <input type="text" class="form-input" id="posEodNotes" maxlength="500" placeholder="For example: ₱200 used for water delivery" onkeydown="if (event.key === 'Enter') { event.preventDefault(); savePosEod(); }">
                     </div>
-                    <p style="font-size:12.5px;color:var(--text-muted);line-height:1.5;">Count everything in the drawer, including the starting cash. Do this when the shop is closing: saving the count closes your drawer, so you cannot sell again today. The expected amount is shown after you save.</p>
+                    <div class="note-banner is-warn"><span class="material-symbols-outlined" aria-hidden="true">lock</span><div>Count everything in the drawer, including the starting cash. Do this when the shop is closing: saving the count closes your drawer, so you cannot sell again today. The expected amount is shown after you save.</div></div>
                 </div>
 
                 <div id="posEodResult" hidden>
@@ -289,7 +289,7 @@
                     </div>
                     <p id="posEodHow" style="font-size:12.5px;color:var(--text-muted);margin-top:8px;line-height:1.5;"></p>
                     <p id="posEodNotesOut" style="font-size:12.5px;color:var(--text-muted);margin-top:8px;"></p>
-                    <p style="font-size:12.5px;color:var(--text-muted);margin-top:8px;">Today's count is recorded. Ask the Admin if it needs to be done again.</p>
+                    <div class="note-banner is-ok" style="margin-top:10px;"><span class="material-symbols-outlined" aria-hidden="true">task_alt</span><div>Today's count is recorded. Ask the Admin if it needs to be done again.</div></div>
                 </div>
                 <p id="posEodStatus" style="font-size:12.5px;color:var(--warning);margin-top:8px;"></p>
             </div>
@@ -307,7 +307,7 @@
                 <button class="close-btn" title="Close" onclick="closePosCash()">&times;</button>
             </div>
             <div class="modal-body">
-                <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.5;margin-bottom:14px;">For cash taken out or put in that is not a sale, like paying a supplier or adding coins for change. The administrator is told.</p>
+                <div class="note-banner"><span class="material-symbols-outlined" aria-hidden="true">swap_vert</span><div>For cash taken out or put in that is not a sale, like paying a supplier or adding coins for change. The administrator is told.</div></div>
                 <div class="pos-drawer-now"><span>Expected cash in the drawer now</span><span class="pos-drawer-amt"><strong id="posCashDrawer" class="is-hidden">••••</strong><button type="button" class="pos-eye" aria-label="Show the amount" title="Show the amount" aria-pressed="false" onclick="toggleDrawerAmount('posCashDrawer', this)"><span class="material-symbols-outlined">visibility</span></button></span></div>
                 <div id="posCashEntry">
                     <div class="seg pos-cash-kind" id="posCashKind" role="group" aria-label="Was the cash taken out or put in?">
@@ -338,8 +338,8 @@
         <script src="js/format.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/auth.js?v=83"></script>
-<script src="js/loader.js?v=6"></script>
-<script src="js/clear-input.js?v=3"></script>
+<script src="js/loader.js?v=7"></script>
+<script src="js/clear-input.js?v=4"></script>
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=34"></script>
 <script src="js/assistant.js?v=31"></script>

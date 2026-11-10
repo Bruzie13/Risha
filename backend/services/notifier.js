@@ -101,26 +101,17 @@ async function notifyProductCreated(product, userId) {
     });
 }
 
-// Tells the administrators someone is waiting on them. Says who, never why:
-// the decision is made on the Users page.
-async function notifyPasswordResetRequested(user, requestId) {
+// Nobody approves a password reset, so the administrators are told one was sent.
+async function notifyResetLinkSent(user) {
+    const admin = user.role === 'admin';
     await Notification.create({
-        title: 'Password reset request',
-        message: `${user.full_name || user.username} (${user.username}) asked to reset their password. Approve or decline it on the Users page.`,
-        type: 'info',
-        related_id: requestId,
-        related_type: 'password_reset_request'
-    });
-}
-
-// An administrator's reset is not approved by anyone, so it is announced instead.
-async function notifyAdminResetLinkSent(user) {
-    await Notification.create({
-        title: 'Administrator password reset',
-        message: `A reset link was emailed to the administrator account ${user.username}. If nobody at the shop asked for this, check the activity log.`,
+        title: admin ? 'Administrator password reset' : 'Password reset link sent',
+        message: admin
+            ? `A reset link was emailed to the administrator account ${user.username}. If nobody at the shop asked for this, check the activity log.`
+            : `${user.full_name || user.username} (${user.username}) asked to reset their password. The link was emailed to the address on their account. If they did not ask for it, deactivate the account on the Users page.`,
         type: 'info',
         related_id: user.id,
-        related_type: 'admin_password_reset'
+        related_type: admin ? 'admin_password_reset' : 'password_reset_sent'
     });
 }
 
@@ -139,9 +130,8 @@ async function notifyPasswordChangedByLink(userId) {
 }
 
 module.exports = {
-    notifyAdminResetLinkSent,
+    notifyResetLinkSent,
     notifyPasswordChangedByLink,
-    notifyPasswordResetRequested,
     notifySaleCreated,
     notifyStockAdjusted,
     notifyLowStock,

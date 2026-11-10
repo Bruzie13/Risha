@@ -29,7 +29,7 @@
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
         <script>/* the account's role on <html> before anything is drawn (see role-gate.css) */try{var _ru=JSON.parse(sessionStorage.getItem('user')||localStorage.getItem('user')||'null');if(_ru&&_ru.role)document.documentElement.setAttribute('data-role',_ru.role);}catch(e){}</script>
         <link rel="stylesheet" href="css/role-gate.css?v=1">
-        <link rel="stylesheet" href="css/system.css?v=136">
+        <link rel="stylesheet" href="css/system.css?v=137">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -235,7 +235,7 @@
             </div>
             <form id="productForm" onsubmit="handleProductSubmit(event)" novalidate>
                 <div class="modal-body">
-                    <p class="form-hint" style="font-size:12.5px;color:var(--text-muted);margin:0 0 12px;">Fields marked * are required. Each field is checked as you leave it.</p>
+                    <div class="note-banner is-quiet"><span class="material-symbols-outlined" aria-hidden="true">info</span><div>Fields marked * are required. Each field is checked as you leave it.</div></div>
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label" for="name">Product name *</label>
@@ -464,9 +464,7 @@
                 <button class="close-btn" title="Close" onclick="closeBarcodeManager()">&times;</button>
             </div>
             <div class="modal-body">
-                <p style="font-size:13px;color:var(--text-secondary);margin:0 0 6px;">
-                    Scan or type a barcode for each product and press <strong>Enter</strong> to save — it jumps to the next automatically. Or click <strong>Generate</strong> for an in-store code.
-                </p>
+                <div class="note-banner"><span class="material-symbols-outlined" aria-hidden="true">barcode_scanner</span><div>Scan or type a barcode for each product and press <strong>Enter</strong> to save — it jumps to the next automatically. Or click <strong>Generate</strong> for an in-store code.</div></div>
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
                     <input maxlength="100" type="text" class="form-input" id="barcodeManagerSearch" placeholder="Filter products…" oninput="renderBarcodeManagerList()" style="flex:1;">
                     <label style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;white-space:nowrap;">
@@ -489,9 +487,7 @@
                 <button class="close-btn" title="Close" onclick="closeImageManager()">&times;</button>
             </div>
             <div class="modal-body">
-                <p style="font-size:13px;color:var(--text-secondary);margin:0 0 6px;">
-                    <strong>Upload</strong> a picture from this device, or paste an <strong>image URL</strong> and press <strong>Enter</strong> to save. Uploaded photos are resized and stored automatically.
-                </p>
+                <div class="note-banner"><span class="material-symbols-outlined" aria-hidden="true">image</span><div><strong>Upload</strong> a picture from this device, or paste an <strong>image URL</strong> and press <strong>Enter</strong> to save. Uploaded photos are resized and stored automatically.</div></div>
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
                     <input maxlength="100" type="text" class="form-input" id="imageManagerSearch" placeholder="Filter products…" oninput="renderImageManagerList()" style="flex:1;">
                     <label style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;white-space:nowrap;">
@@ -529,8 +525,8 @@
         <script src="js/utils.js"></script>
 <script src="js/format.js"></script>
 <script src="js/auth.js?v=83"></script>
-<script src="js/loader.js?v=6"></script>
-<script src="js/clear-input.js?v=3"></script>
+<script src="js/loader.js?v=7"></script>
+<script src="js/clear-input.js?v=4"></script>
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=34"></script>
 <script src="js/assistant.js?v=31"></script>

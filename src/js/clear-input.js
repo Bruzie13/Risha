@@ -33,7 +33,8 @@
         btn.title = 'Clear';
         btn.setAttribute('aria-label', 'Clear this box');
         btn.tabIndex = -1;
-        btn.innerHTML = '<span aria-hidden="true">×</span>';
+        // drawn, not typed: a typed × sits low and to one side of the circle
+        btn.innerHTML = '<svg aria-hidden="true" viewBox="0 0 10 10" width="10" height="10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
         // keep the cursor in the box while pressing
         btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
         btn.addEventListener('click', function () {

@@ -607,9 +607,8 @@ templates.passwordReset = function ({ fullName, resetUrl, lasts }) {
 };
 
 /**
- * Password reset email. `ttlMinutes` is how long the link works: 30 minutes
- * for a direct link, longer when an administrator approved the request. No
- * tracking pixel — this is an account-security email.
+ * Password reset email. `ttlMinutes` is how long the link works (30 minutes).
+ * No tracking pixel — this is an account-security email.
  */
 async function sendPasswordResetEmail(toEmail, fullName, resetToken, ttlMinutes = 30) {
     const lasts = ttlMinutes >= 60 && ttlMinutes % 60 === 0

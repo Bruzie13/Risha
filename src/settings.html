@@ -50,7 +50,7 @@
     </script>
     <script>/* the account's role on <html> before anything is drawn (see role-gate.css) */try{var _ru=JSON.parse(sessionStorage.getItem('user')||localStorage.getItem('user')||'null');if(_ru&&_ru.role)document.documentElement.setAttribute('data-role',_ru.role);}catch(e){}</script>
     <link rel="stylesheet" href="css/role-gate.css?v=1">
-    <link rel="stylesheet" href="css/system.css?v=136">
+    <link rel="stylesheet" href="css/system.css?v=137">
 </head>
 <body>
 
@@ -244,7 +244,7 @@
                                     <label class="form-label" for="posMaxDiscountInput">Largest discount a cashier can give (%)</label>
                                     <input type="number" class="form-input" id="posMaxDiscountInput" min="0" max="100" step="0.5">
                                 </div>
-                                <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:12px;">A sale with a larger discount is refused at the till. Set 0 to allow no discounts.</p>
+                                <div class="note-banner is-quiet"><span class="material-symbols-outlined" aria-hidden="true">percent</span><div>A sale with a larger discount is refused at the till. Set 0 to allow no discounts.</div></div>
                                 <button class="btn-primary" onclick="savePosSettings()">Save limit</button>
                             </div>
                         </div>
@@ -254,9 +254,7 @@
                                 <p>Full database export — keep copies somewhere safe</p>
                             </div>
                             <div class="settings-card-body">
-                                <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
-                                    A backup is also emailed automatically once a day. Download one now before making big changes.
-                                </p>
+                                <div class="note-banner"><span class="material-symbols-outlined" aria-hidden="true">backup</span><div>A backup is also emailed automatically once a day. Download one now before making big changes.</div></div>
                                 <button class="btn-primary" id="downloadBackupBtn" onclick="downloadBackup()">
                                     <span class="material-symbols-outlined" style="font-size:16px;">cloud_download</span> Download backup
                                 </button>
@@ -451,8 +449,8 @@
     <script src="js/utils.js"></script>
     <script src="js/format.js"></script>
     <script src="js/auth.js?v=83"></script>
-    <script src="js/loader.js?v=6"></script>
-<script src="js/clear-input.js?v=3"></script>
+    <script src="js/loader.js?v=7"></script>
+<script src="js/clear-input.js?v=4"></script>
 <script src="js/password-eye.js?v=2"></script>
 <script src="js/motion.js?v=22"></script>
 <script src="js/jump.js?v=34"></script>

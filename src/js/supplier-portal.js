@@ -368,7 +368,7 @@ function openPrice(productId) {
     const p = portal.products.find(x => Number(x.id) === productId);
     if (!p) return;
     openSpModal('Propose a new price',
-        `<p class="sp-form-hint"><strong>${escHtml(p.name)}</strong><br>Current price: ${p.cost_price != null ? formatCurrency(p.cost_price) : 'not set'}. The price changes only if the shop accepts.</p>
+        `<p class="sp-form-hint note-banner"><span class="material-symbols-outlined" aria-hidden="true">sell</span><span><strong>${escHtml(p.name)}</strong><br>Current price: ${p.cost_price != null ? formatCurrency(p.cost_price) : 'not set'}. The price changes only if the shop accepts.</span></p>
          <div class="form-group">
             <label class="form-label" for="spPrice">New price (₱)</label>
             <input type="text" class="form-input" id="spPrice" inputmode="decimal" autocomplete="off" maxlength="11" placeholder="For example: 1250.50" required>
@@ -556,7 +556,7 @@ function openConfirm(id) {
             <input type="date" class="form-input" id="spDate" min="${todayYmd()}" value="${o.expected_delivery_date && o.expected_delivery_date >= todayYmd() ? o.expected_delivery_date : ''}" required>
          </div>
          <label class="form-label">How many of each you can send</label>
-         <p class="sp-form-hint">Lower a number if you cannot send the full amount, or set it to 0 if you have none. The shop is told before the delivery arrives.</p>
+         <p class="sp-form-hint note-banner is-quiet"><span class="material-symbols-outlined" aria-hidden="true">info</span><span>Lower a number if you cannot send the full amount, or set it to 0 if you have none. The shop is told before the delivery arrives.</span></p>
          <div class="sp-form-lines">${lines}</div>`,
         'Confirm order',
         async () => {
@@ -574,7 +574,7 @@ function openShip(id) {
     const o = orderOf(id);
     if (!o) return;
     openSpModal('Mark ' + o.po_number + ' as shipped',
-        `<p class="sp-form-hint">The shop is told the order is on its way.</p>
+        `<p class="sp-form-hint note-banner"><span class="material-symbols-outlined" aria-hidden="true">local_shipping</span><span>The shop is told the order is on its way.</span></p>
          <div class="form-group">
             <label class="form-label" for="spRef">Delivery receipt or invoice number (optional)</label>
             <input type="text" class="form-input" id="spRef" maxlength="80" placeholder="For example: DR-10452">
@@ -622,7 +622,7 @@ function openOffer() {
             <input type="number" class="form-input" data-product="${Number(p.id)}" min="0" max="10000" step="1" value="${suggest(p)}" inputmode="numeric">
         </label>`).join('');
     openSpModal('Offer an order',
-        `<p class="sp-form-hint">Suggest a delivery to the shop. Products running low are filled in for you. It becomes an order only if the shop accepts.</p>
+        `<p class="sp-form-hint note-banner"><span class="material-symbols-outlined" aria-hidden="true">add_shopping_cart</span><span>Suggest a delivery to the shop. Products running low are filled in for you. It becomes an order only if the shop accepts.</span></p>
          <input type="search" class="form-input sp-offer-search" id="spOfferSearch" placeholder="Search your products" maxlength="100" aria-label="Search your products">
          <div class="sp-form-lines" id="spOfferLines">${lines}<p class="sp-form-hint sp-offer-none" id="spOfferNone" hidden>No product matches. Not one you supply yet? <button type="button" class="sp-link" onclick="closeSpModal(); openNewProduct();">Offer a new product</button></p></div>
          <p class="sp-form-hint" style="margin-top:-4px;">Selling something the shop does not carry? <button type="button" class="sp-link" onclick="closeSpModal(); openNewProduct();">Offer a new product</button></p>
@@ -716,7 +716,7 @@ function openNewProduct() {
     if (lockedSay()) return;
     newProductImage = null;
     openSpModal('Offer a new product',
-        `<p class="sp-form-hint">A product the shop does not sell yet. The shop decides whether to add it; you will see the answer in the Products tab.</p>
+        `<p class="sp-form-hint note-banner"><span class="material-symbols-outlined" aria-hidden="true">add_box</span><span>A product the shop does not sell yet. The shop decides whether to add it; you will see the answer in the Products tab.</span></p>
          <div class="form-group">
             <label class="form-label" for="npName">Product name</label>
             <input type="text" class="form-input" id="npName" maxlength="100" placeholder="For example: AOZI Senior Lamb 1kg" required>
