@@ -1538,7 +1538,7 @@ function showReceiptDialog(title, number, html) {
 // item per block (name, then quantity x price and its amount), because four
 // columns do not fit across 58mm.
 const PAY_RECEIPT_PRINT_CSS = `
-    body{font-family:Arial,Helvetica,sans-serif;font-size:10.5px;line-height:1.35;}
+    body{font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:1.25;}
     .pay-receipt-head{display:flex;flex-direction:column;align-items:center;gap:1px;text-align:center;border-bottom:1px dashed #000;padding-bottom:5px;margin-bottom:5px;}
     .pay-receipt-head b{font-size:13px;letter-spacing:.5px}
     .pay-receipt-rows div{display:flex;justify-content:space-between;gap:8px;padding:1.5px 0;}
@@ -1557,10 +1557,15 @@ const PAY_RECEIPT_PRINT_CSS = `
 
    The page is made exactly as long as what is on it, plus a little to tear
    at: left to itself the browser prints a receipt on a full-length page, and
-   the printer feeds all of that blank paper out. The text sits in the middle
-   48mm, which is what a 58mm printer can actually print on. Printed from a
-   hidden frame, so a blocked pop-up cannot stop it and the page stays put. */
-const RECEIPT_PAPER_MM = 58, RECEIPT_PRINT_MM = 48, RECEIPT_TAIL_MM = 6;
+   the printer feeds all of that blank paper out.
+
+   A 58mm printer prints on 48mm only, and its driver describes the paper in
+   one of two ways: 58mm wide with about 5mm it cannot reach on each side, or
+   48mm wide with none. The text is kept to the 43mm both agree on (5mm in
+   from the left), so neither kind cuts the ends of the lines off.
+   Printed from a hidden frame, so a blocked pop-up cannot stop it and the
+   page stays put. */
+const RECEIPT_PAPER_MM = 58, RECEIPT_LEFT_MM = 5, RECEIPT_PRINT_MM = 43, RECEIPT_TAIL_MM = 4;
 function printReceiptPaper(title, css, bodyHtml) {
     const old = document.getElementById('receiptPrintFrame');
     if (old) old.remove();
@@ -1574,7 +1579,7 @@ function printReceiptPaper(title, css, bodyHtml) {
     doc.open();
     doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escHtml(title)}</title><style>
         html,body{margin:0;padding:0;background:#fff;color:#000;}
-        body{width:${RECEIPT_PRINT_MM}mm;margin:0 auto;padding-top:2mm;word-break:break-word;-webkit-print-color-adjust:exact;}
+        body{width:${RECEIPT_PRINT_MM}mm;margin:0 0 0 ${RECEIPT_LEFT_MM}mm;padding-top:1mm;overflow-wrap:anywhere;-webkit-print-color-adjust:exact;}
         *{box-sizing:border-box;color:#000;}
         ${css}
     </style></head><body>${bodyHtml}</body></html>`);

@@ -41,16 +41,16 @@ async function printOnServerPrinter(sale, tendered, change) {
    "quantity x price" and its amount under it, so nothing is squeezed into
    four columns on 58mm paper. Black only: grey prints faint on thermal paper. */
 const SALE_RECEIPT_CSS = `
-    body{font-family:'Courier New',monospace;font-size:11px;line-height:1.35;text-align:center;}
-    h2{margin:0 0 2px;font-size:15px;letter-spacing:.5px;}
+    body{font-family:'Courier New',monospace;font-size:10px;line-height:1.2;text-align:center;}
+    h2{margin:0;font-size:13px;letter-spacing:.3px;}
     .rc-left{text-align:left;}
-    .rc-row{display:flex;justify-content:space-between;gap:6px;text-align:left;}
+    .rc-row{display:flex;justify-content:space-between;gap:4px;text-align:left;}
     .rc-row span:last-child{white-space:nowrap;}
-    .rc-item{text-align:left;margin-top:3px;}
-    .rc-sub{padding-left:8px;}
-    .rc-total{font-size:15px;font-weight:bold;border-top:1.5px solid #000;border-bottom:1.5px solid #000;padding:4px 0;margin:5px 0;}
-    hr{border:none;border-top:1px dashed #000;margin:5px 0;}
-    .rc-no{font-size:13px;letter-spacing:2px;margin-top:5px;}
+    .rc-item{text-align:left;margin-top:1px;}
+    .rc-sub{padding-left:6px;}
+    .rc-total{font-size:13px;font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000;padding:2px 0;margin:3px 0;}
+    hr{border:none;border-top:1px dashed #000;margin:3px 0;}
+    .rc-no{letter-spacing:1px;margin-top:2px;}
 `;
 
 function saleReceiptBody(sale, tendered, change) {
@@ -84,7 +84,6 @@ function saleReceiptBody(sale, tendered, change) {
             <div>Date: ${escHtml(date)}</div>
             <div>Cashier: ${escHtml(sale.staff_name || 'N/A')}</div>
             ${customer}
-            <div>Payment: ${escHtml(String(sale.payment_method || 'cash').toUpperCase())}</div>
         </div>
         <hr>
         ${items}
@@ -92,12 +91,11 @@ function saleReceiptBody(sale, tendered, change) {
         ${disc > 0 ? `<div class="rc-row"><span>Subtotal:</span><span>${money(subtotal)}</span></div>
         <div class="rc-row"><span>Discount (${disc}%):</span><span>-${money(discAmount)}</span></div>` : ''}
         <div class="rc-row rc-total"><span>TOTAL:</span><span>${money(total)}</span></div>
-        ${cash}
+        ${cash || `<div class="rc-row"><span>Paid by:</span><span>${escHtml(String(sale.payment_method || 'cash').toUpperCase())}</span></div>`}
         <hr>
         <div>Thank you for your purchase!</div>
-        <div>Items are non-returnable</div>
-        <div class="rc-no">*${escHtml(number)}*</div>
-        <div>This serves as your official receipt</div>`;
+        <div>Items are non-returnable.</div>
+        <div>This serves as your official receipt.</div>`;
 }
 
 /* Print the receipt of one sale. `tendered` and `change` are given at the
