@@ -1538,19 +1538,19 @@ function showReceiptDialog(title, number, html) {
 // item per block (name, then quantity x price and its amount), because four
 // columns do not fit across 58mm.
 const PAY_RECEIPT_PRINT_CSS = `
-    body{font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:1.25;}
-    .pay-receipt-head{display:flex;flex-direction:column;align-items:center;gap:1px;text-align:center;border-bottom:1px dashed #000;padding-bottom:5px;margin-bottom:5px;}
-    .pay-receipt-head b{font-size:13px;letter-spacing:.5px}
-    .pay-receipt-rows div{display:flex;justify-content:space-between;gap:8px;padding:1.5px 0;}
+    body{font-family:Arial,Helvetica,sans-serif;font-size:9.5px;line-height:1.2;}
+    .pay-receipt-head{display:flex;flex-direction:column;align-items:center;text-align:center;border-bottom:1px dashed #000;padding-bottom:2px;margin-bottom:2px;}
+    .pay-receipt-head b{font-size:12px;letter-spacing:.3px}
+    .pay-receipt-rows div{display:flex;justify-content:space-between;gap:6px;}
     .pay-receipt-rows span:first-child{flex:none;white-space:nowrap;}
     .pay-receipt-rows span:last-child{text-align:right;font-weight:bold;}
     table,tbody{display:block;width:100%;}thead{display:none;}
-    table{margin:5px 0;border-top:1px dashed #000;}
-    tr{display:flex;flex-wrap:wrap;justify-content:space-between;gap:0 8px;padding:3px 0;border-bottom:1px dashed #000;}
+    table{margin:2px 0;border-top:1px dashed #000;}
+    tr{display:flex;flex-wrap:wrap;justify-content:space-between;gap:0 6px;padding:1px 0;border-bottom:1px dashed #000;}
     td{padding:0;}td:first-child{flex:0 0 100%;font-weight:bold;}
     td:nth-child(2)::before{content:"Qty ";}td:nth-child(3)::before{content:"x ";}
-    small{font-weight:normal;}
-    .pay-receipt-total{display:flex;justify-content:space-between;font-size:13px;font-weight:bold;border-top:1.5px solid #000;padding-top:4px;margin-top:4px;}
+    small{font-weight:normal;}br{display:none;}small{display:block;}
+    .pay-receipt-total{display:flex;justify-content:space-between;font-size:12px;font-weight:bold;border-top:1px solid #000;padding-top:2px;margin-top:2px;}
 `;
 
 /* Print something on 58mm receipt paper through the browser's print window.
