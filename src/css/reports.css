@@ -1127,3 +1127,120 @@
 .fc-goal-msg { margin: 6px 0 0; min-height: 1em; font-size: 13px; color: var(--danger); }
 .fc-goal-none { margin: 10px 0 0; font-size: 14px; color: var(--text-muted); }
 @container plan (max-width: 760px) { .fc-goal-figs { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- The Forecast tab, answer first (mock-up D, Carlo 10 Nov) ----------
+   One sentence, the two figures behind it, one line of trust. The chart, the
+   categories, the days not counted and the checks are closed until asked for. */
+.fd-hero { padding: 0; overflow: hidden; margin-bottom: 14px; }
+.fd-say { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 22px 24px; }
+.fd-ic { display: grid; place-items: center; width: 60px; height: 60px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--success) 45%, var(--bg-card)); background: var(--success-bg); color: var(--success); }
+.fd-ic .material-symbols-outlined { font-size: 34px; }
+.fd-hero[data-tone="warn"] .fd-ic { border-color: color-mix(in srgb, var(--warning) 45%, var(--bg-card)); background: var(--warning-bg); color: var(--warning); }
+.fd-hero[data-tone="plain"] .fd-ic { border-color: var(--border-glass); background: var(--bg-inset); color: var(--text-secondary); }
+.fd-words h2 { margin: 0; font-size: 27px; font-weight: 800; line-height: 1.2; letter-spacing: -0.01em; color: var(--text-primary); text-wrap: balance; }
+.fd-words p { margin: 6px 0 0; font-size: 15px; color: var(--text-secondary); }
+.fd-vs { display: grid; grid-template-columns: auto auto auto; gap: 12px; align-items: center; }
+.fd-box { min-width: 150px; padding: 11px 16px; border-radius: 14px; border: 1.5px solid var(--border-glass); background: color-mix(in srgb, var(--brand-sun) 8%, var(--bg-card)); }
+.fd-box.is-next { border-color: color-mix(in srgb, var(--primary) 28%, var(--bg-card)); background: color-mix(in srgb, var(--primary) 10%, var(--bg-card)); }
+.fd-box span { display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.fd-box b { display: block; margin-top: 2px; font-size: 36px; font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.fd-box small { display: block; margin-top: 2px; font-size: 13px; color: var(--text-secondary); }
+.fd-arrow { font-size: 26px; color: var(--text-muted); }
+.fd-trust { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 12px 24px; border-top: 1.5px solid var(--border-glass); background: color-mix(in srgb, var(--brand-sun) 8%, var(--bg-card)); font-size: 15px; color: var(--text-primary); }
+.fd-trust[hidden] { display: none; }
+.fd-trust-t { flex: 1 1 280px; min-width: 0; }
+.fd-paws { display: inline-flex; gap: 3px; }
+.fd-paws .material-symbols-outlined { font-size: 21px; color: color-mix(in srgb, var(--brand-sun) 55%, var(--border-glass)); font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24; }
+.fd-paws .material-symbols-outlined.is-on { color: var(--primary); }
+.fd-why { padding: 6px 12px; font-size: 13.5px; }
+.fd-why .material-symbols-outlined, .fd-chev { transition: transform 160ms var(--ease-out); }
+.fd-why.is-open .material-symbols-outlined, .fd-fold.is-open .fd-chev { transform: rotate(180deg); }
+
+.fd-more { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.fd-more.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.fd-fold { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 11px 14px; text-align: left; font: inherit; cursor: pointer;
+  background: var(--bg-card); color: var(--text-primary); border: 1.5px solid var(--border-glass-strong); border-radius: 14px; box-shadow: inset 0 -2px 0 var(--border-glass-strong);
+  transition: border-color 150ms var(--ease-out), background-color 150ms var(--ease-out); }
+.fd-fold[hidden] { display: none; }
+.fd-fold:active { box-shadow: none; transform: translateY(1px); }
+.fd-fold:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.fd-fold.is-open { border-color: var(--primary); box-shadow: inset 0 -2px 0 var(--primary); background: color-mix(in srgb, var(--primary) 6%, var(--bg-card)); }
+@media (hover: hover) and (pointer: fine) { .fd-fold:not(.is-open):hover { border-color: color-mix(in srgb, var(--primary) 55%, var(--border-glass-strong)); } }
+.fd-fold-ic { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; background: color-mix(in srgb, var(--primary) 10%, var(--bg-card)); color: var(--primary); }
+.fd-fold-t { min-width: 0; }
+.fd-fold-t b { display: block; font-size: 14.5px; font-weight: 700; }
+.fd-fold-t small { display: block; font-size: 12.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fd-chev { color: var(--primary); }
+
+.fd-panel { margin-bottom: 14px; animation: sys-rise 220ms var(--ease-out) backwards; }
+.fd-panel[hidden] { display: none; }
+.fd-panel .fc-rev { margin-bottom: 2px; }
+.fd-panel .fc-gh { margin-top: 14px; }
+.fd-card { padding: 16px 20px 18px; }
+.fd-card-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 12px; }
+.fd-card-head h3 { margin: 0; font-size: 18px; font-weight: 800; color: var(--text-primary); }
+.fd-outs { display: flex; flex-direction: column; gap: 10px; }
+.fd-o { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 11px; align-items: center; }
+.fd-o-ic { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: color-mix(in srgb, var(--text-secondary) 12%, var(--bg-card)); color: var(--text-secondary); }
+.fd-o-ic .material-symbols-outlined { font-size: 20px; }
+.fd-o b { display: block; font-size: 14.5px; font-weight: 700; color: var(--text-primary); }
+.fd-o span { font-size: 13px; color: var(--text-muted); }
+.fd-out-note { margin: 14px 0 0; font-size: 13px; color: var(--text-muted); }
+
+/* the last checks, one card each; the newest is outlined */
+.fc-guess.fd-panel { margin-top: 0; }
+.fc-verdict.is-plain { background: color-mix(in srgb, var(--primary) 10%, var(--bg-card)); color: var(--primary); }
+.fd-six { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+.fd-t { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 11px 8px 10px; text-align: center; border: 1.5px solid var(--border-glass); border-radius: 13px; }
+.fd-t.is-last { border-color: var(--text-primary); box-shadow: inset 0 -2px 0 var(--text-primary); }
+.fd-t-when { font-size: 12.5px; font-weight: 600; color: var(--text-primary); }
+.fd-t .fc-pair { height: 62px; gap: 7px; }
+.fd-t .fc-pair i { width: 22px; }
+.fd-t-fig { font-size: 12px; line-height: 1.35; color: var(--text-muted); }
+.fd-t-fig b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.fd-sub { margin: 20px 0 2px; font-size: 15px; font-weight: 800; color: var(--text-primary); }
+.fd-subline { margin: 0 0 12px; font-size: 13.5px; color: var(--text-secondary); }
+.fd-sub[hidden], .fd-subline[hidden], .fc-guess .fc-score[hidden], .fc-guess .guess-means[hidden] { display: none; }
+
+/* a product: what to do first, then why; the forecast itself is small */
+.fd-pc .pc-bd { gap: 8px; }
+.fd-do { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 9px 12px; border-radius: 11px; font-size: 15px; font-weight: 700; line-height: 1.2; text-align: center; }
+.fd-do .material-symbols-outlined { font-size: 20px; }
+span.fd-do { border: 1.5px solid transparent; }
+span.fd-do.is-green { background: var(--success-bg); color: var(--success); border-color: color-mix(in srgb, var(--success) 24%, transparent); }
+span.fd-do.is-red { background: var(--danger-bg); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 24%, transparent); }
+span.fd-do.is-amber { background: var(--warning-bg); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 24%, transparent); }
+span.fd-do.is-slate { background: color-mix(in srgb, var(--text-secondary) 12%, var(--bg-card)); color: var(--text-secondary); border-color: color-mix(in srgb, var(--text-secondary) 20%, transparent); }
+.fd-line { font-size: 13px; font-weight: 500; line-height: 1.35; color: var(--text-primary); }
+.fd-sm { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border-subtle); font-size: 12.5px; color: var(--text-muted); }
+
+/* days the forecast does not count, on the chart */
+.pb-chart rect.pb-hatch { fill: var(--text-muted); animation: none; }
+.pb-chart rect.is-out { stroke: var(--text-muted); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.pb-legend i.is-out { background: repeating-linear-gradient(135deg, var(--text-muted) 0 2px, var(--bg-card) 2px 4px); outline: 1px solid var(--text-muted); }
+
+@container plan (max-width: 980px) {
+  .fd-say { grid-template-columns: auto minmax(0, 1fr); }
+  .fd-vs { grid-column: 1 / -1; justify-content: start; }
+  .fd-six { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@container plan (max-width: 760px) {
+  .fd-more, .fd-more.is-two { grid-template-columns: minmax(0, 1fr); }
+  .fd-words h2 { font-size: 22px; }
+  .fd-ic { width: 48px; height: 48px; }
+  .fd-ic .material-symbols-outlined { font-size: 28px; }
+  .fd-say { padding: 16px; gap: 12px; }
+  .fd-trust { padding: 12px 16px; }
+  .fd-vs { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; }
+  .fd-box { min-width: 0; padding: 10px 12px; }
+  .fd-box b { font-size: 28px; }
+  .fd-six { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* with a product open at the side there is less room */
+.pb-detail.has-panel .fd-say { grid-template-columns: auto minmax(0, 1fr); }
+.pb-detail.has-panel .fd-vs { grid-column: 1 / -1; justify-content: start; }
+.pb-detail.has-panel .fd-six { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (prefers-reduced-motion: reduce) {
+  .fd-panel { animation: sys-fade 200ms ease-out backwards; }
+  .fd-why .material-symbols-outlined, .fd-chev { transition: none; }
+}

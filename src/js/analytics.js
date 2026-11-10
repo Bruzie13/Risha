@@ -134,6 +134,12 @@ function wirePlanControls() {
         });
     });
     document.querySelectorAll('.plan-view').forEach(b => b.addEventListener('click', () => showPlanView(b.dataset.view)));
+    // the Forecast tab's closed parts: the chart, the categories, the days not counted, "See why"
+    const forecastPane = document.querySelector('.plan-pane[data-pane="forecast"]');
+    if (forecastPane) forecastPane.addEventListener('click', e => {
+        const b = e.target.closest('[data-fold]');
+        if (b) openFold(b.dataset.fold, true);
+    });
     wireBoard();
     wireChartTips();
     // Sales patterns: days of the week or months, in one card
@@ -211,7 +217,7 @@ function renderPlan() {
     // the important parts stand out: the days, the dates, what was left out (UAT part 4, A13)
     const b = t => `<strong>${escHtml(t)}</strong>`;
     const left = (plan.excluded && plan.excluded.ranges) || [];
-    const why = { no_items: 'sales were recorded without their items', closed: 'nothing was recorded' };
+    const why = { no_items: 'sales were recorded without their items', closed: 'nothing was recorded', freak: 'far more sold than on a usual busy day' };
     document.getElementById('planCaption').innerHTML =
         `<p>Based on ${plan.history_days ? b(formatNumber(plan.history_days) + ' days') + ' of sales on record' + (plan.model && plan.model.fit_days ? ` (the model reads the last ${b(plan.model.fit_days + ' days')})` : '') : 'the sales on record'}.</p>`
         + `<p>Forecasts cover the ${b('next ' + plan.forecast_days + ' days')}.`
@@ -292,6 +298,8 @@ function showPlanView(view, focusId) {
         b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
     document.querySelectorAll('.plan-pane').forEach(p => { p.hidden = p.dataset.pane !== view; });
+    // "Did it guess right?" is closed until asked for: a link to it opens it
+    if (focusId === 'guessCard' && fdOpen !== 'why') openFold('why');
     // from the board, the list (or the card asked for) opens at the top of the screen
     const target = focusId && document.getElementById(focusId);
     if (target && !target.hidden) target.scrollIntoView({ block: 'start' });
@@ -362,6 +370,13 @@ const forecastSpan = days => { const t = ymd(new Date()); return `${shortDate(t)
 /** The 30 days just before, e.g. "Oct 9 to Nov 7". */
 const pastSpan = () => { const t = ymd(new Date()); return `${shortDate(addDaysYmd(t, -30))} to ${shortDate(addDaysYmd(t, -1))}`; };
 const pesos = v => '₱' + formatNumber(Math.round(Number(v) || 0));   // whole pesos on the board
+/* What a product sold on the last 30 days the forecast counts. Days it leaves
+   out (a freak day, a closure) are skipped, so the figure can be set beside
+   the forecast; the plain 30-day figure stands in when there is none. */
+const soldCounted = p => p.sold_counted_30d != null ? Number(p.sold_counted_30d) : (Number(p.sold_30d) || 0);
+/** True when those 30 days reach further back than 30 days, because days were left out. */
+const countedReachesBack = () => { const c = plan && plan.totals.sales_check; return !!(c && c.from && c.from < addDaysYmd(ymd(new Date()), -30)); };
+const soldSpan = () => countedReachesBack() ? 'last 30 days counted' : 'last 30 days';
 
 /** The product's photo, or its category's icon on a tint when it has none. */
 const categoryIcon = p => ({ 'Food': 'pets', 'Health & Wellness': 'medication', 'Accessories': 'styler', 'Litter & Waste': 'delete', 'Toys': 'sports_baseball', 'Cages & Habitats': 'house' }[p.category] || 'inventory_2');
@@ -478,7 +493,10 @@ function renderBoardExpiry(expired, atRisk, today) {
    forecast's own; it is spread over the days by the shop's weekday pattern. */
 function renderBoardForecast() {
     const t = plan.totals, days = plan.forecast_days || 30;
-    const sold30 = plan.products.reduce((a, p) => a + (Number(p.sold_30d) || 0), 0);
+    // what sold on the days the forecast counts, so a freak day is not set against it
+    const check = t.sales_check;
+    const sold30 = check ? check.sold_units : plan.products.reduce((a, p) => a + (Number(p.sold_30d) || 0), 0);
+    const counted = countedReachesBack();
     const cats = (plan.by_category || []).filter(c => Math.round(c.expected_30d) > 0)
         .map(c => `<span class="pb-tag is-blue">${escHtml(c.name)} ${plural(Math.round(c.expected_30d), 'item')}</span>`).join('');
     const test = t.accuracy_test;
@@ -496,7 +514,7 @@ function renderBoardForecast() {
             <div class="pb-fc-fig">
                 <span class="pb-fc-lbl">Items expected to sell, ${escHtml(forecastSpan(days))}</span>
                 <span class="pb-big">${formatNumber(t.expected_units)}<small>${t.expected_units === 1 ? 'item' : 'items'}</small></span>
-                <p>Expected sales: about <b>${pesos(t.expected_revenue)}</b>.<br>Sold in the last 30 days: <b>${plural(sold30, 'item')}</b>.</p>
+                <p>Expected sales: about <b>${pesos(t.expected_revenue)}</b>.<br>Sold in the last 30 days${counted ? ' counted' : ''}: <b>${plural(sold30, 'item')}</b>.</p>
             </div>
             <div class="pb-chart">${boardChart(t.expected_units, days)}</div>
         </div>
@@ -520,20 +538,31 @@ function boardChart(expectedTotal, days) {
     if (!(weightSum > 0)) { weight = () => 1; weightSum = next.length; }
     next.forEach(x => { x.v = expectedTotal * weight(x) / weightSum; });
     const all = planDaily ? past.concat(next) : next;
+    // Days the forecast does not count (a freak day, a closure, sales with no
+    // items) are drawn hatched and kept off the scale: one day of 618 items
+    // had flattened every other bar (10 Nov).
+    const ranges = (plan.excluded && plan.excluded.ranges) || [];
+    past.forEach(x => { x.out = ranges.find(r => x.d >= r.from && x.d <= r.to) || null; });
+    const anyOut = !!planDaily && past.some(x => x.out);
     // the scale: a round number at the top, so the side labels read cleanly
-    const top = niceCeil(Math.max(1, ...all.map(x => x.v)));
+    const top = niceCeil(Math.max(1, ...all.filter(x => !x.out).map(x => x.v)));
     const W = 600, H = 120, n = all.length, gap = 2, bw = W / n - gap;
     const pastCount = planDaily ? past.length : 0;
+    const hatch = 'pbHatch' + (++hatchSeq);
     const bars = all.map((x, i) => {
-        const h = Math.max(x.v > 0 ? 2 : 0, x.v / top * H);
-        return `<rect class="${i < pastCount ? 'is-sold' : 'is-next'}" x="${(i * (bw + gap)).toFixed(1)}" y="${(H - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5" style="--i:${i}"/>`;
+        const out = i < pastCount && x.out;
+        // a freak day stands the full height; an empty day left out is a short stub
+        const h = out ? (x.v > 0 ? H : H * 0.12) : Math.max(x.v > 0 ? 2 : 0, x.v / top * H);
+        return `<rect class="${out ? 'is-out' : i < pastCount ? 'is-sold' : 'is-next'}" x="${(i * (bw + gap)).toFixed(1)}" y="${(H - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5" style="--i:${i}${out ? `;fill:url(#${hatch})` : ''}"/>`;
     }).join('');
     const split = pastCount / n * 100;
     const line = pastCount ? `<line class="pb-today" x1="${(split / 100 * W - gap / 2).toFixed(1)}" y1="0" x2="${(split / 100 * W - gap / 2).toFixed(1)}" y2="${H}" vector-effect="non-scaling-stroke"/>` : '';
     // what each bar is, for the label that shows on hover or tap
     const day = d => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const outWhy = { freak: 'far more than a usual busy day', closed: 'no sales recorded', no_items: 'sales recorded without their items' };
     const tips = all.map((x, i) => i < pastCount
-        ? `${day(x.d)}: ${plural(x.v, 'item')} sold`
+        ? (x.out ? `${day(x.d)}: ${x.v > 0 ? plural(x.v, 'item') + ' sold, ' : ''}not counted (${outWhy[x.out.reason] || 'no usable record'})`
+            : `${day(x.d)}: ${plural(x.v, 'item')} sold`)
         : `${day(x.d)}${x.d === today ? ' (today)' : ''}: about ${plural(Math.round(x.v), 'item')} expected`);
     // a date under every week, counted from today both ways (Carlo, 8 Nov:
     // "dapat may pinapakita padin na info kase graph yan")
@@ -549,12 +578,13 @@ function boardChart(expectedTotal, days) {
     return `<div class="pb-axis">${head}</div>
         <div class="pb-plot" data-tips="${encodeURIComponent(JSON.stringify(tips))}">
             <div class="pb-scale" aria-hidden="true"><span style="bottom:100%">${formatNumber(top)} items</span><span style="bottom:50%">${formatNumber(top / 2)}</span><span style="bottom:0">0</span></div>
-            <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${escHtml(label)}">${bars}${line}</svg>
+            <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${escHtml(label)}">${anyOut ? `<defs><pattern id="${hatch}" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect class="pb-hatch" width="2.2" height="5"/></pattern></defs>` : ''}${bars}${line}</svg>
             <div class="pb-tip" role="status" hidden></div>
         </div>
         <div class="pb-ticks" aria-hidden="true">${ticks}</div>
-        <div class="pb-legend">${pastCount ? '<span><i class="is-sold"></i>Sold each day</span>' : ''}<span><i class="is-next"></i>Expected each day</span><span class="pb-hint">Point at a bar to see its day</span></div>`;
+        <div class="pb-legend">${pastCount ? '<span><i class="is-sold"></i>Sold each day</span>' : ''}<span><i class="is-next"></i>Expected each day</span>${anyOut ? '<span><i class="is-out"></i>Not counted</span>' : ''}<span class="pb-hint">Point at a bar to see its day</span></div>`;
 }
+let hatchSeq = 0;
 
 /** The smallest round number (1, 2 or 5 × a power of ten) at or above v. */
 function niceCeil(v) {
@@ -576,7 +606,7 @@ function wireChartTips() {
         try { tips = JSON.parse(decodeURIComponent(plot.dataset.tips || '%5B%5D')); } catch (err) { return; }
         const r = svg.getBoundingClientRect();
         const i = Math.max(0, Math.min(tips.length - 1, Math.floor((e.clientX - r.left) / r.width * tips.length)));
-        const rects = svg.querySelectorAll('rect');
+        const rects = svg.querySelectorAll('rect:not(.pb-hatch)');
         rects.forEach((b, k) => b.classList.toggle('is-hover', k === i));
         tip.textContent = tips[i];
         tip.hidden = false;
@@ -769,16 +799,51 @@ function createPlannedOrders(ids) {
 }
 
 /* ---------- Did it guess right? ----------
-   The last test as the shop sees it: what FETCH expected for the hidden two
-   weeks against what really sold, then the eight best sellers as a
-   scoreboard, each with its two bars (Forecast tab option 1, 8 Nov). */
+   Opened by "See why". First the forecast's last checks (up to six
+   fortnights), each with what it expected against what sold: one fortnight
+   can come close by luck, six say more (10 Nov). Then the last check as the
+   shop sees it: the eight best sellers as a scoreboard, each with its two
+   bars (Forecast tab option 1, 8 Nov). */
+const CHECK_WORD = { close: ['close', 'green', 'check'], high: ['too high', 'amber', 'north'], low: ['too low', 'amber', 'south'] };
+const timesWord = n => n === 1 ? 'once' : n === 2 ? 'twice' : `${formatNumber(n)} times`;
+const checkRange = k => `${shortDate(k.from)} to ${shortDate(k.to)}`;
+
+function renderChecks() {
+    const checks = (plan.totals && plan.totals.checks) || [];
+    const box = document.getElementById('guessChecks');
+    if (!box) return;
+    const n = checks.length, count = m => checks.filter(k => k.mark === m).length;
+    const close = count('close'), high = count('high'), low = count('low');
+    document.getElementById('guessVerdict').innerHTML = !n ? ''
+        : n === 1 ? `<span class="fc-verdict is-${CHECK_WORD[checks[0].mark][1]}"><span class="material-symbols-outlined" aria-hidden="true">${CHECK_WORD[checks[0].mark][2]}</span>Its last check was ${CHECK_WORD[checks[0].mark][0]}</span>`
+        : `<span class="fc-verdict is-${close * 3 >= n * 2 ? 'green' : 'plain'}"><span class="material-symbols-outlined" aria-hidden="true">check</span>Close ${formatNumber(close)} of the last ${formatNumber(n)} times</span>`;
+    const misses = [high ? `too high ${timesWord(high)}` : '', low ? `too low ${timesWord(low)}` : ''].filter(Boolean).join(', ');
+    document.getElementById('guessChecksLine').textContent = (misses ? misses[0].toUpperCase() + misses.slice(1) + '. ' : '')
+        + 'Each check hides two weeks, forecasts them, and compares.';
+    const top = Math.max(1, ...checks.map(k => Math.max(k.predicted_units, k.actual_units)));
+    box.innerHTML = checks.map((k, i) => {
+        const w = CHECK_WORD[k.mark] || CHECK_WORD.close;
+        return `<div class="fd-t${i === n - 1 ? ' is-last' : ''}">
+            <b class="fd-t-when">${escHtml(checkRange(k))}</b>
+            <span class="fc-pair" aria-hidden="true"><i class="is-exp" style="height:${Math.max(3, Math.round(k.predicted_units / top * 100))}%"></i><i class="is-sold" style="height:${Math.max(3, Math.round(k.actual_units / top * 100))}%"></i></span>
+            <span class="fd-t-fig">expected <b>${formatNumber(k.predicted_units)}</b> items<br>sold <b>${formatNumber(k.actual_units)}</b> items</span>
+            <span class="pb-tag is-${w[1]}"><span class="material-symbols-outlined" aria-hidden="true">${w[2]}</span>${w[0]}</span>
+        </div>`;
+    }).join('');
+}
+
 function renderGuess() {
     const card = document.getElementById('guessCard');
     const test = plan.totals && plan.totals.accuracy_test;
     const tested = plan.products.filter(p => p.test_sold != null && p.test_expected != null);
     if (!card) return;
-    if (!test || !(test.actual_units > 0) || !tested.length) { card.hidden = true; return; }
-    card.hidden = false;
+    renderChecks();
+    // nothing to show for the last check: its part stays empty (the card itself opens from "See why")
+    const lastPart = ['guessLine', 'guessBody', 'guessMeans'].map(id => document.getElementById(id));
+    const none = !test || !(test.actual_units > 0) || !tested.length;
+    card.querySelector('.fd-sub').hidden = none;
+    lastPart.forEach(el => { el.hidden = none; });
+    if (none) return;
     const exp = test.predicted_units, sold = test.actual_units;
     const ratio = sold > 0 ? exp / sold : 0;
     const verdict = ratio > 1.2 ? ['Too high', 'amber', 'north'] : ratio < 0.8 ? ['Too low', 'amber', 'south'] : ['Close', 'green', 'check'];
@@ -788,8 +853,7 @@ function renderGuess() {
     const best = tested.slice().sort((a, b) => b.test_sold - a.test_sold || b.test_expected - a.test_expected).slice(0, 8);
     const close = p => Math.abs(p.test_expected - p.test_sold) <= Math.max(1, p.test_sold * 0.25);
     const good = best.filter(close).length;
-    document.getElementById('guessVerdict').innerHTML = `<span class="fc-verdict is-${verdict[1]}"><span class="material-symbols-outlined" aria-hidden="true">${verdict[2]}</span>${verdict[0]}</span>`;
-    document.getElementById('guessLine').textContent = `${range}: it expected ${plural(exp, 'item')}, you sold ${formatNumber(sold)}`
+    document.getElementById('guessLine').textContent = `${range}: ${verdict[0].toLowerCase()}. It expected ${plural(exp, 'item')}, you sold ${formatNumber(sold)}`
         + `${gap && ratio > 1.2 ? ' (some of those days had no sales recorded)' : ''}. Close for ${formatNumber(good)} of your ${plural(best.length, 'best seller')}.`;
     const top = Math.max(1, ...best.map(p => Math.max(p.test_sold, p.test_expected)));
     document.getElementById('guessBody').innerHTML = best.map(p => {
@@ -813,7 +877,7 @@ function renderGuess() {
         : '';
     const advice = lowBest >= best.length / 2
         ? '<b>So:</b> for your best sellers, expect more than it says and check their shelf yourself; for slow products, expect less.'
-        : '<b>So:</b> trust it most for products marked <b>Sure</b> in the list below; treat slow sellers as a rough guess and check the shelf yourself.';
+        : '<b>So:</b> trust it most for products marked <b>Sure</b> (their own guess came close); treat the rest as a rough guess and check the shelf yourself.';
     document.getElementById('guessMeans').innerHTML = why + advice;
 }
 
@@ -892,8 +956,8 @@ function renderGuide() {
     if (!guide) return;
     // a product that sells regularly and has stock makes the clearest example
     const pick = [...plan.products]
-        .filter(p => p.expected_30d >= 3 && p.sold_30d >= 3 && p.stock > 0 && p.basis !== 'new')
-        .sort((a, b) => b.sold_30d - a.sold_30d)[0];
+        .filter(p => p.expected_30d >= 3 && soldCounted(p) >= 3 && p.stock > 0 && p.basis !== 'new')
+        .sort((a, b) => soldCounted(b) - soldCounted(a))[0];
     // the example as four short steps, from one of the shop's own products
     const ex = document.getElementById('planExample');
     if (pick) {
@@ -904,7 +968,7 @@ function renderGuide() {
         const step = (label, value) => `<div class="plan-ex-step"><span>${label}</span><b>${value}</b></div>`;
         ex.innerHTML = `<span class="plan-example-tag">Example: ${escHtml(pick.name)}</span>`
             + '<div class="plan-ex-flow">'
-            + step('Sold last month', formatQty(pick.sold_30d))
+            + step('Sold last month', formatQty(soldCounted(pick)))
             + '<span class="plan-ex-arrow" aria-hidden="true">→</span>' + step('Expects next month', 'about ' + formatNumber(Math.round(pick.expected_30d)))
             + '<span class="plan-ex-arrow" aria-hidden="true">→</span>' + step('On your shelf', formatQty(pick.stock))
             + '<span class="plan-ex-arrow" aria-hidden="true">→</span>' + `<div class="plan-ex-step plan-ex-todo ${todo[1]}"><span>So</span><b>${todo[0]}</b></div>`
@@ -1028,21 +1092,111 @@ function forecastGroups(key) {
         const g = groups.get(name) || { name, category: key === 'brand' ? null : name, units: 0, revenue: 0, selling: 0, sold: 0 };
         g.units += Number(p.expected_30d) || 0;
         g.revenue += (Number(p.expected_30d) || 0) * (Number(p.unit_price) || 0);
-        g.sold += Number(p.sold_30d) || 0;
+        g.sold += soldCounted(p);
         if ((Number(p.expected_30d) || 0) >= 0.5) g.selling++;
         groups.set(name, g);
     });
     return [...groups.values()].filter(g => g.units > 0 || g.sold > 0).sort((a, b) => b.units - a.units);
 }
 
+/* ---------- The Forecast tab, answer first (mock-up D, Carlo 10 Nov) ----------
+   For someone who does not read charts: one sentence says what to expect, the
+   two figures behind it sit side by side, one line says how far to trust it.
+   The server decides all three (sales_check and checks in the overview); this
+   only puts them into words. The chart, the categories, the days not counted
+   and the checks are closed until their button is pressed, one at a time. */
+function renderVerdict() {
+    const t = plan.totals, c = t.sales_check, days = plan.forecast_days || 30;
+    const hero = document.getElementById('fdHero');
+    if (!hero || !c) return;
+    const off = c.verdict === 'high' || c.verdict === 'low';
+    hero.dataset.tone = off ? 'warn' : c.verdict === 'none' ? 'plain' : 'ok';
+    const icon = off ? 'priority_high' : c.verdict === 'none' ? 'schedule' : { more: 'trending_up', less: 'trending_down', same: 'trending_flat' }[c.direction];
+    document.getElementById('fdIcon').innerHTML = `<span class="material-symbols-outlined">${icon}</span>`;
+    document.getElementById('fdSay').textContent = c.verdict === 'high' ? 'This forecast looks too high.'
+        : c.verdict === 'low' ? 'This forecast looks too low.'
+        : c.verdict === 'none' ? `About ${plural(t.expected_units, 'item')} expected in the next ${days} days.`
+        : `You will likely sell ${{ more: 'more', less: 'less', same: 'about the same' }[c.direction]} in the next ${days} days.`;
+    document.getElementById('fdWhy').textContent = off ? 'Look at your best sellers yourself before you order from it.'
+        : c.verdict === 'none' ? 'Too little sold in the last 30 days to compare it with.'
+        : { busier: 'Your last 7 days were busier than the weeks before.', quieter: 'Your last 7 days were quieter than the weeks before.', steady: 'Your sales have been steady over the last 30 days.' }[c.recent];
+    // "counted" only when days were left out of those 30, so they reach further back
+    const counted = countedReachesBack();
+    const span = c.from ? `${shortDate(c.from)} to ${shortDate(addDaysYmd(ymd(new Date()), -1))}${counted ? ', without the days not counted' : ''}` : '';
+    document.getElementById('fdVs').innerHTML = `<div class="fd-box is-was" title="${escHtml(span)}"><span>${counted ? 'Last 30 days counted' : 'Last 30 days'}</span><b>${formatNumber(c.sold_units)}</b><small>${c.sold_units === 1 ? 'item' : 'items'} sold</small></div>
+        <span class="material-symbols-outlined fd-arrow" aria-hidden="true">arrow_forward</span>
+        <div class="fd-box is-next" title="${escHtml(forecastSpan(days))}"><span>Next ${days} days, about</span><b>${formatNumber(t.expected_units)}</b><small>${t.expected_units === 1 ? 'item' : 'items'} expected</small></div>`;
+
+    // how far to trust it: one paw for each of its last checks, filled when it came close
+    const checks = t.checks || [], trust = document.getElementById('fdTrust'), n = checks.length;
+    trust.hidden = !n;
+    if (n) {
+        const close = checks.filter(k => k.mark === 'close').length;
+        const paws = checks.slice().sort((a, b) => (a.mark === 'close' ? 0 : 1) - (b.mark === 'close' ? 0 : 1))
+            .map(k => `<span class="material-symbols-outlined${k.mark === 'close' ? ' is-on' : ''}">pets</span>`).join('');
+        const line = n === 1 ? `<b>Its last check was ${CHECK_WORD[checks[0].mark][0]}.</b> One check is too few to lean on: use it as a guide.`
+            : `<b>Right ${formatNumber(close)} of its last ${formatNumber(n)} checks.</b> ${close * 3 >= n * 2 ? 'It has been close most of the time.' : 'Use it as a guide, not as an exact number.'}`;
+        trust.innerHTML = `<span class="fd-paws" role="img" aria-label="${close} of its last ${n} checks came close">${paws}</span><span class="fd-trust-t">${line}</span>`
+            + `<button type="button" class="btn-secondary fd-why" data-fold="why" aria-expanded="false" aria-controls="guessCard">See why <span class="material-symbols-outlined" aria-hidden="true">expand_more</span></button>`;
+    }
+
+    // the closed parts say what is inside before they are opened
+    const cats = forecastGroups('category').filter(g => Math.round(g.units) > 0);
+    document.getElementById('fdCatsTease').textContent = cats.length
+        ? `${cats[0].name} ${plural(Math.round(cats[0].units), 'item')}` + (cats.length > 1 ? `, and ${plural(cats.length - 1, 'more category', 'more categories')}` : '')
+        : 'What will sell, and what it is worth';
+    renderNotCounted();
+    syncFolds();
+}
+
+/* The days the forecast leaves out, newest first, each with its reason. */
+function renderNotCounted() {
+    const ranges = ((plan.excluded && plan.excluded.ranges) || []).slice().sort((a, b) => b.from.localeCompare(a.from));
+    const fold = document.getElementById('fdFoldOut');
+    if (!fold) return;
+    fold.hidden = !ranges.length;
+    document.getElementById('fdMore').classList.toggle('is-two', !ranges.length);
+    if (!ranges.length) { if (fdOpen === 'out') fdOpen = null; return; }
+    const when = r => r.from === r.to ? shortDate(r.from) : `${shortDate(r.from)} to ${shortDate(r.to)}`;
+    const what = r => r.reason === 'freak' ? `${plural(r.items, 'item')} in ${r.days === 1 ? 'one day' : r.days + ' days'}`
+        : r.reason === 'closed' ? `${plural(r.days, 'day')} with no sales` : plural(r.days, 'day');
+    const why = r => r.reason === 'freak' ? `About ${formatNumber(Math.max(2, Math.round(r.items / r.days / Math.max(1, r.typical))))} times a usual busy day (${plural(r.typical, 'item')}).`
+        : r.reason === 'closed' ? 'The shop was closed, or nothing was recorded.'
+        : `${plural(r.sales, 'sale was', 'sales were')} recorded without ${r.sales === 1 ? 'its' : 'their'} items.`;
+    const icon = { freak: 'bolt', closed: 'door_front', no_items: 'receipt_long' };
+    document.getElementById('fdOutTitle').textContent = `${plural(ranges.length, 'period')} not counted`;
+    document.getElementById('fdOutTease').textContent = `${when(ranges[0])} (${what(ranges[0])})` + (ranges.length > 1 ? `, and ${formatNumber(ranges.length - 1)} more` : '');
+    document.getElementById('fdOutSub').textContent = `${plural(plan.excluded.days, 'day')} the forecast leaves out`;
+    document.getElementById('fdOutList').innerHTML = ranges.map(r => `<div class="fd-o"><span class="fd-o-ic" aria-hidden="true"><span class="material-symbols-outlined">${icon[r.reason] || 'event_busy'}</span></span>
+        <div><b>${escHtml(when(r))}: ${escHtml(what(r))}</b><span>${escHtml(why(r))}</span></div></div>`).join('');
+}
+
+/* One closed part open at a time. Pressing its button again closes it. */
+let fdOpen = null;
+function openFold(name, toggle) {
+    fdOpen = toggle && fdOpen === name ? null : name;
+    syncFolds();
+    const panel = fdOpen && document.querySelector(`[data-fold-panel="${fdOpen}"]`);
+    if (!panel) return;
+    // bring it into view when it opened below the screen
+    const r = panel.getBoundingClientRect();
+    if (r.top > window.innerHeight - 120) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function syncFolds() {
+    document.querySelectorAll('.plan-pane[data-pane="forecast"] [data-fold]').forEach(b => {
+        const on = b.dataset.fold === fdOpen;
+        b.setAttribute('aria-expanded', on ? 'true' : 'false');
+        b.classList.toggle('is-open', on);
+    });
+    document.querySelectorAll('[data-fold-panel]').forEach(p => { p.hidden = p.dataset.foldPanel !== fdOpen; });
+}
+
 function renderForecastTop() {
     const t = plan.totals, days = plan.forecast_days || 30;
-    const sold30 = plan.products.reduce((a, p) => a + (Number(p.sold_30d) || 0), 0);
-    document.getElementById('fcUnitsLabel').textContent = `Items expected to sell, next ${days} days (${forecastSpan(days)})`;
+    renderVerdict();
+    document.getElementById('fcUnitsLabel').textContent = `Items sold each day (${pastSpan()}), then about ${plural(t.expected_units, 'item')} expected (${forecastSpan(days)})`;
     document.getElementById('fcRevLabel').textContent = `Expected sales in pesos, next ${days} days (${forecastSpan(days)})`;
     document.getElementById('fcWhatSub').textContent = `items expected to sell, ${forecastSpan(days)}`;
-    document.getElementById('kpiForecastUnits').innerHTML = `${formatNumber(t.expected_units)}<small>${t.expected_units === 1 ? 'item' : 'items'}</small>`;
-    document.getElementById('fcSold').innerHTML = `An estimate, not a promise. Sold in the last 30 days (${escHtml(pastSpan())}): <b>${plural(sold30, 'item')}</b>.`;
     document.getElementById('fcChart').innerHTML = boardChart(t.expected_units, days);
     document.getElementById('kpiForecastRevenue').textContent = pesos(t.expected_revenue);
     // the pesos split by category: the top three, then the rest together
@@ -1072,7 +1226,7 @@ function renderDemandCards(id, groups, kind) {
             <b class="fc-cat-n">${escHtml(g.name)}</b>
             <span class="fc-cat-u">${formatNumber(Math.round(g.units))}<small>${Math.round(g.units) === 1 ? 'item' : 'items'}</small></span>
             <span class="fc-cat-bar" style="width:${Math.max(3, pct)}%" aria-hidden="true"></span>
-            <span class="fc-cat-s">${pct}% of all items, ${plural(g.selling, 'product')} selling. Sold ${formatQty(g.sold)} in the last 30 days.</span>
+            <span class="fc-cat-s">${pct}% of all items, ${plural(g.selling, 'product')} selling. Sold ${formatQty(g.sold)} in the ${soldSpan()}.</span>
         </section>`;
     }).join('') + (rest.length ? `<p class="fc-rest">${plural(rest.length, kind === 'brand' ? 'other brand' : 'other category', kind === 'brand' ? 'other brands' : 'other categories')}: ${plural(Math.round(rest.reduce((a, g) => a + g.units, 0)), 'item')} together.</p>` : '');
 }
@@ -1109,11 +1263,66 @@ function renderModel() {
             + row('Random Forest alone', pct(cmp.random_forest))
             + row('Gradient Boosting alone', pct(cmp.gradient_boosting))
             + row('Both together' + (best > 0 && cmp.ensemble === best ? ' (best)' : ''), pct(cmp.ensemble))
-            + row('Simple trend, no machine learning', pct(cmp.statistical_baseline))
+            + row('Average of the last 28 days, no machine learning', pct(cmp.statistical_baseline))
             + row('What this page uses', pct(cmp.system_forecast), true)
             + '</div>';
     }
     box.innerHTML = html;
+}
+
+/* Which of the three groups a product is in: order today, order soon, or no order needed. */
+function orderGroup(p) {
+    if (p.stock_status === 'ok') return 'ok';
+    return p.stock_status === 'out' || !p.order_by || p.order_by <= ymd(new Date()) ? 'today' : 'soon';
+}
+const perWeekText = v => v >= 1.5 ? `about ${formatNumber(Math.round(v))} a week` : v >= 0.5 ? 'about 1 a week' : v > 0 ? 'less than 1 a week' : '';
+
+/** Why, in one short line under what to do. */
+function fdWhyLine(p) {
+    const left = formatQty(p.stock);
+    if (p.stock_status !== 'ok') {
+        const base = p.stock <= 0 ? 'None left on the shelf.'
+            : p.stock <= p.reorder_level ? `${left} left, at or below its reorder level of ${formatQty(p.reorder_level)}.`
+            : `${left} left, lasts ${lastsText(p).toLowerCase()}.`;
+        return base + (p.on_order > 0 ? ` ${formatQty(p.on_order)} already on order.` : '') + (!p.supplier_id ? ' No supplier set.' : '');
+    }
+    if (p.expired_units > 0) return `${formatQty(p.expired_units)} expired on ${shortDate(p.expires_on)}.`;
+    if (p.expiry_risk_units > 0) return `About ${formatQty(p.expiry_risk_units)} may still be here on ${shortDate(p.expires_on)}.`;
+    if (p.excess_reason === 'not_selling') return `${left} on the shelf, nothing sold in 30 days.`;
+    if (p.excess_units > 0) return `${left} on the shelf, more than three months' worth.`;
+    return p.stock <= 0 ? 'None on the shelf, and none expected to sell.'
+        : `${left} on the shelf, ${p.days_left == null ? 'no recent sales' : 'lasts ' + lastsText(p).toLowerCase()}.`;
+}
+
+/* A product on the Forecast tab (mock-up D): what to do comes first and is the
+   biggest thing on the card, then why in one line; how much it sells and how
+   sure the forecast is are small, underneath. Where an order can be placed
+   from here, what to do is the button that places it. */
+function forecastCard(p) {
+    const d = doThis(p), sure = HOW_SURE[p.how_sure] || HOW_SURE.rough, today = ymd(new Date());
+    const manage = typeof canManage === 'function' && canManage();
+    const needs = p.stock_status !== 'ok';
+    let tone = d.dot === 'grey' ? 'slate' : { danger: 'red', warning: 'amber', ok: 'green' }[d.tone] || 'slate';
+    let text = d.text, action;
+    if (needs && p.suggested_order > 0 && p.supplier_id && manage) {
+        const when = p.stock_status === 'out' ? 'now' : !p.order_by || p.order_by <= today ? 'today' : 'by ' + shortDate(p.order_by);
+        action = `<button type="button" class="${tone === 'red' ? 'btn-primary' : 'btn-secondary'} fd-do" onclick="createPlannedOrders([${Number(p.product_id)}])"><span class="material-symbols-outlined" aria-hidden="true">shopping_cart</span>Order ${formatNumber(p.suggested_order)} ${when}</button>`;
+    } else {
+        if (needs && !(p.suggested_order > 0) && p.on_order > 0) { text = 'Already on order'; tone = 'amber'; }
+        const icon = needs ? (text === 'Already on order' ? 'local_shipping' : 'shopping_cart')
+            : { green: 'check_circle', red: 'block', amber: 'schedule', slate: 'pause_circle' }[tone];
+        action = `<span class="fd-do is-${tone}"><span class="material-symbols-outlined" aria-hidden="true">${icon}</span>${escHtml(text)}</span>`;
+    }
+    const sells = perWeekText(p.per_week);
+    return `<div class="pc fd-pc" data-id="${p.product_id}" tabindex="0" role="button" aria-label="${escHtml(p.name)}: ${escHtml(text)}. Open its forecast">
+        ${productPhoto(p, 'pc-pic')}
+        <div class="pc-bd">
+            <b class="pc-n">${escHtml(p.name)}</b>
+            ${action}
+            <span class="fd-line">${escHtml(fdWhyLine(p))}</span>
+            <div class="fd-sm"><span>${sells ? 'Sells ' + sells : 'No sales expected'}</span><span class="pb-tag is-${sure.tone === 'ok' ? 'green' : 'slate'}" title="${escHtml(sure.why)}">${sure.text}</span></div>
+        </div>
+    </div>`;
 }
 
 function renderAllProducts() {
@@ -1121,17 +1330,18 @@ function renderAllProducts() {
     // arrived. What was typed or picked is kept, and applied when it does.
     if (!plan) return;
     const all = plan.products;
-    const count = d => all.filter(p => p.demand === d).length;
+    const count = g => all.filter(p => orderGroup(p) === g).length;
     document.getElementById('countAll').textContent = all.length;
-    document.getElementById('countFast').textContent = count('fast');
-    document.getElementById('countSteady').textContent = count('steady');
-    document.getElementById('countSlow').textContent = count('slow');
-    document.getElementById('countNone').textContent = count('none');
+    document.getElementById('countToday').textContent = count('today');
+    document.getElementById('countSoon').textContent = count('soon');
+    document.getElementById('countOk').textContent = count('ok');
 
+    // what needs an order comes first, then by expected sales
+    const rank = { today: 0, soon: 1, ok: 2 };
     const rows = all
-        .filter(p => planFilter === 'all' || p.demand === planFilter)
+        .filter(p => planFilter === 'all' || orderGroup(p) === planFilter)
         .filter(p => !planSearch || p.name.toLowerCase().includes(planSearch) || (p.sku || '').toLowerCase().includes(planSearch))
-        .sort((a, b) => b.expected_30d - a.expected_30d || b.sold_30d - a.sold_30d || a.name.localeCompare(b.name));
+        .sort((a, b) => rank[orderGroup(a)] - rank[orderGroup(b)] || b.expected_30d - a.expected_30d || b.sold_30d - a.sold_30d || a.name.localeCompare(b.name));
     document.getElementById('planListSub').textContent = groupText(planFilter, all)
         + (planSearch ? ` ${formatNumber(rows.length)} match “${planSearch}”.` : '');
 
@@ -1141,25 +1351,20 @@ function renderAllProducts() {
         document.getElementById('predictionsPagination').innerHTML = '';
         return;
     }
-    const tone = { danger: 'red', warning: 'amber', ok: 'green' };
-    grid.innerHTML = rows.slice(0, predDisplayCount).map(p => {
-        const d = doThis(p), sure = HOW_SURE[p.how_sure] || HOW_SURE.rough;
-        const next = !(p.expected_high > 0) ? 'None' : p.expected_low === p.expected_high ? 'About ' + formatNumber(p.expected_low) : `${formatNumber(p.expected_low)} to ${formatNumber(p.expected_high)}`;
-        return productCard(p, {
-            line: p.stock <= 0 ? 'None on the shelf' : `${formatQty(p.stock)} on the shelf, ${p.days_left == null ? 'no recent sales' : 'lasts ' + lastsText(p).toLowerCase()}`,
-            big: next, money: p.expected_high > 0 ? 'next month' : 'expected next month', moneyTone: 'plain',
-            action: `<span class="pc-tags"><span class="pb-tag is-${sure.tone === 'ok' ? 'green' : 'slate'}" title="${escHtml(sure.why)}">${sure.text}</span><span class="pb-tag is-${d.dot === 'grey' ? 'slate' : tone[d.tone] || 'slate'}">${escHtml(d.text)}</span></span>`
-        });
-    }).join('');
+    grid.innerHTML = rows.slice(0, predDisplayCount).map(forecastCard).join('');
     updatePagination('predictionsPagination', rows, predDisplayCount, 'showMorePredictions', 'showLessPredictions', PRED_PAGE_SIZE);
     markSelected();
 }
 
-/* Every product in plain words (forecast mock-up 2): how sure, and what to do. */
+/* Every product in plain words (forecast mock-up 2): how sure, and what to do.
+   How sure comes from the product's own last test (backend howSure): sure when
+   it sells at least 4 a month and its guess for the hidden two weeks came
+   within a quarter of what sold (or within 1 item), the same "close" as in
+   "Did it guess right?". */
 const HOW_SURE = {
-    sure: { text: 'Sure', tone: 'ok' },
-    rough: { text: 'Rough guess', tone: 'plain' },
-    new: { text: 'Too new to tell', tone: 'plain' }
+    sure: { text: 'Sure', tone: 'ok', why: 'Its last guess came close to what really sold' },
+    rough: { text: 'Rough guess', tone: 'plain', why: 'It sells too little to test, or its last guess was further off' },
+    new: { text: 'Too new to tell', tone: 'plain', why: 'Under four weeks of sales on record' }
 };
 function nextMonthText(p) {
     if (!(p.expected_high > 0)) return '<span class="rp-sub" style="display:inline">none expected</span>';
@@ -1177,35 +1382,15 @@ function doThis(p) {
     return { text: 'Enough', tone: 'ok', dot: 'green' };
 }
 
-/* The line under "All products": what the chosen group is, with its figures. */
+/* The line under the heading: what the chosen group is, in a sentence. */
 function groupText(group, all) {
-    const items = n => `${formatNumber(Math.round(n))} item${Math.round(n) === 1 ? '' : 's'}`;
-    const products = n => `${formatNumber(n)} product${n === 1 ? '' : 's'}`;
-    const expected = list => list.reduce((a, p) => a + p.expected_30d, 0);
-    const shopTotal = expected(all);
-    const share = list => shopTotal > 0 ? ` (${Math.round(expected(list) / shopTotal * 100)}% of the shop's)` : '';
-    const list = group === 'all' ? all : all.filter(p => p.demand === group);
-    let text;
-    if (!list.length) return 'No products in this group right now.';
-    if (group === 'all') {
-        text = `${products(list.length)}, together expected to sell ${items(shopTotal)} in the next 30 days. Sorted by expected sales, highest first.`;
-    } else if (group === 'none') {
-        const units = list.reduce((a, p) => a + (Number(p.stock) || 0), 0);
-        const value = list.reduce((a, p) => a + (Number(p.stock) || 0) * (Number(p.unit_price) || 0), 0);
-        text = `Nothing sold in the last 30 days: ${products(list.length)} still holding ${items(units)} in stock, ${formatCurrency(value)} at selling price.`;
-    } else {
-        // one decimal: most products sell a few a month, and whole numbers
-        // made the groups look the same ("2 or more" next to "2 to 2")
-        const each = list.map(p => Math.round(p.expected_30d * 10) / 10);
-        const low = Math.min(...each), high = Math.max(...each);
-        const n = v => formatDecimal(v, 1);
-        const range = group === 'fast' ? `${n(low)} or more items each`
-            : group === 'slow' ? `${n(high)} items or fewer each`
-            : low === high ? `about ${n(low)} items each` : `${n(low)} to ${n(high)} items each`;
-        const which = { fast: 'The top quarter of your products by expected sales', steady: 'The middle of your products by expected sales', slow: 'The bottom quarter of your products by expected sales' }[group];
-        text = `${which}: ${products(list.length)} expected to sell ${range} in the next 30 days, ${items(expected(list))} together${share(list)}.`;
-    }
-    return text;
+    const list = group === 'all' ? all : all.filter(p => orderGroup(p) === group);
+    if (!list.length) return { all: 'No products yet.', today: 'Nothing needs ordering today.', soon: 'Nothing else needs ordering in the next three weeks.', ok: 'No products in this group right now.' }[group];
+    const n = plural(list.length, 'product');
+    if (group === 'today') return `${n} to order today, so the shelf is not empty before a delivery arrives.`;
+    if (group === 'soon') return `${n} to order in the next three weeks, each by the date shown.`;
+    if (group === 'ok') return `${n} with enough on the shelf. Some carry another note: sell it first, or too much stock.`;
+    return `${n}. Products that need an order come first.`;
 }
 
 function showMorePredictions() { predDisplayCount += PRED_PAGE_SIZE; renderAllProducts(); }
@@ -1249,7 +1434,8 @@ async function openProductDetail(productId, fromEl) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000);
     try {
-        const params = new URLSearchParams({ stock: Math.round(p.stock), reorder_level: p.reorder_level, lead_time: plan.lead_time_days });
+        // this product's own supplier delivery time and what is already on order, as in the list
+        const params = new URLSearchParams({ stock: Math.round(p.stock), reorder_level: p.reorder_level, lead_time: p.lead_time_days || plan.lead_time_days, on_order: p.on_order || 0 });
         const response = await fetch(`${PRED_API}/product/${encodeURIComponent(productId)}?${params}`, { headers: getAuthHeaders(), signal: controller.signal });
         const data = await response.json();
         if (detailProductId !== productId) return;          // another product was picked meanwhile
@@ -1284,7 +1470,8 @@ function detailBoxes(p) {
     else if (p.excess_units > 0) so = box('So', 'Hold off', `${pesos(p.excess_value)} more than needed`, 'slate');
     else so = box('So', 'Enough', 'nothing to do', 'green');
     const expected = !(p.expected_high > 0) ? 'None' : p.expected_low === p.expected_high ? 'About ' + formatNumber(p.expected_low) : `${formatNumber(p.expected_low)} to ${formatNumber(p.expected_high)}`;
-    return box('Sold, last 30 days', formatQty(p.sold_30d), p.sold_30d > 0 ? perWeek(p.sold_30d / 30 * 7) : 'nothing sold')
+    const sold = soldCounted(p);
+    return box('Sold, ' + soldSpan(), formatQty(sold), sold > 0 ? perWeek(sold / 30 * 7) : 'nothing sold')
         + box('Expected, next 30 days', expected, p.expected_high > 0 ? perWeek(p.per_week) : 'little or none expected')
         + box('On the shelf', formatQty(p.stock), (p.stock <= 0 ? 'none left' : p.days_left == null ? 'no recent sales' : 'lasts ' + lastsText(p).toLowerCase()) + (p.on_order > 0 ? `, ${formatQty(p.on_order)} on order` : ''))
         + so;

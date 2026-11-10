@@ -25,7 +25,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css?v=56">
-    <link rel="stylesheet" href="css/reports.css?v=60">
+    <link rel="stylesheet" href="css/reports.css?v=61">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
         <script>/* the account's role on <html> before anything is drawn (see role-gate.css) */try{var _ru=JSON.parse(sessionStorage.getItem('user')||localStorage.getItem('user')||'null');if(_ru&&_ru.role)document.documentElement.setAttribute('data-role',_ru.role);}catch(e){}</script>
@@ -313,7 +313,11 @@
                 </div>
 
                 <div class="plan-pane" data-pane="reorder" role="tabpanel">
-                <p class="plan-pane-lead"><strong>What to order from your suppliers, and by when.</strong> Red: order today or tomorrow. Amber: later this week. The rest of the next three weeks is listed under it.</p>
+                <div class="plan-pane-lead is-reorder">
+                    <span class="material-symbols-outlined ppl-icon" aria-hidden="true">add_shopping_cart</span>
+                    <div><strong>What to order from your suppliers, and by when.</strong>
+                    <span class="ppl-keys"><span class="ppl-key is-red">Order today or tomorrow</span><span class="ppl-key is-amber">Later this week</span><span class="ppl-key is-plain">The rest of the next three weeks</span></span></div>
+                </div>
                 <div class="rp-card panel-card" id="planReorder" data-jump-title="Order this week">
                     <div class="rp-card-head">
                         <div>
@@ -330,15 +334,20 @@
                     <div class="order-list" id="orderList"><p class="rp-loading">Working out what to order…</p></div>
                     <div class="order-later" id="orderLater"></div>
                 </div>
-                <div class="order-how">
-                    <b>How the amount is worked out</b>
-                    <span>Enough for the next 30 days of expected sales, plus the days the supplier takes to deliver, plus a small buffer for busier days, minus what is on the shelf and what is already on order.</span>
+                <div class="order-how note-banner">
+                    <span class="material-symbols-outlined" aria-hidden="true">calculate</span>
+                    <div><b>How the amount is worked out</b>
+                    <span>Enough for the next 30 days of expected sales, plus the days the supplier takes to deliver, plus a small buffer for busier days, minus what is on the shelf and what is already on order.</span></div>
                 </div>
 
                 </div>
 
                 <div class="plan-pane" data-pane="expiry" role="tabpanel" hidden>
-                <p class="plan-pane-lead"><strong>Stock to take off the shelf, or to sell first.</strong> Expired stock still counted in inventory, and stock the forecast says will still be on the shelf on its expiry date.</p>
+                <div class="plan-pane-lead is-expiry">
+                    <span class="material-symbols-outlined ppl-icon" aria-hidden="true">schedule</span>
+                    <div><strong>Stock to take off the shelf, or to sell first.</strong>
+                    <span class="ppl-keys"><span class="ppl-key is-red">Expired: still counted in inventory</span><span class="ppl-key is-amber">At risk: likely still on the shelf on its expiry date</span></span></div>
+                </div>
                 <div class="rp-card panel-card" id="planExpiry" data-jump-title="Expired or about to expire">
                     <div class="rp-card-head">
                         <div>
@@ -354,7 +363,11 @@
                 </div>
 
                 <div class="plan-pane" data-pane="excess" role="tabpanel" hidden>
-                <p class="plan-pane-lead"><strong>Money tied up on the shelf.</strong> More than three months of stock at the rate the forecast expects, or stock that has not sold in 30 days. Hold off reordering these.</p>
+                <div class="plan-pane-lead is-excess">
+                    <span class="material-symbols-outlined ppl-icon" aria-hidden="true">inventory_2</span>
+                    <div><strong>Money tied up on the shelf. Hold off reordering these.</strong>
+                    <span class="ppl-keys"><span class="ppl-key is-plain">More than three months of stock</span><span class="ppl-key is-plain">Not sold in 30 days</span></span></div>
+                </div>
                 <div class="rp-card panel-card" id="planExcess" data-jump-title="Too much stock">
                     <div class="rp-card-head">
                         <div>
@@ -369,22 +382,47 @@
                 </div>
 
                 <div class="plan-pane" data-pane="forecast" role="tabpanel" hidden>
-                <p class="plan-pane-lead"><strong>What the shop expects to sell in the next 30 days.</strong> The reorder, expiry and too-much-stock lists are all worked out from this forecast.</p>
-                <!-- The forecast as cards (Forecast tab option 1, Carlo 8 Nov): the
-                     figure with its chart, the categories once, the last check as
-                     a scoreboard of best sellers, every product as a card. -->
-                <!-- the monthly sales goal against what sold and what is expected (Carlo, 9 Nov) -->
-                <section class="rp-card panel-card fc-goal" id="fcGoal" aria-labelledby="fcGoalTitle" data-jump-title="Sales goal"><p class="rp-loading">Loading the sales goal…</p></section>
+                <!-- The Forecast tab, answer first (mock-up D, Carlo 10 Nov): one
+                     sentence that says what to expect, the two figures behind it,
+                     one line on how far to trust it, and what to do for each
+                     product. The chart, the categories, the days not counted and
+                     the checks are one press away, closed until asked for. -->
+                <section class="rp-card panel-card fd-hero" id="fdHero" aria-labelledby="fdSay" data-jump-title="Next 30 days">
+                    <div class="fd-say">
+                        <span class="fd-ic" id="fdIcon" aria-hidden="true"><span class="material-symbols-outlined">trending_up</span></span>
+                        <div class="fd-words"><h2 id="fdSay">Working out the forecast…</h2><p id="fdWhy"></p></div>
+                        <div class="fd-vs" id="fdVs"></div>
+                    </div>
+                    <div class="fd-trust" id="fdTrust" hidden></div>
+                </section>
 
-                <div class="fc-top">
-                    <section class="rp-card panel-card fc-hero" aria-label="Expected to sell, next 30 days" data-jump-title="Next 30 days">
-                        <div class="fc-fig">
-                            <span class="fc-lbl" id="fcUnitsLabel">Items expected to sell, next 30 days</span>
-                            <span class="fc-big" id="kpiForecastUnits">—</span>
-                            <p id="fcSold"></p>
-                        </div>
+                <div class="fd-more" id="fdMore">
+                    <button type="button" class="fd-fold" data-fold="chart" aria-expanded="false" aria-controls="fdPanelChart">
+                        <span class="fd-fold-ic" aria-hidden="true"><span class="material-symbols-outlined">bar_chart</span></span>
+                        <span class="fd-fold-t"><b>See the chart</b><small>Sold and expected, day by day</small></span>
+                        <span class="material-symbols-outlined fd-chev" aria-hidden="true">expand_more</span>
+                    </button>
+                    <button type="button" class="fd-fold" data-fold="cats" aria-expanded="false" aria-controls="fdPanelCats">
+                        <span class="fd-fold-ic" aria-hidden="true"><span class="material-symbols-outlined">category</span></span>
+                        <span class="fd-fold-t"><b>See it by category</b><small id="fdCatsTease">What will sell, and what it is worth</small></span>
+                        <span class="material-symbols-outlined fd-chev" aria-hidden="true">expand_more</span>
+                    </button>
+                    <button type="button" class="fd-fold" data-fold="out" id="fdFoldOut" aria-expanded="false" aria-controls="fdPanelOut" hidden>
+                        <span class="fd-fold-ic" aria-hidden="true"><span class="material-symbols-outlined">event_busy</span></span>
+                        <span class="fd-fold-t"><b id="fdOutTitle">Days not counted</b><small id="fdOutTease"></small></span>
+                        <span class="material-symbols-outlined fd-chev" aria-hidden="true">expand_more</span>
+                    </button>
+                </div>
+
+                <!-- one of these at a time, opened by its button above (or by "See why") -->
+                <div class="fd-panel" id="fdPanelChart" data-fold-panel="chart" hidden>
+                    <section class="rp-card panel-card fd-card" aria-labelledby="fdChartTitle">
+                        <div class="fd-card-head"><h3 id="fdChartTitle">Day by day</h3><span class="fc-gsub" id="fcUnitsLabel">Items sold each day, then items expected each day</span></div>
                         <div class="pb-chart fc-chart" id="fcChart"></div>
                     </section>
+                </div>
+
+                <div class="fd-panel" id="fdPanelCats" data-fold-panel="cats" hidden>
                     <section class="rp-card panel-card fc-rev" aria-label="Expected sales in pesos, next 30 days">
                         <span class="fc-lbl" id="fcRevLabel">Expected sales in pesos, next 30 days</span>
                         <span class="fc-big" id="kpiForecastRevenue">—</span>
@@ -392,42 +430,54 @@
                         <div class="fc-keys" id="revenueKeys"></div>
                         <span class="fc-note">Each product's expected items × its selling price, added up by category.</span>
                     </section>
-                </div>
-
-                <div class="fc-gh">
-                    <h3>What will sell</h3><span class="fc-gsub" id="fcWhatSub">items expected to sell, next 30 days</span>
-                    <!-- category and brand, one at a time (UAT, 1 Nov) -->
-                    <div class="rp-seg" data-seg="expected" role="tablist" aria-label="What will sell">
-                        <button type="button" class="active" data-show="category" role="tab" aria-selected="true">By category</button>
-                        <button type="button" data-show="brand" role="tab" aria-selected="false">By brand</button>
+                    <div class="fc-gh">
+                        <h3>What will sell</h3><span class="fc-gsub" id="fcWhatSub">items expected to sell, next 30 days</span>
+                        <!-- category and brand, one at a time (UAT, 1 Nov) -->
+                        <div class="rp-seg" data-seg="expected" role="tablist" aria-label="What will sell">
+                            <button type="button" class="active" data-show="category" role="tab" aria-selected="true">By category</button>
+                            <button type="button" data-show="brand" role="tab" aria-selected="false">By brand</button>
+                        </div>
                     </div>
+                    <div class="fc-cats" id="categoryDemand" data-seg-pane="expected:category"></div>
+                    <div class="fc-cats" id="brandDemand" data-seg-pane="expected:brand" hidden></div>
                 </div>
-                <div class="fc-cats" id="categoryDemand" data-seg-pane="expected:category"></div>
-                <div class="fc-cats" id="brandDemand" data-seg-pane="expected:brand" hidden></div>
 
-                <!-- what it expected against what sold, best seller by best seller -->
-                <section class="rp-card panel-card fc-guess" id="guessCard" data-jump-title="Did it guess right?" hidden>
+                <div class="fd-panel" id="fdPanelOut" data-fold-panel="out" hidden>
+                    <section class="rp-card panel-card fd-card" aria-labelledby="fdOutHead">
+                        <div class="fd-card-head"><h3 id="fdOutHead">Not counted</h3><span class="fc-gsub" id="fdOutSub"></span></div>
+                        <div class="fd-outs" id="fdOutList"></div>
+                        <p class="fd-out-note">The forecast skips these days when it reads your sales. Nothing in your records is changed.</p>
+                    </section>
+                </div>
+
+                <!-- how the forecast did on its last checks, then the last one best seller by best seller -->
+                <section class="rp-card panel-card fc-guess fd-panel" id="guessCard" data-fold-panel="why" data-jump-title="Did it guess right?" hidden>
                     <div class="fc-guess-head">
                         <h3>Did it guess right?</h3>
                         <span id="guessVerdict"></span>
-                        <p id="guessLine"></p>
+                        <p id="guessChecksLine"></p>
                     </div>
+                    <div class="fd-six" id="guessChecks"></div>
+                    <h4 class="fd-sub">Its last check, best seller by best seller</h4>
+                    <p class="fd-subline" id="guessLine"></p>
                     <div class="fc-score" id="guessBody"></div>
                     <p class="guess-means" id="guessMeans"></p>
                 </section>
 
+                <!-- the monthly sales goal against what sold and what is expected (Carlo, 9 Nov) -->
+                <section class="rp-card panel-card fc-goal" id="fcGoal" aria-labelledby="fcGoalTitle" data-jump-title="Sales goal"><p class="rp-loading">Loading the sales goal…</p></section>
+
                 <div class="fc-gh fc-products-head" data-jump-title="All products">
-                    <h3>Every product</h3>
+                    <h3>What to do for each product</h3>
                     <div class="rp-filters fc-filters" id="demandFilters">
                         <button type="button" class="active" data-demand="all">All <span id="countAll"></span></button>
-                        <button type="button" data-demand="fast">Selling fast <span id="countFast"></span></button>
-                        <button type="button" data-demand="steady">Selling steadily <span id="countSteady"></span></button>
-                        <button type="button" data-demand="slow">Selling slowly <span id="countSlow"></span></button>
-                        <button type="button" data-demand="none">Not selling <span id="countNone"></span></button>
+                        <button type="button" data-demand="today">Order today <span id="countToday"></span></button>
+                        <button type="button" data-demand="soon">Order soon <span id="countSoon"></span></button>
+                        <button type="button" data-demand="ok">No order needed <span id="countOk"></span></button>
                     </div>
                     <input maxlength="100" type="search" class="rp-search" id="planSearch" placeholder="Search products" aria-label="Search products">
                 </div>
-                <p class="fc-gsub fc-list-sub" id="planListSub">Select a product to see its sales and forecast</p>
+                <p class="fc-gsub fc-list-sub" id="planListSub">Products that need an order come first</p>
                 <div class="pc-grid" id="predictionsTableBody"><p class="rp-loading">Loading products…</p></div>
                 <div id="predictionsPagination" class="pagination-bar"></div>
 
@@ -602,7 +652,7 @@
 <script src="js/assistant.js?v=31"></script>
     <script src="js/xlsx.js?v=3"></script>
     <script src="js/reports.js?v=47"></script>
-    <script src="js/analytics.js?v=68"></script>
+    <script src="js/analytics.js?v=69"></script>
     <script src="js/audit.js?v=28"></script>
 </body>
 </html>

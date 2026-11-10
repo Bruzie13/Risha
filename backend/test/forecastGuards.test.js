@@ -85,23 +85,36 @@ test('new product: one sale of 5 on the first day is not forecast as 5 a day', (
     assert.ok(fc.predictions.every(p => p.predicted_quantity === fc.predictions[0].predicted_quantity), 'the same every day: no shape is fitted');
     assert.ok(fc.predictions.every(p => p.lower_bound === 0 && p.upper_bound >= p.predicted_quantity));
     assert.equal(fc.parts.ml, null, 'no model');
-    assert.ok(fc.confidence < 45, 'confidence reads low');
 });
 
-test('confidence: a product that has stopped selling is not called reliable', () => {
-    const { computeConfidence } = require('../routes/predictions')._internals;
-    // sold steadily, then nothing at all for the 8 weeks the simple trend reads
-    const stopped = forecastSeries(series([...rep(3, 30), ...rep(0, 56)]), 30, { shopTypical: 4 });
-    assert.ok(stopped.confidence < 45, `no sales in 8 weeks reads low, got ${stopped.confidence}`);
-    // it read "high": no sales was scored as sales that never vary
-    assert.equal(computeConfidence(56, 0, null), 35);
-    assert.equal(computeConfidence(56, 0, 0), 70, 'the same days with truly steady sales');
-    // the steadier the sales, the higher it reads, and it never claims certainty
-    const steady = forecastSeries(series(rep(4, 60)), 30, { shopTypical: 4 });
-    const patchy = forecastSeries(series(Array.from({ length: 60 }, (_, i) => (i % 9 === 0 ? 6 : 0))), 30, { shopTypical: 4 });
-    assert.ok(steady.confidence >= 70, `the same every day reads high, got ${steady.confidence}`);
-    assert.ok(patchy.confidence < 45, `a sale every ninth day reads low, got ${patchy.confidence}`);
-    assert.ok(computeConfidence(365, 1, 0) <= 95);
+test('28-day average: 14 to 41 days on record are forecast at the average of the last 28 days', () => {
+    const { recentAverage, AVERAGE_DAYS } = require('../routes/predictions')._internals;
+    assert.equal(AVERAGE_DAYS, 28);
+    // two older days of 3 fall outside the 28 days and are not read
+    const fc = forecastSeries(series([3, 3, ...rep(1, 28)]), 30, { shopTypical: 4 });
+    assert.equal(fc.basis, 'average');
+    assert.ok(fc.predictions.every(p => p.predicted_quantity === 1), 'the same figure every day ahead: 1 a day');
+    assert.equal(total(fc), 30);
+    // under 28 days on record: the average of what there is
+    assert.equal(recentAverage(series(rep(2, 20)), 30).rate, 2);
+    assert.equal(recentAverage([], 30).rate, 0);
+});
+
+test('28-day average: a product that has stopped selling forecasts nothing', () => {
+    // sold steadily, then nothing at all for the last 4 weeks (38 days on record,
+    // too few for the model, so the average forecasts it)
+    const stopped = forecastSeries(series([...rep(3, 10), ...rep(0, 28)]), 30, { shopTypical: 4 });
+    assert.equal(stopped.basis, 'average');
+    assert.equal(total(stopped), 0);
+});
+
+test('28-day average: the range around it is one spread of the last 8 weeks, never below zero', () => {
+    const patchy = forecastSeries(series(Array.from({ length: 30 }, (_, i) => (i % 3 === 0 ? 3 : 0))), 30, { shopTypical: 4 });
+    assert.ok(patchy.sigma > 0);
+    assert.ok(patchy.predictions.every(p => p.lower_bound >= 0 && p.lower_bound <= p.predicted_quantity && p.upper_bound > p.predicted_quantity));
+    const steady = forecastSeries(series(rep(4, 30)), 30, { shopTypical: 4 });
+    assert.equal(steady.sigma, 0, 'the same every day: no spread');
+    assert.ok(steady.predictions.every(p => p.lower_bound === 4 && p.upper_bound === 4));
 });
 
 test('new product: the estimate grows with what is sold and meets the plain average at 14 days', () => {
@@ -110,7 +123,7 @@ test('new product: the estimate grows with what is sold and meets the plain aver
     const day14 = forecastSeries(series(rep(2, 14)), 30, { shopTypical: 4 });
     assert.ok(day1 > 1.5 && day1 < 2.5, `one sale of 1: about 2 in 30 days, got ${day1}`);
     assert.ok(day13 > 54 && day13 < 57, `13 days at 2 a day: about 56, got ${day13}`);
-    assert.equal(day14.basis, 'trend', 'from day 14 the ordinary forecast takes over');
+    assert.equal(day14.basis, 'average', 'from day 14 the 28-day average takes over');
     assert.ok(total(day14) > 50 && total(day14) < 70, `14 days at 2 a day: about 60, got ${total(day14)}`);
 });
 
@@ -161,6 +174,73 @@ test('days without data: empty days up to the last day on record are kept', () =
 test('days without data: nothing to look at gives nothing', () => {
     assert.equal(noDataDays(new Map(), new Map(), null, '2026-04-10').days.size, 0);
     assert.equal(noDataDays(new Map(), new Map(), '2026-04-11', '2026-04-10').days.size, 0);
+});
+
+const { freakDays } = require('../utils/forecastGuards');
+/** A shop's days in a row from `first`, one figure a day. */
+const shopDays = (quantities, first = '2026-10-01') => new Map(quantities.map((q, i) =>
+    [new Date(Date.parse(first + 'T00:00:00Z') + i * DAY).toISOString().slice(0, 10), q]));
+const lastOf = (map) => [...map.keys()].pop();
+
+test('freak day: one day far above the usual busy day is left out', () => {
+    // 30 ordinary days of 10 to 17 items, then 618 in one day, then ordinary again
+    const usual = [12, 15, 10, 17, 14, 13, 16, 11, 12, 15];
+    const sold = shopDays([...usual, ...usual, ...usual, 618, 8, 14]);
+    const r = freakDays(sold, '2026-10-01', lastOf(sold));
+    assert.deepEqual([...r.days], ['2026-10-31']);
+    assert.equal(r.ranges.length, 1);
+    assert.deepEqual(r.ranges[0], { from: '2026-10-31', to: '2026-10-31', days: 1, items: 618, typical: 15, reason: 'freak' });
+});
+
+test('freak day: a busy day within four times the usual is kept', () => {
+    const usual = [12, 15, 10, 17, 14, 13, 16, 11, 12, 15];
+    // usual busy day 15, so the line is 60: a payday of 58 stays, 61 does not
+    assert.equal(freakDays(shopDays([...usual, ...usual, 58, 12]), '2026-10-01', '2026-10-22').days.size, 0);
+    assert.equal(freakDays(shopDays([...usual, ...usual, 61, 12]), '2026-10-01', '2026-10-22').days.size, 1);
+});
+
+test('freak day: a small shop is not judged below 20 items', () => {
+    // sells 1 or 2 a day: four times its usual is 8, but 18 in a day is a good day, not a freak
+    const sold = shopDays([...rep(1, 10), ...rep(2, 10), 18, 1]);
+    assert.equal(freakDays(sold, '2026-10-01', lastOf(sold)).days.size, 0);
+    const big = shopDays([...rep(1, 10), ...rep(2, 10), 21, 1]);
+    assert.equal(freakDays(big, '2026-10-01', lastOf(big)).days.size, 1);
+});
+
+test('freak day: nothing is judged before the shop has 14 selling days', () => {
+    const sold = shopDays([...rep(3, 13), 500]);
+    assert.equal(freakDays(sold, '2026-10-01', lastOf(sold)).days.size, 0);
+});
+
+test('freak day: two in a row are left out, three in a row are a new level and are kept', () => {
+    const two = shopDays([...rep(10, 20), 200, 220, 11]);
+    const r2 = freakDays(two, '2026-10-01', lastOf(two));
+    assert.deepEqual([...r2.days], ['2026-10-21', '2026-10-22']);
+    assert.equal(r2.ranges[0].items, 420);
+    const three = shopDays([...rep(10, 20), 200, 220, 210, 11]);
+    assert.equal(freakDays(three, '2026-10-01', lastOf(three)).days.size, 0, 'the forecast has to learn a lasting rise');
+});
+
+test('freak day: days with no sale between them do not split a run', () => {
+    // high Friday and Saturday, closed Sunday, high Monday: three selling days in a row
+    const sold = shopDays([...rep(10, 20), 200, 220, 0, 210, 11]);
+    assert.equal(freakDays(sold, '2026-10-01', lastOf(sold)).days.size, 0);
+});
+
+test('freak day: a freak on the last day on record is left out at once', () => {
+    const sold = shopDays([...rep(10, 20), 300]);
+    assert.deepEqual([...freakDays(sold, '2026-10-01', lastOf(sold)).days], ['2026-10-21']);
+});
+
+test('freak day: only the days before a day say what is usual', () => {
+    // judged as of 20 Oct, the busy days that come after cannot make 15 Oct look ordinary
+    const sold = shopDays([...rep(5, 14), 90, ...rep(5, 5), ...rep(90, 10)]);
+    assert.deepEqual([...freakDays(sold, '2026-10-01', '2026-10-20').days], ['2026-10-15']);
+});
+
+test('freak day: nothing to look at gives nothing', () => {
+    assert.equal(freakDays(new Map(), null, '2026-10-10').days.size, 0);
+    assert.equal(freakDays(new Map(), '2026-10-11', '2026-10-10').days.size, 0);
 });
 
 test('accuracy test: a closed fortnight inside the hidden days does not drop the method comparison', () => {

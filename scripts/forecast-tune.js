@@ -5,10 +5,15 @@
  *
  * Candidates are every combination of
  *     the model's memory      how fast older days fade (half-life) and how far back it reads
- *     the simple trend        its floor, and the days a slow product's level is averaged over
- *     the mix                 the model's share of the final figure, 0 to 1
  *     the last step           none, a correction for the shop's recent trend, or a correction
  *                             for the forecast's own last miss (whole shop, or by category)
+ * Products too short for the model get the average of their last 28 days, as on the page.
+ *
+ * Until November 2026 two more settings were tried here: a "simple trend" (Holt's
+ * smoothing, a straight line and a 7-day average, with a floor) and the model's share
+ * of a mix with it. The rule picked a model share of 1, so the mix did nothing, and the
+ * simple trend scored no better than a plain 28-day average; both were taken out
+ * (QA/FORECAST-METHOD.md section 6).
  *
  * For each fortnight tested, the settings are chosen using ONLY test windows that had
  * already ended when that fortnight's forecast would have been made. The rule for
@@ -38,7 +43,7 @@ const { execFile } = require('child_process');
 const BACKEND = path.join(__dirname, '..', 'backend');
 require(path.join(BACKEND, 'node_modules', 'dotenv')).config({ path: path.join(BACKEND, '.env') });
 const pool = require(path.join(BACKEND, 'config', 'database'));
-const { buildDailySeries, findNoDataDays, simpleTrend, TUNING } = require(path.join(BACKEND, 'routes', 'predictions'))._internals;
+const { buildDailySeries, findNoDataDays, recentAverage } = require(path.join(BACKEND, 'routes', 'predictions'))._internals;
 const { capSeries, shopTypical } = require(path.join(BACKEND, 'utils', 'forecastGuards'));
 const ml = require(path.join(BACKEND, 'utils', 'mlForecast'));
 
@@ -50,12 +55,11 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const arg = (name, fallback) => { const i = process.argv.indexOf(name); return i === -1 ? fallback : process.argv[i + 1]; };
 
 const ML = [[0, 365], [30, 365], [60, 365], [0, 120], [30, 120], [60, 120]];       // [half-life, days read]
-const TREND = [[0.55, 28], [0.3, 28], [0, 28], [0.55, 14], [0.3, 14], [0, 14]];    // [floor, slow window]
-const SHARE = [0, 0.25, 0.5, 0.75, 1];
 const LAST = [['none'], ['trend', 1, 0.5], ['trend', 1, 1], ['trend', 1.5, 0.5], ['trend', 1.5, 1], ['miss', 0.5], ['miss', 1], ['miss by category', 0.5], ['miss by category', 1]];
 const CANDIDATES = [];
-for (const m of ML) for (const t of TREND) for (const w of SHARE) for (const last of LAST) CANDIDATES.push({ m: m.join('/'), t: t.join('/'), w, last });
-const OLD = { m: '0/365', t: '0.55/28', w: 0.5, last: ['none'] };      // how the forecast was set before this test
+for (const m of ML) for (const last of LAST) CANDIDATES.push({ m: m.join('/'), last });
+const AVERAGE = { m: 'none', last: ['none'] };                          // the 28-day average for every product: the yardstick
+const CURRENT = { m: '60/120', last: ['miss by category', 0.5] };       // what the code is set to
 
 const python = payload => new Promise((resolve, reject) => {
     const child = execFile(ml.PYTHON, [ml.SCRIPT], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, timeout: 600000 }, (err, out) => (err ? reject(err) : resolve(JSON.parse(out))));
@@ -77,12 +81,8 @@ async function ingredients(products, rows, cut) {
     const days = Object.keys(perDay).sort();
     const out = {
         shop: { last14: sum(days.slice(-14).map(d => perDay[d])), before14: sum(days.slice(-28, -14).map(d => perDay[d])) },
-        products: items.map(x => ({ category: x.p.category, sold: sum(x.test.map(d => d.quantity)), trend: {}, model: {} }))
+        products: items.map(x => ({ category: x.p.category, sold: sum(x.test.map(d => d.quantity)), average: sum(recentAverage(x.capped, HOLD).daily), model: {} }))
     };
-    for (const [floor, slowWindow] of TREND) {
-        const tune = Object.assign({}, TUNING, { floor, slowWindow });
-        items.forEach((x, i) => { out.products[i].trend[`${floor}/${slowWindow}`] = sum(simpleTrend(x.capped, HOLD, tune).daily); });
-    }
     for (const [halfLife, window] of ML) {
         const jobs = items.map((x, i) => ml.jobFor(String(i), x.capped.length > window ? x.capped.slice(-window) : x.capped, HOLD, false));
         const res = await python({ days: HOLD, half_life: halfLife, jobs });
@@ -109,7 +109,7 @@ async function ingredients(products, rows, cut) {
     rows.forEach(r => { (byId[r.product_id] = byId[r.product_id] || { category: r.category || 'Not set', rows: [] }).rows.push(r); });
     const products = Object.values(byId);
 
-    const cacheFile = path.join(os.tmpdir(), `fetch-forecast-tune-${rows.length}.json`);
+    const cacheFile = path.join(os.tmpdir(), `fetch-forecast-tune-v2-${rows.length}.json`);
     const cache = !process.argv.includes('--fresh') && fs.existsSync(cacheFile) ? JSON.parse(fs.readFileSync(cacheFile, 'utf8')) : {};
     for (const cut of cuts) {
         if (cache[cut]) continue;
@@ -118,7 +118,8 @@ async function ingredients(products, rows, cut) {
         fs.writeFileSync(cacheFile, JSON.stringify(cache));
     }
 
-    const mix = (cut, c) => cache[cut].products.map(p => { const m = p.model[c.m]; return { category: p.category, f: m == null ? p.trend[c.t] : (1 - c.w) * p.trend[c.t] + c.w * m, a: p.sold }; });
+    // the model where it ran, the 28-day average where the product was too new for it
+    const mix = (cut, c) => cache[cut].products.map(p => ({ category: p.category, f: p.model[c.m] ?? p.average, a: p.sold }));
     const missFactor = (rowsBefore, strength) => { const F = sum(rowsBefore.map(x => x.f)), A = sum(rowsBefore.map(x => x.a)); return F > 0 && A >= 20 ? clamp(1 + strength * (A / F - 1), 0.6, 1.4) : 1; };
     function forecast(cut, c) {
         const base = mix(cut, c), [kind, a, b] = c.last;
@@ -139,32 +140,34 @@ async function ingredients(products, rows, cut) {
         const near = scored.filter(x => Math.abs(x.s.bias) <= 10).sort((a, b) => a.s.rmse - b.s.rmse);
         return (near.length ? near : scored.sort((a, b) => Math.abs(a.s.bias) - Math.abs(b.s.bias)))[0];
     }
-    const name = c => `model fades by half every ${c.m.split('/')[0] === '0' ? 'never' : c.m.split('/')[0] + ' days'}, reads ${c.m.split('/')[1]} days | trend floor ${c.t.split('/')[0]}, slow window ${c.t.split('/')[1]} | model share ${c.w} | last step: ${c.last.join(' ')}`;
+    const name = c => `model fades by half every ${c.m.split('/')[0] === '0' ? 'never' : c.m.split('/')[0] + ' days'}, reads ${c.m.split('/')[1]} days | last step: ${c.last.join(' ')}`;
     const line = s => `MAE ${s.mae.toFixed(3)}  RMSE ${s.rmse.toFixed(3)}  bias ${(s.bias >= 0 ? '+' : '') + s.bias.toFixed(1)}%  (${s.F.toFixed(1)} vs ${s.A})`;
 
     console.log(`\n${CANDIDATES.length} candidates, ${cuts.length} weekly windows from ${cuts[0]}; windows count toward choosing from ${from}. Nothing is written to the database.\n`);
-    const old = [], picked = [];
+    const avg = [], current = [], picked = [];
     for (const T of tests) {
         const windows = cuts.filter(c => c >= from && c <= addDays(T, -14));
         if (!windows.length || !cache[T]) { console.log(`${T}: no earlier window to choose from, skipped`); continue; }
         const pick = choose(windows);
-        const o = forecast(T, OLD), p = forecast(T, pick.c);
-        old.push(...o); picked.push(...p);
+        const a = forecast(T, AVERAGE), n = forecast(T, CURRENT), p = forecast(T, pick.c);
+        avg.push(...a); if (n) current.push(...n); picked.push(...p);
         console.log(`Fortnight ${addDays(T, 1)} to ${addDays(T, HOLD)}, settings chosen from ${windows.length} windows that had ended by ${T}:`);
-        console.log(`   chosen        ${name(pick.c)}`);
-        console.log(`   old settings  ${line(stats(o))}`);
-        console.log(`   chosen        ${line(stats(p))}\n`);
+        console.log(`   chosen            ${name(pick.c)}`);
+        console.log(`   28-day average    ${line(stats(a))}`);
+        if (n) console.log(`   current settings  ${line(stats(n))}`);
+        console.log(`   chosen            ${line(stats(p))}\n`);
     }
-    if (old.length) {
+    if (picked.length) {
         console.log(`The ${tests.length} fortnights together:`);
-        console.log(`   old settings  ${line(stats(old))}`);
-        console.log(`   chosen        ${line(stats(picked))}`);
-        for (const cat of [...new Set(old.map(x => x.category))]) console.log(`   ${cat.padEnd(20)} old ${line(stats(old.filter(x => x.category === cat)))}  ->  chosen ${line(stats(picked.filter(x => x.category === cat)))}`);
+        console.log(`   28-day average    ${line(stats(avg))}`);
+        if (current.length === picked.length) console.log(`   current settings  ${line(stats(current))}`);
+        console.log(`   chosen            ${line(stats(picked))}`);
+        for (const cat of [...new Set(avg.map(x => x.category))]) console.log(`   ${cat.padEnd(20)} 28-day average ${line(stats(avg.filter(x => x.category === cat)))}  ->  chosen ${line(stats(picked.filter(x => x.category === cat)))}`);
     }
     const all = cuts.filter(c => c >= from);
     const final = choose(all);
     console.log(`\nFrom every window on record (${all.length}, ${all[0]} to ${all[all.length - 1]}) the rule picks:`);
     console.log(`   ${name(final.c)}`);
-    console.log(`   ${line(final.s)}   (old settings on the same windows: ${line(stats(all.flatMap(c => forecast(c, OLD))))})`);
+    console.log(`   ${line(final.s)}   (28-day average on the same windows: ${line(stats(all.flatMap(c => forecast(c, AVERAGE))))})`);
     process.exit(0);
 })().catch(e => { console.error('Stopped: ' + e.message); process.exit(1); });

@@ -7,7 +7,8 @@
  * out "Forecast accuracy": the 14 days are hidden, every product is forecast
  * from the days before them, and the forecast is compared with what sold. The
  * forecast carries the correction it would have had at the time, which comes
- * from the fortnight before. Nothing from the hidden days, or after them, is
+ * from the fortnight before. Beside it: the model alone, and the plain average
+ * of the last 28 days (the yardstick the model has to beat). Nothing from the hidden days, or after them, is
  * used to make the forecast.
  *
  * It reads the database and writes nothing.
@@ -26,7 +27,7 @@ const path = require('path');
 const BACKEND = path.join(__dirname, '..', 'backend');
 require(path.join(BACKEND, 'node_modules', 'dotenv')).config({ path: path.join(BACKEND, '.env') });
 const pool = require(path.join(BACKEND, 'config', 'database'));
-const { prepareShop, testShop, forecastSeries, backtestSplit, TUNING } = require(path.join(BACKEND, 'routes', 'predictions'))._internals;
+const { prepareShop, testShop, forecastSeries, backtestSplit, AVERAGE_DAYS } = require(path.join(BACKEND, 'routes', 'predictions'))._internals;
 const { factorFor } = require(path.join(BACKEND, 'utils', 'forecastAdjust'));
 const ml = require(path.join(BACKEND, 'utils', 'mlForecast'));
 
@@ -83,7 +84,7 @@ const line = m => (m ? `n=${String(m.n).padStart(5)}  MAE ${fix(m.mae)}  RMSE ${
         byProduct[pid].rows.push(r);
     });
     console.log(`Read ${rows.length} sale lines for ${Object.keys(byProduct).length} products. Nothing is written.`);
-    console.log(`Settings: model share ${TUNING.mlWeight}, model reads the last ${ml.FIT_WINDOW} days, a day's weight halves every ${ml.HALF_LIFE || 'never'} days.\n`);
+    console.log(`Settings: model reads the last ${ml.FIT_WINDOW} days, a day's weight halves every ${ml.HALF_LIFE || 'never'} days; products too new for it get the average of their last ${AVERAGE_DAYS} days.\n`);
 
     const all = [];
     for (const end of ends) {
@@ -101,7 +102,7 @@ const line = m => (m ? `n=${String(m.n).padStart(5)}  MAE ${fix(m.mae)}  RMSE ${
             fold.push({
                 end, product_id: Number(pid), name: data.name, category: data.category,
                 forecast: bt.predTotal, before_correction: bt.rawTotal, sold: bt.actualTotal, factor,
-                trend_alone: bt.parts ? bt.parts.baseline : null, model_alone: bt.parts ? bt.parts.ml : null,
+                average_alone: bt.parts ? bt.parts.baseline : null, model_alone: bt.parts ? bt.parts.ml : null,
                 daily: split.test.map(d => [byDate.get(d.date) || 0, d.quantity])
             });
         }
@@ -111,7 +112,7 @@ const line = m => (m ? `n=${String(m.n).padStart(5)}  MAE ${fix(m.mae)}  RMSE ${
         console.log('  what the page uses  ' + line(metrics(fold.map(x => [x.forecast, x.sold]))));
         console.log('  before correction   ' + line(metrics(fold.map(x => [x.before_correction, x.sold]))));
         const both = fold.filter(x => x.model_alone != null);
-        console.log('  simple trend alone  ' + line(metrics(both.map(x => [x.trend_alone, x.sold]))));
+        console.log('  28-day average      ' + line(metrics(both.map(x => [x.average_alone, x.sold]))));
         console.log('  model alone         ' + line(metrics(both.map(x => [x.model_alone, x.sold]))));
         console.log('  correction applied  ' + adjustBack.detail.map(d => `${(Object.values(byProduct).find(p => String(p.group) === d.group) || {}).category || d.group} x${d.factor}`).join(', ') + ` (shop x${adjustBack.shop.toFixed(3)})\n`);
     }
@@ -120,7 +121,7 @@ const line = m => (m ? `n=${String(m.n).padStart(5)}  MAE ${fix(m.mae)}  RMSE ${
     console.log('  what the page uses  ' + line(metrics(all.map(x => [x.forecast, x.sold]))));
     console.log('  before correction   ' + line(metrics(all.map(x => [x.before_correction, x.sold]))));
     const both = all.filter(x => x.model_alone != null);
-    console.log('  simple trend alone  ' + line(metrics(both.map(x => [x.trend_alone, x.sold]))));
+    console.log('  28-day average      ' + line(metrics(both.map(x => [x.average_alone, x.sold]))));
     console.log('  model alone         ' + line(metrics(both.map(x => [x.model_alone, x.sold]))));
     console.log('\nBy category (what the page uses):');
     const cats = [...new Set(all.map(x => x.category))].sort((a, b) => all.filter(x => x.category === b).length - all.filter(x => x.category === a).length);
@@ -129,7 +130,7 @@ const line = m => (m ? `n=${String(m.n).padStart(5)}  MAE ${fix(m.mae)}  RMSE ${
     console.log('  ' + line(metrics(all.flatMap(x => x.daily))));
 
     if (jsonFile) {
-        fs.writeFileSync(jsonFile, JSON.stringify({ ends, settings: { mlWeight: TUNING.mlWeight, fitWindow: ml.FIT_WINDOW, halfLife: ml.HALF_LIFE }, rows: all.map(({ daily, ...x }) => x) }, null, 1));
+        fs.writeFileSync(jsonFile, JSON.stringify({ ends, settings: { averageDays: AVERAGE_DAYS, fitWindow: ml.FIT_WINDOW, halfLife: ml.HALF_LIFE }, rows: all.map(({ daily, ...x }) => x) }, null, 1));
         console.log(`\nSaved every product's figures to ${jsonFile}`);
     }
     process.exit(0);

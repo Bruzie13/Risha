@@ -53,9 +53,35 @@
    neither learns "nothing sells" from them nor counts them when it measures
    recent sales. A run that reaches the last day on record is kept: recent
    silence may be real, and the page already says when the last sale was.
-   Nothing in the database is changed; the days are only skipped when read. */
+   Nothing in the database is changed; the days are only skipped when read.
+
+   FREAK DAYS FOR THE WHOLE SHOP
+   The cap above works product by product. A day on which the whole shop sells
+   many times its usual passes straight through it: every product is a little
+   above its own usual, none far enough to be capped, and together they bend
+   the forecast of everything (7 Nov 2026: 618 items in one day against a
+   usual busy day of 17; the forecast for the next 30 days went from about 650
+   to 3,262, and to 13,350 the day after it happened).
+
+   A day is a freak when the shop sold more than
+
+       the larger of 20 items, and 4 x its usual busy day
+
+   where the usual busy day is what the shop reached or stayed under on three
+   of every four of its last 28 selling days before that day. Nothing is judged
+   until the shop has 14 selling days behind it. One or two such days in a row
+   are left out of every product's history, like the days without data. Three
+   or more selling days in a row above the line are not a freak but a new
+   level, and all of them are kept: the forecast has to learn from that.
+   Only days before the one being judged are used, so the accuracy test never
+   looks ahead. */
 
 const MIN_CAP = 5;
+const FREAK_TIMES = 4;
+const FREAK_MIN_ITEMS = 20;
+const FREAK_LOOKBACK = 28;
+const FREAK_MIN_DAYS = 14;
+const FREAK_MAX_RUN = 2;
 const CAP_TIMES = 4;
 const TYPICAL_QUANTILE = 0.75;
 const MIN_SELLING_DAYS = 5;
@@ -139,4 +165,42 @@ function noDataDays(soldByDay, salesByDay, firstDay, lastDay) {
     return out;
 }
 
-module.exports = { shopTypical, dailyCap, capSeries, lowQuantile, isNewProduct, cautiousDailyRate, noDataDays, MIN_CAP, CAP_TIMES, MIN_SELLING_DAYS, MIN_HISTORY_DAYS, CLOSED_RUN_DAYS };
+/**
+ * Days on which the whole shop sold far more than its usual busy day.
+ *   soldByDay  Map of shop day -> items sold that day, all products together
+ *   firstDay, lastDay   the span to look at, as 'YYYY-MM-DD'
+ * Returns { days: Set, ranges: [{ from, to, days, items, typical, reason: 'freak' }] }.
+ * `typical` is the usual busy day the first day of the run was judged against.
+ */
+function freakDays(soldByDay, firstDay, lastDay) {
+    const out = { days: new Set(), ranges: [] };
+    if (!firstDay || !lastDay || firstDay > lastDay) return out;
+    const endMs = Date.parse(lastDay + 'T00:00:00Z');
+    const before = [];          // what the shop sold on each selling day so far
+    let run = [];               // selling days in a row above the line
+    const close = () => {
+        if (run.length && run.length <= FREAK_MAX_RUN) {
+            run.forEach(r => out.days.add(r.day));
+            out.ranges.push({
+                from: run[0].day, to: run[run.length - 1].day, days: run.length,
+                items: run.reduce((a, r) => a + r.items, 0), typical: run[0].typical, reason: 'freak'
+            });
+        }
+        run = [];
+    };
+    for (let t = Date.parse(firstDay + 'T00:00:00Z'); t <= endMs; t += DAY_MS) {
+        const day = new Date(t).toISOString().slice(0, 10);
+        const items = Number(soldByDay.get(day)) || 0;
+        if (!(items > 0)) continue;     // a day with no sale neither ends a run nor says what is usual
+        if (before.length >= FREAK_MIN_DAYS) {
+            const typical = lowQuantile(before.slice(-FREAK_LOOKBACK).sort((a, b) => a - b), TYPICAL_QUANTILE);
+            if (items > Math.max(FREAK_MIN_ITEMS, FREAK_TIMES * typical)) run.push({ day, items, typical });
+            else close();
+        }
+        before.push(items);
+    }
+    close();
+    return out;
+}
+
+module.exports = { shopTypical, dailyCap, capSeries, lowQuantile, isNewProduct, cautiousDailyRate, noDataDays, freakDays, MIN_CAP, CAP_TIMES, MIN_SELLING_DAYS, MIN_HISTORY_DAYS, CLOSED_RUN_DAYS, FREAK_TIMES, FREAK_MIN_ITEMS, FREAK_LOOKBACK, FREAK_MIN_DAYS, FREAK_MAX_RUN };

@@ -1,6 +1,6 @@
 # How the forecast works
 
-This describes what the code does as of 11 October 2026, after the fixes that followed the QA test report. Every statement here was checked against the code, and every figure was produced by running it. Where the paper, the slides or the test plan say something different, this document is the one that matches the system.
+This describes what the code does as of 11 October 2026, after the fixes that followed the QA test report, with the simplification of 5 November 2026: the simple trend is replaced by the average of the last 28 days (6.2), the unused mix is gone (6.3), "How sure" now comes from each product's own last test (7), and the single-product forecast and the Stock planning list share one reorder calculation (13). Every statement here was checked against the code, and every figure was produced by running it. The accuracy figures in sections 9 and 10 were measured on 11 October, before the simplification (9.3 says what that means). Where the paper, the slides or the test plan say something different, this document is the one that matches the system.
 
 Section 12 lists what to change in the other documents.
 
@@ -10,7 +10,8 @@ Section 12 lists what to change in the other documents.
 
 - **What is forecast:** how many items of each product will sell on each of the next 30 days.
 - **Method:** two machine-learning models from scikit-learn, **Random Forest** and **Gradient Boosting**, fitted once on all products together and averaged. This is the forecast for any product with at least six weeks of sales on record.
-- **Around the model:** three guards that run first (days without data are left out, freak days are capped, new products get a cautious estimate), a simple trend for products too new for the model, and a last step that corrects the forecast for how far off it was the time before.
+- **Around the model:** four guards that run first (days without data are left out, a freak day for the whole shop is left out, a freak day in one product is capped, new products get a cautious estimate), the average of the last 28 days for products too new for the model, and a last step that corrects the forecast for how far off it was the time before.
+- **How sure:** each product is marked *Sure*, *Rough guess* or *Too new to tell* from how close its own forecast came the last time it was tested (section 7).
 - **How good it is:** on four fortnights it was not shown, the forecast total was 15.6% above what sold (it was 36.4% above before the fixes). Per product per fortnight it misses by 1.40 items on average (was 1.55). That is still about as large as what a product sells in a fortnight, so the forecast is more use for a category or the shop than for one product. Section 9 has the full figures and section 11 the limits.
 
 ---
@@ -42,12 +43,12 @@ For each product:
 | Days on record, counted from its first sale | Method | Marked as |
 |---|---|---|
 | Under 14 | Cautious first estimate | `new` |
-| 14 to 41 | Simple trend | `trend` |
+| 14 to 41 | Average of the last 28 days | `average` |
 | 42 or more | Machine-learning ensemble | `model` |
 
 5. Correct for the forecast's own last miss (section 8). Not applied to a `new` product.
 
-If the Python model cannot run (Python missing, or it fails), every product falls back to the simple trend and the server log says so. The page then shows "statistical baseline only".
+If the Python model cannot run (Python missing, or it fails), every product falls back to the average of its last 28 days and the server log says so. The forecast's `runtime` then reads "average of the last 28 days only".
 
 Code: `forecastSeries()` in `backend/routes/predictions.js`.
 
@@ -73,6 +74,46 @@ A day on which nothing sold is normally a real zero and the forecast should lear
 **An effect to know about.** Leaving the window out made the two fortnights straight after it look worse in testing (the forecast was 171% and 65% too high). The zero days had been hiding how far sales fell in June. That is why the test windows used for tuning start on 4 July (section 10).
 
 Code: `noDataDays()` in `backend/utils/forecastGuards.js`, `findNoDataDays()` in `backend/routes/predictions.js`.
+
+### 4.1 A freak day for the whole shop (added 10 November 2026)
+
+The cap in section 5 works product by product. A day on which the whole shop sells many times its usual passes through it: every product is a little above its own usual and none is far enough above to be capped.
+
+**What happened.** On 7 November 2026 the shop recorded 618 items in one day (all of them simulated sales), against a usual busy day of 17. The forecast for the next 30 days went to 13,350 items on 8 November and was still 3,262 on 10 November, where the days before it point to about 650. The top 15 products were all forecast at the same 29.2 items, and the correction of section 8 sat at its ceiling of 1.4 in every category.
+
+**Rule.** A day is a freak when the shop sold more than
+
+> the larger of 20 items, and 4 × its usual busy day
+
+The usual busy day is what the shop reached or stayed under on three of every four of its last 28 selling days before that day (the 75th percentile). Nothing is judged until the shop has 14 selling days behind it.
+
+- One or two such days in a row are left out of every product's history, in the same way as the days without data.
+- Three or more selling days in a row above the line are a new level, not a freak, and all of them are kept.
+- Only the days before a day are used to judge it, so the accuracy test never looks ahead.
+
+**What it finds in the shop's data:** one day, 7 November 2026. With it left out the forecast for the next 30 days is 648 items for the products on sale, against 416 sold on the last 30 days counted.
+
+**Where it shows.** The Forecast tab lists it under "3 periods not counted" ("Nov 7: 618 items in one day. About 36 times a usual busy day (17 items)."), the chart draws the day hatched and off the scale, and "When the shop sells" leaves it out (it had read "weekends sell 99% more"; it now reads 13%).
+
+**Limits.** A real one-day event (a sale, a bulk order) is left out as well, so the forecast will not expect it again. A lasting jump is followed two days late, because its first two days are read as a freak until a third confirms it.
+
+Code: `freakDays()` in `backend/utils/forecastGuards.js`, joined to the days without data in `findNoDataDays()`.
+
+### 4.2 The forecast set against what sold (added 10 November 2026)
+
+The Forecast tab opens with one sentence. The server works it out from the forecast for the next 30 days and what sold on the last 30 days counted:
+
+| Forecast ÷ sold | The page says |
+|---|---|
+| over 2 | "This forecast looks too high." |
+| 1.1 to 2 | "You will likely sell more in the next 30 days." |
+| 0.9 to 1.1 | "You will likely sell about the same in the next 30 days." |
+| 0.5 to 0.9 | "You will likely sell less in the next 30 days." |
+| under 0.5 | "This forecast looks too low." |
+
+Under 20 items sold in those 30 days is too little to compare with, and the page says so. The second line compares the last 7 counted days with the 23 before them, per day: a fifth more is "busier", a fifth less "quieter".
+
+Code: `salesCheck()` in `backend/routes/predictions.js`.
 
 ---
 
@@ -115,30 +156,28 @@ A daily rate cannot be read from a few days. A product that sold 5 on its first 
 
 > daily rate = items sold so far ÷ 14
 
-The same figure is given for every day ahead. No trend, no day-of-week pattern and no model is fitted. The low end of the range is 0 and the high end is twice the rate. Confidence reads low.
+The same figure is given for every day ahead. No trend, no day-of-week pattern and no model is fitted. The low end of the range is 0 and the high end is twice the rate. How sure reads "Too new to tell".
 
 | Made-up product | Before | Now |
 |---|---|---|
 | One sale of 1, yesterday | 30 in 30 days | 2.1 |
 | One sale of 5, yesterday | 150, "reorder now, order 165" | 10.8, no order |
 
-The estimate rises as more is sold and meets the plain average on day 14, when the simple trend takes over. The page says: "This product has only N days of sales on record, so this is a cautious first estimate…".
+The estimate rises as more is sold and meets the plain average on day 14, when the 28-day average (6.2) takes over: on that day the two are the same figure. The page says: "This product has only N days of sales on record, so this is a cautious first estimate…".
 
-### 6.2 Simple trend: 14 to 41 days on record
+### 6.2 The 28-day average: 14 to 41 days on record
 
-The model needs 42 days (28 to build its inputs and 14 to learn from). Until then a product is forecast by a simple trend that reads its **last 8 weeks**:
+The model needs 42 days (28 to build its inputs and 14 to learn from). Until then a product is forecast at the **average of its last 28 days on record** (of all its days, if it has fewer), the same figure for every day ahead:
 
-| Part | Share | What it is |
-|---|---|---|
-| Holt's smoothing | 50% | A smoothed level and a smoothed trend (α = 0.35, β = 0.15). The trend is damped (φ = 0.88) so a decline flattens out instead of running to zero. |
-| Linear regression | 30% | A straight line through the 8 weeks, carried forward at most 14 days. |
-| Weighted moving average | 20% | The last 7 days, the most recent counting most (weights 1 to 7). |
+> daily forecast = items sold in the last 28 days on record ÷ 28
 
-Then:
+It also stands in for every product when the Python model cannot run, and it is the yardstick the model is measured against in section 9.3.
 
-- **Slow products** (under 1 a day on average): 85% of the figure is the plain average of the last 28 days and 15% is the mix above. For a product that sells now and then, trend methods mostly follow noise.
-- **Floor:** the figure is never below 55% of the product's average over its last 14 days.
-- **Day of the week:** with 14 days or more, each day is scaled by how that weekday has sold against the product's average. The effect is halved and kept between 0.3 and 2.
+**What it replaced (5 November 2026).** A "simple trend": Holt's smoothing (50%), a straight line through 8 weeks (30%) and a weighted 7-day average (20%), with a floor, a separate rule for slow sellers and a day-of-week factor. On the four held-out fortnights of section 9.3 it did no better than the plain average (MAE 1.582 against 1.577, RMSE 2.188 against 2.137), and the average can be said in one sentence.
+
+**What it costs.** The average follows a sudden change only as the change fills its 28 days, where the simple trend's floor and straight line reacted sooner. On the shop's real products this made no difference (above), but a young product whose sales collapse is forecast higher than before (section 11.5). Once a product has 42 days the model takes over.
+
+Code: `recentAverage()` in `backend/routes/predictions.js`.
 
 ### 6.3 The model: 42 days or more on record
 
@@ -189,33 +228,33 @@ There is no input that names the product. What tells the model how much a produc
 
 Both were chosen by the test in section 10. Before, it read 365 days with every day counting the same. The shop's sales fell to about a quarter of their earlier level in June (97 to 136 items a day in March to May, 26 in June, 11 in October), and a model that treated both levels as equals read the present too high.
 
-**The mix.** The code can mix the model with the simple trend:
+**The model alone.** A product with 42 days or more is forecast by the model and nothing else. The code used to mix it with the simple trend (half and half at first); the test in section 10 set the model's share to 1, so the mix did nothing, and it was taken out on 5 November 2026.
 
-> final = (1 − share) × simple trend + share × model
-
-The share is now **1**: a product with 42 days or more is forecast by the model alone. It was 0.5. Section 10 says how 1 was chosen.
-
-Code: `ml/forecast.py` (the model), `backend/utils/mlForecast.js` (the bridge from Node to Python), `simpleTrend()` and `TUNING` in `backend/routes/predictions.js`.
+Code: `ml/forecast.py` (the model), `backend/utils/mlForecast.js` (the bridge from Node to Python), `forecastSeries()` in `backend/routes/predictions.js`.
 
 ---
 
-## 7. The range, the trend arrow and confidence
+## 7. The range, the trend arrow and how sure
 
-These are worked out from the product's last 8 weeks. They describe the product; they are not part of the forecast figure.
+The range and the trend arrow are worked out from the product's last 8 weeks. They describe the product; they are not part of the forecast figure.
 
 - **Range on the chart:** the forecast ± 1.28 × the spread (standard deviation) of the product's daily sales, never below 0. It is a rough band. It has not been tested as an 80% interval and should not be called one.
 - **Trend:** "up" or "down" when the straight line through the 8 weeks rises or falls by more than 2% of the average per day; otherwise "stable".
-- **Confidence:** a score out of 100, capped at 95:
+- **How sure:** one word per product, from its own last test. Each time the forecast is worked out, the last 14 days are hidden, forecast and compared with what sold (section 9.1); "Did it guess right?" on the page shows that same test.
 
-| Part | Marks | From |
-|---|---|---|
-| How much there is to go on | up to 35 | days in the window ÷ 30 |
-| How well a straight line fits | up to 30 | R² of the regression |
-| How steady the sales are | up to 35 | less as the spread grows against the average. **Nothing when nothing sold in the window.** |
+| Word | When |
+|---|---|
+| Too new to tell | under 28 days of sales on record |
+| Sure | sold 4 or more in the last 30 days, **and** its guess for the hidden 14 days came within a quarter of what sold, or within 1 item |
+| Rough guess | anything else: it sells too little to test, it has not been tested, or its last guess was further off |
 
-70 or more reads "high", 45 or more "medium", under 45 "low".
+"Came within a quarter, or within 1 item" is the same rule as the "✓ close" mark in "Did it guess right?", so the list and that card cannot disagree. Example: a product the test expected to sell 12 of and that sold 14 is *Sure* (2 off, a quarter of 14 is 3.5); one expected at 6.4 that sold 15 is a *Rough guess*.
 
-The last row is a fix. With no sales in 8 weeks the score used to give full marks for steadiness, so the only products marked "high" were the 14 that had stopped selling. **All 119 products now read "low"** (scores 35 to 39). That is the honest reading: no product sold on more than 13 of the last 56 days.
+**What it replaced (5 November 2026).** A confidence score out of 100, built from the days on record (up to 35), how well a straight line fitted (R², up to 30) and how steady sales were (up to 35), read as high, medium or low, with *Sure* given only to fast or steady sellers whose score was not low. With sales as thin as this shop's every product scored "low" (35 to 39; no product sold on more than 13 of the last 56 days), so *Sure* could never appear and the score told one product from another not at all. The new rule rests on the one thing the system measures directly, how close its own forecast came, and the page can say why in one sentence ("For the last two weeks on record it guessed about 12 and 14 sold, close enough to call this forecast sure.").
+
+One test is one fortnight, and a product that sells a few items a fortnight can come close by luck. *Sure* means "came close last time", not a promise; that is why a product must sell at least 4 a month to be called sure at all.
+
+Code: `howSure()` in `backend/routes/predictions.js`.
 
 ---
 
@@ -251,7 +290,9 @@ Each time the forecast is worked out:
 
 > accuracy = 100 − |forecast − sold| ÷ sold × 100, never below 0
 
-It is scored on the shop total, not product by product, and is withheld when fewer than 20 items sold in the hidden days. The page also shows the same score for Random Forest alone, Gradient Boosting alone, both together, and the simple trend. Each of them is scored on the same hidden days as the headline figure, so when days were left out in between (a closed fortnight), the days in the gap are not counted against any of them.
+It is scored on the shop total, not product by product, and is withheld when fewer than 20 items sold in the hidden days. The page also shows the same score for Random Forest alone, Gradient Boosting alone, both together, and the average of the last 28 days. Each of them is scored on the same hidden days as the headline figure, so when days were left out in between (a closed fortnight), the days in the gap are not counted against any of them.
+
+**The last six checks (added 10 November 2026).** One fortnight can come close by luck. The same test is repeated on the five fortnights before it, each forecast only from the days before it, and the page shows all six: "Right 3 of its last 6 checks". A check is *close* when the forecast total was within a fifth of what sold, otherwise *too high* or *too low*. On 10 November: Aug 2 to 15 349 against 299 (close), Aug 16 to 29 305 against 235 (too high), Aug 30 to Sep 12 255 against 210 (too high), Sep 13 to 26 159 against 175 (close), Sep 27 to Oct 10 182 against 160 (close), Oct 26 to Nov 9 149 against 213 (too low). The five earlier checks cost one fit of the model each, so they are worked out once behind the page and kept until the sales they rest on change. Code: `refreshPastChecks()` and `checkMark()` in `backend/routes/predictions.js`.
 
 **This is accuracy, not error.** 86% means the shop total was 14% off. It says nothing about how far off single products were: a forecast that is too high for half the products and too low for the other half scores 100%.
 
@@ -270,6 +311,8 @@ It is scored on the shop total, not product by product, and is withheld when few
 ### 9.3 Results: four fortnights the forecast was not shown
 
 120 products × 4 fortnights = 480 cases, 780 items sold.
+
+Measured on 11 October 2026, when products with 14 to 41 days on record were forecast by the simple trend that section 6.2 has since replaced. Products with 42 days or more are forecast exactly as before. To score the code as it stands now, run the first command in section 14 on the same four fortnights and replace these tables with what it prints.
 
 **All four together, per product per fortnight**
 
@@ -303,7 +346,7 @@ It is scored on the shop total, not product by product, and is withheld when few
 
 | | MAE | RMSE | Bias |
 |---|---|---|---|
-| Simple trend alone | 1.582 | 2.188 | +24.9% |
+| Simple trend alone (since replaced by the 28-day average, below) | 1.582 | 2.188 | +24.9% |
 | Model alone | 1.472 | 1.810 | +26.8% |
 | Model + last step (what the page uses) | 1.402 | 1.741 | +15.6% |
 
@@ -329,7 +372,7 @@ The last row matters. Forecasting nothing at all has an average miss of 1.625, b
 
 The brief was: re-tune using held-out fortnights only, with no leakage. This is what was done. `scripts/forecast-tune.js` repeats it.
 
-**Candidates: 1,620**, every combination of
+**Candidates: 1,620**, every combination of the following. (Since 5 November 2026 the script tries only the model's memory and the last step, 54 candidates, with the 28-day average for products too new for the model, and compares each fortnight with the 28-day average and the current settings. The tables below are from the 11 October run.)
 
 | What | Choices |
 |---|---|
@@ -359,7 +402,7 @@ By group, chosen walk-forward: Food MAE 1.307, bias +46.6%; Health & Wellness 1.
 
 ("Old settings" here means the old settings with the new guards in front. The "before the fixes" row in section 9 is the code before any change.)
 
-**What the code is set to.** The same rule applied to all 13 windows on record picks: weight halves every **60** days, reads **120** days, trend floor **0.55**, slow window **28**, model share **1**, last step **the forecast's own last miss, by category, half**. On those 13 windows: MAE 1.660, RMSE 2.347, bias +8.7% (old settings: 1.787, 2.491, +20.3%).
+**What the code is set to.** The same rule applied to all 13 windows on record picks: weight halves every **60** days, reads **120** days, trend floor **0.55**, slow window **28**, model share **1**, last step **the forecast's own last miss, by category, half**. (The trend floor and slow window went with the simple trend; model share 1 is now simply "the model alone".) On those 13 windows: MAE 1.660, RMSE 2.347, bias +8.7% (old settings: 1.787, 2.491, +20.3%).
 
 **Which figure to quote.**
 
@@ -399,11 +442,12 @@ The model has learned from this shop that a burst of sales usually fades. For re
 | 10 a day, then 2 a day for 20 days | 60 | 30.4 (was 31.6) |
 | 10 a day, then nothing for 20 days | 0 | 4.9 (was 2.3) |
 | 20 a day falling to 1 over 60 days | 30 or less | 73.3 (was 43.5) |
-| 20 a day falling to 0 over 20 days, only 20 days on record | 0 | 113.4 (unchanged: simple trend, with its floor) |
+| 20 a day falling to 0 over 20 days, only 20 days on record | 0 | 300 (113.4 with the simple trend and its floor, before 5 November) |
+| 10 a day for 14 days, then 2 a day for 20, only 34 days on record | 60 | 128.7 (33.1 with the simple trend) |
 
 A recent gap in one product's sales also pulls its forecast down further than it did: 10 a day, then 30 days of nothing, then 10 a day again for 30 days gives 181 (it gave 268; the true rate is 300).
 
-The last row is the QA report's finding L4, and it is **not fixed**. The row above it has become worse. A rule for "a clear drop in level" was tried, in a separate run that is not kept in the repository: on the four held-out fortnights it never acted on a single real product, so it could be neither tested nor tuned on this shop's data, and it carries a risk of its own (see 7). It was not added.
+The last two rows are the QA report's finding L4, and it is **not fixed**: since the 28-day average replaced the simple trend (6.2) it is worse, because the average reads the high early days until they leave its 28 days. It affects only a product with 14 to 41 days on record; such a product is marked "Too new to tell" until it has 28 days, and should be checked by eye until the model takes over at 42. The row above them has also become worse. A rule for "a clear drop in level" was tried, in a separate run that is not kept in the repository: on the four held-out fortnights it never acted on a single real product, so it could be neither tested nor tuned on this shop's data, and it carries a risk of its own (see 7). It was not added.
 
 **6. A product far above the shop's usual sales is read low.** The busiest real product sells about 0.34 a day (19 in 8 weeks). A made-up product selling exactly 1 a day for 120 days is forecast 25.5 for 30 days, not 30; one selling 3 a day is forecast 87.9, not 90. Such a product also carries more weight in what the one shared model learns: adding the steady 3-a-day product moved the other products' total by +6.5%.
 
@@ -413,7 +457,7 @@ The last row is the QA report's finding L4, and it is **not fixed**. The row abo
 
 **9. The sales history itself.** The QA report found that the sales on record did not go through the till (4,473 sale lines have 59 stock movements behind them), and their level falls to about a quarter in June, after the 22 days without data. Say in the paper how the history was made: every figure here describes how the method does on this history, not on a year of real trading.
 
-**10. Fixed assumptions in stock planning.** Delivery takes 7 days for every supplier. Safety stock assumes a 95% service level. Neither is learned from data.
+**10. Assumptions in stock planning.** Delivery time is each supplier's own average, from its received purchase orders of the last 12 months (at least 2, kept between 1 and 30 days); a supplier with fewer received orders is taken to deliver in 7 days. Safety stock assumes a 95% service level, which is a choice, not learned from data.
 
 ---
 
@@ -421,36 +465,36 @@ The last row is the QA report's finding L4, and it is **not fixed**. The row abo
 
 | Where it may say | What matches the system |
 |---|---|
-| "Linear regression" as the forecasting method (the test plan says this) | Random Forest and Gradient Boosting (scikit-learn), one fit for all products, averaged. Linear regression is 30% of the simple trend, which is used only for products with 14 to 41 days on record or when Python is unavailable. |
-| "The ensemble is blended half and half with a statistical baseline" | The ensemble alone, for a product with 42 days or more. The mix share is 1 (was 0.5). |
+| "Linear regression" as the forecasting method (the test plan says this) | Random Forest and Gradient Boosting (scikit-learn), one fit for all products, averaged. Products with 14 to 41 days on record, or all products when Python is unavailable, get the average of their last 28 days. Linear regression is used only to draw the trend arrow (section 7). |
+| "The ensemble is blended half and half with a statistical baseline" | The ensemble alone, for a product with 42 days or more. There is no blend. |
 | "Trained on up to twelve months" | Reads up to 12 months to build each product's history; the model learns from the last 120 days on record, recent days counting for more (weight halves every 60 days). Both are within the 3 to 12 months the study specifies. |
 | Accuracy figures such as 35.2%, 58.5%, 82.2% | Those were page accuracy for one fortnight before the fixes. Now, for 27 Sep to 10 Oct: 86.1% (182.2 forecast, 160 sold). Over four held-out fortnights: bias +18.9%, MAE 1.450, RMSE 1.799. |
 | "Accuracy" and "error" used as the same thing | Page accuracy is about the shop total. Error (MAE, RMSE, MAPE) is per product. Give both and say which is which (section 9). |
 | No mention of data cleaning | Three guards: days without data left out (10 to 31 May 2026), freak days capped, new products given a cautious estimate (sections 4 to 6.1). |
 | No mention of the correction step | Section 8. |
 | Features | The 12 inputs in section 6.3. |
-| "High / medium / low confidence" | All products currently read "low" (section 7). |
+| "High / medium / low confidence" | Replaced by "How sure": Sure, Rough guess or Too new to tell, from how close each product's own last forecast came (section 7). |
 | Limitations | Section 11. |
 
-Test plan cases to add or reword, by their numbers in `QA/QA-TEST-REPORT.md`: the method named (B02), bias (B04), the model against the simple trend (B06), a new product (B08), a spike (B11), a sudden drop or rise (B12), one freak value staying with its own product (B15), limits stated on the page (B18), confidence (B22), sales with no items (C04) and revenue by category adding up (A34).
+Test plan cases to add or reword, by their numbers in `QA/QA-TEST-REPORT.md`: the method named (B02), bias (B04), the model against the 28-day average (B06), a new product (B08), a spike (B11), a sudden drop or rise (B12), one freak value staying with its own product (B15), limits stated on the page (B18), how sure, with a product whose last test came close and one whose did not (B22), sales with no items (C04) and revenue by category adding up (A34).
 
 ---
 
 ## 13. From forecast to stock decisions
 
-All in `planStock()` in `backend/routes/predictions.js`. "Daily" is the 30-day forecast ÷ 30.
+The reorder arithmetic is in one place, `reorderFigures()` in `backend/routes/predictions.js`. The Stock planning list (`planStock()`) and the single-product forecast (`/api/predictions/product/:id`) both call it, so they cannot give different answers for the same product. "Daily" is the 30-day forecast ÷ 30; "delivery days" is the supplier's own average (11.10), 7 when it has too few orders on record.
 
 | Figure | How it is worked out |
 |---|---|
 | Stock lasts | stock ÷ daily, rounded down |
 | Runs out on | today + that many days |
 | Out | stock is 0 |
-| Reorder now | stock at or below the reorder level, or lasts 7 days or less (the delivery time) |
+| Reorder now | stock at or below the reorder level, or lasts no longer than the delivery days |
 | Reorder soon | lasts 21 days or less |
-| Order by | today if at or below the reorder level; otherwise the run-out date less 7 days |
-| Suggested order | the larger of (30-day forecast + 7 days' sales − stock) and (2 × reorder level − stock), less what a supplier is already bringing. Nothing when stock is fine. |
-| Safety stock | 1.65 × the spread of daily sales × √7, rounded up (about a 95% service level) |
-| Reorder point | 7 days' expected sales, rounded up, + safety stock |
+| Order by | today if at or below the reorder level; otherwise the run-out date less the delivery days |
+| Suggested order | the larger of (30-day forecast + the delivery days' sales + safety stock − stock) and (2 × reorder level − stock), less what a supplier is already bringing. Nothing when stock is fine. |
+| Safety stock | 1.65 × the spread of daily sales × √(delivery days), rounded up (about a 95% service level) |
+| Reorder point | the delivery days' expected sales, rounded up, + safety stock |
 | Too much stock | what is left after 90 days of expected sales; for a product with stock, no forecast and no sale in 30 days, everything above its reorder level |
 | Likely to expire | stock less what is expected to sell before the expiry date, for dates within 180 days |
 | Selling fast / slowly | top and bottom quarter of products expected to sell at least 0.5 in 30 days |
@@ -466,19 +510,19 @@ Both scripts read the database and write nothing to it.
 node scripts/forecast-backtest.js 2026-10-10 2026-09-26 2026-09-12 2026-08-29
 ```
 
-Scores the forecast as the code stands on the fortnights ending on those days: MAE, RMSE, MAPE, WAPE and bias, for the page's figure, the model alone and the simple trend alone, by category and per day. With no dates it takes the last four fortnights. Add `--json file.json` to save every product's figures.
+Scores the forecast as the code stands on the fortnights ending on those days: MAE, RMSE, MAPE, WAPE and bias, for the page's figure, the model alone and the 28-day average alone, by category and per day. With no dates it takes the last four fortnights. Add `--json file.json` to save every product's figures.
 
 ```bash
 node scripts/forecast-tune.js
 ```
 
-Repeats the walk-forward test in section 10. A first run fits the model about 90 times and takes ten minutes or so.
+Repeats the walk-forward test in section 10, with the candidates it now tries. A first run fits the model about 90 times and takes ten minutes or so.
 
 ```bash
 cd backend && npm test
 ```
 
-184 automated tests, among them the cap, the new-product estimate, days without data, the correction factors and confidence.
+243 automated tests, among them the freak day for the whole shop, the sales check, the cap, the new-product estimate, the 28-day average, days without data, the correction factors, How sure and the shared reorder figures.
 
 | File | What is in it |
 |---|---|
@@ -486,6 +530,6 @@ cd backend && npm test
 | `backend/utils/mlForecast.js` | Runs the Python model once for all products; the 120 days and the 60-day half-life |
 | `backend/utils/forecastGuards.js` | Days without data, the cap, the new-product rule |
 | `backend/utils/forecastAdjust.js` | The correction for the last miss |
-| `backend/routes/predictions.js` | The steps in order, the simple trend, the mix, the accuracy test, stock planning |
+| `backend/routes/predictions.js` | The steps in order, the 28-day average, the accuracy test, How sure, the reorder figures, stock planning |
 | `src/js/analytics.js`, `src/reports.html` | What the Stock planning page shows and says |
 | `scripts/forecast-backtest.js`, `scripts/forecast-tune.js` | The two checks above |
