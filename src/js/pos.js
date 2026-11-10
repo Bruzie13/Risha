@@ -92,30 +92,7 @@ async function initThermalPrinter() {
     } catch (e) { /* needs an explicit connect */ }
 }
 
-/* The receipt printer plugged into the computer the system runs on, printed
-   to through the server (backend/utils/localPrinter.js). This is the path on
-   Windows, where the system's own driver keeps Chrome from the USB device.
-   null until asked; the name of the printer once it is known to be ready. */
-let serverPrinter = null;
-async function serverPrinterReady(refresh) {
-    if (serverPrinter !== null && !refresh) return !!serverPrinter;
-    try {
-        const res = await fetch(`${API_BASE}/receipt-printer/status`, { headers: getAuthHeaders() });
-        const data = await res.json();
-        serverPrinter = data.success && data.data.available ? data.data.printer : '';
-    } catch (e) { serverPrinter = ''; }
-    return !!serverPrinter;
-}
-
-async function printOnServerPrinter(sale, tendered, change) {
-    const res = await fetch(`${API_BASE}/receipt-printer/print`, {
-        method: 'POST',
-        headers: { ...getAuthHeaders(), 'Content-Type': 'application/octet-stream' },
-        body: escposPrint.buildReceipt(sale, tendered, change)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.success) throw new Error(data.message || 'The printer did not accept the receipt');
-}
+// serverPrinter, serverPrinterReady and printOnServerPrinter are in js/receipt-print.js
 
 function reflectPrinterState() {
     const btn = document.getElementById('connectPrinterBtn');
@@ -785,131 +762,8 @@ async function completeSale() {
     }, 'Complete sale', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">payments</span>');
 }
 
-async function printReceipt(saleId, tendered, change) {
-    try {
-        const res = await fetch(`${API_BASE}/sales/${saleId}`, { headers: getAuthHeaders() });
-        const data = await res.json();
-        if (!data.success) { showToast('Could not load receipt data', 'error'); return; }
-        const sale = data.data;
-
-        // Preferred path: send raw ESC/POS straight to the thermal printer over
-        // WebUSB (like Loyverse). Only when the printer is already connected —
-        // otherwise fall through to the browser print dialog below.
-        if (window.escposPrint && escposPrint.isConnected()) {
-            try {
-                await escposPrint.printReceipt(sale, tendered, change);
-                showToast('Receipt printed', 'success');
-                return;
-            } catch (e) {
-                console.error('Direct print failed, using browser dialog:', e);
-                showToast('Direct printer error — using print dialog', 'info');
-            }
-        } else if (window.escposPrint && await serverPrinterReady()) {
-            // Same receipt bytes, sent through the server to this computer's printer.
-            try {
-                await printOnServerPrinter(sale, tendered, change);
-                showToast('Receipt printed', 'success');
-                return;
-            } catch (e) {
-                console.error('Server print failed, using browser dialog:', e);
-                showToast('Receipt printer error — using print dialog', 'info');
-                serverPrinter = null;   // ask again next time: it may have been unplugged
-                reflectPrinterState();
-            }
-        }
-
-        const itemsHTML = (sale.items || []).map(item => {
-            const ul = getUnitLabel(item.unit_type);
-            return `<tr><td style="padding:3px 4px;border-bottom:1px dashed #ccc;">${escHtml(item.product_name)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:center;">${parseFloat(item.quantity)}${ul}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">${formatCurrency(parseFloat(item.unit_price))}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">${formatCurrency(parseFloat(item.subtotal || item.quantity * item.unit_price))}</td></tr>`;
-        }).join('');
-        // total_amount is before the discount, final_amount what the customer paid;
-        // the discount percent is stored as `discount` (Carlo, 9 Nov: it was missing)
-        const subtotal = parseFloat(sale.total_amount || 0).toFixed(2);
-        const total = parseFloat(sale.final_amount ?? sale.total_amount ?? 0).toFixed(2);
-        const disc = parseFloat(sale.discount_percent ?? sale.discount ?? 0).toFixed(2);
-        const discAmount = sale.final_amount != null ? parseFloat(subtotal) - parseFloat(total) : parseFloat(subtotal) * disc / 100;
-        const date = new Date(sale.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-        const receiptHTML = `
-            <html><head><title>Receipt #${sale.id}</title>
-            <style>
-                @page{margin:0;size:58mm auto;}
-                body{font-family:'Courier New',monospace;font-size:10px;width:58mm;max-width:58mm;padding:4px 4px;margin:0 auto;text-align:center;word-break:break-word;}
-                h2{margin:5px 0 2px;font-size:16px;letter-spacing:1px;text-transform:uppercase;}
-                .info{font-size:12px;color:#555;margin:2px 0;line-height:1.4;}
-                table{width:100%;border-collapse:collapse;margin:8px 0;text-align:left;font-size:12px;table-layout:auto;}
-            td:not(:first-child),th:not(:first-child){white-space:nowrap;}
-                th{padding:4px;border-bottom:2px solid #000;font-size:12px;text-transform:uppercase;}
-                .total-row{display:flex;justify-content:space-between;padding:3px 4px;font-size:12px;}
-                .grand-total{font-size:16px;font-weight:bold;border-top:2px solid #000;border-bottom:2px solid #000;padding:8px 4px;margin:8px 0;}
-                .footer{font-size:12px;color:#555;margin-top:10px;line-height:1.5;}
-                hr{border:none;border-top:1px dashed #ccc;margin:8px 0;}
-                button{display:none;}
-                .barcode{font-family:'Courier New',monospace;font-size:14px;letter-spacing:2px;margin:8px 0;}
-            </style></head>
-            <body>
-                <h2>RISHA Pet Supplies</h2>
-                <div class="info">7 Bagumbong Road, Brgy. 171, North Caloocan</div>
-                <div class="info">Tel: (02) 8123-4567 | TIN: 123-456-789-000</div>
-                <hr>
-                <div style="text-align:left;font-size:12px;line-height:1.6;">
-                    <div>Receipt #: <strong>${String(sale.sale_number || sale.id).padStart(6, '0')}</strong></div>
-                    <div>Date: ${date}</div>
-                    <div>Cashier: ${escHtml(sale.staff_name || 'N/A')}</div>
-                    ${sale.customer_name || sale.customer_phone ? `<div>Customer: ${escHtml(sale.customer_name || '')}${sale.customer_phone ? ' (' + escHtml(sale.customer_phone) + ')' : ''}</div>` : ''}
-                    <div>Payment: ${escHtml((sale.payment_method || 'cash').toUpperCase())}</div>
-                </div>
-                <hr>
-                <table>
-                    <thead><tr><th>Item</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Price</th><th style="text-align:right;">Total</th></tr></thead>
-                    <tbody>${itemsHTML}</tbody>
-                </table>
-                <hr>
-                <div class="total-row"><span>Subtotal:</span><span>₱${subtotal}</span></div>
-                ${disc > 0 ? `<div class="total-row"><span>Discount (${parseFloat(disc)}%):</span><span>-${formatCurrency(discAmount)}</span></div>` : ''}
-                <div class="grand-total">TOTAL: ₱${total}</div>
-                <div class="footer">
-                    <div>Payment: ${escHtml((sale.payment_method || 'cash').toUpperCase())}</div>
-                    ${typeof tendered === 'number' && tendered > 0 ? `<div>Cash: ${formatCurrency(tendered)}</div><div>Change: ${formatCurrency((change || 0))}</div>` : ''}
-                    <div style="margin-top:8px;">Thank you for your purchase!</div>
-                    <div style="margin-top:4px;">Items are non-returnable</div>
-                    <div class="barcode">${String(sale.sale_number || sale.id).padStart(6, '0')}</div>
-                    <div style="font-size:8px;color:#aaa;margin-top:4px;">This serves as your official receipt</div>
-                </div>
-            </body></html>
-        `;
-        // Print via a hidden iframe instead of opening a separate receipt
-        // window/tab: the print dialog fires over the POS page and the frame is
-        // removed afterward, so nothing navigates away.
-        const old = document.getElementById('receiptPrintFrame');
-        if (old) old.remove();
-        const frame = document.createElement('iframe');
-        frame.id = 'receiptPrintFrame';
-        frame.setAttribute('aria-hidden', 'true');
-        frame.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0;visibility:hidden;';
-        document.body.appendChild(frame);
-        const fdoc = frame.contentWindow.document;
-        fdoc.open();
-        fdoc.write(receiptHTML);
-        fdoc.close();
-        // Receipt has only inline content, so a short delay is enough to lay it
-        // out before printing. Guard so we print exactly once.
-        let printed = false;
-        const doPrint = () => {
-            if (printed) return;
-            printed = true;
-            try {
-                frame.contentWindow.focus();
-                frame.contentWindow.print();
-            } catch (e) { console.error('Print failed:', e); }
-            setTimeout(() => frame.remove(), 1000);
-        };
-        frame.contentWindow.onload = doPrint;
-        setTimeout(doPrint, 350); // fallback if onload doesn't fire for a written doc
-    } catch (error) {
-        console.error('Error printing receipt:', error);
-        showToast(couldNot('print receipt', error), 'error');
-    }
-}
+// The receipt of a sale, printed without a dialog where the computer can (js/receipt-print.js)
+function printReceipt(saleId, tendered, change) { return printSaleReceipt(saleId, tendered, change); }
 
 function setupAutocomplete() {
     const input = document.getElementById('posSearchInput');

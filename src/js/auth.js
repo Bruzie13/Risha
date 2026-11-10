@@ -1531,23 +1531,68 @@ function showReceiptDialog(title, number, html) {
     document.addEventListener('keydown', onKey);
     overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
     dialog.querySelector('#confirmCancelBtn').addEventListener('click', close);
-    // printed from a hidden frame, so a blocked pop-up cannot stop it
-    dialog.querySelector('#payReceiptPrint').addEventListener('click', () => {
-        const frame = document.createElement('iframe');
-        frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
-        document.body.appendChild(frame);
-        const doc = frame.contentDocument;
-        doc.open();
-        doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escHtml(number)}</title><style>
-            body{font-family:Arial,sans-serif;font-size:13px;color:#111;margin:24px;}
-            .pay-receipt-head{display:flex;flex-direction:column;align-items:center;gap:2px;border-bottom:1px dashed #999;padding-bottom:10px;margin-bottom:10px;}
-            .pay-receipt-head b{font-size:16px;letter-spacing:1px}.pay-receipt-rows div{display:flex;justify-content:space-between;gap:16px;padding:3px 0;}
-            .pay-receipt-rows span:first-child{color:#555}table{width:100%;border-collapse:collapse;margin:10px 0;}th,td{text-align:left;padding:4px 0;border-bottom:1px dashed #ccc;}
-            .num{text-align:right}small{color:#666}.pay-receipt-total{display:flex;justify-content:space-between;font-size:15px;border-top:1px solid #111;padding-top:8px;}
-        </style></head><body>${html}</body></html>`);
-        doc.close();
-        frame.contentWindow.focus();
-        frame.contentWindow.print();
+    dialog.querySelector('#payReceiptPrint').addEventListener('click', () => printReceiptPaper(number, PAY_RECEIPT_PRINT_CSS, html));
+}
+
+// An order or payment receipt on receipt paper: the item table becomes one
+// item per block (name, then quantity x price and its amount), because four
+// columns do not fit across 58mm.
+const PAY_RECEIPT_PRINT_CSS = `
+    body{font-family:Arial,Helvetica,sans-serif;font-size:10.5px;line-height:1.35;}
+    .pay-receipt-head{display:flex;flex-direction:column;align-items:center;gap:1px;text-align:center;border-bottom:1px dashed #000;padding-bottom:5px;margin-bottom:5px;}
+    .pay-receipt-head b{font-size:13px;letter-spacing:.5px}
+    .pay-receipt-rows div{display:flex;justify-content:space-between;gap:8px;padding:1.5px 0;}
+    .pay-receipt-rows span:first-child{flex:none;white-space:nowrap;}
+    .pay-receipt-rows span:last-child{text-align:right;font-weight:bold;}
+    table,tbody{display:block;width:100%;}thead{display:none;}
+    table{margin:5px 0;border-top:1px dashed #000;}
+    tr{display:flex;flex-wrap:wrap;justify-content:space-between;gap:0 8px;padding:3px 0;border-bottom:1px dashed #000;}
+    td{padding:0;}td:first-child{flex:0 0 100%;font-weight:bold;}
+    td:nth-child(2)::before{content:"Qty ";}td:nth-child(3)::before{content:"x ";}
+    small{font-weight:normal;}
+    .pay-receipt-total{display:flex;justify-content:space-between;font-size:13px;font-weight:bold;border-top:1.5px solid #000;padding-top:4px;margin-top:4px;}
+`;
+
+/* Print something on 58mm receipt paper through the browser's print window.
+
+   The page is made exactly as long as what is on it, plus a little to tear
+   at: left to itself the browser prints a receipt on a full-length page, and
+   the printer feeds all of that blank paper out. The text sits in the middle
+   48mm, which is what a 58mm printer can actually print on. Printed from a
+   hidden frame, so a blocked pop-up cannot stop it and the page stays put. */
+const RECEIPT_PAPER_MM = 58, RECEIPT_PRINT_MM = 48, RECEIPT_TAIL_MM = 6;
+function printReceiptPaper(title, css, bodyHtml) {
+    const old = document.getElementById('receiptPrintFrame');
+    if (old) old.remove();
+    const frame = document.createElement('iframe');
+    frame.id = 'receiptPrintFrame';
+    frame.setAttribute('aria-hidden', 'true');
+    // as wide as the paper, so the receipt is measured at the width it prints at
+    frame.style.cssText = `position:fixed;left:-9999px;top:0;width:${RECEIPT_PAPER_MM}mm;height:10px;border:0;visibility:hidden;`;
+    document.body.appendChild(frame);
+    const doc = frame.contentWindow.document;
+    doc.open();
+    doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escHtml(title)}</title><style>
+        html,body{margin:0;padding:0;background:#fff;color:#000;}
+        body{width:${RECEIPT_PRINT_MM}mm;margin:0 auto;padding-top:2mm;word-break:break-word;-webkit-print-color-adjust:exact;}
+        *{box-sizing:border-box;color:#000;}
+        ${css}
+    </style></head><body>${bodyHtml}</body></html>`);
+    doc.close();
+    let printed = false;
+    const go = () => {
+        if (printed) return;
+        printed = true;
+        try {
+            const mm = Math.ceil(doc.body.getBoundingClientRect().height * 25.4 / 96) + RECEIPT_TAIL_MM;
+            const page = doc.createElement('style');
+            page.textContent = `@page{size:${RECEIPT_PAPER_MM}mm ${mm}mm;margin:0;}`;
+            doc.head.appendChild(page);
+            frame.contentWindow.focus();
+            frame.contentWindow.print();
+        } catch (e) { console.error('Print failed:', e); }
         setTimeout(() => frame.remove(), 1000);
-    });
+    };
+    frame.contentWindow.onload = go;
+    setTimeout(go, 350);    // a written document does not always fire onload
 }

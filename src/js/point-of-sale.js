@@ -416,79 +416,9 @@ async function deleteSale(id) {
     }, 'Delete sale', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">delete</span>');
 }
 
-async function printReceipt(saleId) {
-    // open synchronously (popup blockers), then fill once the items arrive —
-    // the list endpoint has no line items, so fetch the full sale
-    const receiptWindow = window.open('', 'Receipt', 'width=400,height=600');
-    // a browser that blocks pop-ups gives no window: say how to let it through
-    if (!receiptWindow) {
-        showErrorDialog('The receipt could not open', 'This browser blocked the receipt window. Allow pop-ups for this site (the icon at the right of the address bar), then press Print receipt again.');
-        return;
-    }
-    let sale = null;
-    try {
-        const res = await fetch(`${API_BASE}/sales/${saleId}`, { headers: getAuthHeaders() });
-        const data = await res.json();
-        if (data.success) sale = data.data;
-    } catch (e) {}
-    if (!sale) sale = allSales.find(s => s.id === saleId);
-    if (!sale) { receiptWindow.close(); showToast('Sale data not available', 'error'); return; }
-    const itemsHTML = (sale.items || []).map(item => {
-        const ul = getUnitLabel(item.unit_type);
-        return `<tr><td style="padding:3px 4px;border-bottom:1px dashed #ccc;">${escHtml(item.product_name)}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:center;">${parseFloat(item.quantity)}${ul}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">${formatCurrency(parseFloat(item.unit_price))}</td><td style="padding:3px 4px;border-bottom:1px dashed #ccc;text-align:right;">${formatCurrency(parseFloat(item.subtotal || item.quantity * item.unit_price))}</td></tr>`;
-    }).join('');
-    // What the customer actually paid — final_amount is net of any discount.
-    const total = parseFloat(sale.final_amount ?? sale.total_amount ?? 0).toFixed(2);
-    const disc = parseFloat(sale.discount || 0).toFixed(2);
-    const subtotal = parseFloat(sale.total_amount || 0).toFixed(2);
-    const date = new Date(sale.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    receiptWindow.document.write(`
-        <html><head><title>Receipt #${sale.id}</title>
-        <style>
-            @page{margin:0;size:58mm auto;}
-            body{font-family:'Courier New',monospace;font-size:10px;width:58mm;max-width:58mm;padding:4px 4px;margin:0 auto;text-align:center;word-break:break-word;}
-            h2{margin:5px 0 2px;font-size:16px;letter-spacing:1px;text-transform:uppercase;}
-            .info{font-size:12px;color:#555;margin:2px 0;line-height:1.4;}
-            table{width:100%;border-collapse:collapse;margin:8px 0;text-align:left;font-size:12px;table-layout:auto;}
-            td:not(:first-child),th:not(:first-child){white-space:nowrap;}
-            th{padding:4px;border-bottom:2px solid #000;font-size:12px;text-transform:uppercase;}
-            .total-row{display:flex;justify-content:space-between;padding:3px 4px;font-size:12px;}
-            .grand-total{font-size:16px;font-weight:bold;border-top:2px solid #000;border-bottom:2px solid #000;padding:8px 4px;margin:8px 0;}
-            .footer{font-size:12px;color:#555;margin-top:10px;line-height:1.5;}
-            hr{border:none;border-top:1px dashed #ccc;margin:8px 0;}
-            button{display:none;}
-            .barcode{font-family:'Courier New',monospace;font-size:14px;letter-spacing:2px;margin:8px 0;}
-        </style></head>
-        <body>
-            <h2>RISHA Pet Supplies</h2>
-            <div class="info">7 Bagumbong Road, Brgy. 171, North Caloocan</div>
-            <div class="info">Tel: (02) 8123-4567 | TIN: 123-456-789-000</div>
-            <hr>
-            <div style="text-align:left;font-size:12px;line-height:1.6;">
-                <div>Receipt #: <strong>${String(sale.sale_number || sale.id).padStart(6, '0')}</strong></div>
-                <div>Date: ${date}</div>
-                <div>Cashier: ${escHtml(sale.staff_name || 'N/A')}</div>
-                ${sale.customer_name || sale.customer_phone ? `<div>Customer: ${escHtml(sale.customer_name || '')}${sale.customer_phone ? ' (' + escHtml(sale.customer_phone) + ')' : ''}</div>` : ''}
-                <div>Payment: ${(sale.payment_method || 'cash').toUpperCase()}</div>
-            </div>
-            <hr>
-            <table><thead><tr><th style="text-align:left;">Item</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Price</th><th style="text-align:right;">Total</th></tr></thead><tbody>${itemsHTML}</tbody></table>
-            <hr>
-            <div class="total-row"><span>Subtotal:</span><span>₱${subtotal}</span></div>
-            <div class="total-row"><span>Discount (${disc}%):</span><span>-${formatCurrency((subtotal * disc / 100))}</span></div>
-            <div class="grand-total">TOTAL: ₱${total}</div>
-            <div class="barcode">*${String(sale.sale_number || sale.id).padStart(6, '0')}*</div>
-            <div class="footer">
-                Thank you for your purchase!<br>
-                Visit us again at RISHA Pet Supplies<br>
-                — Pets &amp; Supplies —
-            </div>
-            <br><button onclick="window.print()">Print</button>
-            <script>window.onload=function(){setTimeout(function(){window.print();},300);}<\/script>
-        </body></html>
-    `);
-    receiptWindow.document.close();
-}
+// Printed the same way as at the till (js/receipt-print.js): no dialog where a
+// receipt printer is set up, the print window otherwise.
+function printReceipt(saleId) { return printSaleReceipt(saleId); }
 
 function setText(id, val) {
     const el = document.getElementById(id);

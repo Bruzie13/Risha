@@ -1840,6 +1840,13 @@ button.rp-bar-row.is-link:focus-visible { outline: 2px solid var(--primary); out
 .sp-status.is-inactive .sp-status-chip { background: var(--danger-bg); border-color: color-mix(in srgb, var(--danger) 45%, transparent); color: var(--danger); }
 .sp-status.is-inactive .sp-status-dot { background: var(--danger); }
 .sp-status-chip { font-weight: 700; }
+/* On the yellow page header a see-through tint let the yellow show through
+   and the chip disappeared into it (Carlo, 11 Nov). The chip is solid: the
+   status colour mixed into the card colour, with a firm border. */
+.page-header .sp-status-chip { background: var(--bg-card); border-width: 1.5px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+.page-header .sp-status.is-active .sp-status-chip { background: color-mix(in srgb, var(--success) 12%, var(--bg-card)); border-color: var(--success); }
+.page-header .sp-status.is-vacation .sp-status-chip { background: color-mix(in srgb, var(--warning) 14%, var(--bg-card)); border-color: var(--warning); }
+.page-header .sp-status.is-inactive .sp-status-chip { background: color-mix(in srgb, var(--danger) 10%, var(--bg-card)); border-color: var(--danger); }
 .sp-status.is-active .sp-status-pick { border-color: color-mix(in srgb, var(--success) 55%, var(--border-glass)); }
 .sp-status.is-vacation .sp-status-pick { border-color: color-mix(in srgb, var(--warning) 55%, var(--border-glass)); }
 .sp-status.is-inactive .sp-status-pick { border-color: color-mix(in srgb, var(--danger) 55%, var(--border-glass)); }

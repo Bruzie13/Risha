@@ -8,8 +8,13 @@
  * and they go to the Windows print queue untouched (datatype RAW), so the
  * queue needs no maker's driver — "Generic / Text Only" is enough.
  *
- * Windows only. Anywhere else (the hosted deployment included) this reports
- * itself unavailable and the page falls back to the browser's print dialog.
+ * On a Mac or Linux computer the same bytes go to the printer's CUPS queue
+ * with `lp -o raw`. The queue is the one named in RECEIPT_PRINTER, or the
+ * first whose name looks like a receipt printer (POS, 58, XP-, YICHIP...).
+ *
+ * Where there is no such printer (the hosted deployment included) this
+ * reports itself unavailable and the page falls back to the browser's print
+ * window.
  */
 const { execFile } = require('child_process');
 const fs = require('fs');
@@ -86,13 +91,49 @@ function powershell(script, env) {
     });
 }
 
+/* ----- Mac and Linux: the CUPS queue ----- */
+const LOOKS_LIKE_RECEIPT_PRINTER = /pos|58|80mm|xp[-_ ]?\d|yichip|receipt|thermal|epson[-_ ]?tm/i;
+
+function run(cmd, args) {
+    return new Promise((resolve, reject) => {
+        execFile(cmd, args, { encoding: 'utf8', timeout: 15000 }, (err, stdout, stderr) => {
+            if (err) return reject(new Error(String(stderr || err.message).split('\n')[0].trim() || cmd + ' failed'));
+            resolve(stdout);
+        });
+    });
+}
+
+/** Pick the queue from `lpstat -p` output. Exported for the tests. */
+function pickCupsPrinter(lpstatOutput, wanted) {
+    const queues = String(lpstatOutput || '').split('\n')
+        .map(l => /^printer (\S+) (.*)$/.exec(l.trim()))
+        .filter(Boolean)
+        .map(m => ({ name: m[1], off: /disabled/i.test(m[2]) }));
+    const found = wanted ? queues.find(q => q.name === wanted) : queues.find(q => LOOKS_LIKE_RECEIPT_PRINTER.test(q.name));
+    if (!found) return { available: false, printer: wanted || null, reason: 'no receipt printer is set up on this computer' };
+    if (found.off) return { available: false, printer: found.name, reason: 'printer is paused or switched off' };
+    return { available: true, printer: found.name, reason: null };
+}
+
+async function cupsStatus() {
+    try {
+        return pickCupsPrinter(await run('lpstat', ['-p']), process.env.RECEIPT_PRINTER || '');
+    } catch (e) {
+        return { available: false, printer: null, reason: 'no receipt printer is set up on this computer' };
+    }
+}
+
 let lastStatus = null;             // { at, value }
 
 /** { available, printer, reason } — cached briefly: the POS page asks on every load. */
 async function status() {
-    if (!WIN) return { available: false, printer: null, reason: 'not Windows' };
     if (lastStatus && Date.now() - lastStatus.at < STATUS_TTL_MS) return lastStatus.value;
     let value;
+    if (!WIN) {
+        value = await cupsStatus();
+        lastStatus = { at: Date.now(), value };
+        return value;
+    }
     try {
         const state = await powershell(STATUS_SCRIPT, { FETCH_PRINTER: PRINTER });
         value = state === 'ready'
@@ -107,13 +148,17 @@ async function status() {
 
 /** Send ESC/POS bytes to the receipt printer. Rejects with a readable reason. */
 async function print(bytes) {
-    if (!WIN) throw new Error('Server-side receipt printing is only available on Windows');
     if (!Buffer.isBuffer(bytes) || !bytes.length) throw new Error('Nothing to print');
     if (bytes.length > MAX_BYTES) throw new Error('Receipt is too large');
     const file = path.join(os.tmpdir(), `fetch-receipt-${process.pid}-${Date.now()}.bin`);
     fs.writeFileSync(file, bytes);
     try {
-        await powershell(SEND_SCRIPT, { FETCH_PRINTER: PRINTER, FETCH_PRINT_FILE: file });
+        if (WIN) await powershell(SEND_SCRIPT, { FETCH_PRINTER: PRINTER, FETCH_PRINT_FILE: file });
+        else {
+            const queue = await status();
+            if (!queue.available) throw new Error(queue.reason);
+            await run('lp', ['-d', queue.printer, '-o', 'raw', file]);
+        }
     } catch (e) {
         lastStatus = null;         // ask Windows again next time rather than trust the cache
         throw e;
@@ -122,4 +167,4 @@ async function print(bytes) {
     }
 }
 
-module.exports = { status, print, PRINTER, MAX_BYTES };
+module.exports = { status, print, pickCupsPrinter, PRINTER, MAX_BYTES };
