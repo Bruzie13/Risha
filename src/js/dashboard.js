@@ -164,9 +164,6 @@ async function loadDashboardStats() {
                 kpiCard('Total products', 'inventory_2', 'blue',
                     formatNumber(s.total_products ?? 0),
                     `<span class="trend-pill up">▲ ${formatNumber(s.active_products ?? 0)}</span> active`) +
-                kpiCard('Total revenue', 'payments', 'coral',
-                    `<span title="${formatCurrency(s.total_sales_amount ?? 0)}">${formatCompactCurrency(s.total_sales_amount ?? 0)}</span>`,
-                    `${formatNumber(s.total_sales ?? 0)} sale${Number(s.total_sales) === 1 ? '' : 's'}` + (Number(s.voided_sales) > 0 ? `, ${formatNumber(s.voided_sales)} more voided` : '')) +
                 kpiCard('Restock needed', 'warning', 'amber',
                     formatNumber(low),
                     low > 0 ? '<span class="trend-pill down">Needs attention</span>' : '<span class="trend-pill up">All good</span>',
@@ -352,24 +349,41 @@ window.addEventListener('online', () => { setLiveStatus(true); loadRecentSales()
 
 let dashSalesDisplayCount = 5;
 let recentSalesSeenIds = new Set();
+// How far back the Sales list goes, chosen with the buttons above it
+const DASH_SALES_RANGE = { 3: 'last 3 days', 7: 'last 7 days', 30: 'last month' };
+let dashSalesDays = 3;
+document.addEventListener('click', e => {
+    const b = e.target.closest('.dash-sales-range [data-days]');
+    if (!b) return;
+    dashSalesDays = Number(b.dataset.days);
+    document.querySelectorAll('.dash-sales-range [data-days]').forEach(x => {
+        const on = x === b;
+        x.classList.toggle('is-active', on);
+        x.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    dashSalesDisplayCount = 5;
+    loadRecentSales();
+});
 // What a sale's payment_status is called on screen.
 const SALE_STATES = { completed: 'Completed', pending: 'Pending', voided: 'Voided', failed: 'Failed' };
 
 async function loadRecentSales() {
     try {
-        const response = await fetch(`${API_BASE}/sales?limit=20`, { headers: getAuthHeaders() });
+        // the period chosen above the list: last 3 days, last 7 days or last month
+        const since = new Date();
+        since.setDate(since.getDate() - dashSalesDays);
+        const sinceYmd = since.getFullYear() + '-' + String(since.getMonth() + 1).padStart(2, '0') + '-' + String(since.getDate()).padStart(2, '0');
+        const response = await fetch(`${API_BASE}/sales?limit=200&date_from=${sinceYmd}`, { headers: getAuthHeaders() });
         if (!response.ok) throw new Error('HTTP ' + response.status);
         const data = await response.json();
         setLiveStatus(true);
         const list = document.getElementById('recentSalesList');
-        const threeDaysAgo = new Date();
-        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
         let items = (data.data || []).filter(function(s) {
-            return s.created_at && new Date(s.created_at) >= threeDaysAgo;
+            return s.created_at && new Date(s.created_at) >= since;
         });
         items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         if (!items.length) {
-            list.innerHTML = '<div class="empty-state">No activity in the last 3 days</div>';
+            list.innerHTML = `<div class="empty-state">No sales in the ${DASH_SALES_RANGE[dashSalesDays]}</div>`;
             document.getElementById('recentSalesPagination').innerHTML = '';
             return;
         }
@@ -619,13 +633,14 @@ function renderSalesTrendChart(data) {
         const dt = new Date(d.date || d.sale_date || d.created_at);
         return isNaN(dt.getTime()) ? (d.label || '') : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     });
-    const values = items.map(d => parseFloat(d.daily_total || d.total_amount || d.total || d.value || 0));
+    // how many sales each day, not pesos (Ms Mel, 12 Nov: no revenue on the Dashboard)
+    const values = items.map(d => Number(d.transaction_count) || 0);
     salesChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels.length ? labels : ['No Data'],
             datasets: [{
-                label: 'Revenue (₱)',
+                label: 'Sales',
                 data: values.length ? values : [0],
                 borderColor: theme.line,
                 backgroundColor: theme.fill,

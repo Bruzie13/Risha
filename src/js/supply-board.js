@@ -81,8 +81,8 @@
         var line = parts.join(', ');
         if (o.promised_date) {
             var late = (o.status === 'confirmed' || o.status === 'shipped') && o.promised_date < todayYmd();
-            line += '<br>' + (o.status === 'proposed' ? 'They could deliver on ' : 'Supplier says it arrives on ')
-                + '<strong>' + escHtml(niceDay(o.promised_date)) + '</strong>'
+            line += '<br>Estimated delivery: '
+                + '<strong>' + escHtml(estimatedDelivery(o.promised_date)) + '</strong>'
                 + (late ? ' <span class="sp-late">— late</span>' : '')
                 + (o.promise_note ? ' (' + escHtml(o.promise_note) + ')' : '');
         } else if (o.status === 'pending') {
@@ -371,7 +371,7 @@
                     ['Email', o.supplier_email || 'Not given'],
                     ['Supplier status', standing, standing === 'Active' ? null : 'warning'],
                     ['Offered on', niceDay(o.order_date)],
-                    ['Could deliver on', o.promised_date ? niceDay(o.promised_date) : 'Not given'],
+                    ['Estimated delivery', o.promised_date ? estimatedDelivery(o.promised_date) : 'Not given'],
                     ['Their note', o.proposed_by_supplier && o.notes ? o.notes : null],
                     ['Total', formatCurrency(o.total_amount)]
                 ], {

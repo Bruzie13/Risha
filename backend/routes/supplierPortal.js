@@ -17,7 +17,7 @@ const PurchaseOrder = require('../models/PurchaseOrder');
 const Notification = require('../models/Notification');
 const logAudit = require('../services/audit');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
-const { dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, scorecard, starRating, productOfferProblem } = require('../utils/supply');
+const { autoDeliveryDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, scorecard, starRating, productOfferProblem } = require('../utils/supply');
 const { storeImage } = require('../services/imageStore');
 const { imageProblem } = require('../utils/image');
 const { supplierProblem, phoneForStorage } = require('../utils/supplier');
@@ -138,9 +138,16 @@ router.get('/products', async (req, res) => {
                     UNIX_TIMESTAMP(pp.created_at) * 1000 AS pending_at,
                     dp.proposed_price AS declined_price, dp.decline_reason,
                     UNIX_TIMESTAMP(dp.decided_at) * 1000 AS declined_at, UNIX_TIMESTAMP(dp.created_at) * 1000 AS declined_proposed_at,
-                    dp.current_price AS declined_was, dp.note AS declined_note, du.full_name AS declined_by
+                    dp.current_price AS declined_was, dp.note AS declined_note, du.full_name AS declined_by,
+                    COALESCE(ord.units, 0) AS ordered_units, COALESCE(ord.orders, 0) AS ordered_orders
              FROM products p
              LEFT JOIN categories c ON c.id = p.category_id
+             -- everything the shop has ordered of it from this supplier, cancelled orders and offers not yet accepted left out (Ms Mel, 12 Nov)
+             LEFT JOIN (
+                 SELECT pi.product_id, SUM(COALESCE(pi.confirmed_quantity, pi.quantity)) AS units, COUNT(DISTINCT po.id) AS orders
+                 FROM po_items pi JOIN purchase_orders po ON po.id = pi.po_id
+                 WHERE po.supplier_id = ? AND po.status NOT IN ('cancelled', 'proposed')
+                 GROUP BY pi.product_id) ord ON ord.product_id = p.id
              LEFT JOIN price_proposals pp ON pp.product_id = p.id AND pp.supplier_id = p.supplier_id AND pp.status = 'pending'
              -- the last decision on this product's price, shown when it was a no
              LEFT JOIN price_proposals dp ON dp.id = (
@@ -149,7 +156,7 @@ router.get('/products', async (req, res) => {
                  ORDER BY d.decided_at DESC, d.id DESC LIMIT 1) AND dp.status = 'rejected'
              LEFT JOIN users du ON du.id = dp.decided_by
              WHERE p.supplier_id = ? AND p.is_active = TRUE
-             ORDER BY p.name`, [req.supplier.id]);
+             ORDER BY p.name`, [req.supplier.id, req.supplier.id]);
         // The study has the supplier planning deliveries from the shop's
         // demand forecast, so each of their products carries what the shop
         // expects to sell. Only their own products, and only the forecast —
@@ -292,17 +299,57 @@ router.get('/orders/:id/order-receipt', async (req, res) => {
     } catch (e) { fail(res, 'order receipt', e); }
 });
 
-// Accept an order: say when it will arrive and how much of each line is coming.
+/* The delivery date the system sets for these products from this supplier
+   (utils/supply.js autoDeliveryDays): its own usual delivery time from its
+   received orders, sooner for a product with an expiration date. */
+const niceDay = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+async function autoPromise(supplierId, productIds) {
+    const ids = [...new Set((productIds || []).map(Number).filter(n => n > 0))];
+    const [[lead], sens] = await Promise.all([
+        pool.query(
+            `SELECT AVG(DATEDIFF(received_at, created_at)) AS days, COUNT(*) AS n
+             FROM purchase_orders
+             WHERE supplier_id = ? AND status = 'received' AND received_at IS NOT NULL
+               AND received_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)`, [supplierId]),
+        ids.length
+            ? pool.query('SELECT COUNT(*) AS n FROM products WHERE id IN (?) AND expiration_date IS NOT NULL', [ids])
+            : Promise.resolve([[{ n: 0 }]])
+    ]);
+    const supplierDays = lead && lead[0] && Number(lead[0].n) >= 2 ? Number(lead[0].days) : null;
+    const sensRow = sens && sens[0] && sens[0][0];
+    return autoDeliveryDays(shopToday(), { sensitive: Number(sensRow && sensRow.n) > 0, supplierDays });
+}
+
+/* The delivery date the system would set, shown before the supplier confirms
+   or sends an offer (Carlo, 12 Nov: the dates, not just "within 7 days").
+   ?order=ID for an order of theirs, or ?products=1,2,3 for an offer. */
+router.get('/delivery-estimate', async (req, res) => {
+    try {
+        let ids = [];
+        if (req.query.order) {
+            const [rows] = await pool.query(
+                `SELECT pi.product_id FROM po_items pi JOIN purchase_orders po ON po.id = pi.po_id
+                 WHERE po.id = ? AND po.supplier_id = ?`, [Number(req.query.order), req.supplier.id]);
+            ids = rows.map(r => r.product_id);
+        } else {
+            ids = String(req.query.products || '').split(',').map(Number).filter(n => n > 0).slice(0, 50);
+        }
+        const auto = await autoPromise(req.supplier.id, ids);
+        res.json({ success: true, data: { today: shopToday(), day: auto.day, days: auto.days, sensitive: auto.sensitive } });
+    } catch (e) { fail(res, 'delivery estimate', e); }
+});
+
+// Accept an order: how much of each line is coming. The delivery date is set
+// by the system (autoPromise), not typed by the supplier.
 router.post('/orders/:id/confirm', async (req, res) => {
     try {
         const order = await ownOrder(req);
         if (!order) return notFound(res);
         if (order.status !== 'pending') return bad(res, 'Only an order waiting for confirmation can be confirmed.');
-        const day = String(req.body?.promised_date || '');
-        const dateProblem = promiseProblem(day, shopToday());
-        if (dateProblem) return bad(res, dateProblem);
 
         const items = await PurchaseOrder.getPOItems(order.id);
+        const auto = await autoPromise(req.supplier.id, items.map(i => i.product_id));
+        const day = auto.day;
         const result = confirmLines(items, req.body?.items);
         if (result.error) return bad(res, result.error);
 
@@ -328,7 +375,7 @@ router.post('/orders/:id/confirm', async (req, res) => {
         tellShop('Order confirmed by supplier',
             `${order.po_number}: ${req.supplier.name} will deliver on ${day}` + (result.short ? `, with ${result.short} line(s) short of what was ordered.` : ', in full.'),
             order.id);
-        res.json({ success: true, message: 'Order confirmed.' });
+        res.json({ success: true, message: `Order confirmed. Estimated delivery set by the system: by ${niceDay(auto.day)}${auto.sensitive ? ' (sooner, for products with an expiration date)' : ''}.`, data: { promised_date: auto.day, days: auto.days } });
     } catch (e) { fail(res, 'confirm', e); }
 });
 
@@ -410,9 +457,8 @@ router.post('/offers', async (req, res) => {
             'SELECT id, cost_price FROM products WHERE supplier_id = ? AND is_active = TRUE', [req.supplier.id]);
         const result = proposalLines(req.body?.items, new Map(mine.map(p => [Number(p.id), p.cost_price])));
         if (result.error) return bad(res, result.error);
-        const day = String(req.body?.promised_date || '');
-        const dateProblem = promiseProblem(day, shopToday());
-        if (dateProblem) return bad(res, dateProblem);
+        const auto = await autoPromise(req.supplier.id, result.lines.map(l => l.product_id));
+        const day = auto.day;
         const [open] = await pool.query(
             "SELECT COUNT(*) AS c FROM purchase_orders WHERE supplier_id = ? AND status = 'proposed'", [req.supplier.id]);
         if (Number(open[0].c) >= 5) return bad(res, 'You already have 5 offers waiting for the shop. Wait for an answer before sending more.');
@@ -431,7 +477,7 @@ router.post('/offers', async (req, res) => {
         logAudit(req.user.id, 'create', 'purchase_orders', order.id, null,
             { po_number: order.po_number, proposed_by_supplier: true, total: result.total, lines: result.lines.length }, req.ip);
         tellShop('Order offered by supplier', `${req.supplier.name} offered an order (${order.po_number}). Accept or decline it on the Suppliers page.`, order.id);
-        res.status(201).json({ success: true, message: 'Offer sent. It becomes an order if the shop accepts it.' });
+        res.status(201).json({ success: true, message: `Offer sent with an estimated delivery by ${niceDay(auto.day)}, set by the system. It becomes an order if the shop accepts it.` });
     } catch (e) { fail(res, 'offer', e); }
 });
 

@@ -62,7 +62,7 @@ function renderWaitingOffers() {
         return `<tr>
             <td><span class="rp-strong">${escHtml(o.po_number)}</span>${o.order_date ? `<span class="rp-sub">Offered ${escHtml(portalDate(o.order_date))}</span>` : ''}</td>
             <td>${items.slice(0, 3).join('<br>')}${items.length > 3 ? `<span class="rp-sub">and ${items.length - 3} more</span>` : ''}</td>
-            <td>${o.promised_date ? escHtml(portalDate(o.promised_date)) : '—'}</td>
+            <td>${o.promised_date ? escHtml(estimatedDelivery(o.promised_date)) : '—'}</td>
             <td class="num rp-strong">${formatCurrency(o.total_amount)}</td>
             <td class="num"><button class="btn-secondary sp-btn-cancel" data-act="cancel-offer" data-id="${Number(o.id)}">Cancel offer</button></td>
         </tr>`;
@@ -263,13 +263,18 @@ function renderProducts() {
     // the offer section says how many are running low, so an offer is worth making
     const lowChip = document.getElementById('spOfferLow');
     if (lowChip) { lowChip.hidden = !low.length; lowChip.textContent = low.length + ' running low'; }
-    if (!products.length) { portalRow('productsBody', 7, 'No products are assigned to you yet.'); document.getElementById('productsPagination').innerHTML = ''; return; }
+    if (!products.length) { portalRow('productsBody', 8, 'No products are assigned to you yet.'); document.getElementById('productsPagination').innerHTML = ''; return; }
+    /* the status with its basis: stock as a share of the reorder level (Ms Mel, 12 Nov) */
     const status = p => {
         const stock = Number(p.stock_quantity), level = Number(p.reorder_level);
-        if (stock <= 0) return '<span class="rp-badge rp-badge-danger">Out of stock</span>';
-        if (stock <= level) return '<span class="rp-badge rp-badge-warning">Running low</span>';
-        return '<span class="rp-badge rp-badge-ok">Enough stock</span>';
+        const pct = level > 0 ? `<span class="rp-sub">${formatNumber(Math.round(stock / level * 100))}% of its reorder level</span>` : '';
+        if (stock <= 0) return '<span class="rp-badge rp-badge-danger">Out of stock</span><span class="rp-sub">0 left</span>';
+        if (stock <= level) return '<span class="rp-badge rp-badge-warning">Running low</span>' + pct;
+        return '<span class="rp-badge rp-badge-ok">Enough stock</span>' + pct;
     };
+    const orderedCell = p => Number(p.ordered_units) > 0
+        ? `${formatQty(p.ordered_units)}<span class="rp-sub">in ${formatNumber(p.ordered_orders)} order${Number(p.ordered_orders) === 1 ? '' : 's'}</span>`
+        : '<span class="rp-sub">None yet</span>';
     // what the shop is short of comes first
     const ordered = [...products].sort((a, b) =>
         (Number(a.stock_quantity) - Number(a.reorder_level)) - (Number(b.stock_quantity) - Number(b.reorder_level)));
@@ -279,6 +284,7 @@ function renderProducts() {
             <td class="num">${formatQty(p.stock_quantity)}</td>
             <td class="num">${formatQty(p.reorder_level)}</td>
             <td>${status(p)}</td>
+            <td class="num">${orderedCell(p)}</td>
             <td class="num">${p.expected_30d == null ? '<span class="rp-sub">Being calculated</span>' : (p.expected_30d >= 0.5 ? formatNumber(Math.round(p.expected_30d)) : '—')}</td>
             <td class="num">${p.cost_price != null ? formatCurrency(p.cost_price) : '—'}${p.pending_price != null
                 ? `<button type="button" class="price-pending-btn" data-history="${Number(p.id)}" title="See your reason and this product's history">${formatCurrency(p.pending_price)} proposed, waiting <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></button>`
@@ -414,15 +420,23 @@ function orderFacts(o) {
     if (o.order_date) facts.push(`Ordered ${escHtml(portalDate(o.order_date))}`);
     if (o.expected_delivery_date && !o.proposed_by_supplier) facts.push(`shop asked for it by ${escHtml(portalDate(o.expected_delivery_date))}`);
     let line = facts.join(', ');
-    if (o.promised_date) {
-        const late = ['confirmed', 'shipped'].includes(o.status) && o.promised_date < todayYmd();
-        line += `<br>You said you will deliver on <strong>${escHtml(portalDate(o.promised_date))}</strong>`
-            + (late ? ' <span class="sp-late">— that date has passed</span>' : '')
-            + (o.promise_note ? ` (${escHtml(o.promise_note)})` : '');
-    }
+    if (o.promise_note && o.status !== 'received') line += `<br>Date changed: ${escHtml(o.promise_note)}`;
     if (o.delivery_ref) line += `<br>Delivery receipt: <strong>${escHtml(o.delivery_ref)}</strong>`;
     if (o.notes && o.proposed_by_supplier) line += `<br>${escHtml(o.notes)}`;
     return line;
+}
+
+/* The delivery date on an order card, as dates, like an online shop's
+   "Get by Nov 13 – 15" (Carlo, 12 Nov). */
+function etaStrip(o) {
+    if (o.status === 'received' || o.status === 'cancelled') return '';
+    if (!o.promised_date) return o.status === 'pending'
+        ? `<div class="sp-eta-strip is-wait"><span class="material-symbols-outlined" aria-hidden="true">schedule</span><span>Delivery date: set by the system when you confirm</span></div>` : '';
+    const late = ['confirmed', 'shipped'].includes(o.status) && o.promised_date < todayYmd();
+    const from = etaStart(o.promised_date);
+    const days = from === o.promised_date ? etaWeekday(o.promised_date) : `${etaWeekday(from)} – ${etaWeekday(o.promised_date)}`;
+    return `<div class="sp-eta-strip${late ? ' is-late' : ''}"><span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
+        <span>Estimated delivery <b>${escHtml(estimatedDelivery(o.promised_date))}</b> <em>${escHtml(days)}</em>${late ? ' <span class="sp-late">the date has passed</span>' : ''}</span></div>`;
 }
 
 function orderActions(o) {
@@ -434,6 +448,8 @@ function orderActions(o) {
         <button class="btn-secondary" data-act="date" data-id="${id}">Change delivery date</button>${notes}`;
     if (o.status === 'shipped') return `<button class="btn-secondary" data-act="date" data-id="${id}">Change delivery date</button>${notes}
         <span class="sp-waiting">The shop marks it received when it arrives.</span>`;
+    if (o.status === 'received') return `${o.paid ? `<button class="btn-secondary" data-receipt="${id}"><span class="material-symbols-outlined" style="font-size:15px;">receipt_long</span> Receipt</button>` : ''}${notes}
+        <span class="sp-waiting">${o.received_day ? 'Received by the shop on ' + escHtml(portalDate(o.received_day)) + '. ' : ''}${o.paid ? 'Paid.' : 'Not paid yet.'}</span>`;
     return `<button class="btn-secondary sp-btn-cancel" data-act="cancel-offer" data-id="${id}">Cancel offer</button>${notes}<span class="sp-waiting">Waiting for the shop to accept or decline.</span>`;
 }
 
@@ -449,8 +465,22 @@ function renderOrders() {
     document.getElementById('tabCountOpen').title = `${toConfirm} to confirm, ${toShip} to ship`;
 
     const box = document.getElementById('openOrders');
-    if (!open.length) box.innerHTML = '<p class="rp-loading">No open orders right now.</p>';
-    else box.innerHTML = open.map(o => {
+    /* One place for each stage, like an online shop's "To ship / To receive /
+       Completed" (Carlo, 12 Nov): Ordered, Confirmed, Shipped, Received. */
+    const received = portal.orders.filter(o => o.status === 'received');
+    const stages = {
+        ordered: { label: 'Ordered', icon: 'receipt_long', empty: 'No orders waiting for you to confirm.', list: open.filter(o => o.status === 'pending' || o.status === 'proposed') },
+        confirmed: { label: 'Confirmed', icon: 'inventory', empty: 'No confirmed orders waiting to be shipped.', list: open.filter(o => o.status === 'confirmed') },
+        shipped: { label: 'Shipped', icon: 'local_shipping', empty: 'Nothing on the way to the shop.', list: open.filter(o => o.status === 'shipped') },
+        received: { label: 'Received', icon: 'task_alt', empty: 'No orders received by the shop yet.', list: received }
+    };
+    if (!stages[openStage]) openStage = Object.keys(stages).find(k => stages[k].list.length) || 'ordered';
+    const tabs = `<div class="sp-stage-tabs" role="tablist" aria-label="Order stage">${Object.entries(stages).map(([k, st]) =>
+        `<button type="button" class="sp-stage${k === openStage ? ' is-active' : ''}" role="tab" aria-selected="${k === openStage}" data-stage="${k}">
+            <span class="material-symbols-outlined" aria-hidden="true">${st.icon}</span><span class="sp-stage-label">${st.label}</span>
+            <span class="sp-stage-count" title="${st.list.length} order${st.list.length === 1 ? '' : 's'} ${st.label.toLowerCase()}">${formatNumber(st.list.length)} order${st.list.length === 1 ? '' : 's'}</span>
+        </button>`).join('')}</div>`;
+    const card = o => {
         const s = ORDER_STATUS[o.status] || { text: o.status, tone: 'ok' };
         const id = Number(o.id);
         /* one box per order, the same as the shop's Orders (Carlo, 3 Nov: the
@@ -468,12 +498,19 @@ function renderOrders() {
                 <span class="sp-order-total">${formatCurrency(o.total_amount)}</span>
             </div>
             ${poProgressHtml(o.status)}
+            ${etaStrip(o)}
             <div class="sp-order-facts">${orderFacts(o)}</div>
             <div class="sp-lines">${items.length ? `<div class="sp-line sp-line-head"><span>Products (${items.length})</span><span>Quantity</span></div>${items.map(lineOf).join('')}` : ''}</div>
             <div class="sp-order-actions">${orderActions(o)}</div>
             <div class="sp-notes" id="notes-${id}" ${openNotes.has(id) ? '' : 'hidden'}></div>
         </div>`;
-    }).join('');
+    };
+    // newest first; a long stage (Received) shows a few at a time
+    const all = [...stages[openStage].list].sort((a, b) => String(b.received_day || b.order_date || '').localeCompare(String(a.received_day || a.order_date || '')) || Number(b.id) - Number(a.id));
+    const shown = all.slice(0, openShown);
+    const more = all.length - shown.length;
+    box.innerHTML = tabs + (shown.length ? shown.map(card).join('') : `<p class="rp-loading">${stages[openStage].empty}</p>`)
+        + (more > 0 ? `<div class="sp-stage-more"><button type="button" class="btn-secondary" data-stage-more="1">Show ${formatNumber(Math.min(OPEN_PAGE, more))} more (${formatNumber(more)} not shown)</button></div>` : '');
     openNotes.forEach(id => { if (document.getElementById('notes-' + id)) loadNotes(id); });
 
     renderPast(past);
@@ -516,7 +553,13 @@ function renderPast() {
 function showMorePast() { pastShown += PAST_PAGE; renderPast(); }
 function showLessPast() { pastShown = Math.max(PAST_PAGE, pastShown - PAST_PAGE); renderPast(); }
 
+let openStage = null;          // which stage of Open orders is shown
+const OPEN_PAGE = 6;
+let openShown = OPEN_PAGE;
 function onOrderClick(e) {
+    const stage = e.target.closest('button[data-stage]');
+    if (stage) { openStage = stage.dataset.stage; openShown = OPEN_PAGE; renderOrders(); return; }
+    if (e.target.closest('button[data-stage-more]')) { openShown += OPEN_PAGE; renderOrders(); return; }
     const btn = e.target.closest('button[data-act]');
     if (!btn) return;
     const id = Number(btn.dataset.id);
@@ -551,22 +594,18 @@ function openConfirm(id) {
             <input type="number" class="form-input" data-line="${Number(i.id)}" min="0" max="${Number(i.quantity)}" step="1" value="${Number(i.quantity)}" inputmode="numeric">
         </label>`).join('');
     openSpModal('Confirm ' + o.po_number,
-        `<div class="form-group">
-            <label class="form-label" for="spDate">Date you will deliver</label>
-            <input type="date" class="form-input" id="spDate" min="${todayYmd()}" value="${o.expected_delivery_date && o.expected_delivery_date >= todayYmd() ? o.expected_delivery_date : ''}" required>
-         </div>
+        `<div class="sp-eta" id="spEta"><p class="sp-eta-loading">Working out the delivery dates…</p></div>
          <label class="form-label">How many of each you can send</label>
          <p class="sp-form-hint note-banner is-quiet"><span class="material-symbols-outlined" aria-hidden="true">info</span><span>Lower a number if you cannot send the full amount, or set it to 0 if you have none. The shop is told before the delivery arrives.</span></p>
          <div class="sp-form-lines">${lines}</div>`,
         'Confirm order',
         async () => {
-            const date = document.getElementById('spDate').value;
-            if (!date) { showToast('Choose the date you will deliver', 'warning'); return false; }
             const items = [...document.querySelectorAll('#spModalBody input[data-line]')].map(input => ({
                 id: Number(input.dataset.line), quantity: Number(input.value)
             }));
-            return portalSend('POST', `/orders/${id}/confirm`, { promised_date: date, items });
+            return portalSend('POST', `/orders/${id}/confirm`, { items });
         });
+    fillEta(`order=${id}`);
 }
 
 function openShip(id) {
@@ -588,10 +627,11 @@ function openDate(id) {
     const o = orderOf(id);
     if (!o) return;
     openSpModal('Change the delivery date',
-        `<p class="sp-form-hint">${escHtml(o.po_number)}${o.promised_date ? ` is currently promised for ${escHtml(portalDate(o.promised_date))}.` : '.'}</p>
+        `<p class="sp-form-hint">${escHtml(o.po_number)}${o.promised_date ? ` has an estimated delivery of ${escHtml(estimatedDelivery(o.promised_date))}.` : '.'}</p>
          <div class="form-group">
             <label class="form-label" for="spDate">New delivery date</label>
-            <input type="date" class="form-input" id="spDate" min="${todayYmd()}" required>
+            <input type="date" class="form-input" id="spDate" min="${todayYmd()}" max="${latestDeliveryYmd()}" required>
+            <span class="sp-form-hint">Within ${MAX_DELIVERY_DAYS} days, by ${escHtml(portalDate(latestDeliveryYmd()))} at the latest. The shop sees it as an estimate.</span>
          </div>
          <div class="form-group">
             <label class="form-label" for="spWhy">Why it changed</label>
@@ -604,6 +644,50 @@ function openDate(id) {
             if (note.length < 3) { showToast('Say briefly why the date changed', 'warning'); return false; }
             return portalSend('PUT', `/orders/${id}/promise`, { promised_date: date, note });
         });
+}
+
+/* ---------- The delivery date the system sets ----------
+   Shown as dates and a short timeline before the supplier confirms or sends
+   an offer (Carlo, 12 Nov: "dapat may date included", not just "within 7
+   days"). The server works it out (GET /delivery-estimate), the same way it
+   sets it on Confirm. */
+function etaWeekday(ymd) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(ymd || ''));
+    return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString('en-US', { weekday: 'short' }) : '';
+}
+function etaStart(ymd) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(ymd || ''));
+    if (!m) return '';
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    d.setDate(d.getDate() - 2);
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    if (d < t) d.setTime(t.getTime());
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+async function fillEta(query, firstStep = 'Confirmed') {
+    const box = document.getElementById('spEta');
+    if (!box) return;
+    try {
+        const res = await fetch(`${PORTAL_API}/delivery-estimate?${query}`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message);
+        const e = data.data, from = etaStart(e.day);
+        const days = from === e.day ? etaWeekday(e.day) : `${etaWeekday(from)} – ${etaWeekday(e.day)}`;
+        const why = e.sensitive
+            ? `A product here has an expiration date, so it comes within ${e.days} day${e.days === 1 ? '' : 's'}.`
+            : `Your usual delivery time: ${e.days} day${e.days === 1 ? '' : 's'} (${MAX_DELIVERY_DAYS} at most).`;
+        if (!document.body.contains(box)) return;
+        box.innerHTML = `<div class="sp-eta-head"><span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
+                <span><small>Estimated delivery</small><b>${escHtml(estimatedDelivery(e.day))}</b><em>${escHtml(days)}</em></span></div>
+            <ol class="sp-eta-steps">
+                <li class="is-now"><b>Today</b><span>${escHtml(portalDate(e.today).replace(/, \d{4}$/, ''))}</span><span>${escHtml(firstStep)}</span></li>
+                <li><b>On the way</b><span>When you mark it shipped</span></li>
+                <li class="is-end"><b>Arrives</b><span>${escHtml(estimatedDelivery(e.day))}</span><span>by ${escHtml(etaWeekday(e.day))}, ${escHtml(portalDate(e.day).replace(/, \d{4}$/, ''))} at the latest</span></li>
+            </ol>
+            <p class="sp-eta-why">Set by the system. ${escHtml(why)}</p>`;
+    } catch (err) {
+        if (document.body.contains(box)) box.innerHTML = `<p class="sp-eta-loading">The delivery date is set by the system when you send it (${MAX_DELIVERY_DAYS} days at most).</p>`;
+    }
 }
 
 /* ---------- Offer an order ---------- */
@@ -626,10 +710,7 @@ function openOffer() {
          <input type="search" class="form-input sp-offer-search" id="spOfferSearch" placeholder="Search your products" maxlength="100" aria-label="Search your products">
          <div class="sp-form-lines" id="spOfferLines">${lines}<p class="sp-form-hint sp-offer-none" id="spOfferNone" hidden>No product matches. Not one you supply yet? <button type="button" class="sp-link" onclick="closeSpModal(); openNewProduct();">Offer a new product</button></p></div>
          <p class="sp-form-hint" style="margin-top:-4px;">Selling something the shop does not carry? <button type="button" class="sp-link" onclick="closeSpModal(); openNewProduct();">Offer a new product</button></p>
-         <div class="form-group">
-            <label class="form-label" for="spDate">Date you could deliver</label>
-            <input type="date" class="form-input" id="spDate" min="${todayYmd()}" required>
-         </div>
+         <div class="sp-eta" id="spEta"><p class="sp-eta-loading">Working out the delivery dates…</p></div>
          <div class="form-group">
             <label class="form-label" for="spOfferNote">Note to the shop (optional)</label>
             <input type="text" class="form-input" id="spOfferNote" maxlength="300">
@@ -639,12 +720,17 @@ function openOffer() {
             const items = [...document.querySelectorAll('#spModalBody input[data-product]')]
                 .map(input => ({ product_id: Number(input.dataset.product), quantity: Number(input.value) }))
                 .filter(i => i.quantity > 0);
-            const date = document.getElementById('spDate').value;
             if (!items.length) { showToast('Enter a quantity for at least one product', 'warning'); return false; }
-            if (!date) { showToast('Choose the date you could deliver', 'warning'); return false; }
-            return portalSend('POST', '/offers', { items, promised_date: date, note: document.getElementById('spOfferNote').value });
+            return portalSend('POST', '/offers', { items, note: document.getElementById('spOfferNote').value });
         });
     // search the list (UAT part 4, SP3): quantities typed stay, hidden or not
+    const offerEta = () => {
+        const ids = [...document.querySelectorAll('#spModalBody input[data-product]')].filter(i => Number(i.value) > 0).map(i => i.dataset.product);
+        fillEta(`products=${ids.join(',')}`, 'Offer sent');
+    };
+    let etaTimer = null;
+    document.getElementById('spOfferLines').addEventListener('input', () => { clearTimeout(etaTimer); etaTimer = setTimeout(offerEta, 350); });
+    offerEta();
     document.getElementById('spOfferSearch').addEventListener('input', e => {
         const q = e.target.value.trim().toLowerCase();
         let shown = 0;
@@ -934,7 +1020,7 @@ function renderPaid() {
 }
 
 document.addEventListener('click', async e => {
-    const b = e.target.closest('#paidBody button[data-receipt], #pastOrdersBody button[data-receipt]');
+    const b = e.target.closest('#paidBody button[data-receipt], #pastOrdersBody button[data-receipt], #openOrders button[data-receipt]');
     if (!b) return;
     try {
         const res = await fetch(`${API_BASE}/supplier-portal/orders/${Number(b.dataset.receipt)}/receipt`, { headers: getAuthHeaders() });

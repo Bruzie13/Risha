@@ -148,13 +148,16 @@ test('portal: confirming an order records the date and what is really coming', a
     assert.deepEqual(db.writes.filter(w => w[0] === 'line'), [['line', 1, 6], ['line', 2, 5]]);
 });
 
-test('portal: a confirmation needs a real future date and sane quantities', async () => {
+test('portal: a confirmation needs sane quantities, and the system sets the delivery date', async () => {
     resetOrders();
-    assert.equal((await portalCall(3, 'POST', '/orders/100/confirm', { items: [] })).code, 400, 'no date');
-    assert.equal((await portalCall(3, 'POST', '/orders/100/confirm', { promised_date: '2020-01-01' })).code, 400, 'past date');
-    assert.equal((await portalCall(3, 'POST', '/orders/100/confirm', { promised_date: TOMORROW, items: [{ id: 1, quantity: 99 }] })).code, 400, 'more than ordered');
+    assert.equal((await portalCall(3, 'POST', '/orders/100/confirm', { items: [{ id: 1, quantity: 99 }] })).code, 400, 'more than ordered');
     assert.equal(db.orders[100].status, 'pending');
     assert.deepEqual(db.writes, []);
+    // a date sent by the page is ignored: the system sets it (Ms Mel, 12 Nov)
+    const ok = await portalCall(3, 'POST', '/orders/100/confirm', { promised_date: '2020-01-01', items: [] });
+    assert.equal(ok.code, 200);
+    assert.match(ok.body.message, /set by the system/);
+    assert.equal(db.orders[100].status, 'confirmed');
 });
 
 test('portal: another supplier\'s order looks exactly like one that does not exist', async () => {

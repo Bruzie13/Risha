@@ -23,13 +23,32 @@ function dueDate(receivedDay, terms) {
     return toDay(dayMs(receivedDay) + days * DAY_MS);
 }
 
-/* A delivery date a supplier promises: a real day, not in the past, and not
-   so far off that it is plainly a slip of the finger. */
+/* A delivery date a supplier promises: a real day, not in the past, and
+   within a week, the way an online shop promises delivery (Ms Mel, 12 Nov).
+   The pages show it as an estimate (js/auth.js estimatedDelivery). */
+const MAX_DELIVERY_DAYS = 7;
 function promiseProblem(day, today) {
     if (!isDay(day)) return 'Choose the date you will deliver.';
     if (dayMs(day) < dayMs(today)) return 'The delivery date cannot be in the past.';
-    if (dayMs(day) > dayMs(today) + 365 * DAY_MS) return 'That delivery date is more than a year away.';
+    if (dayMs(day) > dayMs(today) + MAX_DELIVERY_DAYS * DAY_MS) return `Choose a delivery date within ${MAX_DELIVERY_DAYS} days, by ${toDay(dayMs(today) + MAX_DELIVERY_DAYS * DAY_MS)} at the latest.`;
     return null;
+}
+
+/* The delivery date the system sets when an order is confirmed or offered
+   (Ms Mel, 12 Nov: "automatic dapat yung delivery date ... depende sa
+   sensitivity ng product"; Carlo: not set by hand).
+     - the supplier's own usual delivery time, from its received orders, or
+       MAX_DELIVERY_DAYS when it has too few to tell
+     - a sensitive product (one with an expiration date: food, medicine)
+       comes within SENSITIVE_DELIVERY_DAYS, so it arrives fresh
+     - never more than MAX_DELIVERY_DAYS, never less than 1
+   Returns { day, days, sensitive }. */
+const SENSITIVE_DELIVERY_DAYS = 3;
+function autoDeliveryDays(today, { sensitive = false, supplierDays = null } = {}) {
+    let days = Number(supplierDays) > 0 ? Math.ceil(Number(supplierDays)) : MAX_DELIVERY_DAYS;
+    if (sensitive) days = Math.min(days, SENSITIVE_DELIVERY_DAYS);
+    days = Math.max(1, Math.min(MAX_DELIVERY_DAYS, days));
+    return { day: toDay(dayMs(today) + days * DAY_MS), days, sensitive: !!sensitive };
 }
 
 /* What the supplier says they can actually send. Each line may be anything
@@ -221,4 +240,4 @@ function productOfferProblem(o) {
    vacation ones can, with a warning to the shop. */
 const SUPPLIER_STATUSES = { active: 'Active', inactive: 'Inactive', vacation: 'On vacation', deactivated: 'Deactivated' };
 
-module.exports = { OFFER_SPECIES, productOfferProblem, SUPPLIER_STATUSES, PAYMENT_METHODS, paymentProblem, termDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, declineReasonProblem, DECLINE_REASON_MAX, scorecard, starRating, STAR_RULE, reorderSupplierProblem };
+module.exports = { MAX_DELIVERY_DAYS, SENSITIVE_DELIVERY_DAYS, autoDeliveryDays, OFFER_SPECIES, productOfferProblem, SUPPLIER_STATUSES, PAYMENT_METHODS, paymentProblem, termDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, declineReasonProblem, DECLINE_REASON_MAX, scorecard, starRating, STAR_RULE, reorderSupplierProblem };

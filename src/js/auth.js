@@ -1459,6 +1459,30 @@ function couldNot(action, err) {
     return 'Could not ' + action + ': ' + String(err.message || err).replace(/\.$/, '') + '.';
 }
 
+/* Delivery dates, the way an online shop shows them (Ms Mel, 12 Nov: like
+   Shopee or TikTok Shop, a week at most). The supplier picks the latest day
+   it will arrive, no more than MAX_DELIVERY_DAYS from today (the server
+   checks the same in utils/supply.js). It is shown as an estimate: up to two
+   days before that day, never before today, through that day. */
+const MAX_DELIVERY_DAYS = 7, SENSITIVE_DELIVERY_DAYS = 3;
+function ymdPlus(days) {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function latestDeliveryYmd() { return ymdPlus(MAX_DELIVERY_DAYS); }
+function estimatedDelivery(ymd) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(ymd || ''));
+    if (!m) return '';
+    const end = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const start = new Date(end); start.setDate(start.getDate() - 2);
+    if (start < today) start.setTime(today.getTime());
+    const md = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (start >= end) return md(end);
+    return start.getMonth() === end.getMonth() ? `${md(start)} – ${end.getDate()}` : `${md(start)} – ${md(end)}`;
+}
+
 /* A payment to a supplier, as a receipt (UAT, 31 Oct: every payment has one).
    Shown in a window with Print; the same for the shop and the supplier. */
 function paymentReceiptHtml(r) {

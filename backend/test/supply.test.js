@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { termDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, declineReasonProblem, scorecard } = require('../utils/supply');
+const { autoDeliveryDays, termDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, declineReasonProblem, scorecard } = require('../utils/supply');
 
 test('payment terms: read the days out of the usual wordings', () => {
     assert.equal(termDays('Net 30'), 30);
@@ -23,7 +23,9 @@ test('promised date: a real day, not past, not absurdly far', () => {
     assert.equal(promiseProblem('2026-10-12', '2026-10-09'), null);
     assert.equal(promiseProblem('2026-10-09', '2026-10-09'), null, 'today is allowed');
     assert.match(promiseProblem('2026-10-08', '2026-10-09'), /past/);
-    assert.match(promiseProblem('2028-01-01', '2026-10-09'), /year away/);
+    assert.equal(promiseProblem('2026-10-16', '2026-10-09'), null, 'a week ahead is allowed');
+    assert.match(promiseProblem('2026-10-17', '2026-10-09'), /within 7 days, by 2026-10-16/);
+    assert.match(promiseProblem('2028-01-01', '2026-10-09'), /within 7 days/);
     assert.match(promiseProblem('soon', '2026-10-09'), /Choose/);
     assert.match(promiseProblem('2026-13-40', '2026-10-09'), /Choose/);
 });
@@ -167,4 +169,13 @@ test('paying a supplier: how it was paid, and its reference number', () => {
     assert.match(paymentProblem('check', ''), /check number/);
     assert.match(paymentProblem('bank_transfer', 'x'.repeat(81)), /80 characters/);
     assert.match(paymentProblem('bank_transfer', 'ref<script>'), /letters, numbers/);
+});
+
+test('the delivery date is set by the system: the supplier\'s own time, sooner for perishables, a week at most', () => {
+    assert.deepEqual(autoDeliveryDays('2026-11-12'), { day: '2026-11-19', days: 7, sensitive: false }, 'no history: a week');
+    assert.equal(autoDeliveryDays('2026-11-12', { supplierDays: 2.2 }).day, '2026-11-15', 'its own usual time, rounded up');
+    assert.equal(autoDeliveryDays('2026-11-12', { supplierDays: 12 }).days, 7, 'never more than a week');
+    assert.equal(autoDeliveryDays('2026-11-12', { sensitive: true }).days, 3, 'a product with an expiration date: 3 days');
+    assert.equal(autoDeliveryDays('2026-11-12', { sensitive: true, supplierDays: 1 }).days, 1, 'a fast supplier stays fast');
+    assert.equal(autoDeliveryDays('2026-11-29', { sensitive: true }).day, '2026-12-02', 'across a month');
 });

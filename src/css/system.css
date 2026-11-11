@@ -1507,6 +1507,11 @@ body > .iti--container { z-index: 10050; }
 /* ----- Suppliers → Orders as boxes in a grid, like the Inventory cards (UAT part 4, A5) ----- */
 .sp-orders.sp-order-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; padding: 6px 20px 20px; }
 .sp-order-grid > .rp-loading { grid-column: 1 / -1; }
+/* Open orders in two groups: to confirm and confirmed, then shipped (Ms Mel, 12 Nov) */
+.sp-order-grid > .sp-group-head { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 8px 0 0; }
+.sp-order-grid > .sp-group-head + .sp-group-head, .sp-order-grid > .sp-order + .sp-group-head, .sp-order-grid > .rp-loading + .sp-group-head { margin-top: 10px; padding-top: 16px; border-top: 1.5px solid var(--border-glass); }
+.sp-group-head h3 { margin: 0; font-size: 15.5px; font-weight: 800; color: var(--text-primary); }
+.sp-group-head span { font-size: 13px; color: var(--text-muted); }
 .sp-order-grid .sp-order { display: flex; flex-direction: column; background: var(--bg-card); border: 1.5px solid var(--border-glass); border-radius: var(--radius-lg);
   box-shadow: 0 var(--edge) 0 var(--border-glass); overflow: hidden; }
 .sp-order-grid .sp-order-head { flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 16px 6px; background: var(--bg-raised); border-bottom: 1px solid var(--border-subtle); }
@@ -1854,3 +1859,42 @@ button.rp-bar-row.is-link:focus-visible { outline: 2px solid var(--primary); out
 .chip .chip-badge { margin-left: 2px; padding: 0 7px; border-radius: var(--radius-full); font-size: 11.5px; font-weight: 700;
   background: var(--warning-bg); color: var(--warning); border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent); }
 .chip.active .chip-badge { background: rgba(255, 255, 255, 0.9); color: #6B4700; border-color: transparent; }
+
+/* Open orders: one button per stage, like an online shop (Carlo, 12 Nov) */
+.sp-order-grid > .sp-stage-tabs { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 4px 0 4px; }
+.sp-stage { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 8px 9px; border: 1.5px solid var(--border-glass); border-radius: 14px; background: var(--bg-card); color: var(--text-secondary); font: inherit; cursor: pointer; min-width: 0; }
+.sp-stage .material-symbols-outlined { font-size: 24px; color: var(--btn-tint); }
+.sp-stage-label { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.sp-stage-count { font-size: 12px; color: var(--text-muted); }
+.sp-stage:hover { border-color: var(--btn-tint); }
+.sp-stage.is-active { background: var(--btn-tint); border-color: var(--btn-tint); }
+.sp-stage.is-active .material-symbols-outlined, .sp-stage.is-active .sp-stage-label, .sp-stage.is-active .sp-stage-count { color: #fff; }
+@media (max-width: 560px) { .sp-order-grid > .sp-stage-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.sp-order-grid > .sp-stage-more { grid-column: 1 / -1; display: flex; justify-content: center; padding: 4px 0 2px; }
+
+/* Confirm / Offer: the delivery date the system sets, as dates and a timeline (Carlo, 12 Nov) */
+.sp-eta { border: 1.5px solid color-mix(in srgb, var(--success) 35%, var(--border-glass)); background: color-mix(in srgb, var(--success) 7%, var(--bg-card)); border-radius: 14px; padding: 12px 14px; margin: 0 0 14px; }
+.sp-eta-loading { margin: 0; font-size: 13px; color: var(--text-muted); }
+.sp-eta-head { display: flex; align-items: center; gap: 12px; }
+.sp-eta-head > .material-symbols-outlined { font-size: 26px; color: var(--success); flex: none; }
+.sp-eta-head small { display: block; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+.sp-eta-head b { font-size: 19px; font-weight: 800; color: var(--text-primary); margin-right: 8px; }
+.sp-eta-head em { font-style: normal; font-size: 13px; color: var(--text-secondary); }
+.sp-eta-steps { list-style: none; margin: 12px 0 8px; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); position: relative; }
+.sp-eta-steps::before { content: ''; position: absolute; left: 16.6%; right: 16.6%; top: 7px; height: 2px; background: color-mix(in srgb, var(--success) 40%, var(--border-glass)); }
+.sp-eta-steps li { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 1px; padding-top: 20px; font-size: 12px; color: var(--text-muted); min-width: 0; }
+.sp-eta-steps li::before { content: ''; position: absolute; top: 0; width: 16px; height: 16px; border-radius: 50%; background: var(--bg-card); border: 2px solid color-mix(in srgb, var(--success) 55%, var(--border-glass)); }
+.sp-eta-steps li.is-now::before, .sp-eta-steps li.is-end::before { background: var(--success); border-color: var(--success); }
+.sp-eta-steps li b { font-size: 13px; color: var(--text-primary); }
+.sp-eta-why { margin: 0; font-size: 12.5px; color: var(--text-secondary); }
+
+/* Order card: the estimated delivery as a strip (Carlo, 12 Nov) */
+.sp-eta-strip { display: flex; align-items: center; gap: 8px; margin: 10px 16px 0; padding: 7px 10px; border-radius: 10px; font-size: 13px; color: var(--text-secondary);
+  background: color-mix(in srgb, var(--success) 8%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--success) 30%, var(--border-glass)); }
+.sp-eta-strip .material-symbols-outlined { font-size: 19px; color: var(--success); flex: none; }
+.sp-eta-strip b { color: var(--text-primary); font-weight: 800; }
+.sp-eta-strip em { font-style: normal; color: var(--text-muted); }
+.sp-eta-strip.is-wait { background: var(--bg-raised, var(--bg-card)); border-color: var(--border-glass); }
+.sp-eta-strip.is-wait .material-symbols-outlined { color: var(--text-muted); }
+.sp-eta-strip.is-late { background: var(--danger-bg); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+.sp-eta-strip.is-late .material-symbols-outlined { color: var(--danger); }

@@ -1378,7 +1378,8 @@ function doThis(p) {
     if (p.expired_units > 0) return { text: 'Expired: sell or remove', tone: 'danger', dot: 'red' };
     if (p.expiry_risk_units > 0) return { text: 'Sell it first: may expire', tone: 'warning', dot: 'amber' };
     if (p.excess_reason === 'not_selling') return { text: 'Not selling: stop ordering', tone: 'warning', dot: 'grey' };
-    if (p.excess_units > 0) return { text: 'Too much: stop ordering', tone: 'warning', dot: 'amber' };
+    // red, so it is not read as a mild note (Ms Mel, 12 Nov)
+    if (p.excess_units > 0) return { text: 'Too much: stop ordering', tone: 'danger', dot: 'red' };
     return { text: 'Enough', tone: 'ok', dot: 'green' };
 }
 
@@ -1601,6 +1602,20 @@ function renderPatterns(seasonality) {
             data: { labels: dow.map(d => d.day), datasets: [{ label: 'Items per day', data: values, backgroundColor: values.map(v => v === peak ? t.bar : t.barSoft), borderRadius: 2, maxBarThickness: 44 }] },
             options: baseChartOptions(t)
         });
+    }
+
+    /* The best day and the best-selling item, said in words above the chart
+       (Ms Mel, 12 Nov: "ano pinaka mabentang araw and ano pinaka mabentang item") */
+    const best = document.getElementById('patternBest');
+    if (best) {
+        const DAY_NAME = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday', Sun: 'Sunday' };
+        const top = dow.length ? dow.reduce((a, b) => (Number(b.avg_daily_sales) || 0) > (Number(a.avg_daily_sales) || 0) ? b : a) : null;
+        const item = plan && plan.products ? [...plan.products].sort((a, b) => soldCounted(b) - soldCounted(a))[0] : null;
+        const chips = [];
+        if (top && Number(top.avg_daily_sales) > 0) chips.push(`<span class="pattern-best"><span class="material-symbols-outlined" aria-hidden="true">calendar_month</span><span><small>Best day</small><b>${escHtml(DAY_NAME[top.day] || top.day)}</b> about ${formatDecimal(Number(top.avg_daily_sales), 0)} items a day</span></span>`);
+        if (item && soldCounted(item) > 0) chips.push(`<span class="pattern-best"><span class="material-symbols-outlined" aria-hidden="true">star</span><span><small>Best-selling item, last 30 days</small><b>${escHtml(item.name)}</b> ${formatNumber(soldCounted(item))} sold</span></span>`);
+        best.innerHTML = chips.join('');
+        best.hidden = !chips.length;
     }
 
     // The pattern the study names first: do weekends sell more than weekdays?

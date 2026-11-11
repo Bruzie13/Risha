@@ -25,12 +25,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/global.css?v=56">
-    <link rel="stylesheet" href="css/reports.css?v=30">
+    <link rel="stylesheet" href="css/reports.css?v=62">
 <script>/* the supplier has one page, so its sidebar starts as the slim strip (see "The slim strip" in css/system.css); the logo opens it, and that choice is kept (railOpen) */document.documentElement.classList.add('rail-only');document.documentElement.classList.toggle('sidebar-hidden', localStorage.getItem('railOpen') !== 'true');</script>
 <script>var _th=localStorage.getItem('theme');if(_th==='dark'||((_th==='system'||!_th)&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark-mode');if(localStorage.getItem('sidebarHidden')==='true')document.documentElement.classList.add('sidebar-hidden');var _ct=localStorage.getItem('colorTheme');if(_ct)document.documentElement.setAttribute('data-theme',_ct);var _ts=localStorage.getItem('textScale');if(_ts&&_ts!=='1')document.documentElement.style.zoom=_ts;try{var _fv=JSON.parse(localStorage.getItem('fontVars2')||'null');if(_fv){for(var _f in _fv)document.documentElement.style.setProperty(_f,_fv[_f]);}}catch(e){}</script>
         <script>/* the account's role on <html> before anything is drawn (see role-gate.css) */try{var _ru=JSON.parse(sessionStorage.getItem('user')||localStorage.getItem('user')||'null');if(_ru&&_ru.role)document.documentElement.setAttribute('data-role',_ru.role);}catch(e){}</script>
         <link rel="stylesheet" href="css/role-gate.css?v=1">
-        <link rel="stylesheet" href="css/system.css?v=138">
+        <link rel="stylesheet" href="css/system.css?v=139">
 </head>
 <body>
     <button class="sidebar-hamburger" id="hamburgerBtn" title="Open menu" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -120,7 +120,7 @@
                 <div class="rp-card-head">
                     <div>
                         <h2>Open orders</h2>
-                        <span class="rp-card-sub">Confirm an order with your delivery date, then mark it shipped when it leaves</span>
+                        <span class="rp-card-sub">Each stage has its own button. Confirm an order, then mark it shipped when it leaves; the delivery date is set by the system</span>
                     </div>
                 </div>
                 <div class="sp-orders sp-order-grid" id="openOrders"><p class="rp-loading">Loading orders…</p></div>
@@ -170,6 +170,8 @@
                         <span class="rp-card-sub">The shop's stock of each, what it expects to sell so you can plan deliveries, and the price it pays you</span>
                     </div>
                 </div>
+                <!-- what each status means (Ms Mel, 12 Nov: "what is the basis") -->
+                <div class="note-banner is-quiet sp-stock-key"><span class="material-symbols-outlined" aria-hidden="true">info</span><div><b>Out of stock:</b> 0 left at the shop. <b>Running low:</b> at or below its reorder level (100% or less). <b>Enough stock:</b> above its reorder level. The percent beside each is the stock as a share of its reorder level.</div></div>
                 <div class="rp-table-wrap">
                     <table class="rp-table">
                         <thead>
@@ -178,12 +180,13 @@
                                 <th class="num">In stock at the shop</th>
                                 <th class="num">Reorder level</th>
                                 <th>Status</th>
+                                <th class="num">Ordered from you</th>
                                 <th class="num">Shop expects to sell, next 30 days</th>
                                 <th class="num">Your price</th>
                                 <th></th>
                             </tr>
                         </thead>
-                        <tbody id="productsBody"><tr><td colspan="7" class="rp-loading">Loading products…</td></tr></tbody>
+                        <tbody id="productsBody"><tr><td colspan="8" class="rp-loading">Loading products…</td></tr></tbody>
                     </table>
                 </div>
                 <div id="productsPagination" class="pagination-bar"></div>
@@ -315,13 +318,13 @@
     </script>
     <script src="js/format.js"></script>
     <script src="js/utils.js"></script>
-    <script src="js/auth.js?v=86"></script>
+    <script src="js/auth.js?v=87"></script>
     <script src="js/loader.js?v=7"></script>
 <script src="js/clear-input.js?v=4"></script>
     <script src="js/po-progress.js?v=3"></script>
     <link rel="stylesheet" href="vendor/intl-tel-input-18.2.1/css/intlTelInput.css">
     <script src="vendor/intl-tel-input-18.2.1/js/intlTelInput.min.js"></script>
     <script src="js/phone-field.js?v=4"></script>
-    <script src="js/supplier-portal.js?v=34"></script>
+    <script src="js/supplier-portal.js?v=35"></script>
 </body>
 </html>
