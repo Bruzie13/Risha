@@ -637,7 +637,7 @@ function renderBoardExcess(rows) {
     }
     const top = rows.slice(0, 3), max = Math.max(1, top[0].excess_value || 0);
     document.getElementById('pbExcessBody').innerHTML = `
-        <div class="pb-money">${pesos(plan.totals.excess_value)}<small>tied up on the shelf</small></div>
+        <div class="pb-money"><span class="pb-money-amt">${pesos(plan.totals.excess_value)}</span><small>tied up on the shelf</small></div>
         <div class="pb-bars">${top.map(p => `<div class="pb-bar" data-board-id="${p.product_id}" data-pane="excess" tabindex="0" role="button" aria-label="${escHtml(p.name)}: see its forecast">
             <b>${escHtml(p.name)}</b><span class="pb-bar-v">${p.excess_value > 0 ? pesos(p.excess_value) : '—'}</span>
             <span class="pb-bar-fill" style="width:${Math.max(4, Math.round((p.excess_value || 0) / max * 100))}%"></span>

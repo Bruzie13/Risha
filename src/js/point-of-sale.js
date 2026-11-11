@@ -25,6 +25,7 @@ let salesSearchDebounce = null;
    so ("Void requested") until a manager decides, instead of "Completed". */
 function saleStatusBadge(s) {
     if (s.payment_status === 'voided') return '<span class="status-badge status-expired" title="Voided: its items went back to stock">Voided</span>';
+    if (s.payment_status === 'completed' && Number(s.partly_voided)) return '<span class="status-badge status-low-stock" title="Some of its items were voided and went back to stock">Partly voided</span>';
     if (s.payment_status === 'completed' && Number(s.void_requested)) return '<span class="status-badge status-low-stock" title="A cashier asked for this sale to be voided; it waits in Reports, Void requests">Void requested</span>';
     if (s.payment_status === 'completed') return '<span class="status-badge status-in-stock">Completed</span>';
     return '<span class="status-badge status-expired">' + escHtml(s.payment_status || 'N/A') + '</span>';
@@ -137,34 +138,99 @@ function displaySales(sales) {
     updatePagination('salesPagination', { length: salesTotal }, displayCount, 'showMoreSales', 'showLessSales', PAGE_SIZE);
 }
 
-// Void: restores stock, keeps the record with a Voided badge (audit-friendly)
-function voidSale(id) {
+// Void: the items chosen go back to stock and come off the sale; the record
+// stays. Every item of a sale chosen voids it as a whole (Voided badge), some
+// only leaves it "Partly voided" (Ms Mel and Carlo, 12 Nov: two products
+// ordered, only one voided).
+async function voidSale(id) {
     if (!canManage()) { showToast("Your role can't void sales.", 'error'); return; }
-    showPromptDialog(
-        'Void Sale #' + id,
-        'The sale stays in history marked as voided and its items return to stock. Why is it being voided?',
-        async (reason) => {
-            if (!reason || !reason.trim()) { showToast('A reason is required to void a sale', 'error'); return; }
-            try {
-                const res = await fetch(`${API_BASE}/sales/${id}/void`, {
-                    method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ reason: reason.trim() })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    showSuccessDialog('Sale voided', 'The sale was marked voided and its stock has been restored.', { tone: 'danger', icon: 'undo' });
-                    await loadSales();
-                    await updateStats();
-                } else {
-                    showErrorDialog('Could not void sale', data.message || 'the server gave no reason');
-                }
-            } catch (e) {
-                showToast(couldNot('void sale', e), 'error');
-            }
-        },
-        'Void Sale',
-        '<span class="material-symbols-outlined" style="font-size:48px;color:var(--danger);">undo</span>',
-        'text', ''
-    );
+    let sale;
+    try {
+        const res = await fetch(`${API_BASE}/sales/${id}`, { headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message);
+        sale = data.data;
+    } catch (e) { showToast(couldNot('load the sale', e), 'error'); return; }
+    const items = sale.items || [];
+    const disc = parseFloat(sale.discount || 0) || 0;
+    const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', 'danger', 'undo', 'Void Sale #' + escHtml(String(sale.id)),
+        'Choose how many of each item to void. Those go back to stock and come off the sale; the rest of the sale stays.');
+    const body = dialog.querySelector('.dialog-body');
+    body.insertAdjacentHTML('beforeend', `
+        <div class="void-lines">
+            <div class="void-line void-head"><span>Item</span><span>Sold</span><span>Void</span></div>
+            ${items.map(i => `<label class="void-line">
+                <span><b>${escHtml(i.product_name)}</b><small>${formatCurrency(parseFloat(i.unit_price))} each</small></span>
+                <span>${parseFloat(i.quantity)}</span>
+                <input type="text" inputmode="numeric" maxlength="5" class="form-input void-qty" data-line="${Number(i.id)}" data-sold="${parseFloat(i.quantity)}" data-price="${parseFloat(i.unit_price)}" value="${parseFloat(i.quantity)}" aria-label="How many ${escAttr(i.product_name)} to void">
+            </label>`).join('') || '<p class="items-none">No item lines were recorded for this sale.</p>'}
+        </div>
+        <div class="void-sum" id="voidSum"></div>
+        <label class="form-label" for="voidReason" style="display:block;margin-top:12px;text-align:left;">Why is it being voided?</label>
+        <input id="voidReason" class="form-input" type="text" maxlength="300" placeholder="For example: customer returned one item">
+        <div id="voidError" role="alert" class="void-error"></div>`);
+    body.insertAdjacentHTML('afterend', dialogActions('Cancel', 'Void Sale', 'btn-danger'));
+    const close = () => { document.removeEventListener('keydown', onKey); overlay.remove(); };
+    const onKey = e => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    dialog.querySelector('#confirmCancelBtn').addEventListener('click', close);
+    const ok = dialog.querySelector('#confirmOkBtn');
+    const err = dialog.querySelector('#voidError');
+    const boxes = [...dialog.querySelectorAll('.void-qty')];
+    const problemOf = box => {
+        const t = box.value.trim(), sold = Number(box.dataset.sold);
+        if (!/^\d+$/.test(t)) return 'Type a whole number, like 1.';
+        if (Number(t) > sold) return `Only ${sold} ${sold === 1 ? 'was' : 'were'} sold.`;
+        return null;
+    };
+    const sum = () => {
+        let units = 0, amount = 0, all = true, bad = null;
+        boxes.forEach(b => {
+            const p = problemOf(b);
+            b.classList.toggle('input-invalid', !!p);
+            if (p) { bad = bad || p; all = false; return; }
+            const q = Number(b.value.trim());
+            units += q; amount += q * Number(b.dataset.price);
+            if (q < Number(b.dataset.sold)) all = false;
+        });
+        const before = parseFloat(sale.final_amount ?? sale.total_amount ?? 0);
+        const after = Math.max(0, (parseFloat(sale.total_amount || 0) - amount) * (1 - disc / 100));
+        dialog.querySelector('#voidSum').innerHTML = bad ? '' : units === 0 ? 'Nothing chosen to void yet.'
+            : all ? `<b>The whole sale</b> is voided (${formatNumber(units)} item${units === 1 ? '' : 's'}, ${formatCurrency(before)}).`
+            : `<b>${formatNumber(units)} item${units === 1 ? '' : 's'}</b> voided (${formatCurrency(amount * (1 - disc / 100))}). The sale goes from ${formatCurrency(before)} to <b>${formatCurrency(after)}</b>.`;
+        ok.textContent = all ? 'Void whole sale' : 'Void selected items';
+        return { units, all, bad };
+    };
+    boxes.forEach(b => b.addEventListener('input', () => { err.textContent = ''; sum(); }));
+    dialog.querySelector('#voidReason').addEventListener('input', () => { err.textContent = ''; });
+    sum();
+    let sending = false;
+    ok.addEventListener('click', async () => {
+        if (sending) return;
+        const { units, all, bad } = sum();
+        const reason = dialog.querySelector('#voidReason').value.trim();
+        if (bad) { err.textContent = bad; return; }
+        if (!units) { err.textContent = 'Set at least one item to void.'; return; }
+        if (!reason) { err.textContent = 'A reason is required to void a sale'; dialog.querySelector('#voidReason').focus(); return; }
+        sending = true; ok.disabled = true;
+        try {
+            const res = await fetch(`${API_BASE}/sales/${id}/void`, {
+                method: 'POST', headers: getAuthHeaders(),
+                body: JSON.stringify(all ? { reason } : { reason, items: boxes.map(b => ({ id: Number(b.dataset.line), quantity: Number(b.value.trim()) })) })
+            });
+            const data = await res.json();
+            if (!data.success) { err.textContent = data.message || 'The sale could not be voided.'; sending = false; ok.disabled = false; return; }
+            close();
+            showSuccessDialog(all ? 'Sale voided' : 'Items voided', all ? 'The sale was marked voided and its stock has been restored.' : escHtml(data.message), { tone: 'danger', icon: 'undo' });
+            await loadSales();
+            await updateStats();
+        } catch (e) {
+            sending = false; ok.disabled = false;
+            err.textContent = couldNot('void the sale', e);
+        }
+    });
+    setTimeout(() => (boxes[0] || dialog.querySelector('#voidReason')).focus(), 30);
 }
 
 // ---- End-of-day cash reconciliation ----
@@ -376,6 +442,11 @@ async function viewSaleDetails(id) {
                         }).join('') || '<tr><td colspan="4" class="items-none">No item lines were recorded for this sale.</td></tr>'}</tbody>
                     </table></div>
                 </div>
+                ${(sale.voids || []).length ? `<div class="details-items"><h4>Voided items</h4>
+                    <div class="items-table-wrap"><table class="items-table">
+                        <thead><tr><th>Product</th><th class="num">Qty</th><th class="num">Amount</th><th>Why, by whom</th></tr></thead>
+                        <tbody>${sale.voids.map(v => `<tr><td>${escHtml(v.product_name || '')}</td><td class="num">${Number(v.quantity)}</td><td class="num">-${formatCurrency(parseFloat(v.amount))}</td><td>${escHtml(v.reason || '')}${v.voided_by ? ' · ' + escHtml(v.voided_by) : ''}</td></tr>`).join('')}</tbody>
+                    </table></div></div>` : ''}
                 <div class="total-section" style="margin-top:20px;">
                     <div class="total-row"><span>Subtotal:</span><span>${formatCurrency(parseFloat(sale.total_amount || 0))}</span></div>
                     ${parseFloat(sale.discount || 0) > 0 ? `<div class="total-row"><span>Discount (${parseFloat(sale.discount).toFixed(2)}%):</span><span>-${formatCurrency((parseFloat(sale.total_amount || 0) - parseFloat(sale.final_amount || 0)))}</span></div>` : ''}

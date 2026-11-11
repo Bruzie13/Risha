@@ -310,6 +310,22 @@ async function ensureTillTables() {
             )`);
         try { await conn.execute('ALTER TABLE cash_reconciliations ADD COLUMN cash_in DECIMAL(12,2) NOT NULL DEFAULT 0'); } catch (e) { /* column exists */ }
         try { await conn.execute('ALTER TABLE cash_reconciliations ADD COLUMN cash_out DECIMAL(12,2) NOT NULL DEFAULT 0'); } catch (e) { /* column exists */ }
+        // Part of a sale voided: which items, how many, and why (Ms Mel, 12 Nov)
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS sale_voids (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                sale_id INT NOT NULL,
+                sale_item_id INT NULL,
+                product_id INT NOT NULL,
+                product_name VARCHAR(255) NULL,
+                quantity INT NOT NULL,
+                unit_price DECIMAL(10,2) NOT NULL,
+                amount DECIMAL(12,2) NOT NULL,
+                reason VARCHAR(300) NULL,
+                voided_by INT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_sv_sale (sale_id)
+            )`);
         // A cashier's request for a manager to void a sale.
         try { await conn.execute('ALTER TABLE sales ADD COLUMN void_requested_at DATETIME NULL'); } catch (e) { /* column exists */ }
         try { await conn.execute('ALTER TABLE sales ADD COLUMN void_request_reason VARCHAR(300) NULL'); } catch (e) { /* column exists */ }

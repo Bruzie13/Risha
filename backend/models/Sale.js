@@ -37,7 +37,8 @@ class Sale {
                         UNIX_TIMESTAMP(s.created_at) * 1000 as created_at,
                         UNIX_TIMESTAMP(s.updated_at) * 1000 as updated_at,
                         u.full_name as staff_name,
-                 (SELECT COUNT(*) FROM sale_items si WHERE si.sale_id = s.id) as item_count
+                 (SELECT COUNT(*) FROM sale_items si WHERE si.sale_id = s.id) as item_count,
+                 (s.notes LIKE '%PARTLY VOIDED:%') as partly_voided
                  FROM sales s
                  LEFT JOIN users u ON s.created_by = u.id`;
             sql += Sale._filterWhere(filters, params);
@@ -102,6 +103,7 @@ class Sale {
                         s.void_requested_at IS NOT NULL as void_requested, s.void_request_reason,
                         UNIX_TIMESTAMP(s.created_at) * 1000 as created_at,
                         UNIX_TIMESTAMP(s.updated_at) * 1000 as updated_at,
+                        (s.notes LIKE '%PARTLY VOIDED:%') as partly_voided,
                         u.full_name as staff_name 
                  FROM sales s 
                  LEFT JOIN users u ON s.created_by = u.id 
@@ -382,6 +384,71 @@ class Sale {
             throw err;
         } finally {
             connection.release();
+        }
+    }
+
+    /**
+     * Voids some items of a sale (utils/saleVoid.js planVoid). The items go
+     * back to stock, the sale's lines and totals are lowered, and each voided
+     * line is kept in sale_voids. When every item is voided the sale is
+     * voided as a whole instead. Returns { error } or { partial, ...plan }.
+     */
+    static async voidItems(id, requested, reason, userId) {
+        const { planVoid } = require('../utils/saleVoid');
+        const connection = await pool.getConnection();
+        try {
+            await connection.beginTransaction();
+            const [rows] = await connection.execute('SELECT payment_status, discount FROM sales WHERE id = ? FOR UPDATE', [id]);
+            if (!rows.length) { await connection.rollback(); return { error: 'Sale not found' }; }
+            if (rows[0].payment_status === 'voided') { await connection.rollback(); return { error: 'Sale is already voided' }; }
+            const [items] = await connection.execute(
+                `SELECT si.id, si.product_id, si.quantity, si.unit_price, p.name AS product_name
+                 FROM sale_items si JOIN products p ON p.id = si.product_id WHERE si.sale_id = ? FOR UPDATE`, [id]);
+            const plan = planVoid(items, requested, rows[0].discount);
+            if (plan.error) { await connection.rollback(); return { error: plan.error }; }
+            if (plan.whole) { await connection.rollback(); return { whole: true }; }
+            for (const l of plan.lines) {
+                await connection.execute('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?', [l.quantity, l.product_id]);
+                await connection.execute(
+                    `INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, reference_id, notes)
+                     VALUES (?, 'in', ?, 'sale_void', ?, ?)`,
+                    [l.product_id, l.quantity, id, `Sale #${id}: ${l.quantity} voided and returned to stock`]);
+                if (l.left > 0) {
+                    await connection.execute('UPDATE sale_items SET quantity = ?, subtotal = ? WHERE id = ?',
+                        [l.left, Math.round(l.left * l.unit_price * 100) / 100, l.id]);
+                } else {
+                    await connection.execute('DELETE FROM sale_items WHERE id = ?', [l.id]);
+                }
+                await connection.execute(
+                    `INSERT INTO sale_voids (sale_id, sale_item_id, product_id, product_name, quantity, unit_price, amount, reason, voided_by)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [id, l.id, l.product_id, l.product_name || null, l.quantity, l.unit_price, l.amount, reason || null, userId || null]);
+            }
+            const said = plan.lines.map(l => `${l.quantity} x ${l.product_name || 'item'}`).join(', ');
+            await connection.execute(
+                `UPDATE sales SET total_amount = ?, final_amount = ?,
+                        notes = CONCAT(COALESCE(CONCAT(notes, ' | '), ''), 'PARTLY VOIDED: ', ?)
+                 WHERE id = ?`, [plan.total, plan.final, `${said} (${reason || 'no reason given'})`.slice(0, 600), id]);
+            await connection.commit();
+            return { partial: true, ...plan };
+        } catch (err) {
+            await connection.rollback();
+            throw err;
+        } finally {
+            connection.release();
+        }
+    }
+
+    static async getVoids(saleId) {
+        try {
+            const [rows] = await pool.query(
+                `SELECT v.product_name, v.quantity, v.unit_price, v.amount, v.reason,
+                        UNIX_TIMESTAMP(v.created_at) * 1000 AS voided_at, u.full_name AS voided_by
+                 FROM sale_voids v LEFT JOIN users u ON u.id = v.voided_by
+                 WHERE v.sale_id = ? ORDER BY v.id`, [saleId]);
+            return rows;
+        } catch (e) {
+            return [];      // before the table exists
         }
     }
 

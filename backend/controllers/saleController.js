@@ -84,9 +84,10 @@ exports.getSaleById = async (req, res) => {
         }
 
         const items = await Sale.getSaleItems(id);
+        const voids = await Sale.getVoids(id);
         res.status(200).json({
             success: true,
-            data: { ...sale, items }
+            data: { ...sale, items, voids }
         });
     } catch (error) {
         console.error('Get sale error:', error);
@@ -262,6 +263,23 @@ exports.voidSale = async (req, res) => {
             `SELECT s.final_amount, s.void_requested_at, u.full_name AS cashier,
                     (SELECT full_name FROM users WHERE id = ?) AS by_name
              FROM sales s LEFT JOIN users u ON u.id = s.created_by WHERE s.id = ?`, [req.user.id, id]);
+        // Some items only (Ms Mel, 12 Nov): the rest of the sale stays
+        if (Array.isArray(req.body && req.body.items) && req.body.items.length) {
+            const part = await Sale.voidItems(id, req.body.items, reason, req.user.id);
+            if (part.error) return res.status(400).json({ success: false, message: part.error });
+            if (part.partial) {
+                const units = part.lines.reduce((a, l) => a + l.quantity, 0);
+                const said = part.lines.map(l => `${l.quantity} × ${l.product_name}`).join(', ');
+                logAudit(req.user.id, 'update', 'sales', parseInt(id), null, { partly_voided: said, reason, removed: part.removed, now: part.final }, req.ip);
+                if (before) Notification.create({
+                    title: `Sale partly voided: #${id}`, type: 'info', related_type: 'sale', related_id: Number(id),
+                    message: `${said} voided from a sale by ${before.cashier || 'a cashier'}. The sale is now ₱${part.final.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`
+                }).catch(e => console.error('Notif error:', e.message));
+                const peso = n => '₱' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                return res.status(200).json({ success: true, message: `${units} item${units === 1 ? '' : 's'} voided (${said}) and returned to stock. The sale is now ${peso(part.final)}.`, data: part });
+            }
+            // every item was chosen: void the whole sale, as below
+        }
         const result = await Sale.void(id, reason);
         if (result.error) {
             return res.status(400).json({ success: false, message: result.error });

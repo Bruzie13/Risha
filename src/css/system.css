@@ -1908,3 +1908,25 @@ button.rp-bar-row.is-link:focus-visible { outline: 2px solid var(--primary); out
 .sp-priority-tag { display: inline-flex; align-items: center; gap: 2px; font-weight: 800; }
 .sp-priority-tag .material-symbols-outlined { font-size: 15px; }
 .sp-stage-priority { margin-top: 2px; font-size: 11.5px; font-weight: 800; color: #fff; background: var(--danger); border-radius: 999px; padding: 1px 8px; }
+
+/* Sales history → Void: how many of each item (Ms Mel, 12 Nov) */
+.void-lines { margin: 14px 0 4px; text-align: left; border: 1px solid var(--border-glass); border-radius: 12px; overflow: hidden; }
+.void-line { display: grid; grid-template-columns: minmax(0, 1fr) 52px 76px; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--border-subtle); font-size: 13.5px; }
+.void-line:first-child { border-top: 0; }
+.void-head { background: var(--bg-raised, var(--bg-card)); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+.void-line b { display: block; color: var(--text-primary); font-weight: 600; overflow-wrap: anywhere; }
+.void-line small { color: var(--text-muted); font-size: 12px; }
+.void-line > span:nth-child(2) { text-align: center; font-variant-numeric: tabular-nums; }
+.void-line .void-qty { min-height: 36px; padding: 6px 8px; text-align: center; }
+.void-sum { margin-top: 10px; font-size: 13.5px; color: var(--text-secondary); text-align: left; }
+.void-sum b { color: var(--text-primary); }
+.void-error { margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--danger); text-align: left; min-height: 0; }
+
+/* Big money figures behind an eye (js/auth.js PRIVATE_MONEY), like the cashier's drawer amount */
+.pm-wrap { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; vertical-align: middle; }
+.pm-value.is-hidden { visibility: hidden; position: relative; }
+.pm-value.is-hidden::before { content: '••••'; visibility: visible; position: absolute; left: 0; top: 50%; transform: translateY(-50%); letter-spacing: 2px; white-space: nowrap; }
+.pm-eye { display: grid; place-items: center; flex: none; width: 30px; height: 30px; padding: 0; border-radius: var(--radius-sm, 8px); border: 1px solid var(--border-glass-strong, var(--border-glass)); background: var(--bg-card); color: var(--text-secondary); cursor: pointer; }
+.pm-eye .material-symbols-outlined { font-size: 18px; }
+@media (hover: hover) and (pointer: fine) { .pm-eye:hover { color: var(--text-primary); background: var(--bg-raised, var(--gray-50)); } }
+.pm-eye:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

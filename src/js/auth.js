@@ -1459,6 +1459,63 @@ function couldNot(action, err) {
     return 'Could not ' + action + ': ' + String(err.message || err).replace(/\.$/, '') + '.';
 }
 
+/* Big money figures behind an eye, like the cashier's drawer amount (Carlo,
+   12 Nov): shown as •••• until the eye beside them is pressed, so they are
+   not read off the screen over someone's shoulder. Each page starts hidden.
+   The figures are found by these selectors and guarded as they appear, so the
+   code that fills them in does not need to know. */
+const PRIVATE_MONEY = ['#totalSalesAmount', '#todaysSales', '#totalValue', '#inventoryValue',
+    '#summaryRevenue', '#summaryAvg', '#kpiForecastRevenue', '.pb-money-amt'];
+const privateShown = new Set();
+function guardPrivateMoney() {
+    PRIVATE_MONEY.forEach(sel => document.querySelectorAll(sel).forEach(el => {
+        const shown = privateShown.has(sel);
+        if (!el.dataset.pm) {
+            el.dataset.pm = sel;
+            el.classList.add('pm-value');
+            const wrap = document.createElement('span');
+            wrap.className = 'pm-wrap';
+            el.parentNode.insertBefore(wrap, el);
+            wrap.appendChild(el);
+            const eye = document.createElement('button');
+            eye.type = 'button';
+            eye.className = 'pm-eye';
+            eye.dataset.pmFor = sel;
+            eye.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">visibility</span>';
+            wrap.appendChild(eye);
+        }
+        el.classList.toggle('is-hidden', !shown);
+        // the full amount in a hover tip would give it away
+        if (!shown && el.title) { el.dataset.pmTitle = el.title; el.removeAttribute('title'); }
+        if (shown && el.dataset.pmTitle && !el.title) el.title = el.dataset.pmTitle;
+        const eye = el.parentNode.querySelector('.pm-eye');
+        if (eye) {
+            eye.title = shown ? 'Hide the amount' : 'Show the amount';
+            eye.setAttribute('aria-label', eye.title);
+            eye.setAttribute('aria-pressed', shown ? 'true' : 'false');
+            eye.firstElementChild.textContent = shown ? 'visibility_off' : 'visibility';
+        }
+    }));
+}
+document.addEventListener('click', e => {
+    const eye = e.target.closest('.pm-eye');
+    if (!eye) return;
+    e.preventDefault(); e.stopPropagation();
+    const sel = eye.dataset.pmFor;
+    if (privateShown.has(sel)) privateShown.delete(sel); else privateShown.add(sel);
+    guardPrivateMoney();
+}, true);
+(function watchPrivateMoney() {
+    let queued = false;
+    const run = () => { queued = false; guardPrivateMoney(); };
+    const start = () => {
+        guardPrivateMoney();
+        new MutationObserver(() => { if (!queued) { queued = true; requestAnimationFrame(run); } })
+            .observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['title'] });
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+
 /* A priority order: the admin ticks it when the shop needs the order sooner,
    e.g. the product sells fast (Carlo, 12 Nov). The supplier sees it first,
    tagged red, and the system sets its delivery within 2 days. The box keeps
