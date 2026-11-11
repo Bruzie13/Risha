@@ -44,11 +44,14 @@ function promiseProblem(day, today) {
      - never more than MAX_DELIVERY_DAYS, never less than 1
    Returns { day, days, sensitive }. */
 const SENSITIVE_DELIVERY_DAYS = 3;
-function autoDeliveryDays(today, { sensitive = false, supplierDays = null } = {}) {
+// a priority order (the admin needs it sooner) comes within this many days
+const PRIORITY_DELIVERY_DAYS = 2;
+function autoDeliveryDays(today, { sensitive = false, supplierDays = null, priority = false } = {}) {
     let days = Number(supplierDays) > 0 ? Math.ceil(Number(supplierDays)) : MAX_DELIVERY_DAYS;
     if (sensitive) days = Math.min(days, SENSITIVE_DELIVERY_DAYS);
+    if (priority) days = Math.min(days, PRIORITY_DELIVERY_DAYS);
     days = Math.max(1, Math.min(MAX_DELIVERY_DAYS, days));
-    return { day: toDay(dayMs(today) + days * DAY_MS), days, sensitive: !!sensitive };
+    return { day: toDay(dayMs(today) + days * DAY_MS), days, sensitive: !!sensitive, priority: !!priority };
 }
 
 /* What the supplier says they can actually send. Each line may be anything
@@ -240,4 +243,4 @@ function productOfferProblem(o) {
    vacation ones can, with a warning to the shop. */
 const SUPPLIER_STATUSES = { active: 'Active', inactive: 'Inactive', vacation: 'On vacation', deactivated: 'Deactivated' };
 
-module.exports = { MAX_DELIVERY_DAYS, SENSITIVE_DELIVERY_DAYS, autoDeliveryDays, OFFER_SPECIES, productOfferProblem, SUPPLIER_STATUSES, PAYMENT_METHODS, paymentProblem, termDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, declineReasonProblem, DECLINE_REASON_MAX, scorecard, starRating, STAR_RULE, reorderSupplierProblem };
+module.exports = { MAX_DELIVERY_DAYS, SENSITIVE_DELIVERY_DAYS, PRIORITY_DELIVERY_DAYS, autoDeliveryDays, OFFER_SPECIES, productOfferProblem, SUPPLIER_STATUSES, PAYMENT_METHODS, paymentProblem, termDays, dueDate, promiseProblem, confirmLines, proposalLines, priceProblem, declineReasonProblem, DECLINE_REASON_MAX, scorecard, starRating, STAR_RULE, reorderSupplierProblem };

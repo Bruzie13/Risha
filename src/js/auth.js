@@ -1459,6 +1459,18 @@ function couldNot(action, err) {
     return 'Could not ' + action + ': ' + String(err.message || err).replace(/\.$/, '') + '.';
 }
 
+/* A priority order: the admin ticks it when the shop needs the order sooner,
+   e.g. the product sells fast (Carlo, 12 Nov). The supplier sees it first,
+   tagged red, and the system sets its delivery within 2 days. The box keeps
+   its answer in priorityOrderChosen, because the confirm windows close before
+   they run their action. */
+let priorityOrderChosen = false;
+function priorityOrderBox() {
+    priorityOrderChosen = false;
+    return `<label class="po-priority"><input type="checkbox" onchange="priorityOrderChosen = this.checked">
+        <span><b>Priority order</b><small>For a product that sells fast or is needed soon. The supplier sees it first and it is delivered within 2 days.</small></span></label>`;
+}
+
 /* Delivery dates, the way an online shop shows them (Ms Mel, 12 Nov: like
    Shopee or TikTok Shop, a week at most). The supplier picks the latest day
    it will arrive, no more than MAX_DELIVERY_DAYS from today (the server

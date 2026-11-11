@@ -248,7 +248,7 @@ router.get('/orders', async (req, res) => {
                     DATE_FORMAT(po.order_date, '%Y-%m-%d') AS order_date,
                     DATE_FORMAT(po.expected_delivery_date, '%Y-%m-%d') AS expected_delivery_date,
                     DATE_FORMAT(po.promised_date, '%Y-%m-%d') AS promised_date,
-                    po.promise_note, po.delivery_ref, po.proposed_by_supplier,
+                    po.promise_note, po.delivery_ref, po.proposed_by_supplier, po.priority,
                     ${DAY('po.received_at')} AS received_day,
                     ${DAY('po.cancelled_at')} AS cancelled_day, po.cancel_note, po.cancelled_by_supplier,
                     po.paid_at IS NOT NULL AS paid,
@@ -273,6 +273,7 @@ router.get('/orders', async (req, res) => {
         orders.forEach(o => {
             o.paid = !!o.paid;
             o.proposed_by_supplier = !!o.proposed_by_supplier;
+            o.priority = Number(o.priority) === 1;
             o.cancelled_by_supplier = !!o.cancelled_by_supplier;
             o.payment_tracked = !!o.payment_tracked;
             o.payment_due = o.payment_tracked && !o.paid ? dueDate(o.received_day, req.supplier.payment_terms) : null;
@@ -303,7 +304,7 @@ router.get('/orders/:id/order-receipt', async (req, res) => {
    (utils/supply.js autoDeliveryDays): its own usual delivery time from its
    received orders, sooner for a product with an expiration date. */
 const niceDay = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
-async function autoPromise(supplierId, productIds) {
+async function autoPromise(supplierId, productIds, priority = false) {
     const ids = [...new Set((productIds || []).map(Number).filter(n => n > 0))];
     const [[lead], sens] = await Promise.all([
         pool.query(
@@ -317,7 +318,7 @@ async function autoPromise(supplierId, productIds) {
     ]);
     const supplierDays = lead && lead[0] && Number(lead[0].n) >= 2 ? Number(lead[0].days) : null;
     const sensRow = sens && sens[0] && sens[0][0];
-    return autoDeliveryDays(shopToday(), { sensitive: Number(sensRow && sensRow.n) > 0, supplierDays });
+    return autoDeliveryDays(shopToday(), { sensitive: Number(sensRow && sensRow.n) > 0, supplierDays, priority: !!priority });
 }
 
 /* The delivery date the system would set, shown before the supplier confirms
@@ -325,17 +326,18 @@ async function autoPromise(supplierId, productIds) {
    ?order=ID for an order of theirs, or ?products=1,2,3 for an offer. */
 router.get('/delivery-estimate', async (req, res) => {
     try {
-        let ids = [];
+        let ids = [], priority = false;
         if (req.query.order) {
             const [rows] = await pool.query(
-                `SELECT pi.product_id FROM po_items pi JOIN purchase_orders po ON po.id = pi.po_id
+                `SELECT pi.product_id, po.priority FROM po_items pi JOIN purchase_orders po ON po.id = pi.po_id
                  WHERE po.id = ? AND po.supplier_id = ?`, [Number(req.query.order), req.supplier.id]);
             ids = rows.map(r => r.product_id);
+            priority = rows.some(r => Number(r.priority) === 1);
         } else {
             ids = String(req.query.products || '').split(',').map(Number).filter(n => n > 0).slice(0, 50);
         }
-        const auto = await autoPromise(req.supplier.id, ids);
-        res.json({ success: true, data: { today: shopToday(), day: auto.day, days: auto.days, sensitive: auto.sensitive } });
+        const auto = await autoPromise(req.supplier.id, ids, priority);
+        res.json({ success: true, data: { today: shopToday(), day: auto.day, days: auto.days, sensitive: auto.sensitive, priority: auto.priority } });
     } catch (e) { fail(res, 'delivery estimate', e); }
 });
 
@@ -348,7 +350,7 @@ router.post('/orders/:id/confirm', async (req, res) => {
         if (order.status !== 'pending') return bad(res, 'Only an order waiting for confirmation can be confirmed.');
 
         const items = await PurchaseOrder.getPOItems(order.id);
-        const auto = await autoPromise(req.supplier.id, items.map(i => i.product_id));
+        const auto = await autoPromise(req.supplier.id, items.map(i => i.product_id), Number(order.priority) === 1);
         const day = auto.day;
         const result = confirmLines(items, req.body?.items);
         if (result.error) return bad(res, result.error);

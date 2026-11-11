@@ -698,6 +698,8 @@ async function ensureSupplierOffers() {
         // Active, Inactive, On vacation or Deactivated. Separate from is_active,
         // which is FALSE only for a supplier moved to the Trash.
         await add("ALTER TABLE suppliers ADD COLUMN status ENUM('active','inactive','vacation','deactivated') NOT NULL DEFAULT 'active'");
+        // an order the shop needs sooner, e.g. a product that sells fast (Carlo, 12 Nov)
+        await add("ALTER TABLE purchase_orders ADD COLUMN priority TINYINT(1) NOT NULL DEFAULT 0");
         // a price change the supplier took back before the shop decided
         try {
             await conn.execute("ALTER TABLE price_proposals MODIFY status ENUM('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending'");

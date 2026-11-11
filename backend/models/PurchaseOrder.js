@@ -6,7 +6,7 @@ class PurchaseOrder {
         const connection = await pool.getConnection();
         try {
             let sql = `SELECT po.id, po.po_number, po.supplier_id, po.order_date, po.expected_delivery_date,
-                        po.total_amount, po.status, po.notes, po.created_by,
+                        po.total_amount, po.status, po.notes, po.created_by, po.priority,
                         UNIX_TIMESTAMP(po.created_at) * 1000 as created_at,
                         UNIX_TIMESTAMP(po.updated_at) * 1000 as updated_at,
                         UNIX_TIMESTAMP(po.confirmed_at) * 1000 as confirmed_at,
@@ -43,7 +43,7 @@ class PurchaseOrder {
         try {
             const [rows] = await connection.execute(
                 `SELECT po.id, po.po_number, po.supplier_id, po.order_date, po.expected_delivery_date,
-                        po.total_amount, po.status, po.notes, po.created_by,
+                        po.total_amount, po.status, po.notes, po.created_by, po.priority,
                         UNIX_TIMESTAMP(po.created_at) * 1000 as created_at,
                         UNIX_TIMESTAMP(po.updated_at) * 1000 as updated_at,
                         UNIX_TIMESTAMP(po.confirmed_at) * 1000 as confirmed_at,
@@ -89,8 +89,8 @@ class PurchaseOrder {
             const [result] = await connection.execute(
                 `INSERT INTO purchase_orders 
                  (po_number, supplier_id, order_date, expected_delivery_date, total_amount, 
-                  status, notes, created_by) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                  status, notes, created_by, priority) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     poNumber,
                     poData.supplier_id,
@@ -99,7 +99,8 @@ class PurchaseOrder {
                     poData.total_amount || 0,
                     poData.status || 'pending',
                     poData.notes || null,
-                    poData.created_by || null
+                    poData.created_by || null,
+                    poData.priority ? 1 : 0
                 ]
             );
 

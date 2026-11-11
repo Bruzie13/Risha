@@ -778,12 +778,12 @@ function createPlannedOrders(ids) {
         ? `This orders <strong>${formatNumber(lines[0].suggested_order)} of ${escHtml(lines[0].name)}</strong>${total ? ` (${formatCurrency(total)})` : ''} from ${escHtml(lines[0].supplier_name || 'its supplier')}`
         : `This creates ${suppliers} purchase order${suppliers === 1 ? '' : 's'} covering ${lines.length} products${total ? ` (${formatCurrency(total)})` : ''}`;
     showConfirmDialog(lines.length === 1 ? 'Reorder ' + escHtml(lines[0].name) : 'Order this week',
-        `${what}, and <strong>emails ${suppliers === 1 ? 'the order to the supplier' : 'each order to its supplier'} straight away</strong>.`,
+        `${what}, and <strong>emails ${suppliers === 1 ? 'the order to the supplier' : 'each order to its supplier'} straight away</strong>.${priorityOrderBox()}`,
         async () => {
             try {
                 const res = await fetch(`${API_BASE}/purchase-orders/auto-generate`, {
                     method: 'POST', headers: getAuthHeaders(),
-                    body: JSON.stringify({ items: lines.map(p => ({ product_id: p.product_id, quantity: p.suggested_order })) })
+                    body: JSON.stringify({ items: lines.map(p => ({ product_id: p.product_id, quantity: p.suggested_order })), priority: priorityOrderChosen })
                 });
                 const data = await res.json();
                 if (!data.success) { showToast(data.message || 'The orders could not be created', 'error'); return; }

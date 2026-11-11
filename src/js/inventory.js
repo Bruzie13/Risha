@@ -1483,7 +1483,7 @@ async function autoReorder(given) {
             // Second confirmation before the purchase orders are created
             showConfirmDialog(
                 'Final check',
-                `This orders ${formatNumber(units)} item${units === 1 ? '' : 's'} of ${ids.length} product${ids.length === 1 ? '' : 's'} and <strong>emails each order to its supplier straight away</strong>. Proceed?`,
+                `This orders ${formatNumber(units)} item${units === 1 ? '' : 's'} of ${ids.length} product${ids.length === 1 ? '' : 's'} and <strong>emails each order to its supplier straight away</strong>. Proceed?${priorityOrderBox()}`,
                 () => doReorder(items),
                 'Create and email orders',
                 '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">receipt_long</span>'
@@ -1516,7 +1516,7 @@ async function doReorder(items) {
     try {
         const response = await fetch(`${API_URL}/purchase-orders/auto-generate`, {
             method: 'POST', headers: getAuthHeaders(),
-            body: JSON.stringify({ items })
+            body: JSON.stringify({ items, priority: priorityOrderChosen })
         });
         const data = await response.json();
         if (data.success) {
@@ -1787,7 +1787,8 @@ async function openReorderDialog(id) {
         <label class="form-label" for="reorderQty" style="display:block;margin-top:12px;text-align:left;">How many to order</label>
         <input id="reorderQty" class="form-input" type="text" inputmode="numeric" autocomplete="off" maxlength="5" value="${reorderSuggestion(p)}">
         <div id="reorderNote" style="margin-top:8px;font-size:13px;color:var(--text-muted);text-align:left;"></div>
-        <div id="reorderError" role="alert" style="display:none;margin-top:8px;font-size:13px;font-weight:600;color:var(--danger);text-align:left;"></div>`}`);
+        <div id="reorderError" role="alert" style="display:none;margin-top:8px;font-size:13px;font-weight:600;color:var(--danger);text-align:left;"></div>
+        ${priorityOrderBox()}`}`);
     body.insertAdjacentHTML('afterend', noSupplier
         ? dialogActions('Close', 'Edit product', 'btn-primary')
         : dialogActions('Cancel', 'Send order', 'btn-primary'));
@@ -1829,7 +1830,7 @@ async function openReorderDialog(id) {
         try {
             const res = await fetch(`${API_URL}/purchase-orders/auto-generate`, {
                 method: 'POST', headers: getAuthHeaders(),
-                body: JSON.stringify({ items: [{ product_id: p.id, quantity: Number(input.value.trim()) }] })
+                body: JSON.stringify({ items: [{ product_id: p.id, quantity: Number(input.value.trim()) }], priority: priorityOrderChosen })
             });
             const data = await res.json();
             close();

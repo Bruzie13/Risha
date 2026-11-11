@@ -78,6 +78,7 @@
         var parts = [];
         if (o.order_date) parts.push('Ordered ' + escHtml(niceDay(o.order_date)));
         if (o.expected_delivery_date && !o.proposed_by_supplier) parts.push('you asked for it by ' + escHtml(niceDay(o.expected_delivery_date)));
+        if (o.priority) parts.unshift('<span class="rp-badge rp-badge-danger sp-priority-tag">Priority</span>');
         var line = parts.join(', ');
         if (o.promised_date) {
             var late = (o.status === 'confirmed' || o.status === 'shipped') && o.promised_date < todayYmd();

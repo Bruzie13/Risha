@@ -519,9 +519,10 @@ async function sendOrderUpdateEmail(kind, supplierId, supplierEmail, supplierNam
     return deliver(trackingId, supplierEmail, { to: supplierEmail, ...mail }, `PO ${poNumber}`);
 }
 
-async function sendPOEmail(supplierId, supplierEmail, supplierName, poNumber, items, totalAmount) {
-    const trackingId = await logEmail(supplierId, supplierEmail, `PO ${poNumber}`, 'po');
+async function sendPOEmail(supplierId, supplierEmail, supplierName, poNumber, items, totalAmount, priority = false) {
+    const trackingId = await logEmail(supplierId, supplierEmail, `${priority ? 'PRIORITY ' : ''}PO ${poNumber}`, 'po');
     const mail = templates.purchaseOrder({ supplierName, poNumber, items, totalAmount, trackingId });
+    if (priority) mail.subject = 'PRIORITY: ' + mail.subject;
     return deliver(trackingId, supplierEmail, { to: supplierEmail, ...mail }, `PO ${poNumber}`);
 }
 

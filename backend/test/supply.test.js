@@ -172,10 +172,17 @@ test('paying a supplier: how it was paid, and its reference number', () => {
 });
 
 test('the delivery date is set by the system: the supplier\'s own time, sooner for perishables, a week at most', () => {
-    assert.deepEqual(autoDeliveryDays('2026-11-12'), { day: '2026-11-19', days: 7, sensitive: false }, 'no history: a week');
+    assert.deepEqual(autoDeliveryDays('2026-11-12'), { day: '2026-11-19', days: 7, sensitive: false, priority: false }, 'no history: a week');
     assert.equal(autoDeliveryDays('2026-11-12', { supplierDays: 2.2 }).day, '2026-11-15', 'its own usual time, rounded up');
     assert.equal(autoDeliveryDays('2026-11-12', { supplierDays: 12 }).days, 7, 'never more than a week');
     assert.equal(autoDeliveryDays('2026-11-12', { sensitive: true }).days, 3, 'a product with an expiration date: 3 days');
     assert.equal(autoDeliveryDays('2026-11-12', { sensitive: true, supplierDays: 1 }).days, 1, 'a fast supplier stays fast');
     assert.equal(autoDeliveryDays('2026-11-29', { sensitive: true }).day, '2026-12-02', 'across a month');
+});
+
+test('a priority order comes within 2 days, whatever else applies', () => {
+    assert.equal(autoDeliveryDays('2026-11-12', { priority: true }).day, '2026-11-14');
+    assert.equal(autoDeliveryDays('2026-11-12', { priority: true, sensitive: true, supplierDays: 6 }).days, 2);
+    assert.equal(autoDeliveryDays('2026-11-12', { priority: true, supplierDays: 1 }).days, 1, 'a supplier faster than that stays faster');
+    assert.equal(autoDeliveryDays('2026-11-12', { priority: false, supplierDays: 6 }).days, 6);
 });

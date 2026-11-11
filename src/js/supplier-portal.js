@@ -478,7 +478,7 @@ function renderOrders() {
     const tabs = `<div class="sp-stage-tabs" role="tablist" aria-label="Order stage">${Object.entries(stages).map(([k, st]) =>
         `<button type="button" class="sp-stage${k === openStage ? ' is-active' : ''}" role="tab" aria-selected="${k === openStage}" data-stage="${k}">
             <span class="material-symbols-outlined" aria-hidden="true">${st.icon}</span><span class="sp-stage-label">${st.label}</span>
-            <span class="sp-stage-count" title="${st.list.length} order${st.list.length === 1 ? '' : 's'} ${st.label.toLowerCase()}">${formatNumber(st.list.length)} order${st.list.length === 1 ? '' : 's'}</span>
+            <span class="sp-stage-count" title="${st.list.length} order${st.list.length === 1 ? '' : 's'} ${st.label.toLowerCase()}">${formatNumber(st.list.length)} order${st.list.length === 1 ? '' : 's'}</span>${k !== 'received' && st.list.some(o => o.priority) ? `<span class="sp-stage-priority">${formatNumber(st.list.filter(o => o.priority).length)} priority</span>` : ''}
         </button>`).join('')}</div>`;
     const card = o => {
         const s = ORDER_STATUS[o.status] || { text: o.status, tone: 'ok' };
@@ -494,7 +494,7 @@ function renderOrders() {
         };
         return `<div class="sp-order" data-order="${id}">
             <div class="sp-order-head">
-                <span class="sp-order-title">${escHtml(o.po_number)}<span class="rp-badge rp-badge-${s.tone}">${escHtml(s.text)}</span></span>
+                <span class="sp-order-title">${escHtml(o.po_number)}${o.priority ? '<span class="rp-badge rp-badge-danger sp-priority-tag"><span class="material-symbols-outlined" aria-hidden="true">priority_high</span>Priority</span>' : ''}<span class="rp-badge rp-badge-${s.tone}">${escHtml(s.text)}</span></span>
                 <span class="sp-order-total">${formatCurrency(o.total_amount)}</span>
             </div>
             ${poProgressHtml(o.status)}
@@ -506,7 +506,7 @@ function renderOrders() {
         </div>`;
     };
     // newest first; a long stage (Received) shows a few at a time
-    const all = [...stages[openStage].list].sort((a, b) => String(b.received_day || b.order_date || '').localeCompare(String(a.received_day || a.order_date || '')) || Number(b.id) - Number(a.id));
+    const all = [...stages[openStage].list].sort((a, b) => (openStage !== 'received' ? Number(!!b.priority) - Number(!!a.priority) : 0) || String(b.received_day || b.order_date || '').localeCompare(String(a.received_day || a.order_date || '')) || Number(b.id) - Number(a.id));
     const shown = all.slice(0, openShown);
     const more = all.length - shown.length;
     box.innerHTML = tabs + (shown.length ? shown.map(card).join('') : `<p class="rp-loading">${stages[openStage].empty}</p>`)
@@ -673,7 +673,9 @@ async function fillEta(query, firstStep = 'Confirmed') {
         if (!data.success) throw new Error(data.message);
         const e = data.data, from = etaStart(e.day);
         const days = from === e.day ? etaWeekday(e.day) : `${etaWeekday(from)} – ${etaWeekday(e.day)}`;
-        const why = e.sensitive
+        const why = e.priority
+            ? `This is a priority order, so it comes within ${e.days} day${e.days === 1 ? '' : 's'}.`
+            : e.sensitive
             ? `A product here has an expiration date, so it comes within ${e.days} day${e.days === 1 ? '' : 's'}.`
             : `Your usual delivery time: ${e.days} day${e.days === 1 ? '' : 's'} (${MAX_DELIVERY_DAYS} at most).`;
         if (!document.body.contains(box)) return;

@@ -114,6 +114,8 @@ exports.updatePOStatus = async (req, res) => {
 exports.autoGeneratePO = async (req, res) => {
     try {
         const { product_ids } = req.body;
+        // the admin marks an order priority when the shop needs it sooner, e.g. it sells fast
+        const priority = req.body.priority === true;
         let lowStockProducts;
 
         /* Orders raised from the stock-planning forecast arrive as explicit
@@ -263,8 +265,9 @@ exports.autoGeneratePO = async (req, res) => {
             const orderData = {
                 supplier_id: parseInt(supplierId),
                 total_amount,
-                notes: planned.size ? 'Purchase order raised from the stock-planning forecast' : 'Auto-generated purchase order for low stock products',
+                notes: (priority ? 'PRIORITY: needed sooner. ' : '') + (planned.size ? 'Purchase order raised from the stock-planning forecast' : 'Auto-generated purchase order for low stock products'),
                 created_by: req.user.id,
+                priority,
                 items
             };
             const order = await PurchaseOrder.create(orderData);
@@ -290,7 +293,7 @@ exports.autoGeneratePO = async (req, res) => {
                 try {
                     const ok = await sendPOEmail(
                         supplier.id, supplier.email, supplier.name,
-                        order.po_number, items, order.total_amount
+                        order.po_number, items, order.total_amount, priority
                     );
                     emailResult.sent = !!ok;
                     emailResult.email = supplier.email;

@@ -24,7 +24,7 @@ exports.getBoard = async (req, res) => {
                     DATE_FORMAT(po.order_date, '%Y-%m-%d') AS order_date,
                     DATE_FORMAT(po.expected_delivery_date, '%Y-%m-%d') AS expected_delivery_date,
                     DATE_FORMAT(po.promised_date, '%Y-%m-%d') AS promised_date,
-                    po.promise_note, po.delivery_ref, po.proposed_by_supplier,
+                    po.promise_note, po.delivery_ref, po.proposed_by_supplier, po.priority,
                     ${DAY('po.received_at')} AS received_day,
                     s.id AS supplier_id, s.name AS supplier_name, s.is_active AS supplier_active,
                     s.phone AS supplier_phone, s.payment_terms, s.email AS supplier_email,
@@ -37,7 +37,7 @@ exports.getBoard = async (req, res) => {
                 OR (po.status = 'received' AND po.paid_at IS NULL
                     -- only orders received since payment tracking was switched on
                     AND ${DAY('po.received_at')} >= (SELECT setting_value FROM app_settings WHERE setting_key = 'payment_tracking_since'))
-             ORDER BY FIELD(po.status, 'proposed', 'shipped', 'confirmed', 'pending', 'received'),
+             ORDER BY FIELD(po.status, 'proposed', 'shipped', 'confirmed', 'pending', 'received'), po.priority DESC,
                       COALESCE(po.promised_date, po.expected_delivery_date) IS NULL,
                       COALESCE(po.promised_date, po.expected_delivery_date), po.id DESC
              LIMIT 300`);
