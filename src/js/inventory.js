@@ -810,8 +810,9 @@ async function viewProductDetails(id) {
                     <span class="details-value">${escHtml(product.description)}</span>
                 </div>` : ''}
             `;
-            document.getElementById('productDetailsContent').innerHTML = detailsHTML;
+            document.getElementById('productDetailsContent').innerHTML = detailsHTML + '<div class="ps-compare" id="psCompare"><p class="ps-one">Loading its suppliers…</p></div>';
             document.getElementById('productDetailsModal').classList.add('active');
+            if (typeof loadSupplierCompare === 'function') loadSupplierCompare(id);
         }
     } catch (error) {
         console.error('Error loading product details:', error);
@@ -1773,9 +1774,12 @@ async function openReorderDialog(id) {
     const unit = escHtml(p.unit_type || 'piece');
     const cost = Number(p.cost_price) || 0;
     const noSupplier = !p.supplier_id || !p.supplier_name;
+    // a product with more than one supplier: choose who to order from (js/product-suppliers.js)
+    const choice = noSupplier || typeof supplierChoiceHtml !== 'function' ? null : await supplierChoiceHtml(id);
     const { overlay, dialog } = buildDialogShell('confirmDialogOverlay', 'primary', 'add_shopping_cart', 'Reorder ' + escHtml(p.name),
         noSupplier
             ? 'This product has no supplier, so there is nobody to send the order to. Add one with Edit first.'
+            : choice ? 'Choose who to order from. The order is emailed to them as soon as you send it.'
             : `The order goes to <strong>${escHtml(p.supplier_name)}</strong> and is emailed to them as soon as you send it.`);
     const body = dialog.querySelector('.dialog-body');
     body.insertAdjacentHTML('beforeend', `
@@ -1783,7 +1787,7 @@ async function openReorderDialog(id) {
             <div><span style="color:var(--text-muted);">In stock</span><br><strong>${formatNumber(Number(p.stock_quantity) || 0)} ${unit}</strong></div>
             <div><span style="color:var(--text-muted);">Reorder level</span><br><strong>${formatNumber(Number(p.reorder_level) || 0)} ${unit}</strong></div>
         </div>
-        ${noSupplier ? '' : `
+        ${noSupplier ? '' : `${choice ? choice.html : ''}
         <label class="form-label" for="reorderQty" style="display:block;margin-top:12px;text-align:left;">How many to order</label>
         <input id="reorderQty" class="form-input" type="text" inputmode="numeric" autocomplete="off" maxlength="5" value="${reorderSuggestion(p)}">
         <div id="reorderNote" style="margin-top:8px;font-size:13px;color:var(--text-muted);text-align:left;"></div>
@@ -1807,11 +1811,14 @@ async function openReorderDialog(id) {
     const input = dialog.querySelector('#reorderQty');
     const note = dialog.querySelector('#reorderNote');
     const err = dialog.querySelector('#reorderError');
+    // the price of the supplier chosen, when there is a choice
+    const curCost = () => { const r = dialog.querySelector('input[name="psPick"]:checked'); return r && r.dataset.cost !== '' ? Number(r.dataset.cost) : cost; };
+    dialog.querySelectorAll('input[name="psPick"]').forEach(r => r.addEventListener('change', () => say()));
     const say = () => {
         const n = reorderQuantityProblem(input.value) ? null : Number(input.value.trim());
         note.innerHTML = n
-            ? (cost > 0
-                ? `${formatNumber(n)} ${unit} × ${formatCurrency(cost)} = <strong>${formatCurrency(n * cost)}</strong>`
+            ? (curCost() > 0
+                ? `${formatNumber(n)} ${unit} × ${formatCurrency(curCost())} = <strong>${formatCurrency(n * curCost())}</strong>`
                 : `No cost price on record for this product, so the order shows no total until one is set (Edit) or the supplier proposes one`) +
               ` · stock after it arrives: ${formatNumber((Number(p.stock_quantity) || 0) + n)} ${unit}` +
               (Number(p.max_stock_level) && (Number(p.stock_quantity) || 0) + n > Number(p.max_stock_level)
@@ -1830,7 +1837,7 @@ async function openReorderDialog(id) {
         try {
             const res = await fetch(`${API_URL}/purchase-orders/auto-generate`, {
                 method: 'POST', headers: getAuthHeaders(),
-                body: JSON.stringify({ items: [{ product_id: p.id, quantity: Number(input.value.trim()) }], priority: priorityOrderChosen })
+                body: JSON.stringify({ items: [{ product_id: p.id, quantity: Number(input.value.trim()), ...(dialog.querySelector('input[name="psPick"]:checked') ? { supplier_id: Number(dialog.querySelector('input[name="psPick"]:checked').value) } : {}) }], priority: priorityOrderChosen })
             });
             const data = await res.json();
             close();

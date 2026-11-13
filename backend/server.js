@@ -310,6 +310,20 @@ async function ensureTillTables() {
             )`);
         try { await conn.execute('ALTER TABLE cash_reconciliations ADD COLUMN cash_in DECIMAL(12,2) NOT NULL DEFAULT 0'); } catch (e) { /* column exists */ }
         try { await conn.execute('ALTER TABLE cash_reconciliations ADD COLUMN cash_out DECIMAL(12,2) NOT NULL DEFAULT 0'); } catch (e) { /* column exists */ }
+        // A product's other suppliers, besides products.supplier_id (the main
+        // one), each with its own price to the shop (Carlo, 14 Nov)
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS product_suppliers (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                product_id INT NOT NULL,
+                supplier_id INT NOT NULL,
+                cost_price DECIMAL(10,2) NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_product_supplier (product_id, supplier_id),
+                INDEX idx_ps_supplier (supplier_id)
+            )`);
+        // the expiration date of the batch each received line brought in
+        try { await conn.execute('ALTER TABLE po_items ADD COLUMN expiration_date DATE NULL'); } catch (e) { /* already there */ }
         // Part of a sale voided: which items, how many, and why (Ms Mel, 12 Nov)
         await conn.execute(`
             CREATE TABLE IF NOT EXISTS sale_voids (

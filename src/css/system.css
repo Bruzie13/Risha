@@ -1930,3 +1930,29 @@ button.rp-bar-row.is-link:focus-visible { outline: 2px solid var(--primary); out
 .pm-eye .material-symbols-outlined { font-size: 18px; }
 @media (hover: hover) and (pointer: fine) { .pm-eye:hover { color: var(--text-primary); background: var(--bg-raised, var(--gray-50)); } }
 .pm-eye:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* A product's suppliers compared (js/product-suppliers.js; mock-up B, Carlo 14 Nov) */
+.ps-compare { margin-top: 16px; padding-top: 14px; border-top: 1.5px solid var(--border-glass); text-align: left; }
+.ps-h { margin: 0 0 8px; font-size: 13px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); }
+.ps-one { margin: 0 0 10px; font-size: 13.5px; color: var(--text-secondary); }
+.ps-table-wrap { overflow-x: auto; border: 1.5px solid var(--border-glass); border-radius: 12px; }
+.ps-table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 420px; }
+.ps-table th, .ps-table td { padding: 9px 12px; border-top: 1px solid var(--border-subtle); text-align: left; vertical-align: top; }
+.ps-table thead th { border-top: 0; background: var(--bg-raised, var(--bg-card)); color: var(--text-primary); font-size: 13px; }
+.ps-table thead small { display: block; font-weight: 500; color: var(--text-muted); font-size: 12px; }
+.ps-table tbody th { font-weight: 600; color: var(--text-muted); font-size: 12.5px; white-space: nowrap; }
+.ps-table td { font-weight: 700; color: var(--text-primary); }
+.ps-table td.ps-top { background: var(--success-bg); color: var(--success); }
+.ps-table td.ps-top::after { content: " ✓"; font-weight: 800; }
+.ps-remove { border: 0; background: none; padding: 0; font: inherit; color: var(--danger); text-decoration: underline; cursor: pointer; }
+.ps-verdict { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--success-bg); border: 1px solid color-mix(in srgb, var(--success) 35%, transparent); font-size: 13.5px; color: var(--text-primary); }
+.ps-verdict .material-symbols-outlined { color: var(--success); font-size: 22px; flex: none; }
+.ps-note { margin: 8px 0 10px; font-size: 12.5px; color: var(--text-muted); }
+.ps-pick { display: grid; gap: 8px; text-align: left; }
+.ps-opt { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1.5px solid var(--border-glass); border-radius: 12px; cursor: pointer; }
+.ps-opt:has(input:checked) { border-color: var(--btn-tint); background: color-mix(in srgb, var(--btn-tint) 8%, var(--bg-card)); }
+.ps-opt input { width: 16px; height: 16px; accent-color: var(--btn-tint); margin: 0; }
+.ps-opt b { color: var(--text-primary); }
+.ps-opt small { display: block; font-size: 12px; color: var(--text-muted); }
+.ps-amt { text-align: right; font-weight: 800; color: var(--text-primary); }
+.ps-sug { font-size: 11px; font-weight: 700; color: var(--success); background: var(--success-bg); border-radius: 999px; padding: 1px 7px; }

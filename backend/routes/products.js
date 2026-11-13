@@ -11,6 +11,11 @@ router.get('/low-stock', authenticateToken, productController.getLowStockProduct
 router.get('/categories', authenticateToken, productController.getCategories);
 router.get('/next-sku', authenticateToken, authorizeRole('admin', 'manager'), productController.getNextSku);
 router.get('/:id/image', productController.getProductImage);   // no sign-in: an <img> cannot send one
+// a product's suppliers, compared (Carlo, 14 Nov)
+const productSuppliers = require('../controllers/productSupplierController');
+router.get('/:id/suppliers', authenticateToken, authorizeRole('admin', 'manager'), productSuppliers.getSuppliers);
+router.post('/:id/suppliers', authenticateToken, authorizeRole('admin'), productSuppliers.addSupplier);
+router.delete('/:id/suppliers/:supplierId', authenticateToken, authorizeRole('admin'), productSuppliers.removeSupplier);
 router.get('/:id', authenticateToken, productController.getProductById);
 router.post('/', authenticateToken, authorizeRole('admin', 'manager'), productController.createProduct);
 router.post('/bulk', authenticateToken, authorizeRole('admin', 'manager'), productController.bulkCreateProducts);

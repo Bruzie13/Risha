@@ -176,6 +176,11 @@ class PurchaseOrder {
                             [item.product_id, -expiredQty, id, `Expired stock removed (expired ${held.expires}) when Purchase Order #${id} was received`]
                         );
                     }
+                    // the batch's own date stays with the order line, so each
+                    // supplier's batches can be compared later (Carlo, 14 Nov)
+                    if (newExpiry) {
+                        await connection.execute('UPDATE po_items SET expiration_date = ? WHERE id = ?', [newExpiry, item.id]);
+                    }
                     if (newExpiry) {
                         // fresh batch resets stock and expiry together
                         await connection.execute(

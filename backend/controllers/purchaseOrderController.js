@@ -125,6 +125,8 @@ exports.autoGeneratePO = async (req, res) => {
            plain low-stock rule cannot see. Quantities are checked here; the
            price always comes from the product, never from the request. */
         const planned = new Map();
+        // a line may name which of the product's suppliers to order from (Carlo, 14 Nov)
+        const chosenSupplier = new Map();
         if (Array.isArray(req.body.items) && req.body.items.length > 0) {
             if (req.body.items.length > 200) {
                 return res.status(400).json({ success: false, message: 'Too many products in one request' });
@@ -135,6 +137,7 @@ exports.autoGeneratePO = async (req, res) => {
                     return res.status(400).json({ success: false, message: 'Each line needs a product and a whole quantity from 1 to 10,000' });
                 }
                 planned.set(pid, qty);
+                if (line.supplier_id != null) chosenSupplier.set(pid, Number(line.supplier_id));
             }
             lowStockProducts = [];
             for (const pid of planned.keys()) {
@@ -204,7 +207,24 @@ exports.autoGeneratePO = async (req, res) => {
         const statusOf = new Map(listed.map(s => [Number(s.id), { status: s.status || 'active', name: s.name }]));
         const warnedSupplier = new Set();
         const supplierGroups = {};
+        // the second suppliers of the products asked for, with their prices
+        const others = new Map();
+        if (chosenSupplier.size) {
+            const [ps] = await pool.query('SELECT product_id, supplier_id, cost_price FROM product_suppliers WHERE product_id IN (?)', [[...chosenSupplier.keys()]]);
+            ps.forEach(r => others.set(`${r.product_id}:${r.supplier_id}`, r.cost_price == null ? null : Number(r.cost_price)));
+        }
         for (const product of lowStockProducts) {
+            const want = chosenSupplier.get(Number(product.id));
+            let linePrice = product.cost_price || product.unit_price || 0;
+            if (want && want !== Number(product.supplier_id)) {
+                if (!others.has(`${product.id}:${want}`)) {
+                    warnings.push(`"${product.name}" skipped: the supplier chosen does not supply it.`);
+                    continue;
+                }
+                const own = others.get(`${product.id}:${want}`);
+                if (own != null) linePrice = own;
+                product.supplier_id = want;          // this order goes to the supplier chosen
+            }
             const noSupplier = reorderSupplierProblem(product, activeSupplierIds);
             if (noSupplier) {
                 warnings.push(`"${product.name}" skipped: ${noSupplier}`);
@@ -253,8 +273,8 @@ exports.autoGeneratePO = async (req, res) => {
                 product_name: product.name,
                 sku: product.sku,
                 quantity: reorderQuantity,
-                unit_price: product.cost_price || product.unit_price || 0,
-                total_price: (product.cost_price || product.unit_price || 0) * reorderQuantity
+                unit_price: linePrice,
+                total_price: linePrice * reorderQuantity
             });
         }
 
