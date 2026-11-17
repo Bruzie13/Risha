@@ -1552,6 +1552,14 @@ function estimatedDelivery(ymd) {
     return start.getMonth() === end.getMonth() ? `${md(start)} – ${end.getDate()}` : `${md(start)} – ${md(end)}`;
 }
 
+/* Who does the next step on an order (Carlo, 17 Nov: the panel found the
+   order flow confusing because both sides had Confirm and Shipped). Yellow when
+   it is the reader's turn, grey while they wait on the other side. */
+function orderNextHtml(yourTurn, lead, rest) {
+    return '<div class="po-next ' + (yourTurn ? 'is-you' : 'is-them') + '"><span class="material-symbols-outlined" aria-hidden="true">'
+        + (yourTurn ? 'task_alt' : 'hourglass_top') + '</span><span><b>Next: ' + escHtml(lead) + '</b>' + (rest ? ' ' + escHtml(rest) : '') + '</span></div>';
+}
+
 /* A payment to a supplier, as a receipt (UAT, 31 Oct: every payment has one).
    Shown in a window with Print; the same for the shop and the supplier. */
 function paymentReceiptHtml(r) {

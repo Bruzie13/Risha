@@ -1956,3 +1956,14 @@ button.rp-bar-row.is-link:focus-visible { outline: 2px solid var(--primary); out
 .ps-opt small { display: block; font-size: 12px; color: var(--text-muted); }
 .ps-amt { text-align: right; font-weight: 800; color: var(--text-primary); }
 .ps-sug { font-size: 11px; font-weight: 700; color: var(--success); background: var(--success-bg); border-radius: 999px; padding: 1px 7px; }
+
+/* Who does the next step on an order (auth.js orderNextHtml) */
+.po-next { display: flex; gap: 10px; align-items: flex-start; margin: 8px 14px 0; padding: 9px 12px; border-radius: 12px; font-size: 13.5px; line-height: 1.4; }
+.po-next .material-symbols-outlined { font-size: 20px; flex: none; }
+.po-next b { color: inherit; font-weight: 700; }
+.po-next.is-you { background: #FFF0B8; color: #6B4A00; border: 1.5px solid #E3BE5B; }
+.po-next.is-them { background: var(--surface-2, #EEF2F7); color: var(--text-secondary, #475569); border: 1.5px solid transparent; }
+.dark-mode .po-next.is-you { background: rgba(227,190,91,.16); color: #F5D67A; border-color: rgba(227,190,91,.45); }
+.dark-mode .po-next.is-them { background: rgba(255,255,255,.06); color: var(--text-secondary); }
+.sp-order-facts > .po-next { margin: 2px 0 8px; }
+.dash-item .po-wait { font-size: 12px; color: var(--text-muted); text-align: right; margin-top: 4px; }

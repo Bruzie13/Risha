@@ -86,10 +86,8 @@
                 + '<strong>' + escHtml(estimatedDelivery(o.promised_date)) + '</strong>'
                 + (late ? ' <span class="sp-late">— late</span>' : '')
                 + (o.promise_note ? ' (' + escHtml(o.promise_note) + ')' : '');
-        } else if (o.status === 'pending') {
-            line += '<br>' + (o.supplier_has_login
-                ? 'No delivery date yet — the supplier gives one when they confirm.'
-                : 'This supplier has no login, so update the order here when you hear from them.');
+        } else if (o.status === 'pending' && o.supplier_has_login) {
+            line += '<br>No delivery date yet — the system sets one when the supplier confirms.';
         }
         if (o.delivery_ref) line += '<br>Delivery receipt: <strong>' + escHtml(o.delivery_ref) + '</strong>';
         if (o.notes && o.proposed_by_supplier) line += '<br>' + escHtml(o.notes);
@@ -121,13 +119,30 @@
         var notes = '<button class="btn-secondary" data-act="notes" data-id="' + id + '">Notes' + (Number(o.message_count) ? ' (' + Number(o.message_count) + ')' : '') + '</button>';
         // reading an order's notes is for administrators and managers (the server refuses anyone else)
         if (!manages()) return '';
-        if (o.status === 'proposed') return '<button class="btn-primary" data-act="accept" data-id="' + id + '">Confirm offer</button>'
+        if (o.status === 'proposed') return '<button class="btn-primary" data-act="accept" data-id="' + id + '">Accept offer</button>'
             + '<button class="btn-secondary" data-act="cancel" data-id="' + id + '">Decline</button>' + notes;
-        if (o.status === 'pending') return '<button class="btn-secondary" data-act="confirmed" data-id="' + id + '">Mark confirmed</button>'
-            + '<button class="btn-secondary" data-act="cancel" data-id="' + id + '">Cancel order</button>' + notes;
-        if (o.status === 'confirmed') return '<button class="btn-secondary" data-act="shipped" data-id="' + id + '">Mark shipped</button>'
-            + '<button class="btn-secondary" data-act="cancel" data-id="' + id + '">Cancel order</button>' + notes;
+        var cancel = '<button class="btn-secondary" data-act="cancel" data-id="' + id + '">Cancel order</button>';
+        /* a supplier with a login confirms and ships it itself, so the shop
+           only waits (Carlo, 17 Nov); for one without, the admin does it for them */
+        if (o.status === 'pending') return (o.supplier_has_login ? '' : '<button class="btn-secondary" data-act="confirmed" data-id="' + id + '">Confirm for the supplier</button>') + cancel + notes;
+        if (o.status === 'confirmed') return (o.supplier_has_login ? '' : '<button class="btn-secondary" data-act="shipped" data-id="' + id + '">Mark shipped for the supplier</button>') + cancel + notes;
         return '<button class="btn-primary" data-act="received" data-id="' + id + '">Receive into stock</button>' + notes;
+    }
+
+    /* What happens next and who does it (Carlo, 17 Nov; mock-up "Order flow"). */
+    function nextStep(o) {
+        var who = o.supplier_name || 'The supplier';
+        var eta = o.promised_date ? ' (estimated ' + estimatedDelivery(o.promised_date) + ')' : '';
+        if (o.status === 'proposed') return orderNextHtml(true, 'you accept or decline this offer.', who + ' offered it; accepting makes it a confirmed order.');
+        if (o.status === 'pending') return o.supplier_has_login
+            ? orderNextHtml(false, who + ' confirms the order.', 'Nothing for you to do yet; you are told when they do.')
+            : orderNextHtml(true, 'when ' + who + ' confirms by phone or email, press Confirm for the supplier.', who + ' has no login.');
+        if (o.status === 'confirmed') return o.supplier_has_login
+            ? orderNextHtml(false, who + ' ships it.', 'Nothing for you to do yet; it moves to Shipped when they mark it' + eta + '.')
+            : orderNextHtml(true, 'when it leaves ' + who + ', press Mark shipped for the supplier.', who + ' has no login.');
+        if (o.status === 'shipped') return orderNextHtml(true, 'you receive it into stock', 'when it arrives' + eta + '.');
+        if (o.status === 'received') return orderNextHtml(true, 'you pay ' + who + ' and mark it paid.', '');
+        return '';
     }
 
     // every order and offer shows where it is, like the Dashboard (js/po-progress.js)
@@ -141,7 +156,7 @@
             + '<span class="rp-badge rp-badge-' + s.tone + '">' + escHtml(s.text) + '</span></span>'
             + '<span class="sp-order-total">' + formatCurrency(o.total_amount) + '</span></div>'
             + (ON_THE_ROAD.indexOf(o.status) !== -1 ? poProgressHtml(o.status) : '')
-            + '<div class="sp-order-facts">' + facts(o) + '</div>'
+            + '<div class="sp-order-facts">' + nextStep(o) + facts(o) + '</div>'
             + '<div class="sp-lines">' + lines(o) + '</div>'
             + '<div class="sp-order-actions">' + actions(o) + '</div>'
             + '<div class="sp-notes" id="board-notes-' + id + '"' + (openNotes[id] ? '' : ' hidden') + '></div>'
@@ -362,9 +377,9 @@
         if (act === 'notes') { toggleNotes(id); return; }
         if (act === 'receipt') { openOrderReceipt('/purchase-orders/' + id + '/order-receipt'); return; }
         if (act === 'accept') {
-            // Confirm offer names the supplier who made it and what they offered (UAT part 4, A8/A9)
+            // Accept offer names the supplier who made it and what they offered (UAT part 4, A8/A9)
             var standing = { vacation: 'On vacation', inactive: 'Inactive', deactivated: 'Deactivated' }[o.supplier_status] || 'Active';
-            showDetailsDialog('Confirm offer ' + o.po_number + '?',
+            showDetailsDialog('Accept offer ' + o.po_number + '?',
                 'Accepting it makes it a confirmed order. ' + (o.supplier_name || 'The supplier') + ' then ships it.', [
                     ['Offered by', o.supplier_name || 'Unknown supplier'],
                     ['Contact person', o.supplier_contact || 'Not given'],
@@ -378,7 +393,7 @@
                 ], {
                     icon: 'handshake',
                     items: { title: 'What they offered', list: (o.items || []).map(function (i) { return formatQty(i.quantity) + ' × ' + i.name; }) },
-                    actions: [{ label: 'Confirm offer', onClick: function () { setStatus(id, 'confirmed'); } }]
+                    actions: [{ label: 'Accept offer', onClick: function () { setStatus(id, 'confirmed'); } }]
                 });
         } else if (act === 'cancel') {
             showConfirmDialog(o.status === 'proposed' ? 'Decline this offer' : 'Cancel this order', name + ' will be marked cancelled. This cannot be undone.',
@@ -400,8 +415,9 @@
                     return expiryDateProblem(v);
                 } });
         } else if (act === 'confirmed' || act === 'shipped') {
-            showConfirmDialog('Update order', 'Mark ' + name + ' as ' + act + '? Use this when the supplier told you by phone or message rather than through their own login.',
-                function () { setStatus(id, act); }, act === 'shipped' ? 'Mark shipped' : 'Mark confirmed');
+            showConfirmDialog(act === 'shipped' ? 'Mark shipped for the supplier' : 'Confirm for the supplier',
+                (act === 'shipped' ? 'Mark ' + name + ' as shipped' : 'Confirm ' + name) + ' for ' + escHtml(o.supplier_name || 'the supplier') + '? Use this when they told you by phone or email: they have no login of their own.',
+                function () { setStatus(id, act); }, act === 'shipped' ? 'Mark shipped' : 'Confirm order');
         }
     }
 
@@ -475,7 +491,7 @@
             var st = NEW_STATUS[o.status] || [o.status, 'ok'];
             var acts = '<button class="btn-view" data-new="' + Number(o.id) + '" data-do="view">Details</button>';
             if (o.status === 'pending' && manages()) {
-                acts += ' <button class="btn-view" data-new="' + Number(o.id) + '" data-do="add">Confirm offer</button>'
+                acts += ' <button class="btn-view" data-new="' + Number(o.id) + '" data-do="add">Accept offer</button>'
                     + ' <button class="btn-view" data-new="' + Number(o.id) + '" data-do="decline">Decline</button>';
             }
             return '<tr><td><span class="rp-strong">' + escHtml(o.name) + '</span><span class="rp-sub">' + escHtml([o.brand, o.category, o.species].filter(Boolean).join(' · ')) + '</span></td>'
@@ -490,7 +506,7 @@
     async function newProductAction(id, what) {
         var o = newProducts.filter(function (x) { return Number(x.id) === id; })[0];
         if (!o) return;
-        // Confirm offer asks first (Carlo, 5 Nov: named and asked like accepting an order offer); its own button goes on
+        // Accept offer asks first (Carlo, 5 Nov: named and asked like accepting an order offer); its own button goes on
         if (what === 'go') { window.location.href = 'inventory.html?offer=' + id; return; }
         if (what === 'decline') {
             showPromptDialog('Decline ' + o.name + '?', 'It is not added to Inventory. Say why, so ' + escHtml(o.supplier_name) + ' knows: they will see this.',
@@ -517,8 +533,8 @@
         var when = function (ms) { return ms ? new Date(Number(ms)).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''; };
         var st = NEW_STATUS[full.status] || [full.status];
         var confirming = what === 'add';
-        showDetailsDialog(confirming ? 'Confirm the offer of ' + full.name + '?' : full.name,
-            confirming ? 'Offered by ' + full.supplier_name + '. Confirming adds it to Inventory: the Add product form opens filled in from this offer; set the selling price, category and stock, then save.' : 'Offered by ' + full.supplier_name, [
+        showDetailsDialog(confirming ? 'Accept the offer of ' + full.name + '?' : full.name,
+            confirming ? 'Offered by ' + full.supplier_name + '. Accepting adds it to Inventory: the Add product form opens filled in from this offer; set the selling price, category and stock, then save.' : 'Offered by ' + full.supplier_name, [
             ['Status', st[0], full.status === 'declined' ? 'danger' : null],
             ['Brand', full.brand], ['Product type', full.category], ['Pet type', full.species], ['Sold by', full.unit_type],
             ['Their price', formatCurrency(full.cost_price)], ['About it', full.description],
@@ -529,10 +545,10 @@
             icon: 'add_box',
             html: full.image_url ? '<img src="' + escHtml(full.image_url) + '" alt="" class="sp-new-photo">' : '',
             actions: full.status !== 'pending' || !manages() ? []
-                : confirming ? [{ label: 'Confirm offer', onClick: function () { newProductAction(id, 'go'); } }]
+                : confirming ? [{ label: 'Accept offer', onClick: function () { newProductAction(id, 'go'); } }]
                 : [
                     { label: 'Decline', className: 'btn-secondary', onClick: function () { newProductAction(id, 'decline'); } },
-                    { label: 'Confirm offer', onClick: function () { newProductAction(id, 'go'); } }
+                    { label: 'Accept offer', onClick: function () { newProductAction(id, 'go'); } }
                 ]
         });
     }

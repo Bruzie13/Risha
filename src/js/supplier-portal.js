@@ -446,11 +446,20 @@ function orderActions(o) {
     if (o.status === 'pending') return `<button class="btn-primary" data-act="confirm" data-id="${id}">Confirm order</button>${notes}`;
     if (o.status === 'confirmed') return `<button class="btn-primary" data-act="ship" data-id="${id}">Mark as shipped</button>
         <button class="btn-secondary" data-act="date" data-id="${id}">Change delivery date</button>${notes}`;
-    if (o.status === 'shipped') return `<button class="btn-secondary" data-act="date" data-id="${id}">Change delivery date</button>${notes}
-        <span class="sp-waiting">The shop marks it received when it arrives.</span>`;
+    if (o.status === 'shipped') return `<button class="btn-secondary" data-act="date" data-id="${id}">Change delivery date</button>${notes}`;
     if (o.status === 'received') return `${o.paid ? `<button class="btn-secondary" data-receipt="${id}"><span class="material-symbols-outlined" style="font-size:15px;">receipt_long</span> Receipt</button>` : ''}${notes}
         <span class="sp-waiting">${o.received_day ? 'Received by the shop on ' + escHtml(portalDate(o.received_day)) + '. ' : ''}${o.paid ? 'Paid.' : 'Not paid yet.'}</span>`;
-    return `<button class="btn-secondary sp-btn-cancel" data-act="cancel-offer" data-id="${id}">Cancel offer</button>${notes}<span class="sp-waiting">Waiting for the shop to accept or decline.</span>`;
+    return `<button class="btn-secondary sp-btn-cancel" data-act="cancel-offer" data-id="${id}">Cancel offer</button>${notes}`;
+}
+
+/* What happens next and who does it, the same line the shop sees (Carlo, 17 Nov). */
+function orderNext(o) {
+    if (o.status === 'proposed') return orderNextHtml(false, 'the shop accepts or declines your offer.', 'Nothing for you to do yet.');
+    if (o.status === 'pending') return orderNextHtml(true, 'you confirm the order.', 'Then you mark it shipped when it leaves.');
+    if (o.status === 'confirmed') return orderNextHtml(true, 'you mark it shipped when it leaves,', 'with the delivery receipt number.');
+    if (o.status === 'shipped') return orderNextHtml(false, 'the shop receives it.', 'Nothing for you to do; it moves to Received when they do.');
+    if (o.status === 'received' && !o.paid) return orderNextHtml(false, 'the shop pays you.', 'You get a receipt under Payments when they do.');
+    return '';
 }
 
 function renderOrders() {
@@ -499,7 +508,7 @@ function renderOrders() {
             </div>
             ${poProgressHtml(o.status)}
             ${etaStrip(o)}
-            <div class="sp-order-facts">${orderFacts(o)}</div>
+            <div class="sp-order-facts">${orderNext(o)}${orderFacts(o)}</div>
             <div class="sp-lines">${items.length ? `<div class="sp-line sp-line-head"><span>Products (${items.length})</span><span>Quantity</span></div>${items.map(lineOf).join('')}` : ''}</div>
             <div class="sp-order-actions">${orderActions(o)}</div>
             <div class="sp-notes" id="notes-${id}" ${openNotes.has(id) ? '' : 'hidden'}></div>

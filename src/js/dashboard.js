@@ -445,12 +445,15 @@ function showLessDashSales() {
 }
 
 // PO lifecycle: pending -> confirmed -> shipped -> received (server-enforced)
-function poNextStep(status) {
+function poNextStep(status, po) {
+    // a supplier with a login confirms and ships it itself (Carlo, 17 Nov)
+    const theirs = po && po.supplier_has_login && (status === 'pending' || status === 'confirmed');
+    if (theirs) return { wait: status === 'pending' ? 'Waiting for the supplier to confirm' : 'Waiting for the supplier to ship' };
     switch (status) {
         // an order the supplier offered waits for the shop to accept it
-        case 'proposed': return { status: 'confirmed', label: 'Confirm offer', icon: 'check', title: 'Accept the supplier\'s offer: it becomes a confirmed order', offer: true };
-        case 'pending': return { status: 'confirmed', label: 'Confirm', icon: 'check', title: 'Supplier confirmed this order' };
-        case 'confirmed': return { status: 'shipped', label: 'Shipped', icon: 'local_shipping', title: 'Supplier has shipped the order' };
+        case 'proposed': return { status: 'confirmed', label: 'Accept offer', icon: 'check', title: 'Accept the supplier\'s offer: it becomes a confirmed order', offer: true };
+        case 'pending': return { status: 'confirmed', label: 'Confirm for the supplier', icon: 'check', title: 'The supplier has no login: confirm it for them after they tell you' };
+        case 'confirmed': return { status: 'shipped', label: 'Mark shipped for the supplier', icon: 'local_shipping', title: 'The supplier has no login: mark it shipped for them after they tell you' };
         case 'shipped': return { status: 'received', label: 'Receive', icon: 'inventory', title: 'Goods arrived — adds the ordered items to stock' };
         default: return null;
     }
@@ -459,9 +462,9 @@ function poNextStep(status) {
 function advancePO(id, nextStatus, poNumber, offer) {
     if (offer) {
         const po = (window.recentPOs || []).find(o => o.id === id) || {};
-        showConfirmDialog('Confirm this offer',
+        showConfirmDialog('Accept this offer',
             `Offered by <strong>${escHtml(po.supplier_name || 'the supplier')}</strong>. Accepting it makes ${escHtml(poNumber)} a confirmed order for ${formatCurrency(po.total_amount || 0)}. The supplier then ships it.`,
-            () => sendPOAdvance(id, 'confirmed', poNumber, ''), 'Confirm offer',
+            () => sendPOAdvance(id, 'confirmed', poNumber, ''), 'Accept offer',
             '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">check_circle</span>');
         return;
     }
@@ -479,10 +482,10 @@ function advancePO(id, nextStatus, poNumber, offer) {
         return;
     }
     const messages = {
-        confirmed: `Mark ${poNumber} as confirmed by the supplier?`,
-        shipped: `Mark ${poNumber} as shipped?`
+        confirmed: `Confirm ${poNumber} for the supplier? Use this when they told you by phone or email: they have no login of their own.`,
+        shipped: `Mark ${poNumber} as shipped for the supplier? Use this when they told you by phone or email: they have no login of their own.`
     };
-    showConfirmDialog('Update purchase order', messages[nextStatus] || 'Advance this order?', () => sendPOAdvance(id, nextStatus, poNumber, ''), nextStatus === 'shipped' ? 'Mark shipped' : 'Mark confirmed', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">local_shipping</span>');
+    showConfirmDialog(nextStatus === 'shipped' ? 'Mark shipped for the supplier' : 'Confirm for the supplier', messages[nextStatus] || 'Advance this order?', () => sendPOAdvance(id, nextStatus, poNumber, ''), nextStatus === 'shipped' ? 'Mark shipped' : 'Confirm order', '<span class="material-symbols-outlined" style="font-size:48px;color:var(--primary);">local_shipping</span>');
 }
 
 async function sendPOAdvance(id, nextStatus, poNumber, expiration_date) {
@@ -526,8 +529,9 @@ async function loadRecentPOs() {
         }
         window.recentPOs = items;
         list.innerHTML = items.slice(0, 5).map(po => {
-            const next = poNextStep(po.status);
-            const actionBtn = (next && canManage())
+            const next = poNextStep(po.status, po);
+            const actionBtn = next && next.wait ? `<div class="po-wait">${next.wait}</div>`
+                : (next && canManage())
                 ? `<button class="po-advance-btn" onclick="advancePO(${po.id}, '${next.status}', '${escHtml(po.po_number || 'PO#' + po.id)}'${next.offer ? ', true' : ''})" title="${next.title}"><span class="material-symbols-outlined" style="font-size:14px;">${next.icon}</span> ${next.label}</button>`
                 : '';
             return `<div class="dash-item po-item">
@@ -537,7 +541,7 @@ async function loadRecentPOs() {
                 </div>
                 <div class="item-right">
                     <div class="item-value">${formatCurrency(po.total_amount || 0)}</div>
-                    ${actionBtn ? `<div style="display:flex;justify-content:flex-end;margin-top:4px;">${actionBtn}</div>` : ''}
+                    ${next && next.wait ? actionBtn : actionBtn ? `<div style="display:flex;justify-content:flex-end;margin-top:4px;">${actionBtn}</div>` : ''}
                 </div>
                 ${poProgressHtml(po.status)}
             </div>`;

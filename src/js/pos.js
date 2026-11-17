@@ -691,6 +691,15 @@ async function completeSale() {
     const total = subtotal - discAmt;
     const itemSummary = cartItems.map(i => `${escHtml(i.product_name)} × ${i.quantity}`).join('<br>');
     const customer = document.getElementById('posCustomerName')?.value || '';
+    // the customer's phone is optional, but a typed one has to be a real
+    // Philippine number (Carlo, 17 Nov: the test plan checks it)
+    const phoneBox = document.getElementById('posCustomerPhone');
+    const phone = (phoneBox?.value || '').trim();
+    if (phone && !/^(\+?63|0)\d{9,10}$/.test(phone.replace(/[\s().-]/g, ''))) {
+        showToast("Enter the customer's phone as a Philippine number, like 0917 123 4567, or leave it empty.", 'error');
+        phoneBox.focus();
+        return;
+    }
     const tendered = parseFloat(document.getElementById('posTendered')?.value) || 0;
     if (tendered <= 0) { showToast('Enter the cash amount received', 'error'); document.getElementById('posTendered')?.focus(); return; }
     if (tendered < total) { showToast('Insufficient cash — customer gave less than the total', 'error'); return; }

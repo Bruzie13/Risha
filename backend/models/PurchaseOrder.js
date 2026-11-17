@@ -13,7 +13,8 @@ class PurchaseOrder {
                         UNIX_TIMESTAMP(po.shipped_at) * 1000 as shipped_at,
                         UNIX_TIMESTAMP(po.received_at) * 1000 as received_at,
                         s.name as supplier_name, u.full_name as created_by_name,
-                 (SELECT COUNT(*) FROM po_items poi WHERE poi.po_id = po.id) as item_count
+                 (SELECT COUNT(*) FROM po_items poi WHERE poi.po_id = po.id) as item_count,
+                 EXISTS (SELECT 1 FROM users su WHERE su.supplier_id = po.supplier_id AND su.role = 'supplier' AND su.is_active = TRUE) as supplier_has_login
                  FROM purchase_orders po
                  LEFT JOIN suppliers s ON po.supplier_id = s.id
                  LEFT JOIN users u ON po.created_by = u.id`;
