@@ -182,7 +182,7 @@
                         <div class="form-group">
                             <label class="form-label">Role *</label>
                             <select class="form-select" id="userRole" required onchange="refreshRoleFields()">
-                                <option value="cashier">Staff — point of sale only</option>
+                                <option value="cashier">Cashier — point of sale only</option>
                                 <option value="manager">Manager — inventory, suppliers, orders</option>
                                 <option value="admin">Administrator — everything except the till</option>
                                 <option value="viewer">Viewer — read only</option>
@@ -230,7 +230,7 @@
     </script>
         <script src="js/utils.js"></script>
 <script src="js/format.js"></script>
-<script src="js/auth.js?v=90"></script>
+<script src="js/auth.js?v=91"></script>
 <script src="js/loader.js?v=7"></script>
 <script src="js/clear-input.js?v=4"></script>
 <script src="js/password-eye.js?v=2"></script>
@@ -300,7 +300,7 @@
                 <ul>
                     <li><strong>Administrator</strong> — everything in the back office, including users, the activity log, email settings and backups. Does not use the point of sale.</li>
                     <li><strong>Manager</strong> — inventory, suppliers, reorders, voids; no user management and no point of sale.</li>
-                    <li><strong>Staff</strong> — the point of sale only. Signs in straight to the till; each sale reduces stock in inventory, low-stock items are marked on the product cards, and staff record the end-of-day cash count from the POS.</li>
+                    <li><strong>Cashier</strong> — the point of sale only. Signs in straight to the till; each sale reduces stock in inventory, low-stock items are marked on the product cards, and staff record the end-of-day cash count from the POS.</li>
                     <li><strong>Viewer</strong> — can look at everything in the back office and change nothing.</li>
                     <li><strong>Supplier</strong> — an outside login tied to one supplier. Sees only the purchase orders sent to that supplier and the products it supplies, and can confirm an order and mark it shipped.</li>
                     <li>Passwords need at least 6 characters with an uppercase letter, a number, and a special character. Five failed logins locks the account for a few minutes.</li>

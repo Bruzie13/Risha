@@ -80,8 +80,8 @@ const FENCED_ROLE_PAGES = {
 const SELLING_ROLES = ['cashier'];
 
 /* What a role is called on screen. The study describes two access points,
-   Administrator and Staff; the till account is the Staff one. */
-const ROLE_LABELS = { admin: 'Administrator', manager: 'Manager', cashier: 'Staff', viewer: 'Viewer', supplier: 'Supplier', simulation: 'Simulation' };
+   Administrator and Cashier; the till account is the Cashier one. */
+const ROLE_LABELS = { admin: 'Administrator', manager: 'Manager', cashier: 'Cashier', viewer: 'Viewer', supplier: 'Supplier', simulation: 'Simulation' };
 function roleLabel(role) {
     return ROLE_LABELS[role] || (role ? String(role).charAt(0).toUpperCase() + String(role).slice(1) : '');
 }
